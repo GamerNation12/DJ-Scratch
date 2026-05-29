@@ -87,6 +87,7 @@ class SuggestionView(discord.ui.View):
     async def deny_btn(self, i: discord.Interaction, b: discord.ui.Button): await self.handle_action(i, "Denied", discord.Color.red(), "❌")
 
 async def setup_hook():
+    bot.session = aiohttp.ClientSession()
     bot.add_view(SuggestionView())
 bot.setup_hook = setup_hook
 
@@ -144,9 +145,8 @@ async def update_bot_avatar_and_status(artist, image_url):
     if not image_url: return False, 0
     print(f"{Log.CYAN}>>> Downloading album art for {artist}...{Log.RESET}")
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(image_url) as response:
-                if response.status == 200:
+        async with bot.session.get(image_url) as response:
+            if response.status == 200:
                     image_bytes = await response.read()
                     await bot.user.edit(avatar=image_bytes)
                     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
@@ -181,9 +181,8 @@ def get_lastfm_username(uid):
 
 # --- LAST.FM API FETCHERS ---
 async def api_get(url):
-    async with aiohttp.ClientSession() as s:
-        async with s.get(url) as r:
-            return await r.json() if r.status == 200 else None
+    async with bot.session.get(url) as r:
+        return await r.json() if r.status == 200 else None
 
 async def fetch_now_playing(u, l=1): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
 async def fetch_top_artists(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
@@ -283,9 +282,8 @@ async def process_whoknows(guild, user, artist_name):
         except: return None, "You aren't playing anything right now!"
 
     lb = []
-    async with aiohttp.ClientSession() as session:
-        tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist_name)) for uid, lname in linked.items()]
-        results = await asyncio.gather(*(t[2] for t in tasks))
+    tasks = [(uid, lname, fetch_artist_playcount(bot.session, lname, artist_name)) for uid, lname in linked.items()]
+    results = await asyncio.gather(*(t[2] for t in tasks))
         for idx, pc in enumerate(results):
             if pc > 0:
                 m = guild.get_member(int(tasks[idx][0]))
@@ -333,21 +331,17 @@ async def process_crowns(guild, user):
     artists_to_check = [a['name'] for a in top_artists_data['topartists']['artist']]
     if not artists_to_check: return None, "You don't have any artists in your history!"
 
-    crowns = []
-    async with aiohttp.ClientSession() as session:
-        for artist in artists_to_check:
-            tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
-            results = await asyncio.gather(*(t[2] for t in tasks))
-            
-            top_plays = 0
-            top_user = None
-            for idx, pc in enumerate(results):
-                if pc > top_plays:
-                    top_plays = pc
-                    top_user = tasks[idx][0]
-            
-            if top_user == str(user.id):
-                crowns.append((artist, top_plays))
+    async def check_artist(artist):
+        tasks = [(uid, fetch_artist_playcount(bot.session, lname, artist)) for uid, lname in linked.items()]
+        results = await asyncio.gather(*(t[1] for t in tasks))
+        top_plays = max(results) if results else 0
+        if top_plays > 0:
+            top_user = tasks[results.index(top_plays)][0]
+            if top_user == str(user.id): return (artist, top_plays)
+        return None
+
+    artist_results = await asyncio.gather(*(check_artist(artist) for artist in artists_to_check))
+    crowns = [r for r in artist_results if r is not None]
     
     if not crowns:
         return None, "You don't hold any crowns for your top 15 artists in this server!"
