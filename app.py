@@ -24,7 +24,8 @@ intents = discord.Intents.default()
 intents.message_content = True  
 intents.presences = True  
 intents.members = True    
-bot = commands.Bot(command_prefix=["!", ","], intents=intents)
+bot = commands.Bot(command_prefix=",", intents=intents)
+bot.remove_command('help')
 
 # === LAST.FM CONFIG ===
 LASTFM_API_KEY = "Api key here"
@@ -94,7 +95,7 @@ async def on_ready():
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
     print(f"{Log.CYAN}The Goats Dj is online as {bot.user}!{Log.RESET}")
     print(f"{Log.YELLOW}>>> NOTE: Slash commands no longer auto-sync on boot.{Log.RESET}")
-    print(f"{Log.YELLOW}>>> Type !sync in Discord to update commands.{Log.RESET}")
+    print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
 
 # --- HELPER: ERROR DM ---
@@ -317,6 +318,62 @@ async def process_suggestion(ctx_int, user, suggestion_text):
     except Exception as e:
         print(f"{Log.RED}>>> Suggestion error: {e}{Log.RESET}")
 
+async def process_crowns(guild, user):
+    if not guild: return None, "Must be used in a server."
+    username = get_lastfm_username(user.id)
+    if not username: return None, "Link your account first with `/setfm [username]`"
+    
+    users_db = load_users()
+    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+    if not linked: return None, "No one in this server has linked their account."
+    
+    top_artists_data = await fetch_top_artists(username, 'overall', 15)
+    if not top_artists_data or 'topartists' not in top_artists_data: return None, "Error fetching your top artists."
+    
+    artists_to_check = [a['name'] for a in top_artists_data['topartists']['artist']]
+    if not artists_to_check: return None, "You don't have any artists in your history!"
+
+    crowns = []
+    async with aiohttp.ClientSession() as session:
+        for artist in artists_to_check:
+            tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
+            results = await asyncio.gather(*(t[2] for t in tasks))
+            
+            top_plays = 0
+            top_user = None
+            for idx, pc in enumerate(results):
+                if pc > top_plays:
+                    top_plays = pc
+                    top_user = tasks[idx][0]
+            
+            if top_user == str(user.id):
+                crowns.append((artist, top_plays))
+    
+    if not crowns:
+        return None, "You don't hold any crowns for your top 15 artists in this server!"
+        
+    lines = [f"👑 **{artist}** — **{plays:,}** plays" for artist, plays in crowns]
+    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed.set_author(name=f"{user.display_name}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
+    embed.set_footer(text=f"Checked your top 15 artists")
+    return embed, None
+
+def get_help_embed(user):
+    embed = discord.Embed(title="Bot Commands Help", color=LASTFM_COLOR, description="Here are all the available commands for The Goats Dj bot.")
+    embed.add_field(name="🎧 Last.fm Commands", value=
+        "`/setfm` (or `,setfm`) - Link your Last.fm username\n"
+        "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
+        "`/topartists` (or `,ta`) - View your top played artists\n"
+        "`/toptracks` (or `,tt`) - View your top played tracks\n"
+        "`/recent` (or `,rt`) - View your recent listening history\n"
+        "`/profile` (or `,s`) - View your Last.fm stats", inline=False)
+    embed.add_field(name="👑 Server Stats", value=
+        "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
+        "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server", inline=False)
+    embed.add_field(name="💡 Other", value="`/suggest` (or `,suggest`) - Send a suggestion directly to the developer", inline=False)
+    embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
+    return embed
+
 # --- ADMIN COMMAND ---
 @bot.command(name="sync")
 async def sync_commands(ctx):
@@ -414,8 +471,23 @@ async def wk_slash(interaction: discord.Interaction, artist: str = None):
 async def suggest_slash(interaction: discord.Interaction, suggestion: str):
     await process_suggestion(interaction, interaction.user, suggestion)
 
+@bot.tree.command(name="help", description="View all available commands")
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+async def help_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(embed=get_help_embed(interaction.user))
 
-# --- PREFIX COMMANDS ---
+@bot.tree.command(name="crowns", description="See which of your top artists you have the most plays for")
+@app_commands.allowed_installs(guilds=True, users=False) 
+@app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+async def crowns_slash(interaction: discord.Interaction):
+    print(f"{Log.MAGENTA}>>> [/crowns] Triggered by {interaction.user.name}{Log.RESET}")
+    await interaction.response.defer()
+    embed, err = await process_crowns(interaction.guild, interaction.user)
+    await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+
+
+# --- PREFIX COMMAND ---
 @bot.command(name="fm", aliases=["np", "nowplaying"])
 async def fm_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: fm] Triggered by {ctx.author.name}{Log.RESET}")
@@ -458,6 +530,17 @@ async def wk_prefix(ctx, *, artist: str = None):
 @bot.command(name="suggest", aliases=["suggestion"])
 async def suggest_prefix(ctx, *, suggestion: str):
     await process_suggestion(ctx, ctx.author, suggestion)
+
+@bot.command(name="help")
+async def help_prefix(ctx):
+    print(f"{Log.MAGENTA}>>> [Prefix: help] Triggered by {ctx.author.name}{Log.RESET}")
+    await ctx.send(embed=get_help_embed(ctx.author))
+
+@bot.command(name="crowns")
+async def crowns_prefix(ctx):
+    print(f"{Log.MAGENTA}>>> [Prefix: crowns] Triggered by {ctx.author.name}{Log.RESET}")
+    embed, err = await process_crowns(ctx.guild, ctx.author)
+    await ctx.send(embed=embed) if embed else await ctx.send(err)
 
 
 # --- AUTO-TRIGGER & REACTIONS ---
