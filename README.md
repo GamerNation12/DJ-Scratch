@@ -1,7 +1,3 @@
-To make your **README.md** look professional and inviting to other developers, you should use Markdown headers, clear lists, and a bold security warning. Copy and paste the text below into your `README.md` file:
-
----
-
 # 🎧 The Goats Dj
 
 A high-performance Discord music bot designed to track and display [Last.fm](https://www.last.fm/) listening habits with precision. Built with `discord.py` and `aiohttp`, this bot provides real-time updates and interactive statistics for your Discord server.
