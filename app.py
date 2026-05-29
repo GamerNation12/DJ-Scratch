@@ -284,10 +284,10 @@ async def process_whoknows(guild, user, artist_name):
     lb = []
     tasks = [(uid, lname, fetch_artist_playcount(bot.session, lname, artist_name)) for uid, lname in linked.items()]
     results = await asyncio.gather(*(t[2] for t in tasks))
-        for idx, pc in enumerate(results):
-            if pc > 0:
-                m = guild.get_member(int(tasks[idx][0]))
-                lb.append({"name": m.display_name if m else tasks[idx][1], "plays": pc})
+    for idx, pc in enumerate(results):
+        if pc > 0:
+            m = guild.get_member(int(tasks[idx][0]))
+            lb.append({"name": m.display_name if m else tasks[idx][1], "plays": pc})
 
     if not lb: return None, f"No one here listens to **{artist_name}**."
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
