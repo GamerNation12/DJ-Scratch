@@ -27,7 +27,7 @@ intents.members = True
 bot = commands.Bot(command_prefix=["!", ","], intents=intents)
 
 # === LAST.FM CONFIG ===
-LASTFM_API_KEY = "460b4afc585d47aa799f20a069e4bb75"
+LASTFM_API_KEY = "Api key here"
 OWNER_ID = 759433582107426816
 USERS_FILE = "lastfm_users.json"
 COOLDOWN_FILE = "avatar_cooldown.txt"
