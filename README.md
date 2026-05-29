@@ -37,11 +37,4 @@ DISCORD_TOKEN=your_actual_token_here
 * **API**: Last.fm Data API
 * **Deployment**: Pterodactyl / Git
 
----
-
-### Pro-Tip for your GitHub Repository
-Since this file will be public, this format looks very professional to anyone browsing your code! It clearly defines what the bot does, how to set it up, and—most importantly—how to stay safe while using it. 
-
-Once you save this, your GitHub page will automatically render it as a clean, formatted document.
-
 ```
