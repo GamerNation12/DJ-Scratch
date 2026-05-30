@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+import asyncpg
 
 # --- TERMINAL COLOR CODES ---
 class Log:
@@ -89,7 +90,25 @@ class SuggestionView(discord.ui.View):
 async def setup_hook():
     bot.session = aiohttp.ClientSession()
     bot.add_view(SuggestionView())
+    global db_pool
+    if os.getenv("POSTGRES_URL"):
+        try:
+            db_pool = await asyncpg.create_pool(dsn=os.getenv("POSTGRES_URL"), ssl="require")
+            print(f"{Log.GREEN}>>> Connected to Vercel Postgres{Log.RESET}")
+        except Exception as e:
+            print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
 bot.setup_hook = setup_hook
+
+db_pool = None
+
+async def get_local_top_artists(user_id, limit=10):
+    if not db_pool: return []
+    query = "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id = $1 GROUP BY artist_name ORDER BY plays DESC LIMIT $2"
+    try:
+        async with db_pool.acquire() as conn:
+            records = await conn.fetch(query, str(user_id), limit)
+            return {r['artist_name']: r['plays'] for r in records}
+    except: return {}
 
 @bot.event
 async def on_ready():
@@ -226,11 +245,27 @@ async def process_fm(ctx_int, user):
 
 async def process_top_artists(user, input_period=None):
     username = get_lastfm_username(user.id)
-    if not username: return None, "Link Last.fm with `/setfm [username]`"
     api_p, disp_p = get_period_data(input_period)
-    data = await fetch_top_artists(username, api_p)
-    if not data or 'topartists' not in data: return None, "Error fetching data."
-    lines = [f"{get_medal(idx)} **{a['name']}** — **{int(a['playcount']):,}** plays" for idx, a in enumerate(data['topartists']['artist'])]
+    
+    lastfm_data = {}
+    if username:
+        data = await fetch_top_artists(username, api_p)
+        if data and 'topartists' in data:
+            lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
+            
+    local_data = await get_local_top_artists(user.id, 50) if api_p == 'overall' else {}
+    
+    if not username and not local_data:
+        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        
+    combined = {}
+    for artist, count in lastfm_data.items(): combined[artist] = count
+    for artist, count in local_data.items(): combined[artist] = combined.get(artist, 0) + count
+        
+    sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
+    if not sorted_artists: return None, "No artist data found."
+    
+    lines = [f"{get_medal(idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(sorted_artists)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p})", icon_url=user.display_avatar.url)
     return embed, None
