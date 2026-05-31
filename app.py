@@ -627,14 +627,18 @@ async def crowns_slash(interaction: discord.Interaction):
 
 
 # --- PREFIX COMMAND ---
-@bot.command(name="fm", aliases=["np", "nowplaying"])
+@bot.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "np1", "np2"])
 async def fm_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: fm] Triggered by {ctx.author.name}{Log.RESET}")
-    embed, is_p = await process_fm(ctx, ctx.author)
-    if embed:
-        msg = await ctx.send(embed=embed)
+    compact = ctx.invoked_with in ["fm1", "np1"]
+    result, is_p = await process_fm(ctx, ctx.author, compact=compact)
+    if result is None:
+        await ctx.send(is_p)
+    elif isinstance(result, str):
+        await ctx.send(result)
+    else:
+        msg = await ctx.send(embed=result)
         if is_p: await add_custom_reactions(msg)
-    else: await ctx.send(is_p)
 
 @bot.command(name="ta", aliases=["topartists"])
 async def ta_prefix(ctx, period: str = 'all'):
