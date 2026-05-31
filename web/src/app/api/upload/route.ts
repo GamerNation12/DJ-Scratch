@@ -1,7 +1,7 @@
 import { sql } from "@vercel/postgres";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 
 // Spotify history can look like:
 // { "endTime": "2023-01-01 12:00", "artistName": "Artist", "trackName": "Track", "msPlayed": 120000 }
