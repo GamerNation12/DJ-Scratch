@@ -231,15 +231,24 @@ async def update_bot_avatar_and_status(artist, image_url):
     global avatar_cooldown_time
     now = datetime.now()
     
+    # Avoid changing avatar/presence if the bot is already listening to the same artist
+    try:
+        if bot.activity and bot.activity.name == artist:
+            return False, 0
+    except: pass
+
     # Load persistent cooldown
     if os.path.exists(COOLDOWN_FILE):
         try:
             with open(COOLDOWN_FILE, "r") as f:
                 saved = datetime.fromisoformat(f.read().strip())
                 if now < saved:
-                    mins = (saved - now).seconds // 60
-                    print(f"{Log.YELLOW}>>> Skipping avatar change. Cooldown active for {mins}m.{Log.RESET}")
-                    return False, mins
+                    total_seconds = int((saved - now).total_seconds())
+                    mins = total_seconds // 60
+                    secs = total_seconds % 60
+                    cd_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+                    print(f"{Log.YELLOW}>>> Skipping avatar change. Cooldown active for {cd_str}.{Log.RESET}")
+                    return False, max(1, mins)
         except: pass 
 
     if not image_url: return False, 0
