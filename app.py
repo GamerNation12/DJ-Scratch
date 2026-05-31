@@ -309,6 +309,8 @@ async def process_fm(ctx_int, user, compact=False):
         status = "Now Playing" if is_p else "Last Played"
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
+        changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
+
         if compact:
             # Single-line compact mode (plain text)
             if is_p:
@@ -316,8 +318,6 @@ async def process_fm(ctx_int, user, compact=False):
             else:
                 return f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
 
-        changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
-        
         desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
         embed = discord.Embed(description=desc, color=color)
         embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
@@ -599,7 +599,8 @@ async def fm_slash(interaction: discord.Interaction, mode: app_commands.Choice[s
     if result is None:
         await interaction.followup.send(is_p)
     elif isinstance(result, str):
-        await interaction.followup.send(result)
+        msg = await interaction.followup.send(result, wait=True)
+        if is_p: await add_custom_reactions(msg)
     else:
         msg = await interaction.followup.send(embed=result, wait=True)
         if is_p: await add_custom_reactions(msg)
