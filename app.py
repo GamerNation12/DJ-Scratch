@@ -279,13 +279,11 @@ async def process_fm(ctx_int, user, compact=False):
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
         if compact:
-            # Micro-Embed compact mode
-            status_text = "is listening to" if is_p else "was listening to"
-            desc = f"**{user.display_name}** {status_text} **[{song}]({track_url})**\nby **{artist}**"
-            embed = discord.Embed(description=desc, color=color)
+            # Single-line compact mode (plain text)
             if is_p:
-                embed.set_thumbnail(url="https://cdn.discordapp.com/emojis/1510485193662795996.gif")
-            return embed, is_p
+                return f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
+            else:
+                return f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
 
         changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
         
