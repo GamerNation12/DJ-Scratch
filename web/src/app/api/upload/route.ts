@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/authOptions";
-import { getDb } from "@/lib/db";
+import { neon } from "@neondatabase/serverless";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -19,11 +19,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    // Basic server-side validation
+    // Validate it looks like Spotify data
     const sample = chunk[0];
     const isSpotifyData =
-      sample.hasOwnProperty("trackName") ||
-      sample.hasOwnProperty("master_metadata_track_name");
+      "trackName" in sample || "master_metadata_track_name" in sample;
     if (!isSpotifyData) {
       return NextResponse.json(
         { error: "Invalid data format. Does not match Spotify schema." },
@@ -31,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const sql = getDb();
+    const sql = neon(process.env.DATABASE_URL!);
 
     // Ensure user exists
     await sql`
@@ -40,13 +39,16 @@ export async function POST(req: Request) {
       ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
     `;
 
-    // Filter valid tracks
-    const validTracks: { artist: string; title: string; album: string; playedAt: string }[] = [];
+    // Filter and build arrays for unnest bulk insert
+    const userIds: string[] = [];
+    const artists: string[] = [];
+    const titles: string[] = [];
+    const albums: string[] = [];
+    const dates: string[] = [];
+
     for (const track of chunk) {
-      const artist =
-        track.artistName || track.master_metadata_album_artist_name;
-      const title =
-        track.trackName || track.master_metadata_track_name;
+      const artist = track.artistName || track.master_metadata_album_artist_name;
+      const title = track.trackName || track.master_metadata_track_name;
       const album = track.master_metadata_album_album_name || "";
       const playedAtRaw = track.endTime || track.ts;
       const msPlayed = track.msPlayed || track.ms_played || 0;
@@ -55,26 +57,39 @@ export async function POST(req: Request) {
 
       try {
         const playedAt = new Date(playedAtRaw).toISOString();
-        validTracks.push({ artist, title, album, playedAt });
+        userIds.push(userId);
+        artists.push(artist);
+        titles.push(title);
+        albums.push(album);
+        dates.push(playedAt);
       } catch {
         continue;
       }
     }
 
-    if (validTracks.length > 0) {
-      // Insert using neon tagged template with transaction
-      for (const t of validTracks) {
-        await sql`
-          INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
-          VALUES (${userId}, ${t.artist}, ${t.title}, ${t.album}, ${t.playedAt})
-          ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
-        `;
-      }
+    if (userIds.length === 0) {
+      return NextResponse.json({ success: true, inserted: 0 });
     }
 
-    return NextResponse.json({ success: true, inserted: validTracks.length });
+    // Single bulk insert via unnest - sends ONE query instead of N queries
+    await sql`
+      INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
+      SELECT * FROM unnest(
+        ${userIds}::text[],
+        ${artists}::text[],
+        ${titles}::text[],
+        ${albums}::text[],
+        ${dates}::timestamptz[]
+      ) AS t(user_id, artist_name, track_name, album_name, played_at)
+      ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
+    `;
+
+    return NextResponse.json({ success: true, inserted: userIds.length });
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: String(error) },
+      { status: 500 }
+    );
   }
 }
