@@ -264,7 +264,7 @@ async def fetch_artist_playcount(session, u, artist):
     return 0
 
 # --- CORE LOGIC ---
-async def process_fm(ctx_int, user):
+async def process_fm(ctx_int, user, compact=False):
     username = get_lastfm_username(user.id)
     if not username: return None, "Link Last.fm with `/setfm [username]`"
     data = await fetch_now_playing(username, 1)
@@ -276,7 +276,12 @@ async def process_fm(ctx_int, user):
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         status = "Now Playing" if is_p else "Last Played"
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
-        
+
+        if compact:
+            # Single-line compact mode
+            icon = "🎵" if is_p else "🎧"
+            return f"{icon} **[{song}]({track_url})** by **{artist}** — *{status}*", is_p
+
         changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
         
         desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
@@ -520,15 +525,24 @@ async def setfm_slash(interaction: discord.Interaction, username: str):
     await interaction.response.send_message(f"✅ Linked your Discord to Last.fm account: **{user_name}**", ephemeral=True)
 
 @bot.tree.command(name="fm", description="View what you are currently listening to")
+@app_commands.describe(mode="compact = one line, full = full embed (default)")
+@app_commands.choices(mode=[
+    app_commands.Choice(name="Full Embed", value="full"),
+    app_commands.Choice(name="Compact (1 line)", value="compact"),
+])
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-async def fm_slash(interaction: discord.Interaction):
+async def fm_slash(interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
     print(f"{Log.MAGENTA}>>> [/fm] Triggered by {interaction.user.name}{Log.RESET}")
+    compact = mode is not None and mode.value == "compact"
     await interaction.response.defer()
-    embed, is_p = await process_fm(interaction, interaction.user)
-    if not embed: await interaction.followup.send(is_p)
+    result, is_p = await process_fm(interaction, interaction.user, compact=compact)
+    if result is None:
+        await interaction.followup.send(is_p)
+    elif isinstance(result, str):
+        await interaction.followup.send(result)
     else:
-        msg = await interaction.followup.send(embed=embed, wait=True)
+        msg = await interaction.followup.send(embed=result, wait=True)
         if is_p: await add_custom_reactions(msg)
 
 @bot.tree.command(name="topartists", description="View your top played artists")
