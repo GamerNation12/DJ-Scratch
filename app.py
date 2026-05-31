@@ -91,24 +91,73 @@ async def setup_hook():
     bot.session = aiohttp.ClientSession()
     bot.add_view(SuggestionView())
     global db_pool
-    if os.getenv("POSTGRES_URL"):
+    db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    if db_url:
         try:
-            db_pool = await asyncpg.create_pool(dsn=os.getenv("POSTGRES_URL"), ssl="require")
-            print(f"{Log.GREEN}>>> Connected to Vercel Postgres{Log.RESET}")
+            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require")
+            print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
+    else:
+        print(f"{Log.YELLOW}>>> No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
 bot.setup_hook = setup_hook
 
 db_pool = None
 
-async def get_local_top_artists(user_id, limit=10):
+PERIOD_TO_DAYS = {
+    '7day': 7, '1month': 30, '3month': 90, '6month': 180, '12month': 365
+}
+
+async def db_fetch(query, *args):
+    """Run a query on the pool and return records, or [] if no pool."""
     if not db_pool: return []
-    query = "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id = $1 GROUP BY artist_name ORDER BY plays DESC LIMIT $2"
     try:
         async with db_pool.acquire() as conn:
-            records = await conn.fetch(query, str(user_id), limit)
-            return {r['artist_name']: r['plays'] for r in records}
-    except: return {}
+            return await conn.fetch(query, *args)
+    except Exception as e:
+        print(f"{Log.RED}>>> DB error: {e}{Log.RESET}")
+        return []
+
+async def get_local_top_artists(user_id, limit=10, api_period='overall'):
+    days = PERIOD_TO_DAYS.get(api_period)
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        rows = await db_fetch(
+            "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 AND played_at>=$2 GROUP BY artist_name ORDER BY plays DESC LIMIT $3",
+            str(user_id), since, limit
+        )
+    else:
+        rows = await db_fetch(
+            "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 GROUP BY artist_name ORDER BY plays DESC LIMIT $2",
+            str(user_id), limit
+        )
+    return {r['artist_name']: r['plays'] for r in rows}
+
+async def get_local_top_tracks(user_id, limit=10, api_period='overall'):
+    days = PERIOD_TO_DAYS.get(api_period)
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        rows = await db_fetch(
+            "SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 AND played_at>=$2 GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT $3",
+            str(user_id), since, limit
+        )
+    else:
+        rows = await db_fetch(
+            "SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT $2",
+            str(user_id), limit
+        )
+    return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
+
+async def get_local_total_plays(user_id):
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1", str(user_id))
+    return rows[0]['total'] if rows else 0
+
+async def get_local_recent_tracks(user_id, limit=10):
+    rows = await db_fetch(
+        "SELECT track_name, artist_name, played_at FROM listens WHERE user_id=$1 ORDER BY played_at DESC LIMIT $2",
+        str(user_id), limit
+    )
+    return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]
 
 @bot.event
 async def on_ready():
@@ -246,62 +295,108 @@ async def process_fm(ctx_int, user):
 async def process_top_artists(user, input_period=None):
     username = get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
-    
+
     lastfm_data = {}
     if username:
         data = await fetch_top_artists(username, api_p)
         if data and 'topartists' in data:
             lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
-            
-    local_data = await get_local_top_artists(user.id, 50) if api_p == 'overall' else {}
-    
+
+    local_data = await get_local_top_artists(user.id, 50, api_p)
+
     if not username and not local_data:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
-        
-    combined = {}
-    for artist, count in lastfm_data.items(): combined[artist] = count
-    for artist, count in local_data.items(): combined[artist] = combined.get(artist, 0) + count
-        
+
+    combined = dict(lastfm_data)
+    for artist, count in local_data.items():
+        combined[artist] = combined.get(artist, 0) + count
+
     sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
     if not sorted_artists: return None, "No artist data found."
-    
+
     lines = [f"{get_medal(idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(sorted_artists)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p})", icon_url=user.display_avatar.url)
+    db_note = " *(Last.fm + Imported)*" if local_data else ""
+    embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p}){db_note}", icon_url=user.display_avatar.url)
     return embed, None
 
 async def process_top_tracks(user, input_period=None):
     username = get_lastfm_username(user.id)
-    if not username: return None, "Link Last.fm with `/setfm [username]`"
     api_p, disp_p = get_period_data(input_period)
-    data = await fetch_top_tracks(username, api_p)
-    if not data or 'toptracks' not in data: return None, "Error fetching data."
-    lines = [f"{get_medal(idx)} **{t['name']}** by {t['artist']['name']} — **{int(t['playcount']):,}** plays" for idx, t in enumerate(data['toptracks']['track'])]
+
+    lastfm_tracks = {}  # (track, artist) -> plays
+    if username:
+        data = await fetch_top_tracks(username, api_p)
+        if data and 'toptracks' in data:
+            for t in data['toptracks']['track']:
+                key = (t['name'], t['artist']['name'])
+                lastfm_tracks[key] = int(t['playcount'])
+
+    local_tracks = await get_local_top_tracks(user.id, 50, api_p)
+
+    if not username and not local_tracks:
+        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+
+    combined = dict(lastfm_tracks)
+    for track_name, artist_name, plays in local_tracks:
+        key = (track_name, artist_name)
+        combined[key] = combined.get(key, 0) + plays
+
+    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
+    if not sorted_tracks: return None, "No track data found."
+
+    lines = [f"{get_medal(idx)} **{t}** by {a} — **{c:,}** plays" for idx, ((t, a), c) in enumerate(sorted_tracks)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p})", icon_url=user.display_avatar.url)
+    db_note = " *(Last.fm + Imported)*" if local_tracks else ""
+    embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p}){db_note}", icon_url=user.display_avatar.url)
     return embed, None
 
 async def process_recent(user):
     username = get_lastfm_username(user.id)
-    if not username: return None, "Link Last.fm with `/setfm [username]`"
-    data = await fetch_now_playing(username, 10) 
-    if not data: return None, "Error fetching data."
-    lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
+    if username:
+        data = await fetch_now_playing(username, 10)
+        if data:
+            lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
+            embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            embed.set_author(name=f"{user.display_name}'s Recent Tracks", icon_url=user.display_avatar.url)
+            return embed, None
+    # Fallback to local DB
+    local = await get_local_recent_tracks(user.id, 10)
+    if not local: return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+    lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Recent Tracks", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
     return embed, None
 
 async def process_profile(user):
     username = get_lastfm_username(user.id)
-    if not username: return None, "Link Last.fm with `/setfm [username]`"
-    data = await fetch_user_profile(username)
-    if not data: return None, "Error fetching profile."
-    info = data['user']
-    embed = discord.Embed(title=f"{info['name']}'s Last.fm Profile", url=info['url'], color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.add_field(name="🎧 Total Scrobbles", value=f"**{int(info['playcount']):,}**", inline=True)
-    country = info.get('country', 'Not Set')
-    embed.add_field(name="🌍 Country", value=country if country and country != "None" else "Not set", inline=True)
-    if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
+    local_total = await get_local_total_plays(user.id)
+
+    if not username and local_total == 0:
+        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+
+    embed = discord.Embed(color=LASTFM_COLOR, timestamp=datetime.now())
+    embed.set_author(name=f"{user.display_name}'s Profile", icon_url=user.display_avatar.url)
+
+    if username:
+        data = await fetch_user_profile(username)
+        if data:
+            info = data['user']
+            embed.title = f"{info['name']}'s Last.fm Profile"
+            embed.url = info['url']
+            lastfm_plays = int(info['playcount'])
+            total = lastfm_plays + local_total
+            embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
+            if local_total > 0:
+                embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
+                embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
+            country = info.get('country', 'Not Set')
+            embed.add_field(name="🌍 Country", value=country if country and country != "None" else "Not set", inline=True)
+            if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
+    elif local_total > 0:
+        embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
+        embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/setfm`", inline=True)
+
     return embed, None
 
 async def process_whoknows(guild, user, artist_name):
