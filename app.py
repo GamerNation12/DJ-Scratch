@@ -163,9 +163,40 @@ async def get_local_recent_tracks(user_id, limit=10):
 async def on_ready():
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
     print(f"{Log.CYAN}The Goats Dj is online as {bot.user}!{Log.RESET}")
+    total_servers = len(bot.guilds)
+    total_members = sum(g.member_count for g in bot.guilds if g.member_count)
+    print(f"{Log.GREEN}>>> Connected to {total_servers} servers with {total_members} total members!{Log.RESET}")
     print(f"{Log.YELLOW}>>> NOTE: Slash commands no longer auto-sync on boot.{Log.RESET}")
     print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
+
+@bot.event
+async def on_guild_join(guild):
+    print(f"{Log.GREEN}>>> JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members{Log.RESET}")
+    try:
+        owner = await bot.fetch_user(OWNER_ID)
+        embed = discord.Embed(
+            title="📥 Joined New Server!",
+            description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`\n**Members:** {guild.member_count}\n**Owner:** {guild.owner if guild.owner else 'Unknown'}",
+            color=discord.Color.green()
+        )
+        if guild.icon: embed.set_thumbnail(url=guild.icon.url)
+        await owner.send(embed=embed)
+    except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild join: {e}{Log.RESET}")
+
+@bot.event
+async def on_guild_remove(guild):
+    print(f"{Log.RED}>>> LEFT GUILD: {guild.name} ({guild.id}){Log.RESET}")
+    try:
+        owner = await bot.fetch_user(OWNER_ID)
+        embed = discord.Embed(
+            title="📤 Left Server",
+            description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`",
+            color=discord.Color.red()
+        )
+        if guild.icon: embed.set_thumbnail(url=guild.icon.url)
+        await owner.send(embed=embed)
+    except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
 
 # --- HELPER: ERROR DM ---
 async def notify_owner(ctx, err):
@@ -517,6 +548,31 @@ async def sync_commands(ctx):
         print(f"{Log.GREEN}>>> Owner synced {len(synced)} slash commands.{Log.RESET}")
     except Exception as e:
         await msg.edit(content=f"❌ Sync failed: {e}")
+
+@bot.command(name="stats", aliases=["guilds", "servers"])
+async def stats_command(ctx):
+    if ctx.author.id != OWNER_ID: return
+    
+    guilds = sorted(bot.guilds, key=lambda g: g.member_count or 0, reverse=True)
+    total_servers = len(guilds)
+    total_members = sum(g.member_count for g in guilds if g.member_count)
+    
+    desc_lines = []
+    for idx, guild in enumerate(guilds[:25], 1):
+        desc_lines.append(f"**{idx}. {guild.name}**\n   └ ID: `{guild.id}` | Members: **{guild.member_count}**")
+        
+    if len(guilds) > 25:
+        desc_lines.append(f"\n*...and {len(guilds) - 25} more servers.*")
+        
+    embed = discord.Embed(
+        title="📊 Bot Server Usage Statistics",
+        description=chr(10).join(desc_lines) if desc_lines else "Currently not in any servers.",
+        color=discord.Color.blue()
+    )
+    embed.add_field(name="Total Servers", value=f"`{total_servers}`", inline=True)
+    embed.add_field(name="Total Reach", value=f"`{total_members}` members", inline=True)
+    
+    await ctx.send(embed=embed)
 
 # --- SLASH COMMANDS ---
 @bot.tree.command(name="setfm", description="Link your Last.fm username to the bot")
