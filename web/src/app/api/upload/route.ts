@@ -1,6 +1,7 @@
 import { sql } from "@vercel/postgres";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 // Spotify history can look like:
 // { "endTime": "2023-01-01 12:00", "artistName": "Artist", "trackName": "Track", "msPlayed": 120000 }
@@ -8,7 +9,7 @@ import { NextResponse } from "next/server";
 // { "ts": "2023-01-01T12:00:00Z", "master_metadata_album_artist_name": "Artist", "master_metadata_track_name": "Track", "ms_played": 120000 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user || !(session.user as any).id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
