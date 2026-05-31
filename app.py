@@ -182,7 +182,8 @@ async def notify_owner(ctx, err):
 
 @bot.tree.error
 async def on_app_command_error(interaction, error):
-    await notify_owner(f"/{interaction.command.name}", error)
+    cmd_name = interaction.command.name if interaction.command else (interaction.data.get("name") if interaction.data else "unknown")
+    await notify_owner(f"/{cmd_name}", error)
     if not interaction.response.is_done(): 
         try: await interaction.response.send_message("Whoops! Error notified.", ephemeral=True)
         except: pass
