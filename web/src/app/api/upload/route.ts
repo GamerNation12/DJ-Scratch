@@ -39,32 +39,47 @@ export async function POST(req: Request) {
     `;
 
     let insertedCount = 0;
-
+    
+    // Prepare valid tracks
+    const validTracks = [];
     for (const track of chunk) {
-      // Handle both formats
       const artist = track.artistName || track.master_metadata_album_artist_name;
       const title = track.trackName || track.master_metadata_track_name;
       const album = track.master_metadata_album_album_name || "";
       const playedAtRaw = track.endTime || track.ts;
-      
-      // Spotify sometimes counts skips (less than 30s) as plays. We can filter them out.
       const msPlayed = track.msPlayed || track.ms_played || 0;
       
-      if (!artist || !title || !playedAtRaw || msPlayed < 30000) {
-        continue; // skip incomplete data or skips
-      }
-
-      const playedAt = new Date(playedAtRaw).toISOString();
-
+      if (!artist || !title || !playedAtRaw || msPlayed < 30000) continue;
+      
       try {
-        await sql`
+        const playedAt = new Date(playedAtRaw).toISOString();
+        validTracks.push({ artist, title, album, playedAt });
+      } catch (e) {
+        continue;
+      }
+    }
+
+    if (validTracks.length > 0) {
+      try {
+        // Build parameterized bulk insert
+        const values: any[] = [];
+        const placeholders = validTracks.map((t, i) => {
+          const offset = i * 5;
+          values.push(userId, t.artist, t.title, t.album, t.playedAt);
+          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`;
+        }).join(", ");
+
+        const query = `
           INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
-          VALUES (${userId}, ${artist}, ${title}, ${album}, ${playedAt})
+          VALUES ${placeholders}
           ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING;
         `;
-        insertedCount++;
+        
+        await sql.query(query, values);
+        insertedCount = validTracks.length;
       } catch (err) {
-        console.error("Error inserting track", err);
+        console.error("Bulk insert error:", err);
+        return NextResponse.json({ error: "Database insertion failed" }, { status: 500 });
       }
     }
 
