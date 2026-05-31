@@ -281,7 +281,7 @@ async def process_fm(ctx_int, user, compact=False):
         if compact:
             # Single-line compact mode
             icon = "🎵" if is_p else "🎧"
-            return f"{icon} **[{song}]({track_url})** by **{artist}** — *{status}*", is_p
+            return f"{icon} **[{song}](<{track_url}>)** by **{artist}** — *{status}*", is_p
 
         changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
         
