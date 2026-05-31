@@ -65,8 +65,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, inserted: 0 });
     }
 
-    // Promise.all lets Neon pipeline all INSERTs into a single HTTP round-trip
-    await Promise.all(
+    // neon .transaction() sends ALL inserts in a single HTTP round-trip to Neon
+    await sql.transaction(
       validTracks.map((t) =>
         sql`
           INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
