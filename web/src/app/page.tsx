@@ -78,8 +78,8 @@ export default function Home() {
       
       setMessage(`Found ${tracks.length} tracks. Uploading in batches...`);
       
-      // Simple batch upload
-      const chunkSize = 500;
+      // Small batches to stay well within Vercel's 10s timeout
+      const chunkSize = 50;
       let successCount = 0;
       
       for (let i = 0; i < tracks.length; i += chunkSize) {

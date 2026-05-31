@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/authOptions";
 import { neon } from "@neondatabase/serverless";
 
+const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = neon(DB_URL!);
 
     // Ensure user exists
     await sql`
@@ -39,12 +41,9 @@ export async function POST(req: Request) {
       ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
     `;
 
-    // Filter and build arrays for unnest bulk insert
-    const userIds: string[] = [];
-    const artists: string[] = [];
-    const titles: string[] = [];
-    const albums: string[] = [];
-    const dates: string[] = [];
+    // Build valid tracks list
+    type Track = { artist: string; title: string; album: string; playedAt: string };
+    const validTracks: Track[] = [];
 
     for (const track of chunk) {
       const artist = track.artistName || track.master_metadata_album_artist_name;
@@ -56,40 +55,30 @@ export async function POST(req: Request) {
       if (!artist || !title || !playedAtRaw || msPlayed < 30000) continue;
 
       try {
-        const playedAt = new Date(playedAtRaw).toISOString();
-        userIds.push(userId);
-        artists.push(artist);
-        titles.push(title);
-        albums.push(album);
-        dates.push(playedAt);
+        validTracks.push({ artist, title, album, playedAt: new Date(playedAtRaw).toISOString() });
       } catch {
         continue;
       }
     }
 
-    if (userIds.length === 0) {
+    if (validTracks.length === 0) {
       return NextResponse.json({ success: true, inserted: 0 });
     }
 
-    // Single bulk insert via unnest - sends ONE query instead of N queries
-    await sql`
-      INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
-      SELECT * FROM unnest(
-        ${userIds}::text[],
-        ${artists}::text[],
-        ${titles}::text[],
-        ${albums}::text[],
-        ${dates}::timestamptz[]
-      ) AS t(user_id, artist_name, track_name, album_name, played_at)
-      ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
-    `;
+    // Promise.all lets Neon pipeline all INSERTs into a single HTTP round-trip
+    await Promise.all(
+      validTracks.map((t) =>
+        sql`
+          INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
+          VALUES (${userId}, ${t.artist}, ${t.title}, ${t.album}, ${t.playedAt})
+          ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
+        `
+      )
+    );
 
-    return NextResponse.json({ success: true, inserted: userIds.length });
+    return NextResponse.json({ success: true, inserted: validTracks.length });
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: String(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
