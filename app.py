@@ -281,7 +281,7 @@ async def process_fm(ctx_int, user, compact=False):
         if compact:
             # Single-line compact mode
             if is_p:
-                return f"<a:nowplaying:1510483802852425769> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
+                return f"<a:nowplaying:1510485193662795996> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
             else:
                 return f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
 
