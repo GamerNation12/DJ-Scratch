@@ -19,8 +19,15 @@ export async function POST(req: Request) {
 
   try {
     const chunk = await req.json();
-    if (!Array.isArray(chunk)) {
+    if (!Array.isArray(chunk) || chunk.length === 0) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    // Basic server-side validation
+    const sample = chunk[0];
+    const isSpotifyData = sample.hasOwnProperty("trackName") || sample.hasOwnProperty("master_metadata_track_name");
+    if (!isSpotifyData) {
+      return NextResponse.json({ error: "Invalid data format. Does not match Spotify schema." }, { status: 400 });
     }
 
     // Ensure user exists in the imported_users table

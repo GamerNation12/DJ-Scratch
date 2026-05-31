@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useState } from "react";
+import JSZip from "jszip";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -36,17 +37,53 @@ export default function Home() {
     setMessage("Reading file...");
 
     try {
-      const text = await file.text();
-      const json = JSON.parse(text);
+      let tracks: any[] = [];
       
-      setMessage(`Found ${json.length} tracks. Uploading in batches...`);
+      if (file.name.endsWith(".zip")) {
+        setMessage("Extracting ZIP file...");
+        const zip = new JSZip();
+        const loadedZip = await zip.loadAsync(file);
+        
+        // Find all JSON files that look like Spotify history
+        for (const [filename, fileData] of Object.entries(loadedZip.files)) {
+          if (!fileData.dir && filename.endsWith(".json") && (filename.includes("StreamingHistory") || filename.includes("endsong") || filename.includes("Streaming_History"))) {
+            const content = await fileData.async("string");
+            try {
+              const parsed = JSON.parse(content);
+              if (Array.isArray(parsed)) {
+                tracks = tracks.concat(parsed);
+              }
+            } catch (err) {
+              console.error(`Skipping invalid JSON in zip: ${filename}`);
+            }
+          }
+        }
+      } else if (file.name.endsWith(".json")) {
+        const text = await file.text();
+        tracks = JSON.parse(text);
+      } else {
+        throw new Error("Invalid file type.");
+      }
+
+      if (!Array.isArray(tracks) || tracks.length === 0) {
+        throw new Error("No valid tracks found.");
+      }
+
+      // Basic Validation Check: Ensure it looks like Spotify data
+      const sample = tracks[0];
+      const isSpotifyData = sample.hasOwnProperty("trackName") || sample.hasOwnProperty("master_metadata_track_name");
+      if (!isSpotifyData) {
+         throw new Error("File does not appear to be valid Spotify data.");
+      }
+      
+      setMessage(`Found ${tracks.length} tracks. Uploading in batches...`);
       
       // Simple batch upload
       const chunkSize = 500;
       let successCount = 0;
       
-      for (let i = 0; i < json.length; i += chunkSize) {
-        const chunk = json.slice(i, i + chunkSize);
+      for (let i = 0; i < tracks.length; i += chunkSize) {
+        const chunk = tracks.slice(i, i + chunkSize);
         
         const res = await fetch("/api/upload", {
           method: "POST",
@@ -56,16 +93,16 @@ export default function Home() {
         
         if (res.ok) {
           successCount += chunk.length;
-          setMessage(`Uploaded ${successCount}/${json.length} tracks...`);
+          setMessage(`Uploaded ${successCount}/${tracks.length} tracks...`);
         } else {
           console.error("Failed batch", res);
         }
       }
       
       setMessage("Upload complete! 🎉 You can now use the bot commands.");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setMessage("Error parsing or uploading file. Make sure it's a valid Spotify JSON file.");
+      setMessage(error.message || "Error parsing or uploading file. Make sure it's a valid Spotify JSON or ZIP file.");
     } finally {
       setUploading(false);
     }
@@ -80,13 +117,13 @@ export default function Home() {
 
       <div className="max-w-xl w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-3xl font-bold mb-2">Import History</h1>
-        <p className="text-zinc-400 mb-8">Select your Spotify `StreamingHistory.json` or `endsong.json` file to upload to your profile.</p>
+        <p className="text-zinc-400 mb-8">Select your Spotify `my_spotify_data.zip` or a `StreamingHistory.json` file to upload to your profile.</p>
 
         <form onSubmit={handleUpload} className="flex flex-col gap-6">
           <div className="border-2 border-dashed border-zinc-700 rounded-xl p-8 text-center hover:bg-zinc-800/50 transition-colors cursor-pointer relative">
             <input
               type="file"
-              accept=".json"
+              accept=".json,.zip"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={uploading}
