@@ -96,6 +96,16 @@ async def setup_hook():
         try:
             db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require")
             print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS user_settings (
+                        user_id VARCHAR(255) PRIMARY KEY,
+                        fm_mode VARCHAR(50) DEFAULT 'full'
+                    )
+                    """
+                )
+                print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
@@ -103,6 +113,35 @@ async def setup_hook():
 bot.setup_hook = setup_hook
 
 db_pool = None
+
+async def get_user_fm_mode(user_id):
+    if not db_pool:
+        return 'full'
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT fm_mode FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['fm_mode'] if row else 'full'
+    except Exception as e:
+        print(f"Error fetching user fm mode: {e}")
+        return 'full'
+
+async def set_user_fm_mode(user_id, mode):
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO user_settings (user_id, fm_mode)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET fm_mode = EXCLUDED.fm_mode
+                """,
+                str(user_id), mode
+            )
+            return True
+    except Exception as e:
+        print(f"Error saving user fm mode: {e}")
+        return False
 
 PERIOD_TO_DAYS = {
     '7day': 7, '1month': 30, '3month': 90, '6month': 180, '12month': 365
@@ -538,11 +577,14 @@ def get_help_embed(user):
         "`/topartists` (or `,ta`) - View your top played artists\n"
         "`/toptracks` (or `,tt`) - View your top played tracks\n"
         "`/recent` (or `,rt`) - View your recent listening history\n"
-        "`/profile` (or `,s`) - View your Last.fm stats", inline=False)
+        "`/profile` (or `,s`) - View your Last.fm stats\n"
+        "`/import` (or `,import`) - Upload your Spotify ZIP or JSON directly", inline=False)
     embed.add_field(name="👑 Server Stats", value=
         "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
         "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server", inline=False)
-    embed.add_field(name="💡 Other", value="`/suggest` (or `,suggest`) - Send a suggestion directly to the developer", inline=False)
+    embed.add_field(name="💡 Other", value=
+        "`/suggest` (or `,suggest`) - Send a suggestion directly to the developer\n"
+        "`/deletedata` (or `,deletedata`) - Permanently delete all your database data", inline=False)
     embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
     return embed
 
@@ -602,7 +644,11 @@ async def setfm_slash(interaction: discord.Interaction, username: str):
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def fm_slash(interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
     print(f"{Log.MAGENTA}>>> [/fm] Triggered by {interaction.user.name}{Log.RESET}")
-    compact = mode is not None and mode.value == "compact"
+    if mode is not None:
+        compact = mode.value == "compact"
+    else:
+        db_mode = await get_user_fm_mode(interaction.user.id)
+        compact = (db_mode == "compact")
     await interaction.response.defer()
     result, is_p = await process_fm(interaction, interaction.user, compact=compact)
     if result is None:
@@ -698,15 +744,47 @@ async def crowns_slash(interaction: discord.Interaction):
 @bot.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "np1", "np2"])
 async def fm_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: fm] Triggered by {ctx.author.name}{Log.RESET}")
-    compact = ctx.invoked_with in ["fm1", "np1"]
+    invoked = ctx.invoked_with
+    if invoked in ["fm1", "np1"]:
+        compact = True
+    elif invoked in ["fm2", "np2"]:
+        compact = False
+    else:
+        db_mode = await get_user_fm_mode(ctx.author.id)
+        compact = (db_mode == "compact")
     result, is_p = await process_fm(ctx, ctx.author, compact=compact)
     if result is None:
         await ctx.send(is_p)
     elif isinstance(result, str):
-        await ctx.send(result)
+        msg = await ctx.send(result)
+        if is_p: await add_custom_reactions(msg)
     else:
         msg = await ctx.send(embed=result)
         if is_p: await add_custom_reactions(msg)
+
+
+@bot.command(name="restart")
+async def restart_bot(ctx):
+    if ctx.author.id != OWNER_ID: return
+    await ctx.send("🔄 Restarting bot...")
+    print(f"{Log.RED}>>> Restart triggered by owner. Exiting process...{Log.RESET}")
+    await bot.session.close()
+    await bot.close()
+    os._exit(0)
+
+
+@bot.tree.command(name="restart", description="Restart the bot (Owner only)")
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+async def restart_slash(interaction: discord.Interaction):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ You are not the owner.", ephemeral=True)
+        return
+    await interaction.response.send_message("🔄 Restarting bot...", ephemeral=True)
+    print(f"{Log.RED}>>> Restart triggered by owner via Slash Command. Exiting process...{Log.RESET}")
+    await bot.session.close()
+    await bot.close()
+    os._exit(0)
 
 @bot.command(name="ta", aliases=["topartists"])
 async def ta_prefix(ctx, period: str = 'all'):
@@ -752,6 +830,399 @@ async def crowns_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: crowns] Triggered by {ctx.author.name}{Log.RESET}")
     embed, err = await process_crowns(ctx.guild, ctx.author)
     await ctx.send(embed=embed) if embed else await ctx.send(err)
+def stream_parse_spotify_json(file_obj):
+    buffer = ""
+    brace_count = 0
+    in_string = False
+    escape = False
+
+    while True:
+        chunk = file_obj.read(65536)  # Read in small 64KB chunks to consume minimal RAM
+        if not chunk:
+            break
+        
+        for char in chunk:
+            buffer += char
+            
+            if escape:
+                escape = False
+                continue
+            
+            if char == '\\':
+                escape = True
+                continue
+                
+            if char == '"':
+                in_string = not in_string
+                continue
+                
+            if not in_string:
+                if char == '{':
+                    if brace_count == 0:
+                        buffer = "{"
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        try:
+                            track = json.loads(buffer)
+                            yield track
+                        except:
+                            pass
+                        buffer = ""
+
+def parse_single_spotify_track(user, track):
+    artist = track.get("artistName") or track.get("master_metadata_album_artist_name")
+    title = track.get("trackName") or track.get("master_metadata_track_name")
+    album = track.get("master_metadata_album_album_name") or ""
+    played_at_raw = track.get("endTime") or track.get("ts")
+    ms_played = track.get("msPlayed") or track.get("ms_played") or 0
+
+    if not artist or not title or not played_at_raw or ms_played < 30000:
+        return None
+
+    try:
+        cleaned_time = played_at_raw.replace("Z", "+00:00")
+        if " " in cleaned_time and "T" not in cleaned_time:
+            parts = cleaned_time.split(":")
+            if len(parts) == 2:
+                cleaned_time = cleaned_time + ":00"
+        try:
+            dt = datetime.fromisoformat(cleaned_time)
+        except:
+            try:
+                dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M:%S")
+            except:
+                dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M")
+        return (str(user.id), artist, title, album, dt)
+    except:
+        return None
+
+async def insert_tracks_in_db(valid_tracks):
+    if not valid_tracks:
+        return 0
+    chunk_size = 1000
+    inserted_count = 0
+    for i in range(0, len(valid_tracks), chunk_size):
+        chunk = valid_tracks[i:i + chunk_size]
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.executemany(
+                    """
+                    INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
+                    """,
+                    chunk
+                )
+                inserted_count += len(chunk)
+        except Exception as e:
+            print(f"Error inserting database chunk: {e}")
+    return inserted_count
+
+async def process_discord_import_in_background(user, temp_filepath, is_zip, response_target):
+    import zipfile
+    import os
+    import gc
+    import io
+
+    processed_count = 0
+    try:
+        # Ensure user exists in imported_users table
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO imported_users (id, username)
+                    VALUES ($1, $2)
+                    ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
+                    """,
+                    str(user.id), user.name
+                )
+        except Exception as e:
+            print(f"Error ensuring imported_user: {e}")
+
+        # Parse and process
+        if not is_zip:
+            # Process single JSON file from disk using our zero-RAM streaming parser
+            valid_tracks = []
+            with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
+                for track in stream_parse_spotify_json(f):
+                    parsed = parse_single_spotify_track(user, track)
+                    if parsed:
+                        valid_tracks.append(parsed)
+                    
+                    if len(valid_tracks) >= 1000:
+                        processed_count += await insert_tracks_in_db(valid_tracks)
+                        valid_tracks.clear()
+                        gc.collect()
+            
+            if valid_tracks:
+                processed_count += await insert_tracks_in_db(valid_tracks)
+                valid_tracks.clear()
+                gc.collect()
+        else:
+            # Process ZIP file entry by entry from disk using our zero-RAM streaming parser
+            with zipfile.ZipFile(temp_filepath) as z:
+                for filename in z.namelist():
+                    if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
+                        try:
+                            valid_tracks = []
+                            with z.open(filename) as f:
+                                # Wrap binary stream in a TextIOWrapper so we can stream characters
+                                text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
+                                for track in stream_parse_spotify_json(text_stream):
+                                    parsed = parse_single_spotify_track(user, track)
+                                    if parsed:
+                                        valid_tracks.append(parsed)
+                                    
+                                    if len(valid_tracks) >= 1000:
+                                        processed_count += await insert_tracks_in_db(valid_tracks)
+                                        valid_tracks.clear()
+                                        gc.collect()
+                            
+                            if valid_tracks:
+                                processed_count += await insert_tracks_in_db(valid_tracks)
+                                valid_tracks.clear()
+                                gc.collect()
+                                
+                        except Exception as e:
+                            print(f"Error processing {filename} inside zip: {e}")
+
+        # Delete temp file
+        try:
+            os.remove(temp_filepath)
+        except: pass
+
+        # Send DM when finished
+        embed = discord.Embed(
+            title="✅ Spotify Import Complete!",
+            description=(
+                f"Hey **{user.display_name}**, your Spotify history has finished importing!\n\n"
+                f"• **{processed_count:,}** tracks processed successfully.\n\n"
+                f"You can now use bot commands like `/profile` or `/topartists`!"
+            ),
+            color=0x2ecc71,
+            timestamp=datetime.now()
+        )
+        await user.send(embed=embed)
+
+    except Exception as e:
+        print(f"Error in background import process: {e}")
+        try:
+            os.remove(temp_filepath)
+        except: pass
+        try:
+            await user.send(f"❌ An error occurred during the background import of your Spotify data: {e}")
+        except: pass
+
+async def handle_discord_import(user, attachment, response_target):
+    try:
+        is_zip = attachment.filename.endswith(".zip")
+        temp_filepath = f"temp_import_{user.id}_{attachment.id}.{'zip' if is_zip else 'json'}"
+        
+        # Save attachment directly to disk in streamed mode
+        await attachment.save(temp_filepath)
+        
+        # Start background import process
+        asyncio.create_task(process_discord_import_in_background(user, temp_filepath, is_zip, response_target))
+        
+        await response_target("✅ File received successfully! The bot has started importing your Spotify history in the background. You will receive a DM as soon as it is fully finished.")
+    except Exception as e:
+        print(f"Error in handle_discord_import saving file: {e}")
+        await response_target("❌ An error occurred while receiving your file.")
+
+
+@bot.tree.command(name="import", description="Upload your Spotify my_spotify_data.zip or StreamingHistory.json directly to import history")
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+async def import_slash(interaction: discord.Interaction, file: discord.Attachment):
+    print(f"{Log.MAGENTA}>>> [/import] Triggered by {interaction.user.name}{Log.RESET}")
+    if not db_pool:
+        await interaction.response.send_message("❌ Import is disabled because the database is offline.", ephemeral=True)
+        return
+
+    if not (file.filename.endswith(".zip") or file.filename.endswith(".json")):
+        await interaction.response.send_message("❌ Invalid file type. Please upload a `.zip` or `.json` file.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    
+    async def send_interaction_followup(text):
+        await interaction.followup.send(text)
+
+    await handle_discord_import(interaction.user, file, send_interaction_followup)
+
+
+@bot.command(name="import")
+async def import_prefix(ctx):
+    print(f"{Log.MAGENTA}>>> [Prefix: import] Triggered by {ctx.author.name}{Log.RESET}")
+    if not db_pool:
+        await ctx.send("❌ Import is disabled because the database is offline.")
+        return
+
+    if not ctx.message.attachments:
+        await ctx.send("❌ Please attach your Spotify `my_spotify_data.zip` or a `StreamingHistory.json` file!")
+        return
+
+    attachment = ctx.message.attachments[0]
+    if not (attachment.filename.endswith(".zip") or attachment.filename.endswith(".json")):
+        await ctx.send("❌ Invalid file type. Please upload a `.zip` or `.json` file.")
+        return
+
+    msg = await ctx.send("📥 Downloading and parsing file...")
+    
+    async def edit_prefix_message(text):
+        await msg.edit(content=text)
+
+    await handle_discord_import(ctx.author, attachment, edit_prefix_message)
+class PurgeConfirmView(discord.ui.View):
+    def __init__(self, user):
+        super().__init__(timeout=30)
+        self.user = user
+        self.confirmed = False
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("❌ This confirmation is not for you!", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Confirm Delete", style=discord.ButtonStyle.danger, emoji="⚠️")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirmed = True
+        self.stop()
+        
+        deleted_count = 0
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1", str(self.user.id))
+                    deleted_count = row[0] if row else 0
+                    await conn.execute("DELETE FROM listens WHERE user_id=$1", str(self.user.id))
+                    await conn.execute("DELETE FROM imported_users WHERE id=$1", str(self.user.id))
+            except Exception as e:
+                print(f"Error purging user data from DB: {e}")
+        
+        unlinked = False
+        try:
+            users = load_users()
+            if str(self.user.id) in users:
+                del users[str(self.user.id)]
+                with open(USERS_FILE, "w") as f: json.dump(users, f)
+                unlinked = True
+        except Exception as e:
+            print(f"Error clearing Last.fm json link: {e}")
+
+        embed = discord.Embed(
+            title="🗑️ Data Successfully Deleted",
+            description=(
+                f"Your data has been fully purged from the database:\n\n"
+                f"• **{deleted_count:,}** imported listens deleted.\n"
+                f"• Last.fm account linkage: **{'Removed' if unlinked else 'None linked'}**\n\n"
+                f"All your data has been completely and permanently erased!"
+            ),
+            color=discord.Color.red(),
+            timestamp=datetime.now()
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.stop()
+        embed = discord.Embed(
+            description="❌ **Purge cancelled.** Your data remains completely safe.",
+            color=discord.Color.blue()
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
+
+
+@bot.tree.command(name="deletedata", description="Permanently delete all your database listens and unlink your Last.fm account")
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+async def delete_data_slash(interaction: discord.Interaction):
+    print(f"{Log.MAGENTA}>>> [/deletedata] Triggered by {interaction.user.name}{Log.RESET}")
+    embed = discord.Embed(
+        title="⚠️ Permanent Data Deletion",
+        description=(
+            "Are you absolutely sure you want to permanently delete all your data?\n\n"
+            "This will permanently delete:\n"
+            "• All your imported Spotify/Last.fm listening history in our database.\n"
+            "• Your linked Last.fm account mapping.\n\n"
+            "**This action is instant and CANNOT be undone.**"
+        ),
+        color=discord.Color.gold()
+    )
+    view = PurgeConfirmView(interaction.user)
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+@bot.command(name="deletedata", aliases=["purgedata", "deleteprofile", "purgeprofile"])
+async def delete_data_prefix(ctx):
+    print(f"{Log.MAGENTA}>>> [Prefix: deletedata] Triggered by {ctx.author.name}{Log.RESET}")
+    embed = discord.Embed(
+        title="⚠️ Permanent Data Deletion",
+        description=(
+            "Are you absolutely sure you want to permanently delete all your data?\n\n"
+            "This will permanently delete:\n"
+            "• All your imported Spotify/Last.fm listening history in our database.\n"
+            "• Your linked Last.fm account mapping.\n\n"
+            "**This action is instant and CANNOT be undone.**"
+        ),
+        color=discord.Color.gold()
+    )
+    view = PurgeConfirmView(ctx.author)
+    await ctx.send(embed=embed, view=view)@bot.tree.command(name="setcustomfm", description="Set your default layout for /fm (fm1 compact text vs fm2 full embed)")
+@app_commands.describe(layout="Choose your default layout")
+@app_commands.choices(layout=[
+    app_commands.Choice(name="Compact Text (fm1)", value="compact"),
+    app_commands.Choice(name="Full Embed (fm2)", value="full"),
+])
+@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_commands.Choice[str]):
+    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.user.name}{Log.RESET}")
+    if not db_pool:
+        await interaction.response.send_message("❌ Database is currently offline.", ephemeral=True)
+        return
+
+    success = await set_user_fm_mode(interaction.user.id, layout.value)
+    if success:
+        display = "Compact Text (fm1)" if layout.value == "compact" else "Full Embed (fm2)"
+        await interaction.response.send_message(f"✅ Your default `/fm` response is now set to **{display}**!", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Failed to save setting to the database.", ephemeral=True)
+
+
+@bot.command(name="setcustomfm", aliases=["customfm"])
+async def set_custom_fm_prefix(ctx, mode: str = None):
+    print(f"{Log.MAGENTA}>>> [Prefix: setcustomfm] Triggered by {ctx.author.name}{Log.RESET}")
+    if not db_pool:
+        await ctx.send("❌ Database is currently offline.")
+        return
+
+    if not mode:
+        current = await get_user_fm_mode(ctx.author.id)
+        display = "Compact Text (fm1)" if current == "compact" else "Full Embed (fm2)"
+        await ctx.send(f"ℹ️ Your current default `/fm` layout is set to: **{display}**.\nUse `,setcustomfm fm1` (compact) or `,setcustomfm fm2` (full) to change it.")
+        return
+
+    cleaned = mode.lower().strip()
+    if cleaned in ["fm1", "compact", "1"]:
+        target_mode = "compact"
+        display = "Compact Text (fm1)"
+    elif cleaned in ["fm2", "full", "2", "embed"]:
+        target_mode = "full"
+        display = "Full Embed (fm2)"
+    else:
+        await ctx.send("❌ Invalid mode. Please choose `fm1` (compact) or `fm2` (full).")
+        return
+
+    success = await set_user_fm_mode(ctx.author.id, target_mode)
+    if success:
+        await ctx.send(f"✅ Your default `/fm` response is now set to **{display}**!")
+    else:
+        await ctx.send("❌ Failed to save setting to the database.")
 
 
 # --- AUTO-TRIGGER & REACTIONS ---
