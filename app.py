@@ -462,6 +462,7 @@ async def process_fm(ctx_int, user, mode="full"):
             guild = getattr(ctx_int, 'guild', None)
             crown_task = None
             if guild:
+                users_db = load_users()
                 linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
                 if linked:
                     async def fetch_crown():
