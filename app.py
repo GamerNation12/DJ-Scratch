@@ -1112,17 +1112,45 @@ async def handle_discord_import(user, attachment, response_target):
         print(f"Error in handle_discord_import saving file: {e}")
         await response_target("❌ An error occurred while receiving your file.")
 
+async def handle_discord_import_link(user, link, response_target):
+    try:
+        is_zip = link.lower().endswith(".zip") or "zip" in link.lower()
+        temp_filepath = f"temp_import_{user.id}_link.{'zip' if is_zip else 'json'}"
+        
+        await response_target("⏳ Downloading file from link... (This may take a moment for large files)")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(link) as resp:
+                if resp.status != 200:
+                    await response_target("❌ Failed to download from the provided link. Please ensure it is a direct download link.")
+                    return
+                with open(temp_filepath, 'wb') as f:
+                    while True:
+                        chunk = await resp.content.read(65536)
+                        if not chunk: break
+                        f.write(chunk)
+        
+        asyncio.create_task(process_discord_import_in_background(user, temp_filepath, is_zip, response_target))
+        
+    except Exception as e:
+        print(f"Error in handle_discord_import_link: {e}")
+        await response_target("❌ An error occurred while downloading or processing the link.")
+
 
 @bot.tree.command(name="import", description="Upload your Spotify my_spotify_data.zip or StreamingHistory.json directly to import history")
+@app_commands.describe(file="File to upload", link="Or provide a direct download link (e.g. from catbox.moe) if the file is too large")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-async def import_slash(interaction: discord.Interaction, file: discord.Attachment):
+async def import_slash(interaction: discord.Interaction, file: discord.Attachment = None, link: str = None):
     print(f"{Log.MAGENTA}>>> [/import] Triggered by {interaction.user.name}{Log.RESET}")
     if not db_pool:
         await interaction.response.send_message("❌ Import is disabled because the database is offline.", ephemeral=True)
         return
 
-    if not (file.filename.endswith(".zip") or file.filename.endswith(".json")):
+    if not file and not link:
+        await interaction.response.send_message("❌ You must provide either a file attachment or a direct download link.", ephemeral=True)
+        return
+
+    if file and not (file.filename.endswith(".zip") or file.filename.endswith(".json")):
         await interaction.response.send_message("❌ Invalid file type. Please upload a `.zip` or `.json` file.", ephemeral=True)
         return
 
@@ -1131,23 +1159,21 @@ async def import_slash(interaction: discord.Interaction, file: discord.Attachmen
     async def send_interaction_followup(text):
         await interaction.followup.send(text)
 
-    await handle_discord_import(interaction.user, file, send_interaction_followup)
+    if file:
+        await handle_discord_import(interaction.user, file, send_interaction_followup)
+    else:
+        await handle_discord_import_link(interaction.user, link, send_interaction_followup)
 
 
 @bot.command(name="import")
-async def import_prefix(ctx):
+async def import_prefix(ctx, link: str = None):
     print(f"{Log.MAGENTA}>>> [Prefix: import] Triggered by {ctx.author.name}{Log.RESET}")
     if not db_pool:
         await ctx.send("❌ Import is disabled because the database is offline.")
         return
 
-    if not ctx.message.attachments:
-        await ctx.send("❌ Please attach your Spotify `my_spotify_data.zip` or a `StreamingHistory.json` file!")
-        return
-
-    attachment = ctx.message.attachments[0]
-    if not (attachment.filename.endswith(".zip") or attachment.filename.endswith(".json")):
-        await ctx.send("❌ Invalid file type. Please upload a `.zip` or `.json` file.")
+    if not ctx.message.attachments and not link:
+        await ctx.send("❌ Please attach your Spotify `my_spotify_data.zip` or a `StreamingHistory.json` file, or provide a direct download link!")
         return
 
     msg = await ctx.send("📥 Downloading and parsing file...")
@@ -1155,7 +1181,14 @@ async def import_prefix(ctx):
     async def edit_prefix_message(text):
         await msg.edit(content=text)
 
-    await handle_discord_import(ctx.author, attachment, edit_prefix_message)
+    if ctx.message.attachments:
+        attachment = ctx.message.attachments[0]
+        if not (attachment.filename.endswith(".zip") or attachment.filename.endswith(".json")):
+            await ctx.send("❌ Invalid file type. Please upload a `.zip` or `.json` file.")
+            return
+        await handle_discord_import(ctx.author, attachment, edit_prefix_message)
+    else:
+        await handle_discord_import_link(ctx.author, link, edit_prefix_message)
 class PurgeConfirmView(discord.ui.View):
     def __init__(self, user):
         super().__init__(timeout=30)
