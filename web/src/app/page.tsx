@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [fmMode, setFmMode] = useState<"compact" | "full">("full");
+  const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
   const [updatingSettings, setUpdatingSettings] = useState(false);
 
@@ -42,7 +42,7 @@ export default function Home() {
     );
   }
 
-  const handleUpdateFmMode = async (mode: "compact" | "full") => {
+  const handleUpdateFmMode = async (mode: "compact" | "full" | "stats") => {
     setUpdatingSettings(true);
     try {
       const res = await fetch("/api/settings", {
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="flex flex-col gap-8">
               <div>
                 <label className="block text-sm font-semibold text-zinc-300 mb-3">Default /fm Display Layout</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <button
                     onClick={() => handleUpdateFmMode("compact")}
                     disabled={updatingSettings}
@@ -120,7 +120,7 @@ export default function Home() {
                   >
                     <div className="text-2xl mb-2">📝</div>
                     <div className="text-base font-bold">Compact Text</div>
-                    <div className="text-xs text-zinc-500 font-normal mt-1">fm1 (1-line plain text)</div>
+                    <div className="text-xs text-zinc-500 font-normal mt-1">fm1 (1-line)</div>
                   </button>
 
                   <button
@@ -134,7 +134,21 @@ export default function Home() {
                   >
                     <div className="text-2xl mb-2">🖼️</div>
                     <div className="text-base font-bold">Full Embed</div>
-                    <div className="text-xs text-zinc-500 font-normal mt-1">fm2 (detailed embed)</div>
+                    <div className="text-xs text-zinc-500 font-normal mt-1">fm2 (detailed)</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleUpdateFmMode("stats")}
+                    disabled={updatingSettings}
+                    className={`py-6 px-4 rounded-xl font-medium border text-center transition-all duration-200 cursor-pointer ${
+                      fmMode === "stats"
+                        ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-lg shadow-indigo-500/5"
+                        : "bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 text-zinc-400"
+                    }`}
+                  >
+                    <div className="text-2xl mb-2">📊</div>
+                    <div className="text-base font-bold">Stats View</div>
+                    <div className="text-xs text-zinc-500 font-normal mt-1">fm3 (stats.fm)</div>
                   </button>
                 </div>
               </div>
@@ -161,7 +175,7 @@ export default function Home() {
 
               <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-5 mt-2">
                 <span className="text-zinc-400 text-sm leading-relaxed block">
-                  💡 <strong className="text-zinc-300">Tip:</strong> Even with a custom default set here, you can always override it in Discord by explicitly using <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm1</code> (for compact text) or <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm2</code> (for the full embed)!
+                  💡 <strong className="text-zinc-300">Tip:</strong> Even with a custom default set here, you can always override it in Discord by explicitly using <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm1</code>, <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm2</code>, or <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm3</code>!
                 </span>
               </div>
             </div>
