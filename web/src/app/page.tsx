@@ -256,7 +256,6 @@ export default function Home() {
                 </div>
               </div>
 
-              </div>
 
               <div className="mt-4 pt-4 border-t border-zinc-800/50">
                 <label className="flex items-center justify-between cursor-pointer group">
