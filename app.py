@@ -392,6 +392,8 @@ async def fetch_now_playing(u, l=1): return await api_get(f"http://ws.audioscrob
 async def fetch_top_artists(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
 async def fetch_top_tracks(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
 async def fetch_user_profile(u): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user={u}&api_key={LASTFM_API_KEY}&format=json")
+async def fetch_track_info(u, artist, track): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist={urllib.parse.quote(artist)}&track={urllib.parse.quote(track)}&username={u}&api_key={LASTFM_API_KEY}&format=json")
+async def fetch_artist_info(u, artist): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json")
 async def fetch_artist_playcount(session, u, artist):
     async with session.get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json") as r:
         if r.status == 200:
@@ -409,13 +411,17 @@ class MoreInfoView(discord.ui.View):
         await interaction.response.send_message(embed=self.embed, ephemeral=True)
 
 # --- CORE LOGIC ---
-async def process_fm(ctx_int, user, compact=False):
+async def process_fm(ctx_int, user, mode="full"):
     username = get_lastfm_username(user.id)
     if not username: return None, "Link Last.fm with `/setfm [username]`"
-    data = await fetch_now_playing(username, 1)
-    if not data: return None, "Could not find recent tracks."
+    
+    data = await fetch_now_playing(username, 2 if mode == 'stats' else 1)
+    if not data or 'recenttracks' not in data or not data['recenttracks']['track']: 
+        return None, "Could not find recent tracks."
+    
     try:
-        t = data['recenttracks']['track'][0]
+        tracks = data['recenttracks']['track']
+        t = tracks[0]
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
@@ -423,6 +429,75 @@ async def process_fm(ctx_int, user, compact=False):
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
         changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
+
+        if mode == "compact":
+            if is_p:
+                content = f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
+            else:
+                content = f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+            
+            desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
+            embed = discord.Embed(description=desc, color=color)
+            embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
+            if img: embed.set_thumbnail(url=img)
+            embed.set_footer(text=f"Scrobbling as {username}")
+            return {"content": content, "view": MoreInfoView(embed)}, is_p
+
+        if mode == "stats":
+            desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
+            
+            if len(tracks) > 1:
+                prev_t = tracks[1]
+                p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
+                p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
+                desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
+            
+            embed = discord.Embed(description=chr(10).join(desc_lines), color=color)
+            embed.set_author(name=f"Now playing for {user.display_name}" if is_p else f"Last played by {user.display_name}")
+            if img: embed.set_thumbnail(url=img)
+            
+            t_info_task = asyncio.create_task(fetch_track_info(username, artist, song))
+            a_info_task = asyncio.create_task(fetch_artist_info(username, artist))
+            
+            guild = getattr(ctx_int, 'guild', None)
+            crown_task = None
+            if guild:
+                linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+                if linked:
+                    async def fetch_crown():
+                        tasks = [(uid, lname, fetch_artist_playcount(bot.session, lname, artist)) for uid, lname in linked.items()]
+                        results = await asyncio.gather(*(t[2] for t in tasks))
+                        lb = [{"name": guild.get_member(int(tasks[i][0])).display_name if guild.get_member(int(tasks[i][0])) else tasks[i][1], "plays": pc} for i, pc in enumerate(results) if pc > 0]
+                        if not lb: return None
+                        lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+                        return lb[0]
+                    crown_task = asyncio.create_task(fetch_crown())
+            
+            t_info = await t_info_task
+            a_info = await a_info_task
+            crown_winner = await crown_task if crown_task else None
+
+            footer_parts = []
+            if a_info and 'artist' in a_info and 'tags' in a_info['artist'] and 'tag' in a_info['artist']['tags']:
+                tags = [tag['name'].lower() for tag in a_info['artist']['tags']['tag'][:4]]
+                if tags: footer_parts.append(" - ".join(tags))
+                
+            stats_line = []
+            if t_info and 'track' in t_info and t_info['track'].get('userloved') == '1':
+                stats_line.append("❤️ Loved track")
+            
+            if a_info and 'artist' in a_info and 'stats' in a_info['artist']:
+                pc = a_info['artist']['stats'].get('userplaycount', 0)
+                stats_line.append(f"{pc} artist scrobbles")
+                
+            if crown_winner:
+                stats_line.append(f"👑 {crown_winner['name']} ({crown_winner['plays']} plays)")
+            
+            if stats_line:
+                footer_parts.append(" • ".join(stats_line))
+                
+            embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
+            return {"embed": embed}, is_p
 
         desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
         embed = discord.Embed(description=desc, color=color)
@@ -432,15 +507,7 @@ async def process_fm(ctx_int, user, compact=False):
         footer_text = f"Scrobbling as {username}"
         if cd > 0: footer_text += f" • Avatar CD: {cd}m"
         embed.set_footer(text=footer_text)
-
-        if compact:
-            # Single-line compact mode (plain text)
-            if is_p:
-                content = f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
-            else:
-                content = f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
-            return {"content": content, "view": MoreInfoView(embed)}, is_p
-
+        
         return {"embed": embed}, is_p
     except Exception as e: 
         print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
@@ -726,22 +793,23 @@ async def setfm_slash(interaction: discord.Interaction, username: str):
     await interaction.response.send_message(f"✅ Linked your Discord to Last.fm account: **{user_name}**", ephemeral=True)
 
 @bot.tree.command(name="fm", description="View what you are currently listening to")
-@app_commands.describe(mode="compact = one line, full = full embed (default)")
+@app_commands.describe(mode="Choose embed style")
 @app_commands.choices(mode=[
     app_commands.Choice(name="Full Embed", value="full"),
     app_commands.Choice(name="Compact (1 line)", value="compact"),
+    app_commands.Choice(name="Stats (Detailed)", value="stats"),
 ])
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def fm_slash(interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
     print(f"{Log.MAGENTA}>>> [/fm] Triggered by {interaction.user.name}{Log.RESET}")
     if mode is not None:
-        compact = mode.value == "compact"
+        m = mode.value
     else:
-        db_mode = await get_user_fm_mode(interaction.user.id)
-        compact = (db_mode == "compact")
+        m = await get_user_fm_mode(interaction.user.id)
+        if not m: m = "full"
     await interaction.response.defer()
-    result, is_p = await process_fm(interaction, interaction.user, compact=compact)
+    result, is_p = await process_fm(interaction, interaction.user, mode=m)
     if result is None:
         await interaction.followup.send(is_p)
     elif isinstance(result, dict):
@@ -829,18 +897,20 @@ async def crowns_slash(interaction: discord.Interaction):
 
 
 # --- PREFIX COMMAND ---
-@bot.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "np1", "np2"])
+@bot.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3"])
 async def fm_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: fm] Triggered by {ctx.author.name}{Log.RESET}")
     invoked = ctx.invoked_with
     if invoked in ["fm1", "np1"]:
-        compact = True
+        m = "compact"
     elif invoked in ["fm2", "np2"]:
-        compact = False
+        m = "full"
+    elif invoked in ["fm3", "np3"]:
+        m = "stats"
     else:
-        db_mode = await get_user_fm_mode(ctx.author.id)
-        compact = (db_mode == "compact")
-    result, is_p = await process_fm(ctx, ctx.author, compact=compact)
+        m = await get_user_fm_mode(ctx.author.id)
+        if not m: m = "full"
+    result, is_p = await process_fm(ctx, ctx.author, mode=m)
     if result is None:
         await ctx.send(is_p)
     elif isinstance(result, dict):
