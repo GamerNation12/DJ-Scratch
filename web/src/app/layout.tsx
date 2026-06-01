@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "The Goats DJ Dashboard",
   description: "Manage your profile and settings",
+  openGraph: {
+    title: "The Goats DJ Dashboard",
+    description: "Manage your profile and settings",
+  }
 };
 
 export default function RootLayout({
