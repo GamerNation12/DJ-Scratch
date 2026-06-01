@@ -465,6 +465,34 @@ class SettingsView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(SettingsDropdown())
 
+async def apply_features(session, artist, song):
+    import re
+    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
+    if m:
+        features = m.group(1).strip()
+        song = song.replace(m.group(0), "").strip()
+        return f"{artist}, {features}", song
+    
+    try:
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=1"
+        async with session.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data.get('resultCount', 0) > 0:
+                    it_artist = data['results'][0].get('artistName', '')
+                    it_track = data['results'][0].get('trackName', '')
+                    
+                    m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
+                    if m2:
+                        features = m2.group(1).strip()
+                        return f"{artist}, {features}", song
+                    elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower()):
+                        return it_artist, song
+    except Exception:
+        pass
+        
+    return artist, song
+
 # --- CORE LOGIC ---
 async def process_fm(ctx_int, user, mode="full"):
     username = get_lastfm_username(user.id)
@@ -481,12 +509,7 @@ async def process_fm(ctx_int, user, mode="full"):
         
         show_features = await get_user_show_features(user.id)
         if show_features:
-            import re
-            m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
-            if m:
-                features = m.group(1).strip()
-                song = song.replace(m.group(0), "").strip()
-                artist = f"{artist}, {features}"
+            artist, song = await apply_features(bot.session, artist, song)
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
@@ -516,12 +539,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
                 
                 if show_features:
-                    import re
-                    pm = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", p_song, flags=re.IGNORECASE)
-                    if pm:
-                        p_features = pm.group(1).strip()
-                        p_song = p_song.replace(pm.group(0), "").strip()
-                        p_artist = f"{p_artist}, {p_features}"
+                    p_artist, p_song = await apply_features(bot.session, p_artist, p_song)
                 
                 p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
                 desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
