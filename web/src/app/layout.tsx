@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     description: "Manage your profile and settings",
   },
   icons: {
-    icon: "/api/icon",
+    icon: "/api/icon?v=2",
   }
 };
 
