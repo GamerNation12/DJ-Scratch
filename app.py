@@ -399,6 +399,15 @@ async def fetch_artist_playcount(session, u, artist):
             return int(d['artist']['stats']['userplaycount']) if 'artist' in d else 0
     return 0
 
+class MoreInfoView(discord.ui.View):
+    def __init__(self, embed: discord.Embed):
+        super().__init__(timeout=None)
+        self.embed = embed
+
+    @discord.ui.button(label="More info", style=discord.ButtonStyle.secondary)
+    async def more_info(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(embed=self.embed, ephemeral=True)
+
 # --- CORE LOGIC ---
 async def process_fm(ctx_int, user, compact=False):
     username = get_lastfm_username(user.id)
@@ -415,13 +424,6 @@ async def process_fm(ctx_int, user, compact=False):
 
         changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
 
-        if compact:
-            # Single-line compact mode (plain text)
-            if is_p:
-                return f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
-            else:
-                return f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**", is_p
-
         desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
         embed = discord.Embed(description=desc, color=color)
         embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
@@ -430,7 +432,16 @@ async def process_fm(ctx_int, user, compact=False):
         footer_text = f"Scrobbling as {username}"
         if cd > 0: footer_text += f" • Avatar CD: {cd}m"
         embed.set_footer(text=footer_text)
-        return embed, is_p
+
+        if compact:
+            # Single-line compact mode (plain text)
+            if is_p:
+                content = f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
+            else:
+                content = f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+            return {"content": content, "view": MoreInfoView(embed)}, is_p
+
+        return {"embed": embed}, is_p
     except Exception as e: 
         print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
         return None, "Error formatting track."
@@ -733,11 +744,8 @@ async def fm_slash(interaction: discord.Interaction, mode: app_commands.Choice[s
     result, is_p = await process_fm(interaction, interaction.user, compact=compact)
     if result is None:
         await interaction.followup.send(is_p)
-    elif isinstance(result, str):
-        msg = await interaction.followup.send(result, wait=True)
-        if is_p: await add_custom_reactions(msg)
-    else:
-        msg = await interaction.followup.send(embed=result, wait=True)
+    elif isinstance(result, dict):
+        msg = await interaction.followup.send(wait=True, **result)
         if is_p: await add_custom_reactions(msg)
 
 @bot.tree.command(name="topartists", description="View your top played artists")
@@ -835,11 +843,8 @@ async def fm_prefix(ctx):
     result, is_p = await process_fm(ctx, ctx.author, compact=compact)
     if result is None:
         await ctx.send(is_p)
-    elif isinstance(result, str):
-        msg = await ctx.send(result)
-        if is_p: await add_custom_reactions(msg)
-    else:
-        msg = await ctx.send(embed=result)
+    elif isinstance(result, dict):
+        msg = await ctx.send(**result)
         if is_p: await add_custom_reactions(msg)
 
 
