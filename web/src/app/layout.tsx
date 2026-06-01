@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Goats DJ History Importer",
-  description: "Import your Spotify history",
+  title: "The Goats DJ Dashboard",
+  description: "Manage your profile and settings",
 };
 
 export default function RootLayout({
