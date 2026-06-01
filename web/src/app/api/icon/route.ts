@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
-export const revalidate = 0; // Prevent caching to ensure we always fetch the latest avatar
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
