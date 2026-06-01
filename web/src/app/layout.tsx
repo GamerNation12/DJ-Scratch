@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "The Goats DJ Dashboard",
     description: "Manage your profile and settings",
+  },
+  icons: {
+    icon: "/api/icon",
   }
 };
 

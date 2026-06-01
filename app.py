@@ -109,6 +109,15 @@ async def setup_hook():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE")
                 except Exception as e:
                     print(f"Failed to add show_features column: {e}")
+                    
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS global_settings (
+                        key VARCHAR(255) PRIMARY KEY,
+                        value TEXT
+                    )
+                    """
+                )
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
@@ -336,6 +345,16 @@ async def update_bot_avatar_and_status(artist, image_url):
                     await bot.user.edit(avatar=image_bytes)
                     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
                     print(f"{Log.GREEN}>>> Bot updated status & PFP for: {artist}{Log.RESET}")
+                    
+                    if db_pool:
+                        try:
+                            async with db_pool.acquire() as conn:
+                                await conn.execute(
+                                    "INSERT INTO global_settings (key, value) VALUES ('current_avatar', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                                    image_url
+                                )
+                        except Exception as e:
+                            print(f"{Log.RED}>>> Failed to update global_settings: {e}{Log.RESET}")
                     
                     cd_time = now + timedelta(minutes=10)
                     with open(COOLDOWN_FILE, "w") as f: f.write(cd_time.isoformat())
