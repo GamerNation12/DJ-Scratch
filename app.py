@@ -423,6 +423,16 @@ async def process_fm(ctx_int, user, mode="full"):
         tracks = data['recenttracks']['track']
         t = tracks[0]
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
+        
+        show_features = await get_user_show_features(user.id)
+        if show_features:
+            import re
+            m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
+            if m:
+                features = m.group(1).strip()
+                song = song.replace(m.group(0), "").strip()
+                artist = f"{artist}, {features}"
+                
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         status = "Now Playing" if is_p else "Last Played"
@@ -449,6 +459,15 @@ async def process_fm(ctx_int, user, mode="full"):
             if len(tracks) > 1:
                 prev_t = tracks[1]
                 p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
+                
+                if show_features:
+                    import re
+                    pm = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", p_song, flags=re.IGNORECASE)
+                    if pm:
+                        p_features = pm.group(1).strip()
+                        p_song = p_song.replace(pm.group(0), "").strip()
+                        p_artist = f"{p_artist}, {p_features}"
+                
                 p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
                 desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
             

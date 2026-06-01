@@ -156,8 +156,8 @@ export default function Home() {
               <div className="pt-6 border-t border-zinc-800/50">
                 <label className="flex items-center justify-between cursor-pointer group">
                   <div>
-                    <div className="text-base font-semibold text-zinc-300">Show Audio Features in /fm</div>
-                    <div className="text-sm text-zinc-500 mt-1">Toggle track features like stats.fm (BPM, Energy, Danceability) on your /fm embed.</div>
+                    <div className="text-base font-semibold text-zinc-300">Show Featured Artists in /fm</div>
+                    <div className="text-sm text-zinc-500 mt-1">Extract featured artists from the track name and display them alongside the main artist.</div>
                   </div>
                   <div className="relative ml-4">
                     <input 
