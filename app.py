@@ -172,34 +172,52 @@ async def db_fetch(query, *args):
         print(f"{Log.RED}>>> DB error: {e}{Log.RESET}")
         return []
 
-async def get_local_top_artists(user_id, limit=10, api_period='overall'):
+async def get_local_top_artists(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id=$1"]
+    args = [str(user_id)]
+    
     if days:
         since = datetime.utcnow() - timedelta(days=days)
-        rows = await db_fetch(
-            "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 AND played_at>=$2 GROUP BY artist_name ORDER BY plays DESC LIMIT $3",
-            str(user_id), since, limit
-        )
-    else:
-        rows = await db_fetch(
-            "SELECT artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 GROUP BY artist_name ORDER BY plays DESC LIMIT $2",
-            str(user_id), limit
-        )
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    if before_dt:
+        args.append(before_dt)
+        query_parts.append(f"played_at < ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
     return {r['artist_name']: r['plays'] for r in rows}
 
-async def get_local_top_tracks(user_id, limit=10, api_period='overall'):
+async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id=$1"]
+    args = [str(user_id)]
+    
     if days:
         since = datetime.utcnow() - timedelta(days=days)
-        rows = await db_fetch(
-            "SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 AND played_at>=$2 GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT $3",
-            str(user_id), since, limit
-        )
-    else:
-        rows = await db_fetch(
-            "SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE user_id=$1 GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT $2",
-            str(user_id), limit
-        )
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    if before_dt:
+        args.append(before_dt)
+        query_parts.append(f"played_at < ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
 
 async def get_local_total_plays(user_id):
@@ -403,12 +421,18 @@ async def process_top_artists(user, input_period=None):
     api_p, disp_p = get_period_data(input_period)
 
     lastfm_data = {}
+    reg_datetime = None
     if username:
+        # Fetch user profile to get registration date for deduplication
+        user_info = await fetch_user_profile(username)
+        if user_info and 'user' in user_info:
+            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            
         data = await fetch_top_artists(username, api_p)
         if data and 'topartists' in data:
             lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
-    local_data = await get_local_top_artists(user.id, 50, api_p)
+    local_data = await get_local_top_artists(user.id, 50, api_p, before_dt=reg_datetime)
 
     if not username and not local_data:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -431,14 +455,20 @@ async def process_top_tracks(user, input_period=None):
     api_p, disp_p = get_period_data(input_period)
 
     lastfm_tracks = {}  # (track, artist) -> plays
+    reg_datetime = None
     if username:
+        # Fetch user profile to get registration date for deduplication
+        user_info = await fetch_user_profile(username)
+        if user_info and 'user' in user_info:
+            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            
         data = await fetch_top_tracks(username, api_p)
         if data and 'toptracks' in data:
             for t in data['toptracks']['track']:
                 key = (t['name'], t['artist']['name'])
                 lastfm_tracks[key] = int(t['playcount'])
 
-    local_tracks = await get_local_top_tracks(user.id, 50, api_p)
+    local_tracks = await get_local_top_tracks(user.id, 50, api_p, before_dt=reg_datetime)
 
     if not username and not local_tracks:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
