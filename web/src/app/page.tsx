@@ -10,6 +10,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [fmMode, setFmMode] = useState<"compact" | "full">("full");
+  const [showFeatures, setShowFeatures] = useState<boolean>(false);
   const [updatingSettings, setUpdatingSettings] = useState(false);
 
   useEffect(() => {
@@ -17,8 +18,9 @@ export default function Home() {
       fetch("/api/settings")
         .then((res) => res.json())
         .then((data) => {
-          if (data && data.fmMode) {
-            setFmMode(data.fmMode);
+          if (data) {
+            if (data.fmMode) setFmMode(data.fmMode);
+            if (data.showFeatures !== undefined) setShowFeatures(data.showFeatures);
           }
         })
         .catch((err) => console.error("Error fetching settings:", err));
@@ -124,10 +126,32 @@ export default function Home() {
       });
       if (res.ok) {
         const data = await res.json();
-        setFmMode(data.fmMode);
+        if (data.fmMode) setFmMode(data.fmMode);
       }
     } catch (err) {
       console.error("Error updating settings:", err);
+    } finally {
+      setUpdatingSettings(false);
+    }
+  };
+
+  const handleToggleFeatures = async () => {
+    const newValue = !showFeatures;
+    setShowFeatures(newValue); // Optimistic update
+    setUpdatingSettings(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showFeatures: newValue }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setShowFeatures(!newValue);
+      }
+    } catch (err) {
+      console.error("Error updating feature settings:", err);
+      setShowFeatures(!newValue);
     } finally {
       setUpdatingSettings(false);
     }
@@ -230,6 +254,28 @@ export default function Home() {
                     <div className="text-xs text-zinc-500 font-normal mt-0.5">fm2 (detailed embed)</div>
                   </button>
                 </div>
+              </div>
+
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-zinc-800/50">
+                <label className="flex items-center justify-between cursor-pointer group">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-300">Show Audio Features in /fm</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">Toggle track features like stats.fm (BPM, Energy, Danceability) on your /fm embed.</div>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      checked={showFeatures}
+                      onChange={handleToggleFeatures}
+                      disabled={updatingSettings}
+                    />
+                    <div className={`block w-14 h-8 rounded-full transition-colors duration-300 ${showFeatures ? 'bg-emerald-500' : 'bg-zinc-700'}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 ${showFeatures ? 'transform translate-x-6' : ''}`}></div>
+                  </div>
+                </label>
               </div>
 
               <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-4 mt-2">

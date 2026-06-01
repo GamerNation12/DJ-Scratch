@@ -105,6 +105,10 @@ async def setup_hook():
                     )
                     """
                 )
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE")
+                except Exception as e:
+                    print(f"Failed to add show_features column: {e}")
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
@@ -124,6 +128,17 @@ async def get_user_fm_mode(user_id):
     except Exception as e:
         print(f"Error fetching user fm mode: {e}")
         return 'full'
+
+async def get_user_show_features(user_id):
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT show_features FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['show_features'] if row else False
+    except Exception as e:
+        print(f"Error fetching user show_features: {e}")
+        return False
 
 async def set_user_fm_mode(user_id, mode):
     if not db_pool:
@@ -189,6 +204,10 @@ async def get_local_top_tracks(user_id, limit=10, api_period='overall'):
 
 async def get_local_total_plays(user_id):
     rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1", str(user_id))
+    return rows[0]['total'] if rows else 0
+
+async def get_local_plays_before(user_id, before_dt):
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1 AND played_at < $2", str(user_id), before_dt)
     return rows[0]['total'] if rows else 0
 
 async def get_local_recent_tracks(user_id, limit=10):
@@ -472,14 +491,26 @@ async def process_profile(user):
             embed.title = f"{info['name']}'s Last.fm Profile"
             embed.url = info['url']
             lastfm_plays = int(info['playcount'])
-            total = lastfm_plays + local_total
+            
+            # Smart De-duplication of duplicate plays:
+            # We only count imported database plays that occurred BEFORE their Last.fm registration time.
+            # All plays after registration are already scrobbled and counted in lastfm_plays!
+            reg_unixtime = int(info['registered']['unixtime'])
+            reg_datetime = datetime.utcfromtimestamp(reg_unixtime)
+            local_unique = await get_local_plays_before(user.id, reg_datetime)
+            
+            total = lastfm_plays + local_unique
             embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
             if local_total > 0:
-                embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
+                embed.add_field(name="📦 Imported Plays (Unique)", value=f"**{local_unique:,}**", inline=True)
                 embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             country = info.get('country', 'Not Set')
             embed.add_field(name="🌍 Country", value=country if country and country != "None" else "Not set", inline=True)
             if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
+            
+            if local_total > 0:
+                overlap = local_total - local_unique
+                embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles during Last.fm overlap.")
     elif local_total > 0:
         embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
         embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/setfm`", inline=True)
