@@ -167,6 +167,24 @@ async def set_user_fm_mode(user_id, mode):
         print(f"Error saving user fm mode: {e}")
         return False
 
+async def set_user_show_features(user_id, show_features: bool):
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO user_settings (user_id, show_features)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET show_features = EXCLUDED.show_features
+                """,
+                str(user_id), show_features
+            )
+            return True
+    except Exception as e:
+        print(f"Error saving user show_features: {e}")
+        return False
+
 PERIOD_TO_DAYS = {
     '7day': 7, '1month': 30, '3month': 90, '6month': 180, '12month': 365
 }
@@ -409,6 +427,43 @@ class MoreInfoView(discord.ui.View):
     @discord.ui.button(label="More info", style=discord.ButtonStyle.secondary)
     async def more_info(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(embed=self.embed, ephemeral=True)
+
+async def get_settings_embed(user_id, user):
+    mode = await get_user_fm_mode(user_id)
+    feats = await get_user_show_features(user_id)
+    embed = discord.Embed(title=f"⚙️ Settings for {user.display_name}", color=LASTFM_COLOR)
+    embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
+    embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
+    embed.set_footer(text="Use the dropdown below to change your settings.")
+    return embed
+
+class SettingsDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📝", value="fm_compact"),
+            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="🖼️", value="fm_full"),
+            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="📊", value="fm_stats"),
+            discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="🎤", value="feat_on"),
+            discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
+        ]
+        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        val = self.values[0]
+        if val.startswith("fm_"):
+            mode = val.split("_")[1]
+            await set_user_fm_mode(interaction.user.id, mode)
+        elif val.startswith("feat_"):
+            on = (val == "feat_on")
+            await set_user_show_features(interaction.user.id, on)
+            
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class SettingsView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(SettingsDropdown())
 
 # --- CORE LOGIC ---
 async def process_fm(ctx_int, user, mode="full"):
@@ -917,6 +972,12 @@ async def crowns_slash(interaction: discord.Interaction):
 
 
 # --- PREFIX COMMAND ---
+@bot.command(name="settings")
+async def settings_prefix(ctx):
+    print(f"{Log.MAGENTA}>>> [Prefix: settings] Triggered by {ctx.author.name}{Log.RESET}")
+    embed = await get_settings_embed(ctx.author.id, ctx.author)
+    await ctx.send(embed=embed, view=SettingsView())
+
 @bot.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3"])
 async def fm_prefix(ctx):
     print(f"{Log.MAGENTA}>>> [Prefix: fm] Triggered by {ctx.author.name}{Log.RESET}")
