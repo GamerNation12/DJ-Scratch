@@ -110,6 +110,11 @@ async def setup_hook():
                 except Exception as e:
                     print(f"Failed to add show_features column: {e}")
                     
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined'")
+                except Exception as e:
+                    print(f"Failed to add data_source column: {e}")
+                    
                 await conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS global_settings (
@@ -183,6 +188,33 @@ async def set_user_show_features(user_id, show_features: bool):
             return True
     except Exception as e:
         print(f"Error saving user show_features: {e}")
+        return False
+
+async def get_user_data_source(user_id):
+    if not db_pool:
+        return 'combined'
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT data_source FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['data_source'] if row and row['data_source'] else 'combined'
+    except Exception as e:
+        return 'combined'
+
+async def set_user_data_source(user_id, source):
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO user_settings (user_id, data_source)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET data_source = EXCLUDED.data_source
+                """,
+                str(user_id), source
+            )
+            return True
+    except Exception as e:
         return False
 
 PERIOD_TO_DAYS = {
@@ -431,9 +463,14 @@ class MoreInfoView(discord.ui.View):
 async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
+    d_source = await get_user_data_source(user_id)
     embed = discord.Embed(title=f"⚙️ Settings for {user.display_name}", color=LASTFM_COLOR)
     embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
     embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
+    
+    source_label = "Imported Only" if d_source == 'imported_only' else "Last.fm + Imported"
+    embed.add_field(name="Data Source", value=f"`{source_label}`", inline=True)
+    
     embed.set_footer(text="Use the dropdown below to change your settings.")
     return embed
 
@@ -445,6 +482,8 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="📊", value="fm_stats"),
             discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="🎤", value="feat_on"),
             discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
+            discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
+            discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
         ]
         super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
 
@@ -456,6 +495,9 @@ class SettingsDropdown(discord.ui.Select):
         elif val.startswith("feat_"):
             on = (val == "feat_on")
             await set_user_show_features(interaction.user.id, on)
+        elif val.startswith("ds_"):
+            source = val[3:]
+            await set_user_data_source(interaction.user.id, source)
             
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)
@@ -609,6 +651,11 @@ async def process_fm(ctx_int, user, mode="full"):
 async def process_top_artists(user, input_period=None):
     username = get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
+    
+    d_source = await get_user_data_source(user.id)
+    if d_source == 'imported_only':
+        username = None
+
 
     lastfm_data = {}
     reg_datetime = None
@@ -643,6 +690,11 @@ async def process_top_artists(user, input_period=None):
 async def process_top_tracks(user, input_period=None):
     username = get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
+
+    d_source = await get_user_data_source(user.id)
+    if d_source == 'imported_only':
+        username = None
+
 
     lastfm_tracks = {}  # (track, artist) -> plays
     reg_datetime = None
@@ -697,6 +749,10 @@ async def process_recent(user):
 async def process_profile(user):
     username = get_lastfm_username(user.id)
     local_total = await get_local_total_plays(user.id)
+
+    d_source = await get_user_data_source(user.id)
+    if d_source == 'imported_only':
+        username = None
 
     if not username and local_total == 0:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
