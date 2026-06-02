@@ -3,11 +3,22 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 
+const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=8&scope=bot%20applications.commands";
+
 export default function Home() {
   const { data: session, status } = useSession();
   const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
   const [updatingSettings, setUpdatingSettings] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     if (session) {
@@ -22,25 +33,6 @@ export default function Home() {
         .catch((err) => console.error("Error fetching settings:", err));
     }
   }, [session]);
-
-  if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">Loading...</div>;
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-4">
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">The Goats DJ</h1>
-        <p className="text-zinc-400 mb-8 text-center max-w-md">Login with Discord to manage your profile and server settings.</p>
-        <button
-          onClick={() => signIn("discord")}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full transition-all duration-200 shadow-lg shadow-indigo-500/30 cursor-pointer"
-        >
-          Login with Discord
-        </button>
-      </div>
-    );
-  }
 
   const handleUpdateFmMode = async (mode: "compact" | "full" | "stats") => {
     setUpdatingSettings(true);
@@ -63,7 +55,7 @@ export default function Home() {
 
   const handleToggleFeatures = async () => {
     const newValue = !showFeatures;
-    setShowFeatures(newValue); // Optimistic update
+    setShowFeatures(newValue);
     setUpdatingSettings(true);
     try {
       const res = await fetch("/api/settings", {
@@ -72,7 +64,6 @@ export default function Home() {
         body: JSON.stringify({ showFeatures: newValue }),
       });
       if (!res.ok) {
-        // Revert on failure
         setShowFeatures(!newValue);
       }
     } catch (err) {
@@ -83,113 +74,270 @@ export default function Home() {
     }
   };
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
+        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-4 relative overflow-hidden">
-      {/* Decorative gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-500/5 rounded-full blur-[120px]" />
-
-      <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
-        <span className="text-zinc-400">Logged in as <strong className="text-white">{session.user?.name}</strong></span>
-        <button onClick={() => signOut()} className="text-sm bg-zinc-800 hover:bg-zinc-700 py-2 px-4 rounded-md transition-colors cursor-pointer">Sign Out</button>
-      </div>
-
-      <div className="max-w-2xl w-full z-10 mt-16 mb-8 text-center">
-        <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent mb-4">The Goats DJ Dashboard</h1>
-        <p className="text-zinc-400 text-lg">Manage your profile, customize your Discord layouts, and configure your experience.</p>
-      </div>
-
-      <div className="max-w-2xl w-full z-10">
-        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-8 shadow-2xl flex flex-col justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">⚙️ User Settings</h2>
-            <p className="text-zinc-400 text-sm mb-8">Customize your bot experience and default display modes.</p>
-
-            <div className="flex flex-col gap-8">
-              <div>
-                <label className="block text-sm font-semibold text-zinc-300 mb-3">Default /fm Display Layout</label>
-                <div className="grid grid-cols-3 gap-4">
-                  <button
-                    onClick={() => handleUpdateFmMode("compact")}
-                    disabled={updatingSettings}
-                    className={`py-6 px-4 rounded-xl font-medium border text-center transition-all duration-200 cursor-pointer ${
-                      fmMode === "compact"
-                        ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-lg shadow-indigo-500/5"
-                        : "bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 text-zinc-400"
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">📝</div>
-                    <div className="text-base font-bold">Compact Text</div>
-                    <div className="text-xs text-zinc-500 font-normal mt-1">fm1 (1-line)</div>
-                  </button>
-
-                  <button
-                    onClick={() => handleUpdateFmMode("full")}
-                    disabled={updatingSettings}
-                    className={`py-6 px-4 rounded-xl font-medium border text-center transition-all duration-200 cursor-pointer ${
-                      fmMode === "full"
-                        ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-lg shadow-indigo-500/5"
-                        : "bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 text-zinc-400"
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">🖼️</div>
-                    <div className="text-base font-bold">Full Embed</div>
-                    <div className="text-xs text-zinc-500 font-normal mt-1">fm2 (detailed)</div>
-                  </button>
-
-                  <button
-                    onClick={() => handleUpdateFmMode("stats")}
-                    disabled={updatingSettings}
-                    className={`py-6 px-4 rounded-xl font-medium border text-center transition-all duration-200 cursor-pointer ${
-                      fmMode === "stats"
-                        ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-lg shadow-indigo-500/5"
-                        : "bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 text-zinc-400"
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">📊</div>
-                    <div className="text-base font-bold">Stats View</div>
-                    <div className="text-xs text-zinc-500 font-normal mt-1">fm3 (stats.fm)</div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-zinc-800/50">
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <div>
-                    <div className="text-base font-semibold text-zinc-300">Show Featured Artists in /fm</div>
-                    <div className="text-sm text-zinc-500 mt-1">Extract featured artists from the track name and display them alongside the main artist.</div>
-                  </div>
-                  <div className="relative ml-4">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only" 
-                      checked={showFeatures}
-                      onChange={handleToggleFeatures}
-                      disabled={updatingSettings}
-                    />
-                    <div className={`block w-14 h-8 rounded-full transition-colors duration-300 ${showFeatures ? 'bg-emerald-500' : 'bg-zinc-700'}`}></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 ${showFeatures ? 'transform translate-x-6' : ''}`}></div>
-                  </div>
-                </label>
-              </div>
-
-              <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-5 mt-2">
-                <span className="text-zinc-400 text-sm leading-relaxed block">
-                  💡 <strong className="text-zinc-300">Tip:</strong> Even with a custom default set here, you can always override it in Discord by explicitly using <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm1</code>, <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm2</code>, or <code className="bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded">,fm3</code>!
-                </span>
-              </div>
+    <div className="min-h-screen bg-zinc-950 text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
+      {/* Decorative Background Elements */}
+      <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none z-0" />
+      <div className="fixed bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-emerald-600/10 rounded-full blur-[150px] pointer-events-none z-0" />
+      
+      {/* Navbar */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${isScrolled ? 'bg-zinc-950/80 backdrop-blur-xl border-white/10 py-4' : 'bg-transparent border-transparent py-6'}`}>
+        <div className="container mx-auto px-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <span className="font-black text-xl tracking-tighter">🐐</span>
             </div>
+            <span className="font-bold text-xl tracking-tight hidden sm:block">The Goats DJ</span>
           </div>
-
-          <div className="mt-8 border-t border-zinc-800/50 pt-6 flex items-center justify-between text-sm text-zinc-500">
-            <span>Linked with Discord</span>
-            <span className="text-emerald-400 flex items-center gap-2 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-              Settings Synced
-            </span>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <a href="#features" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden md:block">Features</a>
+            {session ? (
+              <a href="#dashboard" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden md:block">Dashboard</a>
+            ) : null}
+            
+            <a 
+              href={INVITE_LINK} 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all"
+            >
+              Invite Bot
+            </a>
+            
+            {session ? (
+              <div className="flex items-center gap-3 border-l border-white/10 pl-4 sm:pl-6">
+                <span className="text-sm font-medium hidden md:block">{session.user?.name}</span>
+                {session.user?.image && (
+                  <img src={session.user.image} alt="Avatar" className="w-8 h-8 rounded-full border border-white/20" />
+                )}
+                <button onClick={() => signOut()} className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors ml-2 cursor-pointer">
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => signIn("discord")} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-full transition-all shadow-lg shadow-indigo-500/25 ml-2 border border-indigo-400/20 cursor-pointer">
+                Login
+              </button>
+            )}
           </div>
         </div>
-      </div>
+      </header>
+
+      <main className="relative z-10 pt-32 pb-20">
+        {/* Hero Section */}
+        <section className="container mx-auto px-6 pt-16 pb-24 text-center flex flex-col items-center">
+          <div className="inline-block px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-sm font-medium mb-8 backdrop-blur-md">
+            ✨ The Ultimate Music Experience for Discord
+          </div>
+          <h1 className="text-5xl sm:text-6xl md:text-8xl font-extrabold tracking-tighter mb-6 leading-[1.1] max-w-5xl mx-auto">
+            Elevate Your Server's <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400">
+              Vibe & Stats
+            </span>
+          </h1>
+          <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+            The Goats DJ seamlessly integrates with Last.fm to bring your music tastes, detailed statistics, and customizable layouts straight to your Discord community.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <a 
+              href={INVITE_LINK}
+              target="_blank"
+              rel="noreferrer"
+              className="px-8 py-4 bg-white text-zinc-950 font-bold rounded-full text-lg hover:scale-105 transition-transform duration-300 shadow-[0_0_40px_rgba(255,255,255,0.3)] flex items-center gap-2"
+            >
+              <span>Add to Discord</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+            {session ? (
+              <a 
+                href="#dashboard"
+                className="px-8 py-4 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white font-semibold rounded-full text-lg transition-all duration-300 cursor-pointer"
+              >
+                Go to Dashboard
+              </a>
+            ) : (
+              <button 
+                onClick={() => signIn("discord")}
+                className="px-8 py-4 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white font-semibold rounded-full text-lg transition-all duration-300 cursor-pointer"
+              >
+                Login to Dashboard
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="container mx-auto px-6 py-24 border-t border-white/5">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why The Goats DJ?</h2>
+            <p className="text-zinc-400">Everything you need to show off your music.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {[
+              {
+                icon: "🎵",
+                title: "Deep Last.fm Integration",
+                desc: "Connect your Last.fm account to instantly share your current playing tracks, recent scrobbles, and top artists with your server."
+              },
+              {
+                icon: "🎨",
+                title: "Customizable Layouts",
+                desc: "Choose between compact text, beautiful full image embeds, or detailed statistics views. Make your \"/fm\" command truly yours."
+              },
+              {
+                icon: "⚡",
+                title: "Fast & Reliable",
+                desc: "Built with modern architecture to ensure your music stats load instantly without any delay, bringing a premium feel to your server."
+              }
+            ].map((feature, i) => (
+              <div key={i} className="bg-zinc-900/50 border border-zinc-800/50 p-8 rounded-3xl backdrop-blur-sm hover:bg-zinc-900 transition-colors">
+                <div className="text-4xl mb-6">{feature.icon}</div>
+                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+                <p className="text-zinc-400 leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Dashboard Section (Only shown if logged in) */}
+        {session && (
+          <section id="dashboard" className="container mx-auto px-6 py-24 border-t border-white/5 scroll-mt-24">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Your Dashboard</h2>
+                <p className="text-zinc-400">Manage your profile and customize your bot settings.</p>
+              </div>
+
+              <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-12 shadow-2xl relative overflow-hidden">
+                {/* Inner glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
+                
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-3">
+                  <span className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">⚙️</span>
+                  Display Preferences
+                </h3>
+                <p className="text-zinc-400 text-sm mb-10">Configure how your music is displayed when you use the bot commands.</p>
+
+                <div className="flex flex-col gap-10">
+                  {/* Layout Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-zinc-300 mb-4">Default /fm Display Layout</label>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <button
+                        onClick={() => handleUpdateFmMode("compact")}
+                        disabled={updatingSettings}
+                        className={`group relative overflow-hidden py-8 px-4 rounded-2xl font-medium border text-center transition-all duration-300 cursor-pointer ${
+                          fmMode === "compact"
+                            ? "bg-indigo-600/20 border-indigo-500 text-white shadow-[0_0_30px_rgba(99,102,241,0.15)]"
+                            : "bg-zinc-950/50 border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {fmMode === "compact" && <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />}
+                        <div className="text-3xl mb-3 transform group-hover:scale-110 transition-transform">📝</div>
+                        <div className="text-lg font-bold">Compact Text</div>
+                        <div className="text-sm text-zinc-500 mt-2">fm1 (1-line view)</div>
+                      </button>
+
+                      <button
+                        onClick={() => handleUpdateFmMode("full")}
+                        disabled={updatingSettings}
+                        className={`group relative overflow-hidden py-8 px-4 rounded-2xl font-medium border text-center transition-all duration-300 cursor-pointer ${
+                          fmMode === "full"
+                            ? "bg-indigo-600/20 border-indigo-500 text-white shadow-[0_0_30px_rgba(99,102,241,0.15)]"
+                            : "bg-zinc-950/50 border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {fmMode === "full" && <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />}
+                        <div className="text-3xl mb-3 transform group-hover:scale-110 transition-transform">🖼️</div>
+                        <div className="text-lg font-bold">Full Embed</div>
+                        <div className="text-sm text-zinc-500 mt-2">fm2 (detailed visual)</div>
+                      </button>
+
+                      <button
+                        onClick={() => handleUpdateFmMode("stats")}
+                        disabled={updatingSettings}
+                        className={`group relative overflow-hidden py-8 px-4 rounded-2xl font-medium border text-center transition-all duration-300 cursor-pointer ${
+                          fmMode === "stats"
+                            ? "bg-indigo-600/20 border-indigo-500 text-white shadow-[0_0_30px_rgba(99,102,241,0.15)]"
+                            : "bg-zinc-950/50 border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {fmMode === "stats" && <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />}
+                        <div className="text-3xl mb-3 transform group-hover:scale-110 transition-transform">📊</div>
+                        <div className="text-lg font-bold">Stats View</div>
+                        <div className="text-sm text-zinc-500 mt-2">fm3 (statistics)</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Feature Toggles */}
+                  <div className="pt-8 border-t border-white/5">
+                    <label className="flex items-center justify-between cursor-pointer group p-4 rounded-2xl hover:bg-white/[0.02] transition-colors -mx-4">
+                      <div className="pr-4 md:pr-8">
+                        <div className="text-lg font-semibold text-white mb-1">Show Featured Artists</div>
+                        <div className="text-sm text-zinc-400 leading-relaxed">Automatically extract featured artists from the track name and display them alongside the main artist in embeds.</div>
+                      </div>
+                      <div className="relative shrink-0">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only" 
+                          checked={showFeatures}
+                          onChange={handleToggleFeatures}
+                          disabled={updatingSettings}
+                        />
+                        <div className={`block w-16 h-9 rounded-full transition-colors duration-300 border ${showFeatures ? 'bg-emerald-500 border-emerald-400' : 'bg-zinc-800 border-zinc-700'}`}></div>
+                        <div className={`absolute left-1 top-1 bg-white w-7 h-7 rounded-full transition-transform duration-300 shadow-sm ${showFeatures ? 'transform translate-x-7' : ''}`}></div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-6 flex items-start gap-4">
+                    <div className="text-indigo-400 text-xl mt-1">💡</div>
+                    <p className="text-zinc-300 text-sm leading-relaxed">
+                      Even with a custom default set here, you can always override it directly in Discord by explicitly typing <code className="bg-black/40 text-emerald-400 px-2 py-1 rounded-md font-mono border border-white/10">,fm1</code>, <code className="bg-black/40 text-emerald-400 px-2 py-1 rounded-md font-mono border border-white/10">,fm2</code>, or <code className="bg-black/40 text-emerald-400 px-2 py-1 rounded-md font-mono border border-white/10">,fm3</code>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
+                  <div className="flex items-center gap-2">
+                    <span>Logged in as</span>
+                    <strong className="text-white">{session.user?.name}</strong>
+                  </div>
+                  <span className="text-emerald-400 flex items-center gap-2 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                    Settings Synced
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 bg-zinc-950 py-12 relative z-10">
+        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <span className="font-bold text-xl text-white">🐐</span>
+            <span className="font-semibold text-white">The Goats DJ</span>
+            <span className="text-sm">© {new Date().getFullYear()} All rights reserved.</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm font-medium text-zinc-500">
+            <a href="#" className="hover:text-white transition-colors">Terms</a>
+            <a href="#" className="hover:text-white transition-colors">Privacy</a>
+            <a href="https://discord.com" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Support Server</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
