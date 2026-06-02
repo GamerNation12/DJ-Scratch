@@ -876,6 +876,24 @@ async def stats_command(ctx):
     
     await ctx.send(embed=embed)
 
+@bot.command(name="cleanduplicates")
+async def clean_duplicates_command(ctx):
+    if ctx.author.id != OWNER_ID: return
+    msg = await ctx.send("🧹 Scanning database for bugged 'Account Data' duplicates (empty album names)...")
+    try:
+        if not db_pool:
+            await msg.edit(content="❌ Database is currently offline.")
+            return
+            
+        async with db_pool.acquire() as conn:
+            result = await conn.execute("DELETE FROM listens WHERE album_name = '' OR album_name IS NULL")
+            deleted_count = result.split()[-1] if result.startswith("DELETE") else "unknown number of"
+            
+        await msg.edit(content=f"✅ Successfully deleted **{deleted_count}** bugged duplicate entries! Users should re-import their Extended Streaming History if their plays are missing.")
+        print(f"{Log.GREEN}>>> Owner cleared {deleted_count} bugged duplicates.{Log.RESET}")
+    except Exception as e:
+        await msg.edit(content=f"❌ Failed to clean duplicates: {e}")
+
 # --- SLASH COMMANDS ---
 @bot.tree.command(name="setfm", description="Link your Last.fm username to the bot")
 @app_commands.allowed_installs(guilds=True, users=True)
@@ -1126,11 +1144,11 @@ def stream_parse_spotify_json(file_obj):
                         buffer = ""
 
 def parse_single_spotify_track(user, track):
-    artist = track.get("artistName") or track.get("master_metadata_album_artist_name")
-    title = track.get("trackName") or track.get("master_metadata_track_name")
+    artist = track.get("master_metadata_album_artist_name")
+    title = track.get("master_metadata_track_name")
     album = track.get("master_metadata_album_album_name") or ""
-    played_at_raw = track.get("endTime") or track.get("ts")
-    ms_played = track.get("msPlayed") or track.get("ms_played") or 0
+    played_at_raw = track.get("ts")
+    ms_played = track.get("ms_played") or 0
 
     if not artist or not title or not played_at_raw or ms_played < 30000:
         return None
@@ -1218,6 +1236,21 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         else:
             # Process ZIP file entry by entry from disk using our zero-RAM streaming parser
             with zipfile.ZipFile(temp_filepath) as z:
+                # fmbot logic: Reject Account Data packages which contain Userdata and lack album names
+                if any("userdata" in name.lower() for name in z.namelist()):
+                    try:
+                        os.remove(temp_filepath)
+                    except: pass
+                    
+                    embed = discord.Embed(
+                        title="❌ Invalid Export Package",
+                        description="You uploaded the **Account Data** package, which is missing album names and contains duplicates.\\n\\nPlease go to Spotify Privacy settings and request the **Extended streaming history** instead.",
+                        color=discord.Color.red(),
+                        timestamp=datetime.now()
+                    )
+                    await user.send(embed=embed)
+                    return
+
                 for filename in z.namelist():
                     if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
                         try:
