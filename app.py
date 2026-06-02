@@ -879,18 +879,30 @@ async def stats_command(ctx):
 @bot.command(name="cleanduplicates")
 async def clean_duplicates_command(ctx):
     if ctx.author.id != OWNER_ID: return
-    msg = await ctx.send("🧹 Scanning database for bugged 'Account Data' duplicates (empty album names)...")
+    msg = await ctx.send("🧹 Scanning database for bugged duplicates (Account Data & overlapping timestamps)...")
     try:
         if not db_pool:
             await msg.edit(content="❌ Database is currently offline.")
             return
             
         async with db_pool.acquire() as conn:
-            result = await conn.execute("DELETE FROM listens WHERE album_name = '' OR album_name IS NULL")
+            # 1. Delete empty album names
+            await conn.execute("DELETE FROM listens WHERE album_name = '' OR album_name IS NULL")
+            
+            # 2. Delete near-duplicates (same track played within 2 minutes due to Spotify export timestamp rounding)
+            result = await conn.execute("""
+                DELETE FROM listens a USING listens b
+                WHERE a.user_id = b.user_id 
+                  AND a.artist_name = b.artist_name 
+                  AND a.track_name = b.track_name 
+                  AND a.ctid > b.ctid 
+                  AND a.played_at >= b.played_at - interval '2 minutes' 
+                  AND a.played_at <= b.played_at + interval '2 minutes'
+            """)
             deleted_count = result.split()[-1] if result.startswith("DELETE") else "unknown number of"
             
-        await msg.edit(content=f"✅ Successfully deleted **{deleted_count}** bugged duplicate entries! Users should re-import their Extended Streaming History if their plays are missing.")
-        print(f"{Log.GREEN}>>> Owner cleared {deleted_count} bugged duplicates.{Log.RESET}")
+        await msg.edit(content=f"✅ Successfully deleted **{deleted_count}** time-window overlapping duplicate entries!")
+        print(f"{Log.GREEN}>>> Owner cleared {deleted_count} time-window duplicates.{Log.RESET}")
     except Exception as e:
         await msg.edit(content=f"❌ Failed to clean duplicates: {e}")
 
