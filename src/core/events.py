@@ -257,7 +257,7 @@ import zipfile
 import io
 import uuid
 from datetime import datetime
-from ..core.database import *
+from .database import *
 def stream_parse_spotify_json(file_obj):
     buffer = ""
     brace_count = 0
@@ -746,7 +746,7 @@ async def apply_features(session, artist, song):
 # --- CORE LOGIC ---
 import discord
 from datetime import datetime, timedelta
-from ..core.config import LASTFM_COLOR
+
 
 
 async def process_fm(ctx_int, user, mode="full"):

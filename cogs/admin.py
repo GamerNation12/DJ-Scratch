@@ -17,32 +17,7 @@ class Log:
 class AdminCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.server_renewal_reminder.start()
 
-    def cog_unload(self):
-        self.server_renewal_reminder.cancel()
-
-    @tasks.loop(hours=23)
-    async def server_renewal_reminder(self):
-        try:
-            channel_id = 1365542563188310046
-            channel = self.bot.get_channel(channel_id)
-            if not channel:
-                channel = await self.bot.fetch_channel(channel_id)
-                
-            embed = discord.Embed(
-                title="⏰ Server Renewal Reminder",
-                description="It's time to renew your server to keep it online!\n\n**[Click here to renew on fps.ms](https://panel.fps.ms/server/5be081c1)**",
-                color=discord.Color.brand_green()
-            )
-            await channel.send(content=f"<@{OWNER_ID}>", embed=embed)
-            print(f"{Log.GREEN}>>> Sent server renewal reminder to channel {channel_id}.{Log.RESET}")
-        except Exception as e:
-            print(f"{Log.RED}>>> Failed to send renewal reminder: {e}{Log.RESET}")
-
-    @server_renewal_reminder.before_loop
-    async def before_reminder(self):
-        await self.bot.wait_until_ready()
 
     @commands.command(name="sync")
     async def sync_commands(self, ctx):
