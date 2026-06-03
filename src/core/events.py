@@ -9,6 +9,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import asyncpg
+from ..utils.api import *
 
 # --- TERMINAL COLOR CODES ---
 class Log:
@@ -511,27 +512,7 @@ async def import_worker():
             import_queue.task_done()
             print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {user.name}.{Log.RESET}")
 
-@tasks.loop(hours=23)
-async def server_renewal_reminder():
-    try:
-        channel_id = 1365542563188310046
-        channel = bot.get_channel(channel_id)
-        if not channel:
-            channel = await bot.fetch_channel(channel_id)
-            
-        embed = discord.Embed(
-            title="⏰ Server Renewal Reminder",
-            description="It's time to renew your server to keep it online!\n\n**[Click here to renew on fps.ms](https://panel.fps.ms/server/5be081c1)**",
-            color=discord.Color.brand_green()
-        )
-        await channel.send(content=f"<@{OWNER_ID}>", embed=embed)
-        print(f"{Log.GREEN}>>> Sent server renewal reminder to channel {channel_id}.{Log.RESET}")
-    except Exception as e:
-        print(f"{Log.RED}>>> Failed to send renewal reminder: {e}{Log.RESET}")
 
-@server_renewal_reminder.before_loop
-async def before_reminder():
-    await bot.wait_until_ready()
 
 @bot.event
 async def on_ready():
@@ -545,9 +526,7 @@ async def on_ready():
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
     bot.loop.create_task(import_worker())
     
-    # Start the background tasks
-    if not server_renewal_reminder.is_running():
-        server_renewal_reminder.start()
+
 
 @bot.event
 async def on_guild_join(guild):
