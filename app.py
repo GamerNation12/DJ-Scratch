@@ -4,7 +4,7 @@ import aiohttp
 import json
 import asyncio
 import urllib.parse
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -294,6 +294,42 @@ async def get_local_recent_tracks(user_id, limit=10):
     )
     return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]
 
+import_queue = asyncio.Queue()
+
+async def import_worker():
+    while True:
+        user, temp_filepath, is_zip, response_target = await import_queue.get()
+        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {user.name} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
+        try:
+            await process_discord_import_in_background(user, temp_filepath, is_zip, response_target)
+        except Exception as e:
+            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {user.name}: {e}{Log.RESET}")
+        finally:
+            import_queue.task_done()
+            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {user.name}.{Log.RESET}")
+
+@tasks.loop(hours=23)
+async def server_renewal_reminder():
+    try:
+        channel_id = 1365542563188310046
+        channel = bot.get_channel(channel_id)
+        if not channel:
+            channel = await bot.fetch_channel(channel_id)
+            
+        embed = discord.Embed(
+            title="⏰ Server Renewal Reminder",
+            description="It's time to renew your server to keep it online!\n\n**[Click here to renew on fps.ms](https://panel.fps.ms/server/5be081c1)**",
+            color=discord.Color.brand_green()
+        )
+        await channel.send(content=f"<@{OWNER_ID}>", embed=embed)
+        print(f"{Log.GREEN}>>> Sent server renewal reminder to channel {channel_id}.{Log.RESET}")
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to send renewal reminder: {e}{Log.RESET}")
+
+@server_renewal_reminder.before_loop
+async def before_reminder():
+    await bot.wait_until_ready()
+
 @bot.event
 async def on_ready():
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
@@ -304,6 +340,11 @@ async def on_ready():
     print(f"{Log.YELLOW}>>> NOTE: Slash commands no longer auto-sync on boot.{Log.RESET}")
     print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
+    bot.loop.create_task(import_worker())
+    
+    # Start the background tasks
+    if not server_renewal_reminder.is_running():
+        server_renewal_reminder.start()
 
 @bot.event
 async def on_guild_join(guild):
@@ -1256,6 +1297,7 @@ async def insert_tracks_in_db(valid_tracks):
                     chunk
                 )
                 inserted_count += len(chunk)
+                print(f"{Log.CYAN}    >>> [IMPORT PROGRESS] Inserted chunk... ({inserted_count} tracks so far in this batch){Log.RESET}")
         except Exception as e:
             print(f"Error inserting database chunk: {e}")
     return inserted_count
@@ -1379,10 +1421,11 @@ async def handle_discord_import(user, attachment, response_target):
         # Save attachment directly to disk in streamed mode
         await attachment.save(temp_filepath)
         
-        # Start background import process
-        asyncio.create_task(process_discord_import_in_background(user, temp_filepath, is_zip, response_target))
+        # Add to import queue instead of processing immediately
+        await import_queue.put((user, temp_filepath, is_zip, response_target))
+        queue_pos = import_queue.qsize()
         
-        await response_target("✅ File received successfully! The bot has started importing your Spotify history in the background. You will receive a DM as soon as it is fully finished.")
+        await response_target(f"✅ File received successfully! You are currently position **#{queue_pos}** in the import queue. The bot will process your history in the background and DM you when finished.")
     except Exception as e:
         print(f"Error in handle_discord_import saving file: {e}")
         await response_target("❌ An error occurred while receiving your file.")
@@ -1393,7 +1436,8 @@ async def handle_discord_import_link(user, link, response_target):
         temp_filepath = f"temp_import_{user.id}_link.{'zip' if is_zip else 'json'}"
         
         await response_target("⏳ Downloading file from link... (This may take a moment for large files)")
-        async with aiohttp.ClientSession() as session:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(link) as resp:
                 if resp.status != 200:
                     await response_target("❌ Failed to download from the provided link. Please ensure it is a direct download link.")
@@ -1404,7 +1448,10 @@ async def handle_discord_import_link(user, link, response_target):
                         if not chunk: break
                         f.write(chunk)
         
-        asyncio.create_task(process_discord_import_in_background(user, temp_filepath, is_zip, response_target))
+        await import_queue.put((user, temp_filepath, is_zip, response_target))
+        queue_pos = import_queue.qsize()
+        
+        await response_target(f"✅ Link downloaded successfully! You are currently position **#{queue_pos}** in the import queue. The bot will DM you when finished.")
         
     except Exception as e:
         print(f"Error in handle_discord_import_link: {e}")
