@@ -102,6 +102,9 @@ export default function Home() {
             {session ? (
               <a href="#dashboard" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden md:block">Dashboard</a>
             ) : null}
+            {session && (session.user as any)?.id === "759433582107426816" && (
+              <a href="/admin" className="text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors hidden md:block">Admin Panel</a>
+            )}
             
             <a 
               href={INVITE_LINK} 
