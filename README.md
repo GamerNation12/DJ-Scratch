@@ -51,9 +51,13 @@ DISCORD_TOKEN=your_discord_bot_token_here
 # Database (Neon PostgreSQL)
 DATABASE_URL=postgres://user:pass@host/dbname
 POSTGRES_URL=postgres://user:pass@host/dbname
+
+# Last.fm API Keys
+LASTFM_API_KEY=your_lastfm_api_key
+LASTFM_API_SECRET=your_lastfm_api_secret
 ```
 
-> **Note**: Your Last.fm keys and your Discord User ID (for bot ownership) are safely stored in `src/core/config.py`. Make sure to update `OWNER_ID` to your personal Discord ID!
+> **Note**: Your Discord User ID (for bot ownership) is safely stored in `src/core/config.py`. Make sure to update `OWNER_ID` to your personal Discord ID!
 
 ### Step 3: Install Python Dependencies
 Install the required Python modules:
