@@ -878,7 +878,9 @@ async def process_fm(ctx_int, user, mode="full"):
         if img: embed.set_thumbnail(url=img)
         
         footer_text = f"Scrobbling as {username}"
-        if cd > 0: footer_text += f" • Avatar CD: {cd}m"
+        if cd > 0:
+            mins, secs = divmod(cd, 60)
+            footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
         return {"embed": embed}, is_p
@@ -1033,6 +1035,8 @@ async def process_profile(user):
 
     return embed, None
 async def process_whoknows(guild, user, artist_name):
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
     if not guild: return None, "Must be used in a server."
     users_db = load_users()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}

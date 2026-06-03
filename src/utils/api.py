@@ -3,6 +3,7 @@ import urllib.parse
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
 async def api_get(url):
+    from ..core.events import bot
     async with bot.session.get(url) as r:
         return await r.json() if r.status == 200 else None
 async def fetch_now_playing(u, l=1): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
