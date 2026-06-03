@@ -124,6 +124,27 @@ async def setup_hook():
                     )
                     """
                 )
+                
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
+                except Exception as e:
+                    print(f"Failed to add lastfm_username column: {e}")
+
+                # One-time migration
+                if os.path.exists("lastfm_users.json"):
+                    try:
+                        with open("lastfm_users.json", "r") as f:
+                            old_users = json.load(f)
+                        for uid, uname in old_users.items():
+                            await conn.execute(
+                                "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
+                                str(uid), uname
+                            )
+                        os.rename("lastfm_users.json", "lastfm_users.json.bak")
+                        print(f"{Log.GREEN}>>> Migrated lastfm_users.json to Postgres!{Log.RESET}")
+                    except Exception as e:
+                        print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
+
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
             bot.get_user_fm_mode = get_user_fm_mode
             bot.process_fm = process_fm
@@ -585,56 +606,47 @@ async def on_command_error(ctx, error):
     except: pass
 
 # --- HELPER: AVATAR & STATUS CHANGER ---
-async def update_bot_avatar_and_status(artist, image_url):
-    global avatar_cooldown_time
-    now = datetime.now()
-    
-    # Avoid changing avatar/presence if the bot is already listening to the same artist
+async def update_bot_avatar_and_status(bot_instance, artist, image_url):
+    global db_pool
     try:
-        if bot.activity and bot.activity.name == artist:
+        if bot_instance.activity and bot_instance.activity.name == artist:
             return False, 0
     except: pass
 
-    # Load persistent cooldown
-    if os.path.exists(COOLDOWN_FILE):
-        try:
-            with open(COOLDOWN_FILE, "r") as f:
-                saved = datetime.fromisoformat(f.read().strip())
-                if now < saved:
-                    total_seconds = int((saved - now).total_seconds())
-                    mins = total_seconds // 60
-                    secs = total_seconds % 60
-                    cd_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
-                    print(f"{Log.YELLOW}>>> Skipping avatar change. Cooldown active for {cd_str}.{Log.RESET}")
-                    return False, max(1, mins)
-        except: pass 
-
     if not image_url: return False, 0
-    print(f"{Log.CYAN}>>> Downloading album art for {artist}...{Log.RESET}")
+    now = datetime.utcnow()
+    
+    # Check cooldown in Postgres
+    if db_pool:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'avatar_cooldown'")
+            if row and row['value']:
+                try:
+                    last_update = datetime.fromisoformat(row['value'])
+                    diff = (now - last_update).total_seconds()
+                    if diff < 300:
+                        return False, int(300 - diff)
+                except: pass
+
     try:
-        async with bot.session.get(image_url) as response:
-            if response.status == 200:
-                    image_bytes = await response.read()
-                    await bot.user.edit(avatar=image_bytes)
-                    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
-                    print(f"{Log.GREEN}>>> Bot updated status & PFP for: {artist}{Log.RESET}")
-                    
-                    if db_pool:
-                        try:
-                            async with db_pool.acquire() as conn:
-                                await conn.execute(
-                                    "INSERT INTO global_settings (key, value) VALUES ('current_avatar', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                                    image_url
-                                )
-                        except Exception as e:
-                            print(f"{Log.RED}>>> Failed to update global_settings: {e}{Log.RESET}")
-                    
-                    cd_time = now + timedelta(minutes=10)
-                    with open(COOLDOWN_FILE, "w") as f: f.write(cd_time.isoformat())
-                    avatar_cooldown_time = cd_time
-                    return True, 0
-    except Exception as e: print(f"{Log.RED}>>> Avatar Changer Error: {e}{Log.RESET}")
+        async with getattr(bot_instance, 'session', aiohttp.ClientSession()).get(image_url) as resp:
+            if resp.status == 200:
+                image_data = await resp.read()
+                await bot_instance.user.edit(avatar=image_data)
+                await bot_instance.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
+                
+                # Update cooldown in Postgres
+                if db_pool:
+                    async with db_pool.acquire() as conn:
+                        await conn.execute(
+                            "INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                            now.isoformat()
+                        )
+                return True, 300
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to update avatar/status: {e}{Log.RESET}")
     return False, 0
+
 
 async def add_custom_reactions(message):
     try:
@@ -647,14 +659,24 @@ async def add_custom_reactions(message):
 def load_users():
     return json.load(open(USERS_FILE)) if os.path.exists(USERS_FILE) else {}
 
-def save_user(uid, username):
-    users = load_users()
-    users[str(uid)] = username
-    with open(USERS_FILE, "w") as f: json.dump(users, f)
-    print(f"{Log.CYAN}>>> Saved Last.fm user: {username} ({uid}){Log.RESET}")
+async def save_user(uid, username):
+    global db_pool
+    if not db_pool:
+        print(f"{Log.RED}>>> No database connection available to save user!{Log.RESET}")
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
+            str(uid), username
+        )
+    print(f"{Log.CYAN}>>> Saved Last.fm user to Postgres: {username} ({uid}){Log.RESET}")
 
-def get_lastfm_username(uid):
-    return load_users().get(str(uid))
+async def get_lastfm_username(uid):
+    global db_pool
+    if not db_pool: return None
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT lastfm_username FROM user_settings WHERE user_id = $1", str(uid))
+        return row['lastfm_username'] if row and row['lastfm_username'] else None
 
 # --- LAST.FM API FETCHERS ---
 
@@ -750,7 +772,10 @@ from datetime import datetime, timedelta
 
 
 async def process_fm(ctx_int, user, mode="full"):
-    username = get_lastfm_username(user.id)
+    bot_instance = getattr(ctx_int, 'client', getattr(ctx_int, 'bot', bot))
+    session = getattr(bot_instance, 'session', None)
+
+    username = await get_lastfm_username(user.id)
     if not username: return None, "Link Last.fm with `/setfm [username]`"
     
     data = await fetch_now_playing(username, 2 if mode == 'stats' else 1)
@@ -764,14 +789,14 @@ async def process_fm(ctx_int, user, mode="full"):
         
         show_features = await get_user_show_features(user.id)
         if show_features:
-            artist, song = await apply_features(bot.session, artist, song)
+            artist, song = await apply_features(session, artist, song)
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         status = "Now Playing" if is_p else "Last Played"
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
-        changed, cd = await update_bot_avatar_and_status(artist, img) if is_p else (False, 0)
+        changed, cd = await update_bot_avatar_and_status(bot_instance, artist, img) if is_p else (False, 0)
 
         if mode == "compact":
             if is_p:
@@ -794,7 +819,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
                 
                 if show_features:
-                    p_artist, p_song = await apply_features(bot.session, p_artist, p_song)
+                    p_artist, p_song = await apply_features(session, p_artist, p_song)
                 
                 p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
                 desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
@@ -813,7 +838,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
                 if linked:
                     async def fetch_crown():
-                        tasks = [(uid, lname, fetch_artist_playcount(bot.session, lname, artist)) for uid, lname in linked.items()]
+                        tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
                         results = await asyncio.gather(*(t[2] for t in tasks))
                         lb = [{"name": guild.get_member(int(tasks[i][0])).display_name if guild.get_member(int(tasks[i][0])) else tasks[i][1], "plays": pc} for i, pc in enumerate(results) if pc > 0]
                         if not lb: return None
@@ -861,7 +886,7 @@ async def process_fm(ctx_int, user, mode="full"):
         print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
         return None, "Error formatting track."
 async def process_top_artists(user, input_period=None):
-    username = get_lastfm_username(user.id)
+    username = await get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
     
     d_source = await get_user_data_source(user.id)
@@ -899,7 +924,7 @@ async def process_top_artists(user, input_period=None):
     embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p}){db_note}", icon_url=user.display_avatar.url)
     return embed, None
 async def process_top_tracks(user, input_period=None):
-    username = get_lastfm_username(user.id)
+    username = await get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
 
     d_source = await get_user_data_source(user.id)
@@ -940,7 +965,10 @@ async def process_top_tracks(user, input_period=None):
     embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p}){db_note}", icon_url=user.display_avatar.url)
     return embed, None
 async def process_recent(user):
-    username = get_lastfm_username(user.id)
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+
+    username = await get_lastfm_username(user.id)
     if username:
         data = await fetch_now_playing(username, 10)
         if data:
@@ -956,7 +984,10 @@ async def process_recent(user):
     embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
     return embed, None
 async def process_profile(user):
-    username = get_lastfm_username(user.id)
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+
+    username = await get_lastfm_username(user.id)
     local_total = await get_local_total_plays(user.id)
 
     d_source = await get_user_data_source(user.id)
@@ -1007,14 +1038,14 @@ async def process_whoknows(guild, user, artist_name):
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
     if not linked: return None, "No one in this server has linked their account."
     if not artist_name:
-        username = get_lastfm_username(user.id)
+        username = await get_lastfm_username(user.id)
         if not username: return None, "Link account or provide an artist name."
         np_data = await fetch_now_playing(username, 1)
         try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
         except: return None, "You aren't playing anything right now!"
 
     lb = []
-    tasks = [(uid, lname, fetch_artist_playcount(bot.session, lname, artist_name)) for uid, lname in linked.items()]
+    tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist_name)) for uid, lname in linked.items()]
     results = await asyncio.gather(*(t[2] for t in tasks))
     for idx, pc in enumerate(results):
         if pc > 0:
@@ -1047,8 +1078,11 @@ async def process_suggestion(ctx_int, user, suggestion_text):
     except Exception as e:
         print(f"{Log.RED}>>> Suggestion error: {e}{Log.RESET}")
 async def process_crowns(guild, user):
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+
     if not guild: return None, "Must be used in a server."
-    username = get_lastfm_username(user.id)
+    username = await get_lastfm_username(user.id)
     if not username: return None, "Link your account first with `/setfm [username]`"
     
     users_db = load_users()
@@ -1062,7 +1096,7 @@ async def process_crowns(guild, user):
     if not artists_to_check: return None, "You don't have any artists in your history!"
 
     async def check_artist(artist):
-        tasks = [(uid, fetch_artist_playcount(bot.session, lname, artist)) for uid, lname in linked.items()]
+        tasks = [(uid, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
         results = await asyncio.gather(*(t[1] for t in tasks))
         top_plays = max(results) if results else 0
         if top_plays > 0:
