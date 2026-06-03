@@ -747,7 +747,7 @@ async def apply_features(session, artist, song):
 import discord
 from datetime import datetime, timedelta
 from ..core.config import LASTFM_COLOR
-from .api import *
+
 
 async def process_fm(ctx_int, user, mode="full"):
     username = get_lastfm_username(user.id)
