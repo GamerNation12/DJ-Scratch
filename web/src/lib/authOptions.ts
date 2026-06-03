@@ -9,11 +9,8 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ profile }) {
-      if (profile && (profile as any).id === "759433582107426816") {
-        return true;
-      }
-      return false;
+    async signIn() {
+      return true;
     },
     async session({ session, token }) {
       if (session.user) {

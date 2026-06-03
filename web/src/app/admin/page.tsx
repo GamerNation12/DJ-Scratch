@@ -28,7 +28,7 @@ async function getStats() {
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
   
-  if (!session) {
+  if (!session || (session.user as any)?.id !== "759433582107426816") {
     redirect("/");
   }
 
