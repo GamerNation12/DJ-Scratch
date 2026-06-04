@@ -3,14 +3,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/authOptions";
 import { getDb } from "@/lib/db";
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb', // Base64 audio can be large
-    },
-  },
-};
-
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
