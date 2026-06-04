@@ -20,10 +20,7 @@ export async function POST(req: Request) {
     const sql = getDb();
     
     // Insert into Postgres
-    await sql(
-      `INSERT INTO voice_transmissions (channel_id, audio_base64, status) VALUES ($1, $2, 'PENDING')`,
-      [channelId, audioBase64]
-    );
+    await sql`INSERT INTO voice_transmissions (channel_id, audio_base64, status) VALUES (${channelId}, ${audioBase64}, 'PENDING')`;
 
     return NextResponse.json({ success: true });
   } catch (error) {
