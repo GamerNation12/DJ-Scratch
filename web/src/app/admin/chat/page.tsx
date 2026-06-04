@@ -49,6 +49,11 @@ interface Embed {
   author?: { name: string; icon_url?: string };
 }
 
+interface Reaction {
+  emoji: { name: string; id: string | null };
+  count: number;
+}
+
 interface Message {
   id: string;
   content: string;
@@ -56,6 +61,8 @@ interface Message {
   timestamp: string;
   attachments?: Attachment[];
   embeds?: Embed[];
+  reactions?: Reaction[];
+  referenced_message?: Message;
 }
 
 // --- Icons ---
@@ -102,6 +109,9 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [reactingTo, setReactingTo] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,7 +176,9 @@ export default function ChatPage() {
     if (!inputMessage.trim() || !selectedChannel) return;
 
     const content = inputMessage;
+    const replyToId = replyingTo?.id;
     setInputMessage("");
+    setReplyingTo(null);
     
     const optimisticMsg: Message = {
       id: Date.now().toString(),
@@ -181,12 +193,27 @@ export default function ChatPage() {
       const res = await fetch(`/api/admin/discord/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channelId: selectedChannel.id, content })
+        body: JSON.stringify({ channelId: selectedChannel.id, content, replyToId })
       });
       if (!res.ok) setError("Failed to send message. Might be rate limited.");
       fetchMessages();
     } catch (e) {
       setError("Network error sending message.");
+    }
+  };
+
+  const handleAddReaction = async (messageId: string, emoji: string) => {
+    setReactingTo(null);
+    try {
+      const res = await fetch("/api/admin/discord/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId: selectedChannel?.id, messageId, emoji })
+      });
+      if (!res.ok) setError("Failed to add reaction.");
+      fetchMessages();
+    } catch (e) {
+      setError("Network error adding reaction.");
     }
   };
 
@@ -411,13 +438,21 @@ export default function ChatPage() {
                 const isConsecutive = prevMsg && prevMsg.author.id === msg.author.id && (new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime() < 300000);
                 
                 return (
-                  <div key={msg.id} className={`group flex gap-4 hover:bg-[#2E3035] -mx-4 px-4 py-[2px] relative ${!isConsecutive ? 'mt-[17px]' : ''}`}>
+                  <div key={msg.id} className={`group flex gap-4 hover:bg-[#2E3035] -mx-4 px-4 py-[2px] relative ${!isConsecutive || msg.referenced_message ? 'mt-[17px]' : ''}`}>
                     {/* Hover Action Bar */}
                     <div className="absolute right-4 -top-4 bg-[#313338] border border-[#2B2D31] rounded-md shadow-sm hidden group-hover:flex items-center z-10">
-                      <div className="p-2 hover:bg-[#404249] cursor-pointer rounded-l-md text-[#B5BAC1] hover:text-[#DBDEE1]">
+                      <div className="p-2 hover:bg-[#404249] cursor-pointer rounded-l-md text-[#B5BAC1] hover:text-[#DBDEE1] relative" onClick={() => setReactingTo(reactingTo === msg.id ? null : msg.id)}>
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/></svg>
+                        {/* Mini Reaction Picker */}
+                        {reactingTo === msg.id && (
+                          <div className="absolute top-10 right-0 bg-[#2B2D31] border border-[#1E1F22] rounded-md p-2 flex gap-2 shadow-lg z-50">
+                            {['👍', '🔥', '😂', '❤️', '💀'].map(emoji => (
+                              <div key={emoji} onClick={(e) => { e.stopPropagation(); handleAddReaction(msg.id, emoji); }} className="hover:bg-[#404249] p-1 rounded text-xl">{emoji}</div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="p-2 hover:bg-[#404249] cursor-pointer text-[#B5BAC1] hover:text-[#DBDEE1]">
+                      <div className="p-2 hover:bg-[#404249] cursor-pointer text-[#B5BAC1] hover:text-[#DBDEE1]" onClick={() => setReplyingTo(msg)}>
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11 15H13V17H11V15ZM11 7H13V13H11V7ZM12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z"/></svg>
                       </div>
                       <div className="p-2 hover:bg-[#404249] cursor-pointer rounded-r-md text-[#B5BAC1] hover:text-[#DBDEE1]">
@@ -425,7 +460,7 @@ export default function ChatPage() {
                       </div>
                     </div>
 
-                    {!isConsecutive ? (
+                    {!isConsecutive || msg.referenced_message ? (
                       <img 
                         src={msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png` : "/logo.png"} 
                         className="w-10 h-10 rounded-full shrink-0 mt-0.5 cursor-pointer hover:shadow-lg" 
@@ -437,8 +472,18 @@ export default function ChatPage() {
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      {!isConsecutive && (
+                    <div className="min-w-0 flex-1 relative">
+                      {/* Replied Message Indicator */}
+                      {msg.referenced_message && (
+                        <div className="flex items-center gap-2 text-[#B5BAC1] text-xs mb-1 -ml-10 relative">
+                          <div className="w-8 h-4 border-l-2 border-t-2 border-[#4E5058] rounded-tl-md ml-4 mr-1 mt-2 shrink-0 opacity-50"></div>
+                          <img src={msg.referenced_message.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.referenced_message.author.id}/${msg.referenced_message.author.avatar}.png` : "/logo.png"} className="w-4 h-4 rounded-full" />
+                          <span className="font-medium hover:underline cursor-pointer">@{msg.referenced_message.author.username}</span>
+                          <span className="truncate flex-1 hover:text-[#DBDEE1] cursor-pointer" onClick={() => document.getElementById(msg.referenced_message?.id || "")?.scrollIntoView({ behavior: 'smooth' })}>{msg.referenced_message.content || 'Attachment'}</span>
+                        </div>
+                      )}
+
+                      {!isConsecutive || msg.referenced_message ? (
                         <div className="flex items-baseline gap-2 mb-1 leading-tight">
                           <span className="font-medium text-white hover:underline cursor-pointer">{msg.author.username}</span>
                           {msg.author.bot && <span className="bg-[#5865F2] text-white text-[10px] px-1 rounded-[3px] flex items-center font-bold tracking-wide">APP</span>}
@@ -446,7 +491,7 @@ export default function ChatPage() {
                             {new Date(msg.timestamp).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' })} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                      )}
+                      ) : null}
                       {msg.content && <div className="text-[#DBDEE1] leading-relaxed break-words whitespace-pre-wrap">{msg.content}</div>}
                       
                       {/* Attachments */}
@@ -485,6 +530,18 @@ export default function ChatPage() {
                           ))}
                         </div>
                       )}
+
+                      {/* Reactions */}
+                      {msg.reactions && msg.reactions.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {msg.reactions.map((react, rIdx) => (
+                            <div key={rIdx} className="bg-[#2B2D31] border border-[#1E1F22] hover:border-[#5865F2] hover:bg-[#3B3D44] cursor-pointer rounded-[4px] px-1.5 py-0.5 flex items-center gap-1.5 transition-colors">
+                              <span className="text-[14px]">{react.emoji.id ? <img src={`https://cdn.discordapp.com/emojis/${react.emoji.id}.png`} className="w-4 h-4 inline-block" /> : react.emoji.name}</span>
+                              <span className="text-[11px] font-bold text-[#B5BAC1]">{react.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -495,8 +552,18 @@ export default function ChatPage() {
         </div>
 
         {/* Chat Input Bar */}
-        <div className="px-4 pb-6 pt-0 shrink-0">
-          <form onSubmit={handleSendMessage} className="bg-[#383A40] rounded-lg flex items-start px-4 py-2.5">
+        <div className="px-4 pb-6 pt-0 shrink-0 relative">
+          {/* Reply Bar */}
+          {replyingTo && (
+            <div className="bg-[#2B2D31] rounded-t-lg px-4 py-2 flex items-center justify-between text-sm text-[#B5BAC1]">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Replying to <span className="text-[#DBDEE1]">@{replyingTo.author.username}</span></span>
+              </div>
+              <svg onClick={() => setReplyingTo(null)} className="w-5 h-5 cursor-pointer hover:text-[#DBDEE1]" fill="currentColor" viewBox="0 0 24 24"><path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z" /></svg>
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className={`bg-[#383A40] flex items-start px-4 py-2.5 ${replyingTo ? 'rounded-b-lg' : 'rounded-lg'}`}>
             <div className="p-1 mr-2 bg-[#B5BAC1] hover:bg-[#DBDEE1] text-[#383A40] rounded-full cursor-pointer flex-shrink-0 transition-colors">
                <Icons.Plus />
             </div>

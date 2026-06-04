@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { channelId, content } = await req.json();
+    const { channelId, content, replyToId } = await req.json();
 
     if (!channelId || !content) {
       return NextResponse.json({ error: "Missing channelId or content" }, { status: 400 });
@@ -69,13 +69,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing bot token" }, { status: 500 });
     }
 
+    const payload: any = { content };
+    if (replyToId) {
+      payload.message_reference = { message_id: replyToId };
+    }
+
     const discordRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: "POST",
       headers: {
         "Authorization": `Bot ${botToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(payload),
     });
 
     if (!discordRes.ok) {
