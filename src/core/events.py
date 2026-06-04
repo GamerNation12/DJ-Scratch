@@ -143,6 +143,18 @@ async def setup_hook():
                 
                 await conn.execute(
                     """
+                    CREATE TABLE IF NOT EXISTS voice_transmissions (
+                        id SERIAL PRIMARY KEY,
+                        channel_id VARCHAR(255) NOT NULL,
+                        audio_base64 TEXT NOT NULL,
+                        status VARCHAR(20) DEFAULT 'PENDING',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                
+                await conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS command_usage (
                         command_name VARCHAR(100) PRIMARY KEY,
                         usage_count INT DEFAULT 0
@@ -186,7 +198,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.admin_ipc']
+            cogs = ['cogs.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.voice_ipc']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
