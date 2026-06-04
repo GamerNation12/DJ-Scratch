@@ -12,17 +12,17 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { actionType } = body;
+    const { actionType, payload } = body;
 
-    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES"].includes(actionType)) {
+    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES", "SEND_MESSAGE"].includes(actionType)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     
     await pool.query(
-      "INSERT INTO bot_actions (action_type, status) VALUES ($1, 'PENDING')",
-      [actionType]
+      "INSERT INTO bot_actions (action_type, payload, status) VALUES ($1, $2, 'PENDING')",
+      [actionType, payload ? JSON.stringify(payload) : null]
     );
 
     await pool.end();

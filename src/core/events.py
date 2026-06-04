@@ -141,6 +141,11 @@ async def setup_hook():
                     """
                 )
                 
+                try:
+                    await conn.execute("ALTER TABLE bot_actions ADD COLUMN IF NOT EXISTS payload TEXT")
+                except Exception as e:
+                    pass
+                
                 await conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS command_usage (

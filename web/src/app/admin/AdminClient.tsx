@@ -61,6 +61,53 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
   );
 }
 
+function AdminSendMessageCard() {
+  const [channelId, setChannelId] = useState("");
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+
+  const handleSend = async () => {
+    if (!channelId || !content) return;
+    setLoading(true);
+    setStatus("idle");
+    try {
+      const res = await fetch("/api/admin/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionType: "SEND_MESSAGE", payload: { channelId, content } }),
+      });
+      if (res.ok) {
+        setStatus("success");
+        setContent("");
+        setTimeout(() => setStatus("idle"), 3000);
+      } else {
+        setStatus("error");
+      }
+    } catch (e) {
+      setStatus("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 lg:col-span-3">
+      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+        <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+        Send Message as Bot
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <input type="text" placeholder="Channel ID" value={channelId} onChange={(e) => setChannelId(e.target.value)} className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" />
+        <input type="text" placeholder="Message content..." value={content} onChange={(e) => setContent(e.target.value)} className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white md:col-span-2 focus:outline-none focus:border-indigo-500" />
+        <button onClick={handleSend} disabled={loading || !channelId || !content} className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold rounded-xl px-4 py-2 transition-all shadow-lg shadow-indigo-500/20">
+          {loading ? "Sending..." : status === "success" ? "Sent!" : "Send Message"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminClient({ data }: { data: any }) {
   const { data: session } = useSession();
   
@@ -153,8 +200,10 @@ export default function AdminClient({ data }: { data: any }) {
             </div>
           </div>
 
+          <AdminSendMessageCard />
+
           {/* Tables */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Top Commands */}
             <div className="bg-gray-900/30 border border-gray-800 rounded-2xl overflow-hidden">
               <div className="p-6 border-b border-gray-800 bg-gray-900/50">

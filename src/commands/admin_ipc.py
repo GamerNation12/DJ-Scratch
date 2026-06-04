@@ -26,14 +26,32 @@ class AdminIPC(commands.Cog):
         try:
             async with db_pool.acquire() as conn:
                 # Fetch pending actions
-                records = await conn.fetch("SELECT id, action_type FROM bot_actions WHERE status = 'PENDING' ORDER BY created_at ASC")
+                records = await conn.fetch("SELECT id, action_type, payload FROM bot_actions WHERE status = 'PENDING' ORDER BY created_at ASC")
                 for record in records:
                     action_id = record['id']
                     action_type = record['action_type']
+                    payload = record['payload']
                     
                     print(f"{Log.CYAN}>>> [IPC] Received action: {action_type}{Log.RESET}")
                     
-                    if action_type == 'SYNC_COMMANDS':
+                    if action_type == 'SEND_MESSAGE':
+                        try:
+                            data = json.loads(payload)
+                            channel_id = int(data.get("channelId"))
+                            content = data.get("content")
+                            channel = self.bot.get_channel(channel_id)
+                            if channel:
+                                await channel.send(content)
+                                print(f"{Log.GREEN}>>> [IPC] Sent message to channel {channel_id}{Log.RESET}")
+                                await conn.execute("UPDATE bot_actions SET status = 'COMPLETED' WHERE id = $1", action_id)
+                            else:
+                                print(f"{Log.RED}>>> [IPC] Channel {channel_id} not found{Log.RESET}")
+                                await conn.execute("UPDATE bot_actions SET status = 'ERROR' WHERE id = $1", action_id)
+                        except Exception as e:
+                            print(f"{Log.RED}>>> [IPC] Failed to send message: {e}{Log.RESET}")
+                            await conn.execute("UPDATE bot_actions SET status = 'ERROR' WHERE id = $1", action_id)
+                            
+                    elif action_type == 'SYNC_COMMANDS':
                         try:
                             synced = await self.bot.tree.sync()
                             print(f"{Log.GREEN}>>> Synced {len(synced)} commands via IPC!{Log.RESET}")
