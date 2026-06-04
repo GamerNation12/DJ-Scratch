@@ -57,6 +57,14 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             {session ? (
               <div className="flex items-center gap-4">
+                <a 
+                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=8&scope=bot%20applications.commands"
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="hidden md:flex text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all"
+                >
+                  Invite Bot
+                </a>
                 <div className="flex items-center gap-2">
                   <img
                     src={session.user?.image || ""}
@@ -75,12 +83,22 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link
-                href="/api/auth/signin"
-                className="px-5 py-2 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/20 transition-all"
-              >
-                Sign In
-              </Link>
+              <div className="flex items-center gap-4">
+                <a 
+                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=8&scope=bot%20applications.commands"
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="hidden md:flex text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all"
+                >
+                  Invite Bot
+                </a>
+                <Link
+                  href="/api/auth/signin"
+                  className="px-5 py-2 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/20 transition-all"
+                >
+                  Sign In
+                </Link>
+              </div>
             )}
           </div>
         </div>

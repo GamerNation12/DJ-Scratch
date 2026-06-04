@@ -88,51 +88,7 @@ export default function Home() {
       <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none z-0" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-emerald-600/10 rounded-full blur-[150px] pointer-events-none z-0" />
       
-      {/* Navbar */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${isScrolled ? 'bg-zinc-950/80 backdrop-blur-xl border-white/10 py-4' : 'bg-transparent border-transparent py-6'}`}>
-        <div className="container mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <span className="font-black text-xl tracking-tighter">🐐</span>
-            </div>
-            <span className="font-bold text-xl tracking-tight hidden sm:block">The Goats DJ</span>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <a href="#features" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden md:block">Features</a>
-            {session ? (
-              <a href="#dashboard" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden md:block">Dashboard</a>
-            ) : null}
-            {session && (session.user as any)?.id === "759433582107426816" && (
-              <a href="/admin" className="text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors hidden md:block">Admin Panel</a>
-            )}
-            
-            <a 
-              href={INVITE_LINK} 
-              target="_blank" 
-              rel="noreferrer"
-              className="text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all"
-            >
-              Invite Bot
-            </a>
-            
-            {session ? (
-              <div className="flex items-center gap-3 border-l border-white/10 pl-4 sm:pl-6">
-                <span className="text-sm font-medium hidden md:block">{session.user?.name}</span>
-                {session.user?.image && (
-                  <img src={session.user.image} alt="Avatar" className="w-8 h-8 rounded-full border border-white/20" />
-                )}
-                <button onClick={() => signOut()} className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors ml-2 cursor-pointer">
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => signIn("discord")} className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-full transition-all shadow-lg shadow-indigo-500/25 ml-2 border border-indigo-400/20 cursor-pointer">
-                Login
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+
 
       <main className="relative z-10 pt-32 pb-20">
         {/* Hero Section */}
