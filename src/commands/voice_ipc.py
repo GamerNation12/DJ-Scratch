@@ -33,8 +33,11 @@ class VoiceIPC(commands.Cog):
                     
                     try:
                         channel = self.bot.get_channel(int(row['channel_id']))
+                        if not channel:
+                            channel = await self.bot.fetch_channel(int(row['channel_id']))
+                            
                         if not channel or not isinstance(channel, discord.VoiceChannel):
-                            print(f"{Log.RED}>>> [VOICE IPC] Invalid or inaccessible voice channel.{Log.RESET}")
+                            print(f"{Log.RED}>>> [VOICE IPC] Invalid or inaccessible voice channel: {row['channel_id']}{Log.RESET}")
                             await conn.execute("UPDATE voice_transmissions SET status = 'FAILED' WHERE id = $1", row['id'])
                             return
 
