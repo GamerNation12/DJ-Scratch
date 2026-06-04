@@ -16,9 +16,11 @@ export default function Navbar() {
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold group-hover:scale-105 transition-transform">
-                G
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="The Goats DJ Logo" 
+                className="w-10 h-10 rounded-lg group-hover:scale-105 transition-transform"
+              />
               <span className="text-xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                 The Goats DJ
               </span>
