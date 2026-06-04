@@ -23,15 +23,22 @@ export async function GET() {
     });
 
     if (!discordRes.ok) {
-      const err = await discordRes.json();
-      console.error("Discord Guilds Error:", err);
-      return NextResponse.json({ error: "Failed to fetch guilds" }, { status: discordRes.status });
+      console.error(`Discord Guilds Error: ${discordRes.status} ${discordRes.statusText}`);
+      return NextResponse.json([]); // Return empty to prevent crashes
     }
 
-    const guilds = await discordRes.json();
-    return NextResponse.json(guilds);
+    const text = await discordRes.text();
+    if (!text) return NextResponse.json([]);
+    
+    try {
+      const guilds = JSON.parse(text);
+      if (!Array.isArray(guilds)) return NextResponse.json([]);
+      return NextResponse.json(guilds);
+    } catch (e) {
+      return NextResponse.json([]);
+    }
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("Internal Server Error fetching guilds:", error);
+    return NextResponse.json([]);
   }
 }

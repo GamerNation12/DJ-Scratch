@@ -31,15 +31,23 @@ export async function POST(req: Request) {
     });
 
     if (!discordRes.ok) {
-      const err = await discordRes.json();
-      console.error("Discord DM Error:", err);
+      const errText = await discordRes.text();
+      console.error("Discord DM Error:", errText);
       return NextResponse.json({ error: "Failed to open DM" }, { status: discordRes.status });
     }
 
-    const channel = await discordRes.json();
-    return NextResponse.json(channel);
+    const text = await discordRes.text();
+    if (!text) return NextResponse.json({ error: "Empty response from Discord" }, { status: 500 });
+    
+    try {
+      const channel = JSON.parse(text);
+      if (channel.message) return NextResponse.json({ error: channel.message }, { status: 400 });
+      return NextResponse.json(channel);
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid JSON from Discord" }, { status: 500 });
+    }
   } catch (error) {
-    console.error(error);
+    console.error("Internal Server Error opening DM:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

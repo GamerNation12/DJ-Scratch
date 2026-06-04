@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const discordRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+    const discordRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
       headers: {
         "Authorization": `Bot ${botToken}`,
       },
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     });
 
     if (!discordRes.ok) {
-      console.error(`Discord Channels Error: ${discordRes.status} ${discordRes.statusText}`);
+      console.error(`Discord Members Error: ${discordRes.status} ${discordRes.statusText}`);
       return NextResponse.json([]); // Prevent crash
     }
 
@@ -38,15 +38,14 @@ export async function GET(req: Request) {
     if (!text) return NextResponse.json([]);
 
     try {
-      const channels = JSON.parse(text);
-      if (!Array.isArray(channels)) return NextResponse.json([]);
-      const textChannels = channels.filter((c: any) => c.type === 0 || c.type === 5);
-      return NextResponse.json(textChannels);
+      const members = JSON.parse(text);
+      if (!Array.isArray(members)) return NextResponse.json([]);
+      return NextResponse.json(members);
     } catch (e) {
       return NextResponse.json([]);
     }
   } catch (error) {
-    console.error("Internal Server Error fetching channels:", error);
+    console.error("Internal Server Error fetching members:", error);
     return NextResponse.json([]);
   }
 }

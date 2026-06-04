@@ -30,16 +30,23 @@ export async function GET(req: Request) {
     });
 
     if (!discordRes.ok) {
-      const err = await discordRes.json();
-      console.error("Discord Messages Error:", err);
-      return NextResponse.json({ error: "Failed to fetch messages" }, { status: discordRes.status });
+      console.error(`Discord Messages Error: ${discordRes.status} ${discordRes.statusText}`);
+      return NextResponse.json([]); // Prevent crash
     }
 
-    const messages = await discordRes.json();
-    return NextResponse.json(messages);
+    const text = await discordRes.text();
+    if (!text) return NextResponse.json([]);
+
+    try {
+      const messages = JSON.parse(text);
+      if (!Array.isArray(messages)) return NextResponse.json([]);
+      return NextResponse.json(messages);
+    } catch (e) {
+      return NextResponse.json([]);
+    }
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("Internal Server Error fetching messages:", error);
+    return NextResponse.json([]);
   }
 }
 
@@ -72,15 +79,15 @@ export async function POST(req: Request) {
     });
 
     if (!discordRes.ok) {
-      const err = await discordRes.json();
-      console.error("Discord Send Error:", err);
+      const errText = await discordRes.text();
+      console.error("Discord Send Error:", errText);
       return NextResponse.json({ error: "Failed to send message" }, { status: discordRes.status });
     }
 
     const msg = await discordRes.json();
     return NextResponse.json(msg);
   } catch (error) {
-    console.error(error);
+    console.error("Internal Server Error sending message:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
