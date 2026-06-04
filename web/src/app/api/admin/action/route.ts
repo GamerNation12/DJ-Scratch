@@ -18,11 +18,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
+    if (actionType === "SEND_MESSAGE") {
+      const channelId = payload?.channelId;
+      const content = payload?.content;
+
+      if (!channelId || !content) {
+        return NextResponse.json({ error: "Missing channelId or content" }, { status: 400 });
+      }
+
+      const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
+      if (!botToken) {
+        console.error("No Discord Token found on Vercel!");
+        return NextResponse.json({ error: "Missing bot token" }, { status: 500 });
+      }
+
+      const discordRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!discordRes.ok) {
+        const errData = await discordRes.json();
+        console.error("Discord API Error:", errData);
+        return NextResponse.json({ error: "Failed to send message to Discord" }, { status: discordRes.status });
+      }
+
+      return NextResponse.json({ success: true, message: "Message sent directly via Discord API!" });
+    }
+
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     
     await pool.query(
-      "INSERT INTO bot_actions (action_type, payload, status) VALUES ($1, $2, 'PENDING')",
-      [actionType, payload ? JSON.stringify(payload) : null]
+      "INSERT INTO bot_actions (action_type, status) VALUES ($1, 'PENDING')",
+      [actionType]
     );
 
     await pool.end();
