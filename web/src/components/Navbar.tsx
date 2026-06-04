@@ -3,12 +3,26 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const [botMode, setBotMode] = useState(false);
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setBotMode(localStorage.getItem("botMode") === "true");
+    };
+    handleStorage();
+    window.addEventListener("botModeToggled", handleStorage);
+    return () => window.removeEventListener("botModeToggled", handleStorage);
+  }, []);
 
   const isAdmin = (session?.user as any)?.id === "759433582107426816";
+
+  const displayName = botMode ? "The Goats DJ" : session?.user?.name;
+  const displayImage = botMode ? "/logo.png" : session?.user?.image || "";
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800/50">
@@ -69,12 +83,12 @@ export default function Navbar() {
                 </a>
                 <div className="flex items-center gap-2">
                   <img
-                    src={session.user?.image || ""}
+                    src={displayImage}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full border border-gray-700"
                   />
                   <span className="text-sm font-medium text-gray-300 hidden sm:block">
-                    {session.user?.name}
+                    {displayName}
                   </span>
                 </div>
                 <button
