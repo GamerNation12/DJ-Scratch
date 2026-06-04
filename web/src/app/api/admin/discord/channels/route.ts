@@ -40,8 +40,7 @@ export async function GET(req: Request) {
     try {
       const channels = JSON.parse(text);
       if (!Array.isArray(channels)) return NextResponse.json([]);
-      const textChannels = channels.filter((c: any) => c.type === 0 || c.type === 5);
-      return NextResponse.json(textChannels);
+      return NextResponse.json(channels);
     } catch (e) {
       return NextResponse.json([]);
     }
