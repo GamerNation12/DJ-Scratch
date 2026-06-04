@@ -1,4 +1,5 @@
 import os
+os.system("pip install PyNaCl")
 from src.core.events import bot
 from dotenv import load_dotenv
 
