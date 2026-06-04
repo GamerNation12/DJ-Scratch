@@ -96,6 +96,11 @@ async def setup_hook():
     if db_url:
         try:
             db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require")
+            
+            # Pass the pool to the database module
+            import src.core.database as db_module
+            db_module.db_pool = db_pool
+            
             print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
             async with db_pool.acquire() as conn:
                 await conn.execute(
@@ -121,6 +126,26 @@ async def setup_hook():
                     CREATE TABLE IF NOT EXISTS global_settings (
                         key VARCHAR(255) PRIMARY KEY,
                         value TEXT
+                    )
+                    """
+                )
+                
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS bot_actions (
+                        id SERIAL PRIMARY KEY,
+                        action_type VARCHAR(50) NOT NULL,
+                        status VARCHAR(20) DEFAULT 'PENDING',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS command_usage (
+                        command_name VARCHAR(100) PRIMARY KEY,
+                        usage_count INT DEFAULT 0
                     )
                     """
                 )
@@ -161,7 +186,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings']
+            cogs = ['cogs.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.admin_ipc']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
@@ -175,95 +200,6 @@ async def setup_hook():
 bot.setup_hook = setup_hook
 
 db_pool = None
-
-async def get_user_fm_mode(user_id):
-    if not db_pool:
-        return 'full'
-    try:
-        async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT fm_mode FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['fm_mode'] if row else 'full'
-    except Exception as e:
-        print(f"Error fetching user fm mode: {e}")
-        return 'full'
-
-async def get_user_show_features(user_id):
-    if not db_pool:
-        return False
-    try:
-        async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT show_features FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['show_features'] if row else False
-    except Exception as e:
-        print(f"Error fetching user show_features: {e}")
-        return False
-
-async def set_user_fm_mode(user_id, mode):
-    if not db_pool:
-        return False
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO user_settings (user_id, fm_mode)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id) DO UPDATE SET fm_mode = EXCLUDED.fm_mode
-                """,
-                str(user_id), mode
-            )
-            return True
-    except Exception as e:
-        print(f"Error saving user fm mode: {e}")
-        return False
-
-async def set_user_show_features(user_id, show_features: bool):
-    if not db_pool:
-        return False
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO user_settings (user_id, show_features)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id) DO UPDATE SET show_features = EXCLUDED.show_features
-                """,
-                str(user_id), show_features
-            )
-            return True
-    except Exception as e:
-        print(f"Error saving user show_features: {e}")
-        return False
-
-async def get_user_data_source(user_id):
-    if not db_pool:
-        return 'combined'
-    try:
-        async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT data_source FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['data_source'] if row and row['data_source'] else 'combined'
-    except Exception as e:
-        return 'combined'
-
-async def set_user_data_source(user_id, source):
-    if not db_pool:
-        return False
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO user_settings (user_id, data_source)
-                VALUES ($1, $2)
-                ON CONFLICT (user_id) DO UPDATE SET data_source = EXCLUDED.data_source
-                """,
-                str(user_id), source
-            )
-            return True
-    except Exception as e:
-        return False
-
-PERIOD_TO_DAYS = {
-    '7day': 7, '1month': 30, '3month': 90, '6month': 180, '12month': 365
-}
 
 
 
@@ -590,20 +526,37 @@ async def notify_owner(ctx, err):
         await owner.send(embed=embed)
     except Exception as e: print(f"{Log.RED}>>> FAILED to notify owner: {e}{Log.RESET}")
 
-@bot.tree.error
-async def on_app_command_error(interaction, error):
-    cmd_name = interaction.command.name if interaction.command else (interaction.data.get("name") if interaction.data else "unknown")
-    await notify_owner(f"/{cmd_name}", error)
-    if not interaction.response.is_done(): 
-        try: await interaction.response.send_message("Whoops! Error notified.", ephemeral=True)
-        except: pass
-
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
     try: await ctx.send("Whoops! Error notified.")
     except: pass
+
+@bot.tree.error
+async def on_app_command_error_tree(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    cmd_name = interaction.command.name if interaction.command else "unknown"
+    await notify_owner(f"/{cmd_name}", error)
+    if not interaction.response.is_done(): 
+        try: await interaction.response.send_message("Whoops! Error notified.", ephemeral=True)
+        except: pass
+
+@bot.event
+async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
+    global db_pool
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO command_usage (command_name, usage_count)
+                VALUES ($1, 1)
+                ON CONFLICT (command_name) DO UPDATE SET usage_count = command_usage.usage_count + 1
+                """,
+                command.name
+            )
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to track command usage: {e}{Log.RESET}")
 
 # --- HELPER: AVATAR & STATUS CHANGER ---
 async def update_bot_avatar_and_status(bot_instance, artist, image_url):

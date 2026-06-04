@@ -1,7 +1,7 @@
 import json
 import os
 import asyncpg
-from .config import POSTGRES_URL, DATABASE_URL, USERS_FILE, Log
+from .config import POSTGRES_URL, DATABASE_URL, USERS_FILE, Log, PERIOD_TO_DAYS
 
 db_pool = None
 
@@ -49,9 +49,9 @@ async def get_user_fm_mode(user_id):
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT fm_mode FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['fm_mode'] if row else None
+            return row['fm_mode'] if row and row['fm_mode'] is not None else 'full'
     except Exception:
-        return None
+        return 'full'
 
 async def set_user_fm_mode(user_id, mode):
     if not db_pool: return
@@ -89,7 +89,7 @@ async def get_user_data_source(user_id):
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT data_source FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['data_source'] if row and row['data_source'] else 'combined'
+            return row['data_source'] if row and row['data_source'] is not None else 'combined'
     except Exception:
         return 'combined'
 
