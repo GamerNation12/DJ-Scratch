@@ -889,6 +889,11 @@ async def process_top_artists(user, input_period=None):
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     db_note = " *(Last.fm + Imported)*" if local_data else ""
     embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p}){db_note}", icon_url=user.display_avatar.url)
+    embed.set_thumbnail(url=user.display_avatar.url)
+    if username:
+        embed.set_footer(text=f"Scrobbling as {username}")
+    else:
+        embed.set_footer(text="Using Imported Data")
     return embed, None
 async def process_top_tracks(user, input_period=None):
     username = await get_lastfm_username(user.id)
@@ -930,6 +935,11 @@ async def process_top_tracks(user, input_period=None):
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     db_note = " *(Last.fm + Imported)*" if local_tracks else ""
     embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p}){db_note}", icon_url=user.display_avatar.url)
+    embed.set_thumbnail(url=user.display_avatar.url)
+    if username:
+        embed.set_footer(text=f"Scrobbling as {username}")
+    else:
+        embed.set_footer(text="Using Imported Data")
     return embed, None
 async def process_recent(user):
     bot_instance = bot
@@ -942,6 +952,8 @@ async def process_recent(user):
             lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
             embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
             embed.set_author(name=f"{user.display_name}'s Recent Tracks", icon_url=user.display_avatar.url)
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text=f"Scrobbling as {username}")
             return embed, None
     # Fallback to local DB
     local = await get_local_recent_tracks(user.id, 10)
@@ -949,7 +961,57 @@ async def process_recent(user):
     lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
+    embed.set_thumbnail(url=user.display_avatar.url)
+    embed.set_footer(text="Using Imported Data")
     return embed, None
+
+async def process_judge(user):
+    username = await get_lastfm_username(user.id)
+    recent_list = []
+    if username:
+        data = await fetch_now_playing(username, 30)
+        if data and 'recenttracks' in data and 'track' in data['recenttracks']:
+            recent_list = [f"{t['name']} by {t['artist']['#text']}" for t in data['recenttracks']['track'][:30]]
+            
+    if not recent_list:
+        local = await get_local_recent_tracks(user.id, 30)
+        if not local:
+            return None, "Link Last.fm with `/setfm [username]` or import history on the web portal to use the AI Judge."
+        recent_list = [f"{t} by {a}" for t, a, _ in local]
+
+    try:
+        from google import genai
+        from ..core.config import GEMINI_API_KEY
+        if not GEMINI_API_KEY:
+            return None, "Gemini API key is not configured!"
+            
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        prompt = (
+            "You are a harsh, sarcastic, and snobby music critic. "
+            "Roast the following recent music taste based on these recently played songs and artists. "
+            "Keep it funny, slightly mean, and under 1500 characters.\n\n"
+            "Recent Tracks:\n" + "\n".join(recent_list)
+        )
+        
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        roast_text = response.text
+        
+        embed = discord.Embed(
+            title="AI Music Judge 🧑‍⚖️",
+            description=roast_text,
+            color=LASTFM_COLOR,
+            timestamp=datetime.now()
+        )
+        embed.set_author(name=f"Judging {user.display_name}'s Taste", icon_url=user.display_avatar.url)
+        embed.set_footer(text="Powered by Google Gemini")
+        return embed, None
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        return None, "An error occurred while contacting the AI Judge. Try again later."
+
 async def process_profile(user):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
@@ -1026,6 +1088,7 @@ async def process_whoknows(guild, user, artist_name):
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
+    embed.set_thumbnail(url=user.display_avatar.url)
     
     footer_text = f"Requested by {user.name}"
     if lb[0]['name'] == user.display_name: footer_text = "👑 You hold the crown! • " + footer_text
@@ -1082,6 +1145,7 @@ async def process_crowns(guild, user):
     lines = [f"👑 **{artist}** — **{plays:,}** plays" for artist, plays in crowns]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{user.display_name}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
+    embed.set_thumbnail(url=user.display_avatar.url)
     embed.set_footer(text=f"Checked your top 15 artists")
     return embed, None
 

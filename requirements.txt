@@ -4,3 +4,5 @@ python-dotenv
 asyncpg
 ijson
 PyNaCl
+google-genai
+colorama

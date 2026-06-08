@@ -18,6 +18,7 @@ POSTGRES_URL = os.getenv("POSTGRES_URL")
 
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 USERS_FILE = "lastfm_users.json"
 COOLDOWN_FILE = "cooldowns.json"

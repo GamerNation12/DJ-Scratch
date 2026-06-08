@@ -110,7 +110,21 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_crowns(interaction.guild, interaction.user)
         await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
 
+    @app_commands.command(name="judge", description="Let an AI judge your recent music taste")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def judge_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_judge(interaction.user)
+        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+
     # --- PREFIX COMMANDS ---
+    @commands.command(name="setfm")
+    async def setfm_prefix(self, ctx, username: str):
+        user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
+        await self.bot.save_user(ctx.author.id, user_name)
+        await ctx.send(f"✅ Linked your Discord to Last.fm account: **{user_name}**")
+
     @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3"])
     async def fm_prefix(self, ctx):
         invoked = ctx.invoked_with
@@ -162,6 +176,11 @@ class LastFmCog(commands.Cog):
     @commands.command(name="crowns")
     async def crowns_prefix(self, ctx):
         embed, err = await self.bot.process_crowns(ctx.guild, ctx.author)
+        await ctx.send(embed=embed) if embed else await ctx.send(err)
+
+    @commands.command(name="judge")
+    async def judge_prefix(self, ctx):
+        embed, err = await self.bot.process_judge(ctx.author)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
 async def setup(bot):
