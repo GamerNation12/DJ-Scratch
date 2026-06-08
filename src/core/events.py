@@ -188,6 +188,7 @@ async def setup_hook():
             bot.process_top_artists = process_top_artists
             bot.process_top_tracks = process_top_tracks
             bot.process_recent = process_recent
+            bot.process_judge = process_judge
             bot.process_profile = process_profile
             bot.process_whoknows = process_whoknows
             bot.process_suggestion = process_suggestion
@@ -980,12 +981,10 @@ async def process_judge(user):
         recent_list = [f"{t} by {a}" for t, a, _ in local]
 
     try:
-        from google import genai
         from ..core.config import GEMINI_API_KEY
         if not GEMINI_API_KEY:
             return None, "Gemini API key is not configured!"
             
-        client = genai.Client(api_key=GEMINI_API_KEY)
         prompt = (
             "You are a harsh, sarcastic, and snobby music critic. "
             "Roast the following recent music taste based on these recently played songs and artists. "
@@ -993,11 +992,21 @@ async def process_judge(user):
             "Recent Tracks:\n" + "\n".join(recent_list)
         )
         
-        response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        roast_text = response.text
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        
+        bot_instance = bot
+        session = getattr(bot_instance, 'session', None)
+        if session is None:
+            import aiohttp
+            session = aiohttp.ClientSession()
+
+        async with session.post(url, json=payload) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                roast_text = data['candidates'][0]['content']['parts'][0]['text']
+            else:
+                return None, f"Gemini API returned status {resp.status}."
         
         embed = discord.Embed(
             title="AI Music Judge 🧑‍⚖️",
