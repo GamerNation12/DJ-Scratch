@@ -5,3 +5,4 @@ asyncpg
 ijson
 PyNaCl
 Pillow
+psutil
