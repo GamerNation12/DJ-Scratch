@@ -17,7 +17,9 @@ async def fetch_artist_playcount(session, u, artist):
     async with session.get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json") as r:
         if r.status == 200:
             d = await r.json()
-            return int(d['artist']['stats']['userplaycount']) if 'artist' in d else 0
+            if 'artist' in d and 'stats' in d['artist']:
+                return int(d['artist']['stats'].get('userplaycount', 0))
+            return 0
     return 0
 
 async def fetch_artist_top_tracks_global(artist, limit=50):
