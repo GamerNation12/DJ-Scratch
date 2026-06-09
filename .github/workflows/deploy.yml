@@ -44,7 +44,8 @@ jobs:
           req = urllib.request.Request(url, data=json.dumps({'signal': 'restart'}).encode(), headers={
               'Authorization': f'Bearer {ptero_key}',
               'Content-Type': 'application/json',
-              'Accept': 'Application/vnd.pterodactyl.v1+json'
+              'Accept': 'Application/vnd.pterodactyl.v1+json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
           })
           try:
               urllib.request.urlopen(req)
