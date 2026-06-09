@@ -19,3 +19,31 @@ async def fetch_artist_playcount(session, u, artist):
             d = await r.json()
             return int(d['artist']['stats']['userplaycount']) if 'artist' in d else 0
     return 0
+
+async def fetch_artist_top_tracks_global(artist, limit=50):
+    data = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist={urllib.parse.quote(artist)}&api_key={LASTFM_API_KEY}&format=json&limit={limit}")
+    if data and 'toptracks' in data:
+        return [t['name'] for t in data['toptracks']['track']]
+    return []
+
+async def fetch_user_artist_tracks_lastfm(u, artist):
+    # Fetch global top 40 tracks for the artist
+    top_tracks = await fetch_artist_top_tracks_global(artist, 40)
+    if not top_tracks: return []
+    
+    import asyncio
+    # Concurrently fetch track info for these tracks
+    tasks = [fetch_track_info(u, artist, t) for t in top_tracks]
+    results = await asyncio.gather(*tasks)
+    
+    user_tracks = []
+    for res in results:
+        if res and 'track' in res:
+            t_info = res['track']
+            pc = int(t_info.get('userplaycount', 0))
+            if pc > 0:
+                user_tracks.append((t_info['name'], pc))
+                
+    # Sort by user playcount descending
+    user_tracks.sort(key=lambda x: x[1], reverse=True)
+    return user_tracks

@@ -964,6 +964,66 @@ async def process_top_tracks(user, input_period=None):
     else:
         embed.set_footer(text="Using Imported Data")
     return embed, None
+
+async def process_artist_tracks(user, artist_name):
+    username = await get_lastfm_username(user.id)
+    d_source = await get_user_data_source(user.id)
+    if d_source == 'imported_only':
+        username = None
+
+    if not artist_name:
+        if not username: return None, "Link account or provide an artist name."
+        np_data = await fetch_now_playing(username, 1)
+        try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
+        except: return None, "You aren't playing anything right now and didn't provide an artist!"
+
+    lastfm_tracks = {}
+    reg_datetime = None
+    if username:
+        user_info = await fetch_user_profile(username)
+        if user_info and 'user' in user_info:
+            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            
+        tracks = await fetch_user_artist_tracks_lastfm(username, artist_name)
+        for t_name, playcount in tracks:
+            lastfm_tracks[t_name] = playcount
+
+    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 50, 'overall', before_dt=reg_datetime)
+
+    if not username and not local_tracks:
+        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+
+    combined = dict(lastfm_tracks)
+    for track_name, plays in local_tracks:
+        combined[track_name] = combined.get(track_name, 0) + plays
+
+    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
+    if not sorted_tracks: return None, f"No track data found for **{artist_name}**."
+
+    total_plays = sum(combined.values())
+    
+    # Optionally get accurate total plays from API if Last.fm is linked
+    if username:
+        bot_instance = bot
+        session = getattr(bot_instance, 'session', None)
+        api_plays = await fetch_artist_playcount(session, username, artist_name)
+        if api_plays > total_plays: total_plays = api_plays
+        elif local_tracks:
+            # Add imported data from before registration
+            local_artist_plays = sum(p for _, p in local_tracks)
+            total_plays = api_plays + local_artist_plays
+
+    lines = [f"`{idx+1}.` **{t}** - {c:,} plays" for idx, (t, c) in enumerate(sorted_tracks)]
+    
+    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    db_note = " *(Last.fm + Imported)*" if local_tracks else ""
+    embed.set_author(name=f"Your top tracks for '{artist_name}'{db_note}", icon_url=user.display_avatar.url)
+    
+    footer_text = f"Page 1/1 — {len(combined)} different tracks\n{user.display_name} has {total_plays:,} total artist plays"
+    embed.set_footer(text=footer_text)
+    
+    return embed, None
+
 async def process_recent(user):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
@@ -1243,6 +1303,7 @@ def get_help_embed(user):
         "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
         "`/topartists` (or `,ta`) - View your top played artists\n"
         "`/toptracks` (or `,tt`) - View your top played tracks\n"
+        "`/artisttracks` (or `,at`) - View your top played tracks for an artist\n"
         "`/recent` (or `,rt`) - View your recent listening history\n"
         "`/profile` (or `,s`) - View your Last.fm stats\n"
         "`/import` (or `,import`) - Upload your Spotify ZIP or JSON directly", inline=False)

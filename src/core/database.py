@@ -168,6 +168,33 @@ async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_d
         *args
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
+
+async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period='overall', before_dt=None):
+    from datetime import datetime, timedelta
+    from .config import PERIOD_TO_DAYS
+    days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id=$1", "LOWER(artist_name)=LOWER($2)"]
+    args = [str(user_id), artist_name]
+    
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    if before_dt:
+        args.append(before_dt)
+        query_parts.append(f"played_at < ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT track_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
+    return [(r['track_name'], r['plays']) for r in rows]
+
 async def get_local_total_plays(user_id):
     rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1", str(user_id))
     return rows[0]['total'] if rows else 0

@@ -106,6 +106,16 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_recent(interaction.user)
         await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
 
+    @app_commands.command(name="artisttracks", description="View your top played tracks for a specific artist")
+    @app_commands.describe(artist="The artist to check (leave blank to use current playing artist)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def at_slash(self, interaction: discord.Interaction, artist: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_artist_tracks(interaction.user, artist)
+        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+
+
     @app_commands.command(name="profile", description="View your Last.fm stats")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -193,6 +203,15 @@ class LastFmCog(commands.Cog):
     async def rt_prefix(self, ctx):
         embed, err = await self.bot.process_recent(ctx.author)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
+
+    @commands.command(name="at", aliases=["artisttracks"])
+    async def at_prefix(self, ctx, *, artist: str = None):
+        embed, err = await self.bot.process_artist_tracks(ctx.author, artist)
+        if embed:
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(err)
+
 
     @commands.command(name="s", aliases=["profile"])
     async def s_prefix(self, ctx):
