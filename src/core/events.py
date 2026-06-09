@@ -881,8 +881,6 @@ async def process_top_artists(user, input_period=None):
     api_p, disp_p = get_period_data(input_period)
     
     d_source = await get_user_data_source(user.id)
-    if d_source == 'imported_only':
-        username = None
 
 
     lastfm_data = {}
@@ -911,8 +909,7 @@ async def process_top_artists(user, input_period=None):
 
     lines = [f"{get_medal(idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(sorted_artists)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    db_note = " *(Last.fm + Imported)*" if local_data else ""
-    embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p}){db_note}", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p})", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
     if username:
         embed.set_footer(text=f"Scrobbling as {username}")
@@ -924,8 +921,6 @@ async def process_top_tracks(user, input_period=None):
     api_p, disp_p = get_period_data(input_period)
 
     d_source = await get_user_data_source(user.id)
-    if d_source == 'imported_only':
-        username = None
 
 
     lastfm_tracks = {}  # (track, artist) -> plays
@@ -957,8 +952,7 @@ async def process_top_tracks(user, input_period=None):
 
     lines = [f"{get_medal(idx)} **{t}** by {a} — **{c:,}** plays" for idx, ((t, a), c) in enumerate(sorted_tracks)]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    db_note = " *(Last.fm + Imported)*" if local_tracks else ""
-    embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p}){db_note}", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p})", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
     if username:
         embed.set_footer(text=f"Scrobbling as {username}")
@@ -991,8 +985,7 @@ class ArtistTracksPaginator(discord.ui.View):
         lines = [f"`{start + idx + 1}.` **{t}** - {c:,} plays" for idx, (t, c) in enumerate(page_tracks)]
         
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-        db_note = " *(Last.fm + Imported)*" if self.local_tracks_present else ""
-        embed.set_author(name=f"Your top tracks for '{self.artist_name}'{db_note}", icon_url=self.user.display_avatar.url)
+        embed.set_author(name=f"Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
         
         footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{self.user.display_name} has {self.total_plays:,} total artist plays"
         embed.set_footer(text=footer_text)
@@ -1017,8 +1010,6 @@ class ArtistTracksPaginator(discord.ui.View):
 async def process_artist_tracks(user, artist_name):
     username = await get_lastfm_username(user.id)
     d_source = await get_user_data_source(user.id)
-    if d_source == 'imported_only':
-        username = None
 
     if not artist_name:
         if not username: return None, None, "Link account or provide an artist name."
@@ -1203,8 +1194,6 @@ async def process_profile(user):
     local_total = await get_local_total_plays(user.id)
 
     d_source = await get_user_data_source(user.id)
-    if d_source == 'imported_only':
-        username = None
 
     if not username and local_total == 0:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
