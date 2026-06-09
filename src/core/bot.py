@@ -32,7 +32,7 @@ class GoatsBot(commands.Bot):
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
         # Load extensions
-        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer']
+        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
