@@ -966,6 +966,54 @@ async def process_top_tracks(user, input_period=None):
         embed.set_footer(text="Using Imported Data")
     return embed, None
 
+class ArtistTracksPaginator(discord.ui.View):
+    def __init__(self, user, artist_name, sorted_tracks, total_plays, local_tracks_present):
+        super().__init__(timeout=180)
+        self.user = user
+        self.artist_name = artist_name
+        self.sorted_tracks = sorted_tracks
+        self.total_plays = total_plays
+        self.local_tracks_present = local_tracks_present
+        self.current_page = 0
+        self.items_per_page = 10
+        self.max_pages = max(1, (len(sorted_tracks) + self.items_per_page - 1) // self.items_per_page)
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.prev_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page >= self.max_pages - 1
+
+    def generate_embed(self):
+        start = self.current_page * self.items_per_page
+        end = start + self.items_per_page
+        page_tracks = self.sorted_tracks[start:end]
+
+        lines = [f"`{start + idx + 1}.` **{t}** - {c:,} plays" for idx, (t, c) in enumerate(page_tracks)]
+        
+        embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+        db_note = " *(Last.fm + Imported)*" if self.local_tracks_present else ""
+        embed.set_author(name=f"Your top tracks for '{self.artist_name}'{db_note}", icon_url=self.user.display_avatar.url)
+        
+        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{self.user.display_name} has {self.total_plays:,} total artist plays"
+        embed.set_footer(text=footer_text)
+        return embed
+
+    @discord.ui.button(label="<", style=discord.ButtonStyle.secondary, custom_id="prev")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label=">", style=discord.ButtonStyle.secondary, custom_id="next")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
 async def process_artist_tracks(user, artist_name):
     username = await get_lastfm_username(user.id)
     d_source = await get_user_data_source(user.id)
@@ -973,10 +1021,10 @@ async def process_artist_tracks(user, artist_name):
         username = None
 
     if not artist_name:
-        if not username: return None, "Link account or provide an artist name."
+        if not username: return None, None, "Link account or provide an artist name."
         np_data = await fetch_now_playing(username, 1)
         try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
-        except: return None, "You aren't playing anything right now and didn't provide an artist!"
+        except: return None, None, "You aren't playing anything right now and didn't provide an artist!"
 
     lastfm_tracks = {}
     reg_datetime = None
@@ -989,17 +1037,17 @@ async def process_artist_tracks(user, artist_name):
         for t_name, playcount in tracks:
             lastfm_tracks[t_name] = playcount
 
-    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 50, 'overall', before_dt=reg_datetime)
+    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=reg_datetime)
 
     if not username and not local_tracks:
-        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
         combined[track_name] = combined.get(track_name, 0) + plays
 
-    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
-    if not sorted_tracks: return None, f"No track data found for **{artist_name}**."
+    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+    if not sorted_tracks: return None, None, f"No track data found for **{artist_name}**."
 
     total_plays = sum(combined.values())
     
@@ -1014,16 +1062,10 @@ async def process_artist_tracks(user, artist_name):
             local_artist_plays = sum(p for _, p in local_tracks)
             total_plays = api_plays + local_artist_plays
 
-    lines = [f"`{idx+1}.` **{t}** - {c:,} plays" for idx, (t, c) in enumerate(sorted_tracks)]
+    view = ArtistTracksPaginator(user, artist_name, sorted_tracks, total_plays, bool(local_tracks))
+    embed = view.generate_embed()
     
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    db_note = " *(Last.fm + Imported)*" if local_tracks else ""
-    embed.set_author(name=f"Your top tracks for '{artist_name}'{db_note}", icon_url=user.display_avatar.url)
-    
-    footer_text = f"Page 1/1 — {len(combined)} different tracks\n{user.display_name} has {total_plays:,} total artist plays"
-    embed.set_footer(text=footer_text)
-    
-    return embed, None
+    return embed, view, None
 
 async def process_recent(user):
     bot_instance = bot

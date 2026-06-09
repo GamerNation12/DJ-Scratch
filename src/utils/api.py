@@ -29,8 +29,8 @@ async def fetch_artist_top_tracks_global(artist, limit=50):
     return []
 
 async def fetch_user_artist_tracks_lastfm(u, artist):
-    # Fetch global top 40 tracks for the artist
-    top_tracks = await fetch_artist_top_tracks_global(artist, 40)
+    # Fetch global top 100 tracks for the artist
+    top_tracks = await fetch_artist_top_tracks_global(artist, 100)
     if not top_tracks: return []
     
     import asyncio

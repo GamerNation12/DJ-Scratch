@@ -142,8 +142,11 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def at_slash(self, interaction: discord.Interaction, artist: str = None):
         await interaction.response.defer()
-        embed, err = await self.bot.process_artist_tracks(interaction.user, artist)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        embed, view, err = await self.bot.process_artist_tracks(interaction.user, artist)
+        if err:
+            await interaction.followup.send(err)
+        else:
+            await interaction.followup.send(embed=embed, view=view)
 
 
     @app_commands.command(name="profile", description="View your Last.fm stats")
@@ -244,11 +247,11 @@ class LastFmCog(commands.Cog):
     @commands.command(name="at", aliases=["artisttracks"])
     async def at_prefix(self, ctx, *, args: str = None):
         target_user, artist = await get_target_user(ctx, args)
-        embed, err = await self.bot.process_artist_tracks(target_user, artist)
-        if embed:
-            await ctx.send(embed=embed)
-        else:
+        embed, view, err = await self.bot.process_artist_tracks(target_user, artist)
+        if err:
             await ctx.send(err)
+        else:
+            await ctx.send(embed=embed, view=view)
 
 
     @commands.command(name="s", aliases=["profile"])
