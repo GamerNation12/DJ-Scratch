@@ -178,10 +178,22 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_crowns(ctx.guild, ctx.author)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
-    @commands.command(name="judge")
+    @commands.command(name="judge", aliases=["roast"])
     async def judge_prefix(self, ctx):
         embed, err = await self.bot.process_judge(ctx.author)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
+
+    @commands.command(name="receipt")
+    async def receipt_prefix(self, ctx, period: str = 'overall'):
+        # Map period aliases
+        period_map = {'7d': '7day', '1m': '1month', '3m': '3month', '6m': '6month', '12m': '12month', 'y': '12month', 'all': 'overall'}
+        p = period_map.get(period.lower(), period.lower())
+        
+        embed, file, err = await self.bot.process_receipt(ctx.author, p, 10)
+        if err:
+            await ctx.send(err)
+        else:
+            await ctx.send(embed=embed, file=file)
 
 async def setup(bot):
     await bot.add_cog(LastFmCog(bot))

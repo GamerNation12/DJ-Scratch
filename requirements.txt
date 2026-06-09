@@ -4,3 +4,4 @@ python-dotenv
 asyncpg
 ijson
 PyNaCl
+Pillow

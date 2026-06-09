@@ -774,7 +774,13 @@ async def process_fm(ctx_int, user, mode="full"):
             embed = discord.Embed(description=desc, color=color)
             embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
-            embed.set_footer(text=f"Scrobbling as {username}")
+            
+            footer_text = f"Scrobbling as {username}"
+            if cd > 0:
+                m, s = divmod(int(cd), 60)
+                footer_text += f" • Avatar CD: {m}m {s}s"
+                
+            embed.set_footer(text=footer_text)
             return {"content": content, "view": MoreInfoView(embed)}, is_p
 
         if mode == "stats":
@@ -968,57 +974,106 @@ async def process_recent(user):
 
 async def process_judge(user):
     username = await get_lastfm_username(user.id)
-    recent_list = []
+    
+    # 1. Gather Top 14 Artists
+    artists_dict = {}
     if username:
-        data = await fetch_now_playing(username, 30)
-        if data and 'recenttracks' in data and 'track' in data['recenttracks']:
-            recent_list = [f"{t['name']} by {t['artist']['#text']}" for t in data['recenttracks']['track'][:30]]
-            
-    if not recent_list:
-        local = await get_local_recent_tracks(user.id, 30)
-        if not local:
-            return None, "Link Last.fm with `/setfm [username]` or import history on the web portal to use the AI Judge."
-        recent_list = [f"{t} by {a}" for t, a, _ in local]
+        data = await fetch_top_artists(username, 'overall', 50)
+        if data and 'topartists' in data:
+            for a in data['topartists']['artist']:
+                artists_dict[a['name']] = int(a['playcount'])
+    
+    local_artists = await get_local_top_artists(user.id, 50, 'overall')
+    for a, c in local_artists.items():
+        artists_dict[a] = artists_dict.get(a, 0) + c
+        
+    top_artists = sorted(artists_dict.items(), key=lambda x: x[1], reverse=True)[:14]
+    
+    # 2. Gather Top 16 Tracks
+    tracks_dict = {}
+    if username:
+        data = await fetch_top_tracks(username, 'overall', 50)
+        if data and 'toptracks' in data:
+            for t in data['toptracks']['track']:
+                key = (t['name'], t['artist']['name'])
+                tracks_dict[key] = int(t['playcount'])
+                
+    local_tracks = await get_local_top_tracks(user.id, 50, 'overall')
+    for t_name, a_name, plays in local_tracks:
+        key = (t_name, a_name)
+        tracks_dict[key] = tracks_dict.get(key, 0) + plays
+
+    top_tracks = sorted(tracks_dict.items(), key=lambda x: x[1], reverse=True)[:16]
+
+    if not top_artists and not top_tracks:
+        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal to use the AI Judge."
+
+    # Format the data exactly like fmbot
+    artist_lines = [f"{a[:40]} - {c} plays" for a, c in top_artists]
+    track_lines = [f"{t[:50]} by {a[:40]} - {c} plays" for (t, a), c in top_tracks]
+    
+    user_data = "My top artists:\n" + "\n".join(artist_lines) + "\n\nMy top tracks:\n" + "\n".join(track_lines)
 
     try:
-        from ..core.config import GEMINI_API_KEY
-        if not GEMINI_API_KEY:
-            return None, "Gemini API key is not configured!"
-            
-        prompt = (
+        system_prompt = (
             "You are a harsh, sarcastic, and snobby music critic. "
-            "Roast the following recent music taste based on these recently played songs and artists. "
-            "Keep it funny, slightly mean, and under 1500 characters.\n\n"
-            "Recent Tracks:\n" + "\n".join(recent_list)
+            "Roast my music taste based on my all-time top artists and top tracks. "
+            "Keep it funny, slightly mean, and under 1500 characters."
         )
         
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        api_key = os.getenv("GROQ_API_KEY", "").strip().strip("'").strip('"')
+        
+        if not api_key:
+            return None, "Please get a free Groq API key from console.groq.com/keys and put it in your .env as GROQ_API_KEY!"
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_data}
+            ]
+        }
         
         bot_instance = bot
         session = getattr(bot_instance, 'session', None)
+        local_session = False
         if session is None:
             import aiohttp
             session = aiohttp.ClientSession()
+            local_session = True
 
-        async with session.post(url, json=payload) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                roast_text = data['candidates'][0]['content']['parts'][0]['text']
-            else:
-                return None, f"Gemini API returned status {resp.status}."
+        roast_text = ""
+        try:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    roast_text = data['choices'][0]['message']['content']
+                else:
+                    err_text = await resp.text()
+                    print(f"Groq API Error {resp.status}: {err_text}")
+                    roast_text = "<:404:882220605783560222> OpenAI API error - please try again"
+        except Exception as e:
+            print(f"Groq API Request Error: {e}")
+            roast_text = "<:404:882220605783560222> OpenAI API error - please try again"
+        finally:
+            if local_session:
+                await session.close()
         
         embed = discord.Embed(
-            title="AI Music Judge 🧑‍⚖️",
             description=roast_text,
-            color=LASTFM_COLOR,
+            color=0xFF7A01,
             timestamp=datetime.now()
         )
-        embed.set_author(name=f"Judging {user.display_name}'s Taste", icon_url=user.display_avatar.url)
-        embed.set_footer(text="Powered by Google Gemini")
+        embed.set_author(name=f"{user.display_name}'s .fmbot AI judgement - Roast 🔥", icon_url=user.display_avatar.url)
+        embed.set_footer(text="Powered by Groq")
         return embed, None
     except Exception as e:
-        print(f"Gemini API Error: {e}")
+        print(f"Judge API Error: {e}")
         return None, "An error occurred while contacting the AI Judge. Try again later."
 
 async def process_profile(user):
@@ -1332,7 +1387,7 @@ async def on_message(message):
                 spotify_act = next((act for act in member.activities if isinstance(act, discord.Spotify)), None)
 
         if spotify_act:
-            await update_bot_avatar_and_status(spotify_act.artist, spotify_act.album_cover_url)
+            await update_bot_avatar_and_status(bot, spotify_act.artist, spotify_act.album_cover_url)
 
     await bot.process_commands(message)
 

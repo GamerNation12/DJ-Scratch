@@ -1,0 +1,23 @@
+name: Auto Deploy to Pterodactyl
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Sync Files to Server via SFTP
+        uses: appleboy/scp-action@master
+        with:
+          host: mango.fps.ms
+          port: 2022
+          username: gamernation120.5be081c1
+          password: ${{ secrets.PTERO_PASSWORD }}
+          source: "src/*,main.py,requirements.txt"
+          target: "/home/container/"
