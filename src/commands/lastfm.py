@@ -2,6 +2,36 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+async def get_target_user(ctx, arg_string: str = None):
+    target_user = ctx.author
+    
+    if hasattr(ctx.message, 'reference') and ctx.message.reference and ctx.message.reference.message_id:
+        try:
+            if hasattr(ctx.message.reference, 'resolved') and isinstance(ctx.message.reference.resolved, discord.Message):
+                target_user = ctx.message.reference.resolved.author
+            elif ctx.message.reference.cached_message:
+                target_user = ctx.message.reference.cached_message.author
+            else:
+                msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                target_user = msg.author
+        except Exception:
+            pass
+
+    if ctx.message.mentions:
+        for m in ctx.message.mentions:
+            if not m.bot:
+                target_user = m
+                break
+
+    cleaned_args = arg_string
+    if cleaned_args and ctx.message.mentions:
+        for m in ctx.message.mentions:
+            cleaned_args = cleaned_args.replace(f'<@{m.id}>', '').replace(f'<@!{m.id}>', '').strip()
+        if not cleaned_args:
+            cleaned_args = None
+            
+    return target_user, cleaned_args
+
 class PeriodSelectView(discord.ui.View):
     def __init__(self, bot, user, cmd_type):
         super().__init__(timeout=60)
@@ -162,40 +192,7 @@ class LastFmCog(commands.Cog):
         await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
 
     # --- PREFIX COMMANDS ---
-    
-async def get_target_user(ctx, arg_string: str = None):
-    target_user = ctx.author
-    
-    if hasattr(ctx.message, 'reference') and ctx.message.reference and ctx.message.reference.message_id:
-        try:
-            if hasattr(ctx.message.reference, 'resolved') and isinstance(ctx.message.reference.resolved, discord.Message):
-                target_user = ctx.message.reference.resolved.author
-            elif ctx.message.reference.cached_message:
-                target_user = ctx.message.reference.cached_message.author
-            else:
-                msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-                target_user = msg.author
-        except Exception:
-            pass
 
-    if ctx.message.mentions:
-        for m in ctx.message.mentions:
-            if not m.bot:
-                target_user = m
-                break
-
-    cleaned_args = arg_string
-    if cleaned_args and ctx.message.mentions:
-        for m in ctx.message.mentions:
-            cleaned_args = cleaned_args.replace(f'<@{m.id}>', '').replace(f'<@!{m.id}>', '').strip()
-        if not cleaned_args:
-            cleaned_args = None
-            
-    return target_user, cleaned_args
-
-class LastFmPrefix(commands.Cog):
-    # (Just updating existing commands)
-    
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, username: str):
         user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
