@@ -187,6 +187,7 @@ async def setup_hook():
             bot.process_fm = process_fm
             bot.process_top_artists = process_top_artists
             bot.process_top_tracks = process_top_tracks
+            bot.process_artist_tracks = process_artist_tracks
             bot.process_recent = process_recent
             bot.process_judge = process_judge
             bot.process_receipt = process_receipt
