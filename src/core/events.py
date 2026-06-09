@@ -541,6 +541,11 @@ async def notify_owner(ctx, err):
     except Exception as e: print(f"{Log.RED}>>> FAILED to notify owner: {e}{Log.RESET}")
 
 @bot.event
+async def on_command(ctx):
+    location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
+    print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
+
+@bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
@@ -557,6 +562,8 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
 
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
+    location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
+    print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
     global db_pool
     if not db_pool: return
     try:
@@ -595,8 +602,14 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
                         return False, int(300 - diff)
                 except: pass
 
+    session = getattr(bot_instance, 'session', None)
+    local_session = False
+    if session is None:
+        session = aiohttp.ClientSession()
+        local_session = True
+
     try:
-        async with getattr(bot_instance, 'session', aiohttp.ClientSession()).get(image_url) as resp:
+        async with session.get(image_url) as resp:
             if resp.status == 200:
                 image_data = await resp.read()
                 await bot_instance.user.edit(avatar=image_data)
@@ -612,6 +625,9 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
                 return True, 300
     except Exception as e:
         print(f"{Log.RED}>>> Failed to update avatar/status: {e}{Log.RESET}")
+    finally:
+        if local_session:
+            await session.close()
     return False, 0
 
 
@@ -619,7 +635,6 @@ async def add_custom_reactions(message):
     try:
         await message.add_reaction("<a:mc_Fire:1423825520516141138>")
         await message.add_reaction("<a:Jamming:1441565477313970259>")
-        print(f"{Log.GREEN}>>> Added reactions!{Log.RESET}")
     except: pass
 
 # --- HELPER: DATABASE MANAGEMENT ---
