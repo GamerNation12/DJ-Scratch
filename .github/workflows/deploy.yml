@@ -24,3 +24,24 @@ jobs:
         env:
           PTERO_PASSWORD: ${{ secrets.PTERO_PASSWORD }}
         run: python deploy.py
+
+      - name: Restart Pterodactyl Server
+        env:
+          PTERO_API_KEY: ${{ secrets.PTERO_API_KEY }}
+          PTERO_URL: ${{ secrets.PTERO_URL }}
+        run: |
+          python -c "
+          import urllib.request, json, os
+          url = os.environ['PTERO_URL'].rstrip('/') + '/api/client/servers/5be081c1/power'
+          req = urllib.request.Request(url, data=json.dumps({'signal': 'restart'}).encode(), headers={
+              'Authorization': f'Bearer {os.environ.get(\"PTERO_API_KEY\")}',
+              'Content-Type': 'application/json',
+              'Accept': 'Application/vnd.pterodactyl.v1+json'
+          })
+          try:
+              urllib.request.urlopen(req)
+              print('Server restart signal sent successfully!')
+          except Exception as e:
+              print(f'Failed to restart server: {e}')
+              exit(1)
+          "
