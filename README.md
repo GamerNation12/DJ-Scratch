@@ -46,15 +46,24 @@ touch .env
 Inside the `.env` file, paste the following and fill in your keys:
 ```env
 # Discord Bot
+# Get your token: https://discord.com/developers/applications
 DISCORD_TOKEN=your_discord_bot_token_here
 
-# Database (Neon PostgreSQL)
+# Database (PostgreSQL)
+# Get a free database: https://supabase.com or https://neon.tech
 DATABASE_URL=postgres://user:pass@host/dbname
 POSTGRES_URL=postgres://user:pass@host/dbname
 
 # Last.fm API Keys
+# Get your API key: https://www.last.fm/api/account/create
 LASTFM_API_KEY=your_lastfm_api_key
 LASTFM_API_SECRET=your_lastfm_api_secret
+
+# AI APIs (For /judge and other AI features)
+# Get your Groq API key: https://console.groq.com/keys
+GROQ_API_KEY=your_groq_api_key_here
+# Get your Gemini API key: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 > **Note**: Your Discord User ID (for bot ownership) is safely stored in `src/core/config.py`. Make sure to update `OWNER_ID` to your personal Discord ID!
