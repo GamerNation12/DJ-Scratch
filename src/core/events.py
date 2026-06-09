@@ -189,6 +189,7 @@ async def setup_hook():
             bot.process_top_tracks = process_top_tracks
             bot.process_recent = process_recent
             bot.process_judge = process_judge
+            bot.process_receipt = process_receipt
             bot.process_profile = process_profile
             bot.process_whoknows = process_whoknows
             bot.process_suggestion = process_suggestion
@@ -1390,5 +1391,31 @@ async def on_message(message):
             await update_bot_avatar_and_status(bot, spotify_act.artist, spotify_act.album_cover_url)
 
     await bot.process_commands(message)
+
+async def process_receipt(user, period='overall', limit=10):
+    from ..utils.images import generate_receipt_image
+    from ..utils.api import fetch_top_tracks
+    import discord
+    
+    username = await get_lastfm_username(user.id)
+    if not username:
+        return None, None, f"You have not linked your Last.fm account! Use `,setfm [username]` to link it."
+        
+    data = await fetch_top_tracks(username, period, limit)
+    if not data or 'toptracks' not in data or not data['toptracks']['track']:
+        return None, None, "Could not fetch top tracks for the receipt."
+        
+    tracks_raw = data['toptracks']['track']
+    tracks = []
+    for t in tracks_raw:
+        tracks.append((t['name'], t['artist']['name'], int(t['playcount'])))
+        
+    buf = generate_receipt_image(username, period, tracks)
+    file = discord.File(buf, filename="receipt.png")
+    
+    embed = discord.Embed(title=f"🧾 {user.display_name}'s Top Tracks Receipt", color=LASTFM_COLOR)
+    embed.set_image(url="attachment://receipt.png")
+    
+    return embed, file, None
 
 
