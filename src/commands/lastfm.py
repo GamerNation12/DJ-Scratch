@@ -162,6 +162,40 @@ class LastFmCog(commands.Cog):
         await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
 
     # --- PREFIX COMMANDS ---
+    
+async def get_target_user(ctx, arg_string: str = None):
+    target_user = ctx.author
+    
+    if hasattr(ctx.message, 'reference') and ctx.message.reference and ctx.message.reference.message_id:
+        try:
+            if hasattr(ctx.message.reference, 'resolved') and isinstance(ctx.message.reference.resolved, discord.Message):
+                target_user = ctx.message.reference.resolved.author
+            elif ctx.message.reference.cached_message:
+                target_user = ctx.message.reference.cached_message.author
+            else:
+                msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                target_user = msg.author
+        except Exception:
+            pass
+
+    if ctx.message.mentions:
+        for m in ctx.message.mentions:
+            if not m.bot:
+                target_user = m
+                break
+
+    cleaned_args = arg_string
+    if cleaned_args and ctx.message.mentions:
+        for m in ctx.message.mentions:
+            cleaned_args = cleaned_args.replace(f'<@{m.id}>', '').replace(f'<@!{m.id}>', '').strip()
+        if not cleaned_args:
+            cleaned_args = None
+            
+    return target_user, cleaned_args
+
+class LastFmPrefix(commands.Cog):
+    # (Just updating existing commands)
+    
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, username: str):
         user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
@@ -169,44 +203,51 @@ class LastFmCog(commands.Cog):
         await ctx.send(f"✅ Linked your Discord to Last.fm account: **{user_name}**")
 
     @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3"])
-    async def fm_prefix(self, ctx):
+    async def fm_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
         invoked = ctx.invoked_with
         if invoked in ["fm1", "np1"]: m = "compact"
         elif invoked in ["fm2", "np2"]: m = "full"
         elif invoked in ["fm3", "np3"]: m = "stats"
         else:
-            m = await self.bot.get_user_fm_mode(ctx.author.id)
+            m = await self.bot.get_user_fm_mode(target_user.id)
             if not m: m = "full"
-        result, is_p = await self.bot.process_fm(ctx, ctx.author, mode=m)
+        result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
         if result is None: await ctx.send(is_p)
         elif isinstance(result, dict):
             msg = await ctx.send(**result)
             if is_p: await self.bot.add_custom_reactions(msg)
 
     @commands.command(name="ta", aliases=["topartists"])
-    async def ta_prefix(self, ctx, period: str = 'all'):
-        embed, err = await self.bot.process_top_artists(ctx.author, period)
+    async def ta_prefix(self, ctx, *, args: str = None):
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'all'
+        embed, err = await self.bot.process_top_artists(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, ctx.author, 'ta'))
+            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, target_user, 'ta'))
         else:
             await ctx.send(err)
 
     @commands.command(name="tt", aliases=["toptracks"])
-    async def tt_prefix(self, ctx, period: str = 'all'):
-        embed, err = await self.bot.process_top_tracks(ctx.author, period)
+    async def tt_prefix(self, ctx, *, args: str = None):
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'all'
+        embed, err = await self.bot.process_top_tracks(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, ctx.author, 'tt'))
+            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, target_user, 'tt'))
         else:
             await ctx.send(err)
 
     @commands.command(name="rt", aliases=["recent"])
-    async def rt_prefix(self, ctx):
-        embed, err = await self.bot.process_recent(ctx.author)
+    async def rt_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_recent(target_user)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="at", aliases=["artisttracks"])
-    async def at_prefix(self, ctx, *, artist: str = None):
-        embed, err = await self.bot.process_artist_tracks(ctx.author, artist)
+    async def at_prefix(self, ctx, *, args: str = None):
+        target_user, artist = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_artist_tracks(target_user, artist)
         if embed:
             await ctx.send(embed=embed)
         else:
@@ -214,13 +255,15 @@ class LastFmCog(commands.Cog):
 
 
     @commands.command(name="s", aliases=["profile"])
-    async def s_prefix(self, ctx):
-        embed, err = await self.bot.process_profile(ctx.author)
+    async def s_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_profile(target_user)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="wk", aliases=["whoknows"])
-    async def wk_prefix(self, ctx, *, artist: str = None):
-        embed, err = await self.bot.process_whoknows(ctx.guild, ctx.author, artist)
+    async def wk_prefix(self, ctx, *, args: str = None):
+        target_user, artist = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="suggest", aliases=["suggestion"])
@@ -232,22 +275,26 @@ class LastFmCog(commands.Cog):
         await ctx.send(embed=self.bot.get_help_embed(ctx.author))
 
     @commands.command(name="crowns")
-    async def crowns_prefix(self, ctx):
-        embed, err = await self.bot.process_crowns(ctx.guild, ctx.author)
+    async def crowns_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_crowns(ctx.guild, target_user)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="judge", aliases=["roast"])
-    async def judge_prefix(self, ctx):
-        embed, err = await self.bot.process_judge(ctx.author)
+    async def judge_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_judge(target_user)
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="receipt")
-    async def receipt_prefix(self, ctx, period: str = 'overall'):
+    async def receipt_prefix(self, ctx, *, args: str = None):
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'overall'
         # Map period aliases
         period_map = {'7d': '7day', '1m': '1month', '3m': '3month', '6m': '6month', '12m': '12month', 'y': '12month', 'all': 'overall'}
         p = period_map.get(period.lower(), period.lower())
         
-        embed, file, err = await self.bot.process_receipt(ctx.author, p, 10)
+        embed, file, err = await self.bot.process_receipt(target_user, p, 10)
         if err:
             await ctx.send(err)
         else:
