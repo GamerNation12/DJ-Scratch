@@ -12,12 +12,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Sync Files to Server via SFTP
-        uses: appleboy/scp-action@master
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          host: mango.fps.ms
-          port: 2022
-          username: gamernation120.5be081c1
-          password: ${{ secrets.PTERO_PASSWORD }}
-          source: "src/*,main.py,requirements.txt"
-          target: "/home/container/"
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install paramiko python-dotenv
+        
+      - name: Sync Files to Server via SFTP
+        env:
+          PTERO_PASSWORD: ${{ secrets.PTERO_PASSWORD }}
+        run: python deploy.py
