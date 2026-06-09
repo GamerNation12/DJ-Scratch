@@ -970,7 +970,7 @@ async def process_recent(user):
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="Using Imported Data")
+    embed.set_footer(text=f"Requested by {user.display_name} • Using Imported Data", icon_url=user.display_avatar.url)
     return embed, None
 
 async def process_judge(user):
@@ -1211,7 +1211,7 @@ async def process_crowns(guild, user):
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{user.display_name}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Checked your top 15 artists")
+    embed.set_footer(text=f"Checked your top 15 artists • Requested by {user.display_name}", icon_url=user.display_avatar.url)
     return embed, None
 
 

@@ -2,6 +2,39 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+class PeriodSelectView(discord.ui.View):
+    def __init__(self, bot, user, cmd_type):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.user = user
+        self.cmd_type = cmd_type # 'ta' or 'tt'
+
+    @discord.ui.select(
+        placeholder="Select Time Period...",
+        options=[
+            discord.SelectOption(label="7 Days", value="7day", emoji="🗓️"),
+            discord.SelectOption(label="1 Month", value="1month", emoji="📅"),
+            discord.SelectOption(label="3 Months", value="3month", emoji="📆"),
+            discord.SelectOption(label="6 Months", value="6month", emoji="🕰️"),
+            discord.SelectOption(label="1 Year", value="12month", emoji="⏳"),
+            discord.SelectOption(label="All Time", value="overall", emoji="♾️"),
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This menu isn't for you!", ephemeral=True)
+            
+        await interaction.response.defer()
+        if self.cmd_type == 'ta':
+            embed, err = await self.bot.process_top_artists(self.user, select.values[0])
+        else:
+            embed, err = await self.bot.process_top_tracks(self.user, select.values[0])
+            
+        if embed:
+            await interaction.message.edit(embed=embed)
+        else:
+            await interaction.followup.send(err, ephemeral=True)
+
 class LastFmCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -143,12 +176,18 @@ class LastFmCog(commands.Cog):
     @commands.command(name="ta", aliases=["topartists"])
     async def ta_prefix(self, ctx, period: str = 'all'):
         embed, err = await self.bot.process_top_artists(ctx.author, period)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        if embed:
+            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, ctx.author, 'ta'))
+        else:
+            await ctx.send(err)
 
     @commands.command(name="tt", aliases=["toptracks"])
     async def tt_prefix(self, ctx, period: str = 'all'):
         embed, err = await self.bot.process_top_tracks(ctx.author, period)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        if embed:
+            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, ctx.author, 'tt'))
+        else:
+            await ctx.send(err)
 
     @commands.command(name="rt", aliases=["recent"])
     async def rt_prefix(self, ctx):
