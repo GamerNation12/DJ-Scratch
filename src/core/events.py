@@ -49,7 +49,10 @@ PERIOD_MAP = {
 
 def get_period_data(input_period):
     if not input_period: return 'overall', 'All Time'
-    return PERIOD_MAP.get(input_period.lower(), ('overall', 'All Time'))
+    input_lower = input_period.lower()
+    if input_lower.isdigit() and len(input_lower) == 4:
+        return input_lower, f"Year {input_lower}"
+    return PERIOD_MAP.get(input_lower, ('overall', 'All Time'))
 
 def get_medal(index):
     if index == 0: return "🥇"
@@ -908,9 +911,12 @@ async def process_top_artists(user, input_period=None):
         if user_info and 'user' in user_info:
             reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
             
-        data = await fetch_top_artists(username, api_p, 250)
-        if data and 'topartists' in data:
-            lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
+        if api_p.isdigit() and len(api_p) == 4:
+            reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
+        else:
+            data = await fetch_top_artists(username, api_p, 250)
+            if data and 'topartists' in data:
+                lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
     local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=reg_datetime)
 
@@ -948,11 +954,14 @@ async def process_top_tracks(user, input_period=None):
         if user_info and 'user' in user_info:
             reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
             
-        data = await fetch_top_tracks(username, api_p, 250)
-        if data and 'toptracks' in data:
-            for t in data['toptracks']['track']:
-                key = (t['name'], t['artist']['name'])
-                lastfm_tracks[key] = int(t['playcount'])
+        if api_p.isdigit() and len(api_p) == 4:
+            reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
+        else:
+            data = await fetch_top_tracks(username, api_p, 250)
+            if data and 'toptracks' in data:
+                for t in data['toptracks']['track']:
+                    key = (t['name'], t['artist']['name'])
+                    lastfm_tracks[key] = int(t['playcount'])
 
     local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=reg_datetime)
 

@@ -129,7 +129,13 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
     query_parts = ["user_id=$1"]
     args = [str(user_id)]
     
-    if days:
+    if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        year = int(api_period)
+        args.append(datetime(year, 1, 1))
+        query_parts.append(f"played_at >= ${len(args)}")
+        args.append(datetime(year + 1, 1, 1))
+        query_parts.append(f"played_at < ${len(args)}")
+    elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
         query_parts.append(f"played_at >= ${len(args)}")
@@ -152,7 +158,13 @@ async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_d
     query_parts = ["user_id=$1"]
     args = [str(user_id)]
     
-    if days:
+    if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        year = int(api_period)
+        args.append(datetime(year, 1, 1))
+        query_parts.append(f"played_at >= ${len(args)}")
+        args.append(datetime(year + 1, 1, 1))
+        query_parts.append(f"played_at < ${len(args)}")
+    elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
         query_parts.append(f"played_at >= ${len(args)}")
@@ -178,7 +190,13 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
     query_parts = ["user_id=$1", "LOWER(artist_name)=LOWER($2)"]
     args = [str(user_id), artist_name]
     
-    if days:
+    if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        year = int(api_period)
+        args.append(datetime(year, 1, 1))
+        query_parts.append(f"played_at >= ${len(args)}")
+        args.append(datetime(year + 1, 1, 1))
+        query_parts.append(f"played_at < ${len(args)}")
+    elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
         query_parts.append(f"played_at >= ${len(args)}")
