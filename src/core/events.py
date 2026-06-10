@@ -232,8 +232,34 @@ import ijson
 import zipfile
 import io
 import uuid
+import csv
 from datetime import datetime
 from .database import *
+def parse_apple_music_csv(file_obj, user):
+    reader = csv.DictReader(file_obj)
+    for row in reader:
+        artist = row.get("Container Artist Name") or row.get("Artist Name")
+        title = row.get("Song Name")
+        album = row.get("Album Name") or ""
+        played_at_raw = row.get("Event Start Timestamp")
+        play_dur = row.get("Play Duration Milliseconds")
+        
+        if not artist or not title or not played_at_raw:
+            continue
+            
+        try:
+            if play_dur and int(play_dur) < 30000:
+                continue
+        except:
+            pass
+            
+        try:
+            cleaned_time = played_at_raw.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(cleaned_time)
+            yield (str(user.id), artist, title, album, dt)
+        except Exception as e:
+            continue
+
 def stream_parse_spotify_json(file_obj):
     buffer = ""
     brace_count = 0
@@ -344,25 +370,47 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         except Exception as e:
             print(f"Error ensuring imported_user: {e}")
 
+        # Delete old data automatically for a clean sync
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("DELETE FROM listens WHERE user_id = $1", str(user.id))
+                print(f"{Log.CYAN}    >>> [IMPORT] Purged old listening data for {user.name}{Log.RESET}")
+        except Exception as e:
+            print(f"Error purging old data: {e}")
+
         # Parse and process
         if not is_zip:
-            # Process single JSON file from disk using our zero-RAM streaming parser
-            valid_tracks = []
-            with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
-                for track in stream_parse_spotify_json(f):
-                    parsed = parse_single_spotify_track(user, track)
-                    if parsed:
+            if temp_filepath.lower().endswith(".csv"):
+                valid_tracks = []
+                with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
+                    for parsed in parse_apple_music_csv(f, user):
                         valid_tracks.append(parsed)
-                    
-                    if len(valid_tracks) >= 1000:
-                        processed_count += await insert_tracks_in_db(valid_tracks)
-                        valid_tracks.clear()
-                        gc.collect()
-            
-            if valid_tracks:
-                processed_count += await insert_tracks_in_db(valid_tracks)
-                valid_tracks.clear()
-                gc.collect()
+                        if len(valid_tracks) >= 1000:
+                            processed_count += await insert_tracks_in_db(valid_tracks)
+                            valid_tracks.clear()
+                            gc.collect()
+                if valid_tracks:
+                    processed_count += await insert_tracks_in_db(valid_tracks)
+                    valid_tracks.clear()
+                    gc.collect()
+            else:
+                # Process single JSON file from disk using our zero-RAM streaming parser
+                valid_tracks = []
+                with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
+                    for track in stream_parse_spotify_json(f):
+                        parsed = parse_single_spotify_track(user, track)
+                        if parsed:
+                            valid_tracks.append(parsed)
+                        
+                        if len(valid_tracks) >= 1000:
+                            processed_count += await insert_tracks_in_db(valid_tracks)
+                            valid_tracks.clear()
+                            gc.collect()
+                
+                if valid_tracks:
+                    processed_count += await insert_tracks_in_db(valid_tracks)
+                    valid_tracks.clear()
+                    gc.collect()
         else:
             # Process ZIP file entry by entry from disk using our zero-RAM streaming parser
             with zipfile.ZipFile(temp_filepath) as z:
@@ -381,30 +429,66 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                     await user.send(embed=embed)
                     return
 
-                for filename in z.namelist():
-                    if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
-                        try:
+                if any(name.endswith("Apple Music Play Activity.csv") for name in z.namelist()):
+                    for filename in z.namelist():
+                        if filename.endswith("Apple Music Play Activity.csv"):
                             valid_tracks = []
                             with z.open(filename) as f:
-                                # Wrap binary stream in a TextIOWrapper so we can stream characters
                                 text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
-                                for track in stream_parse_spotify_json(text_stream):
-                                    parsed = parse_single_spotify_track(user, track)
-                                    if parsed:
-                                        valid_tracks.append(parsed)
-                                    
+                                for parsed in parse_apple_music_csv(text_stream, user):
+                                    valid_tracks.append(parsed)
                                     if len(valid_tracks) >= 1000:
                                         processed_count += await insert_tracks_in_db(valid_tracks)
                                         valid_tracks.clear()
                                         gc.collect()
-                            
                             if valid_tracks:
                                 processed_count += await insert_tracks_in_db(valid_tracks)
                                 valid_tracks.clear()
                                 gc.collect()
+                elif any(name.endswith("Apple_Media_Services.zip") for name in z.namelist()):
+                    inner_zip_name = next(name for name in z.namelist() if name.endswith("Apple_Media_Services.zip"))
+                    with z.open(inner_zip_name) as inner_f:
+                        with zipfile.ZipFile(io.BytesIO(inner_f.read())) as inner_z:
+                            for filename in inner_z.namelist():
+                                if filename.endswith("Apple Music Play Activity.csv"):
+                                    valid_tracks = []
+                                    with inner_z.open(filename) as f:
+                                        text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
+                                        for parsed in parse_apple_music_csv(text_stream, user):
+                                            valid_tracks.append(parsed)
+                                            if len(valid_tracks) >= 1000:
+                                                processed_count += await insert_tracks_in_db(valid_tracks)
+                                                valid_tracks.clear()
+                                                gc.collect()
+                                    if valid_tracks:
+                                        processed_count += await insert_tracks_in_db(valid_tracks)
+                                        valid_tracks.clear()
+                                        gc.collect()
+                else:
+                    for filename in z.namelist():
+                        if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
+                            try:
+                                valid_tracks = []
+                                with z.open(filename) as f:
+                                    # Wrap binary stream in a TextIOWrapper so we can stream characters
+                                    text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
+                                    for track in stream_parse_spotify_json(text_stream):
+                                        parsed = parse_single_spotify_track(user, track)
+                                        if parsed:
+                                            valid_tracks.append(parsed)
+                                        
+                                        if len(valid_tracks) >= 1000:
+                                            processed_count += await insert_tracks_in_db(valid_tracks)
+                                            valid_tracks.clear()
+                                            gc.collect()
                                 
-                        except Exception as e:
-                            print(f"Error processing {filename} inside zip: {e}")
+                                if valid_tracks:
+                                    processed_count += await insert_tracks_in_db(valid_tracks)
+                                    valid_tracks.clear()
+                                    gc.collect()
+                                    
+                            except Exception as e:
+                                print(f"Error processing {filename} inside zip: {e}")
 
         # Delete temp file
         try:
@@ -435,7 +519,8 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
 async def handle_discord_import(user, attachment, response_target):
     try:
         is_zip = attachment.filename.endswith(".zip")
-        temp_filepath = f"temp_import_{user.id}_{attachment.id}.{'zip' if is_zip else 'json'}"
+        ext = 'zip' if is_zip else ('csv' if attachment.filename.endswith('.csv') else 'json')
+        temp_filepath = f"temp_import_{user.id}_{attachment.id}.{ext}"
         
         # Save attachment directly to disk in streamed mode
         await attachment.save(temp_filepath)
@@ -451,7 +536,8 @@ async def handle_discord_import(user, attachment, response_target):
 async def handle_discord_import_link(user, link, response_target):
     try:
         is_zip = link.lower().endswith(".zip") or "zip" in link.lower()
-        temp_filepath = f"temp_import_{user.id}_link.{'zip' if is_zip else 'json'}"
+        ext = 'zip' if is_zip else ('csv' if '.csv' in link.lower() else 'json')
+        temp_filepath = f"temp_import_{user.id}_link.{ext}"
         
         await response_target("⏳ Downloading file from link... (This may take a moment for large files)")
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
