@@ -497,6 +497,18 @@ async def on_ready():
     print(f"{Log.YELLOW}>>> NOTE: Slash commands no longer auto-sync on boot.{Log.RESET}")
     print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
+    
+    from .database import db_pool
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
+                if row and row['value']:
+                    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
+                    print(f"{Log.GREEN}>>> Restored bot status to: {row['value']}{Log.RESET}")
+        except Exception as e:
+            print(f"{Log.RED}>>> Failed to load bot status from DB: {e}{Log.RESET}")
+
     bot.loop.create_task(import_worker())
     
 
@@ -617,12 +629,16 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
                 await bot_instance.user.edit(avatar=image_data)
                 await bot_instance.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
                 
-                # Update cooldown in Postgres
+                # Update cooldown and status in Postgres
                 if db_pool:
                     async with db_pool.acquire() as conn:
                         await conn.execute(
                             "INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
                             now.isoformat()
+                        )
+                        await conn.execute(
+                            "INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                            artist
                         )
                 return True, 300
     except Exception as e:
