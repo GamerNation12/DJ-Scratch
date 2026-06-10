@@ -32,38 +32,7 @@ async def get_target_user(ctx, arg_string: str = None):
             
     return target_user, cleaned_args
 
-class PeriodSelectView(discord.ui.View):
-    def __init__(self, bot, user, cmd_type):
-        super().__init__(timeout=60)
-        self.bot = bot
-        self.user = user
-        self.cmd_type = cmd_type # 'ta' or 'tt'
 
-    @discord.ui.select(
-        placeholder="Select Time Period...",
-        options=[
-            discord.SelectOption(label="7 Days", value="7day", emoji="🗓️"),
-            discord.SelectOption(label="1 Month", value="1month", emoji="📅"),
-            discord.SelectOption(label="3 Months", value="3month", emoji="📆"),
-            discord.SelectOption(label="6 Months", value="6month", emoji="🕰️"),
-            discord.SelectOption(label="1 Year", value="12month", emoji="⏳"),
-            discord.SelectOption(label="All Time", value="overall", emoji="♾️"),
-        ]
-    )
-    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
-        if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("This menu isn't for you!", ephemeral=True)
-            
-        await interaction.response.defer()
-        if self.cmd_type == 'ta':
-            embed, err = await self.bot.process_top_artists(self.user, select.values[0])
-        else:
-            embed, err = await self.bot.process_top_tracks(self.user, select.values[0])
-            
-        if embed:
-            await interaction.message.edit(embed=embed)
-        else:
-            await interaction.followup.send(err, ephemeral=True)
 
 class LastFmCog(commands.Cog):
     def __init__(self, bot):
@@ -111,8 +80,11 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def ta_slash(self, interaction: discord.Interaction, period: app_commands.Choice[str] = None):
         await interaction.response.defer()
-        embed, err = await self.bot.process_top_artists(interaction.user, period.value if period else 'all')
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        embed, view, err = await self.bot.process_top_artists(interaction.user, period.value if period else 'all')
+        if embed:
+            await interaction.followup.send(embed=embed, view=view)
+        else:
+            await interaction.followup.send(err)
 
     @app_commands.command(name="toptracks", description="View your top played tracks")
     @app_commands.describe(period="The time frame to check")
@@ -125,8 +97,11 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def tt_slash(self, interaction: discord.Interaction, period: app_commands.Choice[str] = None):
         await interaction.response.defer()
-        embed, err = await self.bot.process_top_tracks(interaction.user, period.value if period else 'all')
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        embed, view, err = await self.bot.process_top_tracks(interaction.user, period.value if period else 'all')
+        if embed:
+            await interaction.followup.send(embed=embed, view=view)
+        else:
+            await interaction.followup.send(err)
 
     @app_commands.command(name="recent", description="View your recent listening history")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -222,9 +197,9 @@ class LastFmCog(commands.Cog):
     async def ta_prefix(self, ctx, *, args: str = None):
         target_user, period = await get_target_user(ctx, args)
         if not period: period = 'all'
-        embed, err = await self.bot.process_top_artists(target_user, period)
+        embed, view, err = await self.bot.process_top_artists(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, target_user, 'ta'))
+            await ctx.send(embed=embed, view=view)
         else:
             await ctx.send(err)
 
@@ -232,9 +207,9 @@ class LastFmCog(commands.Cog):
     async def tt_prefix(self, ctx, *, args: str = None):
         target_user, period = await get_target_user(ctx, args)
         if not period: period = 'all'
-        embed, err = await self.bot.process_top_tracks(target_user, period)
+        embed, view, err = await self.bot.process_top_tracks(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=PeriodSelectView(self.bot, target_user, 'tt'))
+            await ctx.send(embed=embed, view=view)
         else:
             await ctx.send(err)
 

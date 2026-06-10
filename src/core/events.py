@@ -927,18 +927,12 @@ async def process_top_artists(user, input_period=None):
     for artist, count in local_data.items():
         combined[artist] = combined.get(artist, 0) + count
 
-    sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
-    if not sorted_artists: return None, "No artist data found."
+    sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+    if not sorted_artists: return None, None, "No artist data found."
 
-    lines = [f"{get_medal(idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(sorted_artists)]
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Top Artists ({disp_p})", icon_url=user.display_avatar.url)
-    embed.set_thumbnail(url=user.display_avatar.url)
-    if username:
-        embed.set_footer(text=f"Scrobbling as {username}")
-    else:
-        embed.set_footer(text="Using Imported Data")
-    return embed, None
+    view = TopItemsPaginator(user, sorted_artists, disp_p, username, 'ta')
+    embed = view.generate_embed()
+    return embed, view, None
 async def process_top_tracks(user, input_period=None):
     username = await get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
@@ -973,18 +967,91 @@ async def process_top_tracks(user, input_period=None):
         key = (track_name, artist_name)
         combined[key] = combined.get(key, 0) + plays
 
-    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
-    if not sorted_tracks: return None, "No track data found."
+    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+    if not sorted_tracks: return None, None, "No track data found."
 
-    lines = [f"{get_medal(idx)} **{t}** by {a} — **{c:,}** plays" for idx, ((t, a), c) in enumerate(sorted_tracks)]
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Top Tracks ({disp_p})", icon_url=user.display_avatar.url)
-    embed.set_thumbnail(url=user.display_avatar.url)
-    if username:
-        embed.set_footer(text=f"Scrobbling as {username}")
-    else:
-        embed.set_footer(text="Using Imported Data")
-    return embed, None
+    view = TopItemsPaginator(user, sorted_tracks, disp_p, username, 'tt')
+    embed = view.generate_embed()
+    return embed, view, None
+
+class TopItemsPaginator(discord.ui.View):
+    def __init__(self, user, sorted_items, disp_p, username, cmd_type='tt'):
+        super().__init__(timeout=180)
+        self.user = user
+        self.sorted_items = sorted_items
+        self.disp_p = disp_p
+        self.username = username
+        self.cmd_type = cmd_type
+        self.current_page = 0
+        self.items_per_page = 10
+        self.max_pages = max(1, (len(sorted_items) + self.items_per_page - 1) // self.items_per_page)
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.prev_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page >= self.max_pages - 1
+
+    def generate_embed(self):
+        start = self.current_page * self.items_per_page
+        end = start + self.items_per_page
+        page_items = self.sorted_items[start:end]
+
+        if self.cmd_type == 'tt':
+            lines = [f"{get_medal(start + idx)} **{t}** by {a} — **{c:,}** plays" for idx, ((t, a), c) in enumerate(page_items)]
+            title = f"{self.user.display_name}'s Top Tracks ({self.disp_p})"
+        else:
+            lines = [f"{get_medal(start + idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(page_items)]
+            title = f"{self.user.display_name}'s Top Artists ({self.disp_p})"
+            
+        embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+        embed.set_author(name=title, icon_url=self.user.display_avatar.url)
+        embed.set_thumbnail(url=self.user.display_avatar.url)
+        
+        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_items)} items"
+        if self.username: footer_text += f"\nScrobbling as {self.username}"
+        else: footer_text += "\nUsing Imported Data"
+        embed.set_footer(text=footer_text)
+        return embed
+
+    @discord.ui.button(label="<", style=discord.ButtonStyle.secondary, custom_id="prev")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label=">", style=discord.ButtonStyle.secondary, custom_id="next")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.select(
+        placeholder="Select Time Period...",
+        options=[
+            discord.SelectOption(label="7 Days", value="7day", emoji="🗓️"),
+            discord.SelectOption(label="1 Month", value="1month", emoji="📅"),
+            discord.SelectOption(label="3 Months", value="3month", emoji="📆"),
+            discord.SelectOption(label="6 Months", value="6month", emoji="🕰️"),
+            discord.SelectOption(label="1 Year", value="12month", emoji="⏳"),
+            discord.SelectOption(label="All Time", value="overall", emoji="♾️"),
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This menu isn't for you!", ephemeral=True)
+        await interaction.response.defer()
+        if self.cmd_type == 'ta':
+            embed, view, err = await bot.process_top_artists(self.user, select.values[0])
+        else:
+            embed, view, err = await bot.process_top_tracks(self.user, select.values[0])
+        if embed:
+            await interaction.message.edit(embed=embed, view=view)
+        else:
+            await interaction.followup.send(err, ephemeral=True)
 
 class ArtistTracksPaginator(discord.ui.View):
     def __init__(self, user, artist_name, sorted_tracks, total_plays, local_tracks_present):
