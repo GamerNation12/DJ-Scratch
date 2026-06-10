@@ -243,13 +243,20 @@ def parse_apple_music_csv(file_obj, user):
         album = row.get("Album Name") or ""
         played_at_raw = row.get("Event Start Timestamp")
         play_dur = row.get("Play Duration Milliseconds")
+        media_dur = row.get("Media Duration In Milliseconds")
         
         if not artist or not title or not played_at_raw:
             continue
             
         try:
-            if play_dur and int(play_dur) < 30000:
-                continue
+            if play_dur:
+                ms_played = int(play_dur)
+                if ms_played < 30000:
+                    continue
+                if media_dur and ms_played <= 240000:
+                    media_len = int(media_dur)
+                    if ms_played <= (media_len / 2):
+                        continue
         except:
             pass
             
@@ -370,13 +377,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         except Exception as e:
             print(f"Error ensuring imported_user: {e}")
 
-        # Delete old data automatically for a clean sync
-        try:
-            async with db_pool.acquire() as conn:
-                await conn.execute("DELETE FROM listens WHERE user_id = $1", str(user.id))
-                print(f"{Log.CYAN}    >>> [IMPORT] Purged old listening data for {user.name}{Log.RESET}")
-        except Exception as e:
-            print(f"Error purging old data: {e}")
+
 
         # Parse and process
         if not is_zip:
