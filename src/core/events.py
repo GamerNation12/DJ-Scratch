@@ -40,8 +40,9 @@ avatar_cooldown_time = None
 PERIOD_MAP = {
     '7d': ('7day', 'Last 7 Days'), '7day': ('7day', 'Last 7 Days'),
     '1m': ('1month', 'Last Month'), '1month': ('1month', 'Last Month'),
-    '3m': ('3month', 'Last 3 Months'), '6m': ('6month', 'Last 6 Months'),
-    '1y': ('12month', 'Last Year'), '12m': ('12month', 'Last Year'),
+    '3m': ('3month', 'Last 3 Months'), '3month': ('3month', 'Last 3 Months'),
+    '6m': ('6month', 'Last 6 Months'), '6month': ('6month', 'Last 6 Months'),
+    '1y': ('12month', 'Last Year'), '12m': ('12month', 'Last Year'), '12month': ('12month', 'Last Year'),
     'all': ('overall', 'All Time'), 'overall': ('overall', 'All Time'),
     'at': ('overall', 'All Time')
 }
@@ -891,11 +892,11 @@ async def process_top_artists(user, input_period=None):
         if user_info and 'user' in user_info:
             reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
             
-        data = await fetch_top_artists(username, api_p)
+        data = await fetch_top_artists(username, api_p, 250)
         if data and 'topartists' in data:
             lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
-    local_data = await get_local_top_artists(user.id, 50, api_p, before_dt=reg_datetime)
+    local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=reg_datetime)
 
     if not username and not local_data:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -931,13 +932,13 @@ async def process_top_tracks(user, input_period=None):
         if user_info and 'user' in user_info:
             reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
             
-        data = await fetch_top_tracks(username, api_p)
+        data = await fetch_top_tracks(username, api_p, 250)
         if data and 'toptracks' in data:
             for t in data['toptracks']['track']:
                 key = (t['name'], t['artist']['name'])
                 lastfm_tracks[key] = int(t['playcount'])
 
-    local_tracks = await get_local_top_tracks(user.id, 50, api_p, before_dt=reg_datetime)
+    local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=reg_datetime)
 
     if not username and not local_tracks:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
