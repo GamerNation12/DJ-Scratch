@@ -83,6 +83,16 @@ class AdminCog(commands.Cog):
         except Exception as e:
             await msg.edit(content=f"❌ Failed to clean duplicates: {e}")
 
+    @commands.command(name="testautorestart")
+    async def test_auto_restart(self, ctx):
+        if ctx.author.id != OWNER_ID: return
+        await ctx.send("🔄 Simulating high RAM usage. Auto-restarting bot...")
+        print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
+        if getattr(self.bot, 'session', None):
+            await self.bot.session.close()
+        await self.bot.close()
+        os.execv(sys.executable, ['python'] + sys.argv)
+
     @commands.command(name="restart")
     async def restart_bot(self, ctx):
         if ctx.author.id != OWNER_ID: return
@@ -104,6 +114,17 @@ class AdminCog(commands.Cog):
             await self.bot.session.close()
         await self.bot.close()
         os._exit(0)
+    @discord.app_commands.command(name="testautorestart", description="Simulate high RAM usage and test auto-restart (Owner only)")
+    async def test_auto_restart_slash(self, interaction: discord.Interaction):
+        if interaction.user.id != OWNER_ID:
+            await interaction.response.send_message("❌ You are not the owner.", ephemeral=True)
+            return
+        await interaction.response.send_message("🔄 Simulating high RAM usage. Auto-restarting bot...", ephemeral=True)
+        print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
+        if getattr(self.bot, 'session', None):
+            await self.bot.session.close()
+        await self.bot.close()
+        os.execv(sys.executable, ['python'] + sys.argv)
 
 async def setup(bot):
     await bot.add_cog(AdminCog(bot))
