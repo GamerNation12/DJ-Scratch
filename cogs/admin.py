@@ -91,7 +91,7 @@ class AdminCog(commands.Cog):
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
         await self.bot.close()
-        os.execv(sys.executable, ['python'] + sys.argv)
+        os._exit(0)
 
     @commands.command(name="restart")
     async def restart_bot(self, ctx):
@@ -124,7 +124,7 @@ class AdminCog(commands.Cog):
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
         await self.bot.close()
-        os.execv(sys.executable, ['python'] + sys.argv)
+        os._exit(0)
 
 async def setup(bot):
     await bot.add_cog(AdminCog(bot))

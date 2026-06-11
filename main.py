@@ -16,7 +16,7 @@ async def memory_monitor():
         # If RAM usage is 90% or higher, auto-restart to prevent crashing
         if ram_percent >= 90.0:
             print(f"CRITICAL: System RAM usage is at {ram_percent}%. Auto-restarting bot...")
-            os.execv(sys.executable, ['python'] + sys.argv)
+            os._exit(0)
     except Exception as e:
         print(f"Error in memory monitor: {e}")
 

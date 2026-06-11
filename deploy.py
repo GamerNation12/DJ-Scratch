@@ -23,6 +23,7 @@ def deploy():
         # Files/Folders to sync
         sync_items = [
             "src",
+            "cogs",
             "main.py",
             "requirements.txt",
             ".env"
