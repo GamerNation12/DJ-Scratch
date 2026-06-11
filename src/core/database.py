@@ -17,6 +17,7 @@ async def init_db():
                 await conn.execute('''
                     CREATE TABLE IF NOT EXISTS user_settings (
                         user_id TEXT PRIMARY KEY,
+                        lastfm_username TEXT,
                         fm_mode TEXT,
                         show_features BOOLEAN DEFAULT FALSE,
                         data_source TEXT DEFAULT 'combined',
@@ -25,6 +26,10 @@ async def init_db():
                 ''')
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN lastfm_username TEXT")
                 except Exception:
                     pass
         except Exception as e:

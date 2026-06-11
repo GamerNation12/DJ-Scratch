@@ -113,10 +113,6 @@ class AdminCog(commands.Cog):
             async with db_pool.acquire() as conn:
                 await conn.execute("TRUNCATE TABLE listens;")
                 await conn.execute("TRUNCATE TABLE imported_users;")
-                try:
-                    await conn.execute("TRUNCATE TABLE user_settings;")
-                except Exception:
-                    pass
                 
             if os.path.exists(USERS_FILE):
                 with open(USERS_FILE, "w") as f:

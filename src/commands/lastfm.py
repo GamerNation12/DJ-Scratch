@@ -43,7 +43,7 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def setfm_slash(self, interaction: discord.Interaction, username: str):
         user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
-        self.bot.save_user(interaction.user.id, user_name)
+        await self.bot.save_user(interaction.user.id, user_name)
         await interaction.response.send_message(f"✅ Linked your Discord to Last.fm account: **{user_name}**", ephemeral=True)
 
     @app_commands.command(name="fm", description="View what you are currently listening to")
