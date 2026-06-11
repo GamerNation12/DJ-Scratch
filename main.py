@@ -1,7 +1,30 @@
 import os
+import sys
+import psutil
+from discord.ext import tasks
+
 os.system("pip install PyNaCl")
 from src.core.events import bot
 from dotenv import load_dotenv
+
+@tasks.loop(minutes=1)
+async def memory_monitor():
+    try:
+        # Check overall system RAM usage percentage
+        ram_percent = psutil.virtual_memory().percent
+        
+        # If RAM usage is 90% or higher, auto-restart to prevent crashing
+        if ram_percent >= 90.0:
+            print(f"CRITICAL: System RAM usage is at {ram_percent}%. Auto-restarting bot...")
+            os.execv(sys.executable, ['python'] + sys.argv)
+    except Exception as e:
+        print(f"Error in memory monitor: {e}")
+
+@bot.listen('on_ready')
+async def on_ready_monitor():
+    if not memory_monitor.is_running():
+        memory_monitor.start()
+        print("Memory monitor started.")
 
 load_dotenv()
 if __name__ == "__main__":
