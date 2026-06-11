@@ -19,9 +19,14 @@ async def init_db():
                         user_id TEXT PRIMARY KEY,
                         fm_mode TEXT,
                         show_features BOOLEAN DEFAULT FALSE,
-                        data_source TEXT DEFAULT 'combined'
+                        data_source TEXT DEFAULT 'combined',
+                        timezone TEXT DEFAULT 'UTC'
                     )
                 ''')
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
@@ -105,6 +110,26 @@ async def set_user_data_source(user_id, source):
     except Exception as e:
         print(f"Error setting data_source: {e}")
 
+async def get_user_timezone(user_id):
+    if not db_pool: return 'UTC'
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT timezone FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['timezone'] if row and row['timezone'] is not None else 'UTC'
+    except Exception:
+        return 'UTC'
+
+async def set_user_timezone(user_id, tz):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, timezone) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET timezone = $2
+            """, str(user_id), tz)
+    except Exception as e:
+        print(f"Error setting timezone: {e}")
+
 async def get_local_total_plays(user_id):
     if not db_pool: return 0
     try:
@@ -130,11 +155,10 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        tz = await get_user_timezone(user_id)
         year = int(api_period)
-        args.append(datetime(year, 1, 1))
-        query_parts.append(f"played_at >= ${len(args)}")
-        args.append(datetime(year + 1, 1, 1))
-        query_parts.append(f"played_at < ${len(args)}")
+        args.append(float(year))
+        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
@@ -191,11 +215,10 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
     args = [str(user_id), artist_name]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        tz = await get_user_timezone(user_id)
         year = int(api_period)
-        args.append(datetime(year, 1, 1))
-        query_parts.append(f"played_at >= ${len(args)}")
-        args.append(datetime(year + 1, 1, 1))
-        query_parts.append(f"played_at < ${len(args)}")
+        args.append(float(year))
+        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)

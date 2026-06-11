@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source
+from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone
 from src.core.config import LASTFM_COLOR
 
 class MoreInfoView(discord.ui.View):
@@ -37,8 +37,12 @@ async def get_settings_embed(user_id, user):
     ds_desc = "📦 Imported Only" if d_source == "imported_only" else "🔄 Last.fm + Imported"
     embed.add_field(name="**Data Source**", value=f"> {ds_desc}\n*Choose whether to include your live Last.fm data along with your imported history.*", inline=False)
     
+    # Timezone
+    tz = await get_user_timezone(user_id)
+    embed.add_field(name="**Timezone**", value=f"> 🌍 {tz}\n*Used to accurately calculate your yearly top tracks/artists.*", inline=False)
+    
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="Select an option from the dropdown below to update your settings")
+    embed.set_footer(text="Select an option from the dropdowns below to update your settings")
     return embed
 
 class SettingsDropdown(discord.ui.Select):
@@ -69,10 +73,32 @@ class SettingsDropdown(discord.ui.Select):
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)
 
+class TimezoneDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="UTC (Default)", value="UTC"),
+            discord.SelectOption(label="Pacific Time (US & Canada)", description="America/Los_Angeles", value="America/Los_Angeles"),
+            discord.SelectOption(label="Mountain Time (US & Canada)", description="America/Denver", value="America/Denver"),
+            discord.SelectOption(label="Central Time (US & Canada)", description="America/Chicago", value="America/Chicago"),
+            discord.SelectOption(label="Eastern Time (US & Canada)", description="America/New_York", value="America/New_York"),
+            discord.SelectOption(label="London", description="Europe/London", value="Europe/London"),
+            discord.SelectOption(label="Central Europe", description="Europe/Berlin", value="Europe/Berlin"),
+            discord.SelectOption(label="India Standard Time", description="Asia/Kolkata", value="Asia/Kolkata"),
+            discord.SelectOption(label="Tokyo", description="Asia/Tokyo", value="Asia/Tokyo"),
+            discord.SelectOption(label="Sydney", description="Australia/Sydney", value="Australia/Sydney"),
+        ]
+        super().__init__(placeholder="Set your Timezone...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await set_user_timezone(interaction.user.id, self.values[0])
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
 class SettingsView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(SettingsDropdown())
+        self.add_item(TimezoneDropdown())
 
 async def apply_features(session, artist, song):
     import re
