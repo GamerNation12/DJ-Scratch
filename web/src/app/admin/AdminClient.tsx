@@ -130,45 +130,6 @@ export default function AdminClient({ data }: { data: any }) {
               }
             />
 
-            <div className="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 hover:border-indigo-500/50 transition-all group flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                <h3 className="text-white font-bold text-lg mb-1">Live Bot Chat</h3>
-                <p className="text-gray-400 text-sm mb-6">Open the full Discord interface to chat and DM as the bot.</p>
-              </div>
-              <button
-                onClick={() => window.location.href = "/admin/chat"}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all flex justify-center items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-              >
-                Open Chat UI
-              </button>
-            </div>
-
-            <div className="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 hover:border-emerald-500/50 transition-all group flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-white font-bold text-lg mb-1">Assume Bot Identity</h3>
-                <p className="text-gray-400 text-sm mb-6">Disguise yourself as The Goats DJ.</p>
-              </div>
-              <button
-                onClick={() => {
-                  const current = localStorage.getItem("botMode") === "true";
-                  localStorage.setItem("botMode", current ? "false" : "true");
-                  window.dispatchEvent(new Event("botModeToggled"));
-                }}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all flex justify-center items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
-              >
-                Toggle Identity
-              </button>
-            </div>
           </div>
 
           {/* Tables */}
