@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source
+from src.core.config import LASTFM_COLOR
+
 class MoreInfoView(discord.ui.View):
     def __init__(self, embed: discord.Embed):
         super().__init__(timeout=None)
@@ -15,14 +17,28 @@ async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
-    embed = discord.Embed(title=f"⚙️ Settings for {user.display_name}", color=LASTFM_COLOR)
-    embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
-    embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
-    source_label = "Imported Only" if d_source == 'imported_only' else "Last.fm + Imported"
-    embed.add_field(name="Data Source", value=f"`{source_label}`", inline=True)
+    embed = discord.Embed(
+        title="⚙️ Personal Preferences",
+        description="Customize your experience with the bot below. These settings apply globally across all servers.",
+        color=LASTFM_COLOR
+    )
+    embed.set_author(name=f"{user.display_name}'s Settings", icon_url=user.display_avatar.url)
     
-    embed.set_footer(text="Use the dropdown below to change your settings.")
+    # Mode description
+    mode_desc = "📝 Compact" if mode == "compact" else ("📊 Stats" if mode == "stats" else "🖼️ Full Embed")
+    embed.add_field(name="**Display Mode (`/fm`)**", value=f"> {mode_desc}\n*Changes how your now-playing track looks.*", inline=False)
+    
+    # Featured Artists
+    feat_desc = "🟢 Enabled" if feats else "🔴 Disabled"
+    embed.add_field(name="**Featured Artists**", value=f"> {feat_desc}\n*Extracts features from song names to show them in the artist field.*", inline=False)
+    
+    # Data source
+    ds_desc = "📦 Imported Only" if d_source == "imported_only" else "🔄 Last.fm + Imported"
+    embed.add_field(name="**Data Source**", value=f"> {ds_desc}\n*Choose whether to include your live Last.fm data along with your imported history.*", inline=False)
+    
+    embed.set_thumbnail(url=user.display_avatar.url)
+    embed.set_footer(text="Select an option from the dropdown below to update your settings")
     return embed
 
 class SettingsDropdown(discord.ui.Select):
