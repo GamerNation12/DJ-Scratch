@@ -1344,7 +1344,8 @@ async def process_judge(user):
 
         roast_text = ""
         try:
-            async with session.post(url, headers=headers, json=payload) as resp:
+            import aiohttp
+            async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     roast_text = data['choices'][0]['message']['content']

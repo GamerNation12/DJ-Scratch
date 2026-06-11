@@ -4,8 +4,14 @@ from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
 async def api_get(url):
     from ..core.events import bot
-    async with bot.session.get(url) as r:
-        return await r.json() if r.status == 200 else None
+    import aiohttp
+    import asyncio
+    try:
+        async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            return await r.json() if r.status == 200 else None
+    except Exception as e:
+        print(f"API get failed: {e}")
+        return None
 async def fetch_now_playing(u, l=1): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
 async def fetch_top_artists(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
 async def fetch_top_tracks(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")

@@ -97,15 +97,15 @@ class SettingsCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def settings_slash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        view = SettingsView(interaction.user.id)
-        await view.init_state()
-        await interaction.followup.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", view=view, ephemeral=True)
+        view = SettingsView()
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.followup.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view, ephemeral=True)
 
     @commands.command(name="settings")
     async def settings_prefix(self, ctx):
-        view = SettingsView(ctx.author.id)
-        await view.init_state()
-        await ctx.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", view=view)
+        view = SettingsView()
+        embed = await get_settings_embed(ctx.author.id, ctx.author)
+        await ctx.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view)
 
 async def setup(bot):
     await bot.add_cog(SettingsCog(bot))
