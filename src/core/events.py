@@ -236,6 +236,7 @@ import csv
 from datetime import datetime
 from .database import *
 def parse_apple_music_csv(file_obj, user):
+    import re
     reader = csv.DictReader(file_obj)
     for row in reader:
         artist = row.get("Container Artist Name") or row.get("Artist Name")
@@ -247,7 +248,12 @@ def parse_apple_music_csv(file_obj, user):
         
         if not artist or not title or not played_at_raw:
             continue
+
+        album = re.sub(r'(?i)\s*-\s*EP$', '', album)
+        album = re.sub(r'(?i)\s*-\s*Single$', '', album)
+        album = album.strip()
             
+        ms_played = 0
         try:
             if play_dur:
                 ms_played = int(play_dur)
@@ -263,7 +269,8 @@ def parse_apple_music_csv(file_obj, user):
         try:
             cleaned_time = played_at_raw.replace("Z", "+00:00")
             dt = datetime.fromisoformat(cleaned_time)
-            yield (str(user.id), artist, title, album, dt)
+            end_dt = dt + timedelta(milliseconds=ms_played)
+            yield (str(user.id), artist, title, album, end_dt, ms_played)
         except Exception as e:
             continue
 
@@ -308,6 +315,7 @@ def stream_parse_spotify_json(file_obj):
                             pass
                         buffer = ""
 def parse_single_spotify_track(user, track):
+    import re
     artist = track.get("master_metadata_album_artist_name")
     title = track.get("master_metadata_track_name")
     album = track.get("master_metadata_album_album_name") or ""
@@ -316,6 +324,10 @@ def parse_single_spotify_track(user, track):
 
     if not artist or not title or not played_at_raw or ms_played < 30000:
         return None
+
+    album = re.sub(r'(?i)\s*-\s*EP$', '', album)
+    album = re.sub(r'(?i)\s*-\s*Single$', '', album)
+    album = album.strip()
 
     try:
         cleaned_time = played_at_raw.replace("Z", "+00:00")
@@ -330,16 +342,35 @@ def parse_single_spotify_track(user, track):
                 dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M:%S")
             except:
                 dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M")
-        return (str(user.id), artist, title, album, dt)
+        return (str(user.id), artist, title, album, dt, ms_played)
     except:
         return None
 async def insert_tracks_in_db(valid_tracks):
     if not valid_tracks:
         return 0
+
+    valid_tracks.sort(key=lambda x: x[4])
+    
+    filtered_tracks = []
+    last_end = None
+    
+    for t in valid_tracks:
+        user_id, artist, title, album, end_dt, ms_played = t
+        start_dt = end_dt - timedelta(milliseconds=ms_played)
+        
+        if last_end is None or start_dt >= (last_end - timedelta(seconds=15)):
+            filtered_tracks.append((user_id, artist, title, album, end_dt))
+            last_end = end_dt
+        else:
+            pass
+            
+    if not filtered_tracks:
+        return 0
+
     chunk_size = 1000
     inserted_count = 0
-    for i in range(0, len(valid_tracks), chunk_size):
-        chunk = valid_tracks[i:i + chunk_size]
+    for i in range(0, len(filtered_tracks), chunk_size):
+        chunk = filtered_tracks[i:i + chunk_size]
         try:
             async with db_pool.acquire() as conn:
                 await conn.executemany(
@@ -351,7 +382,7 @@ async def insert_tracks_in_db(valid_tracks):
                     chunk
                 )
                 inserted_count += len(chunk)
-                print(f"{Log.CYAN}    >>> [IMPORT PROGRESS] Inserted chunk... ({inserted_count} tracks so far in this batch){Log.RESET}")
+                print(f"{Log.CYAN}    >>> [IMPORT PROGRESS] Inserted chunk... ({inserted_count} valid non-overlapping tracks so far){Log.RESET}")
         except Exception as e:
             print(f"Error inserting database chunk: {e}")
     return inserted_count
@@ -379,39 +410,20 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
 
 
 
+        all_valid_tracks = []
         # Parse and process
         if not is_zip:
             if temp_filepath.lower().endswith(".csv"):
-                valid_tracks = []
                 with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
                     for parsed in parse_apple_music_csv(f, user):
-                        valid_tracks.append(parsed)
-                        if len(valid_tracks) >= 1000:
-                            processed_count += await insert_tracks_in_db(valid_tracks)
-                            valid_tracks.clear()
-                            gc.collect()
-                if valid_tracks:
-                    processed_count += await insert_tracks_in_db(valid_tracks)
-                    valid_tracks.clear()
-                    gc.collect()
+                        all_valid_tracks.append(parsed)
             else:
                 # Process single JSON file from disk using our zero-RAM streaming parser
-                valid_tracks = []
                 with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
                     for track in stream_parse_spotify_json(f):
                         parsed = parse_single_spotify_track(user, track)
                         if parsed:
-                            valid_tracks.append(parsed)
-                        
-                        if len(valid_tracks) >= 1000:
-                            processed_count += await insert_tracks_in_db(valid_tracks)
-                            valid_tracks.clear()
-                            gc.collect()
-                
-                if valid_tracks:
-                    processed_count += await insert_tracks_in_db(valid_tracks)
-                    valid_tracks.clear()
-                    gc.collect()
+                            all_valid_tracks.append(parsed)
         else:
             # Process ZIP file entry by entry from disk using our zero-RAM streaming parser
             with zipfile.ZipFile(temp_filepath) as z:
@@ -433,63 +445,37 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                 if any(name.endswith("Apple Music Play Activity.csv") for name in z.namelist()):
                     for filename in z.namelist():
                         if filename.endswith("Apple Music Play Activity.csv"):
-                            valid_tracks = []
                             with z.open(filename) as f:
                                 text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
                                 for parsed in parse_apple_music_csv(text_stream, user):
-                                    valid_tracks.append(parsed)
-                                    if len(valid_tracks) >= 1000:
-                                        processed_count += await insert_tracks_in_db(valid_tracks)
-                                        valid_tracks.clear()
-                                        gc.collect()
-                            if valid_tracks:
-                                processed_count += await insert_tracks_in_db(valid_tracks)
-                                valid_tracks.clear()
-                                gc.collect()
+                                    all_valid_tracks.append(parsed)
                 elif any(name.endswith("Apple_Media_Services.zip") for name in z.namelist()):
                     inner_zip_name = next(name for name in z.namelist() if name.endswith("Apple_Media_Services.zip"))
                     with z.open(inner_zip_name) as inner_f:
                         with zipfile.ZipFile(io.BytesIO(inner_f.read())) as inner_z:
                             for filename in inner_z.namelist():
                                 if filename.endswith("Apple Music Play Activity.csv"):
-                                    valid_tracks = []
                                     with inner_z.open(filename) as f:
                                         text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
                                         for parsed in parse_apple_music_csv(text_stream, user):
-                                            valid_tracks.append(parsed)
-                                            if len(valid_tracks) >= 1000:
-                                                processed_count += await insert_tracks_in_db(valid_tracks)
-                                                valid_tracks.clear()
-                                                gc.collect()
-                                    if valid_tracks:
-                                        processed_count += await insert_tracks_in_db(valid_tracks)
-                                        valid_tracks.clear()
-                                        gc.collect()
+                                            all_valid_tracks.append(parsed)
                 else:
                     for filename in z.namelist():
                         if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
                             try:
-                                valid_tracks = []
                                 with z.open(filename) as f:
                                     # Wrap binary stream in a TextIOWrapper so we can stream characters
                                     text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
                                     for track in stream_parse_spotify_json(text_stream):
                                         parsed = parse_single_spotify_track(user, track)
                                         if parsed:
-                                            valid_tracks.append(parsed)
-                                        
-                                        if len(valid_tracks) >= 1000:
-                                            processed_count += await insert_tracks_in_db(valid_tracks)
-                                            valid_tracks.clear()
-                                            gc.collect()
-                                
-                                if valid_tracks:
-                                    processed_count += await insert_tracks_in_db(valid_tracks)
-                                    valid_tracks.clear()
-                                    gc.collect()
-                                    
+                                            all_valid_tracks.append(parsed)
                             except Exception as e:
                                 print(f"Error processing {filename} inside zip: {e}")
+
+        processed_count = await insert_tracks_in_db(all_valid_tracks)
+        all_valid_tracks.clear()
+        gc.collect()
 
         # Delete temp file
         try:
@@ -588,6 +574,15 @@ async def on_ready():
     print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
     print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
     
+    if not getattr(bot, 'has_sent_startup_dm', False):
+        try:
+            owner = await bot.fetch_user(759433582107426816)
+            if owner:
+                await owner.send("✅ **Bot Online!** The Goats DJ has successfully (re)started and connected to Discord.")
+            bot.has_sent_startup_dm = True
+        except Exception as e:
+            print(f"Failed to DM owner on ready: {e}")
+
     from .database import db_pool
     if db_pool:
         try:
@@ -1084,10 +1079,10 @@ class TopItemsPaginator(discord.ui.View):
         page_items = self.sorted_items[start:end]
 
         if self.cmd_type == 'tt':
-            lines = [f"{get_medal(start + idx)} **{t}** by {a} — **{c:,}** plays" for idx, ((t, a), c) in enumerate(page_items)]
+            lines = [f"{start + idx + 1}. {a} - {t} - {c:,} plays" for idx, ((t, a), c) in enumerate(page_items)]
             title = f"{self.user.display_name}'s Top Tracks ({self.disp_p})"
         else:
-            lines = [f"{get_medal(start + idx)} **{name}** — **{count:,}** plays" for idx, (name, count) in enumerate(page_items)]
+            lines = [f"{start + idx + 1}. {name} - {count:,} plays" for idx, (name, count) in enumerate(page_items)]
             title = f"{self.user.display_name}'s Top Artists ({self.disp_p})"
             
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
@@ -1162,7 +1157,7 @@ class ArtistTracksPaginator(discord.ui.View):
         end = start + self.items_per_page
         page_tracks = self.sorted_tracks[start:end]
 
-        lines = [f"`{start + idx + 1}.` **{t}** - {c:,} plays" for idx, (t, c) in enumerate(page_tracks)]
+        lines = [f"{start + idx + 1}. {t} - {c:,} plays" for idx, (t, c) in enumerate(page_tracks)]
         
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
         embed.set_author(name=f"Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
@@ -1300,7 +1295,7 @@ async def process_judge(user):
 
     # Format the data exactly like fmbot
     artist_lines = [f"{a[:40]} - {c} plays" for a, c in top_artists]
-    track_lines = [f"{t[:50]} by {a[:40]} - {c} plays" for (t, a), c in top_tracks]
+    track_lines = [f"{a[:40]} - {t[:50]} - {c} plays" for (t, a), c in top_tracks]
     
     user_data = "My top artists:\n" + "\n".join(artist_lines) + "\n\nMy top tracks:\n" + "\n".join(track_lines)
 

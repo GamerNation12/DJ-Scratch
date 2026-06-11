@@ -88,43 +88,47 @@ class AdminCog(commands.Cog):
         if ctx.author.id != OWNER_ID: return
         await ctx.send("🔄 Simulating high RAM usage. Auto-restarting bot...")
         print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
+        try:
+            await ctx.author.send(f"🚨 **CRITICAL ALERT:** System RAM usage reached **99.9%**.\\nThe bot is now auto-restarting to prevent a crash. *(Simulation)*")
+        except Exception as e:
+            pass
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
         await self.bot.close()
         os._exit(0)
+
+    @commands.command(name="wipedata")
+    async def wipe_data(self, ctx):
+        if ctx.author.id != OWNER_ID: return
+        msg = await ctx.send("🧨 Wiping ALL imported listens data from the database. This cannot be undone...")
+        try:
+            from src.core.database import db_pool
+            if not db_pool:
+                await msg.edit(content="❌ Database is currently offline.")
+                return
+            
+            async with db_pool.acquire() as conn:
+                await conn.execute("TRUNCATE TABLE listens;")
+                
+            await msg.edit(content="✅ Successfully wiped all listen history data from the database. Rebuild from the ground up!")
+            print(f"{Log.RED}>>> Owner executed global wipe of listens table.{Log.RESET}")
+        except Exception as e:
+            await msg.edit(content=f"❌ Failed to wipe data: {e}")
 
     @commands.command(name="restart")
     async def restart_bot(self, ctx):
         if ctx.author.id != OWNER_ID: return
         await ctx.send("🔄 Restarting bot...")
         print(f"{Log.RED}>>> Restart triggered by owner. Exiting process...{Log.RESET}")
+        try:
+            await ctx.author.send("🔄 **Manual Restart Initiated**\\nThe bot is now restarting via the `.restart` command.")
+        except Exception as e:
+            pass
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
         await self.bot.close()
         os._exit(0)
 
-    @discord.app_commands.command(name="restart", description="Restart the bot (Owner only)")
-    async def restart_slash(self, interaction: discord.Interaction):
-        if interaction.user.id != OWNER_ID:
-            await interaction.response.send_message("❌ You are not the owner.", ephemeral=True)
-            return
-        await interaction.response.send_message("🔄 Restarting bot...", ephemeral=True)
-        print(f"{Log.RED}>>> Restart triggered by owner via Slash Command. Exiting process...{Log.RESET}")
-        if getattr(self.bot, 'session', None):
-            await self.bot.session.close()
-        await self.bot.close()
-        os._exit(0)
-    @discord.app_commands.command(name="testautorestart", description="Simulate high RAM usage and test auto-restart (Owner only)")
-    async def test_auto_restart_slash(self, interaction: discord.Interaction):
-        if interaction.user.id != OWNER_ID:
-            await interaction.response.send_message("❌ You are not the owner.", ephemeral=True)
-            return
-        await interaction.response.send_message("🔄 Simulating high RAM usage. Auto-restarting bot...", ephemeral=True)
-        print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
-        if getattr(self.bot, 'session', None):
-            await self.bot.session.close()
-        await self.bot.close()
-        os._exit(0)
 
 async def setup(bot):
     await bot.add_cog(AdminCog(bot))

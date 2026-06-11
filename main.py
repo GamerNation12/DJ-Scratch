@@ -16,6 +16,12 @@ async def memory_monitor():
         # If RAM usage is 90% or higher, auto-restart to prevent crashing
         if ram_percent >= 90.0:
             print(f"CRITICAL: System RAM usage is at {ram_percent}%. Auto-restarting bot...")
+            try:
+                owner = await bot.fetch_user(759433582107426816)
+                if owner:
+                    await owner.send(f"🚨 **CRITICAL ALERT:** System RAM usage reached **{ram_percent}%**.\\nThe bot is now auto-restarting to prevent a crash.")
+            except Exception as e:
+                print(f"Failed to DM owner: {e}")
             os._exit(0)
     except Exception as e:
         print(f"Error in memory monitor: {e}")
