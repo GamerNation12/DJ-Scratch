@@ -100,18 +100,30 @@ class AdminCog(commands.Cog):
     @commands.command(name="wipedata")
     async def wipe_data(self, ctx):
         if ctx.author.id != OWNER_ID: return
-        msg = await ctx.send("🧨 Wiping ALL imported listens data from the database. This cannot be undone...")
+        msg = await ctx.send("🧨 Wiping ALL imported data from the database. This cannot be undone...")
         try:
-            from src.core.database import db_pool
+            from src.core.database import db_pool, USERS_FILE
+            import json
+            import os
+            
             if not db_pool:
                 await msg.edit(content="❌ Database is currently offline.")
                 return
             
             async with db_pool.acquire() as conn:
                 await conn.execute("TRUNCATE TABLE listens;")
+                await conn.execute("TRUNCATE TABLE imported_users;")
+                try:
+                    await conn.execute("TRUNCATE TABLE user_settings;")
+                except Exception:
+                    pass
                 
-            await msg.edit(content="✅ Successfully wiped all listen history data from the database. Rebuild from the ground up!")
-            print(f"{Log.RED}>>> Owner executed global wipe of listens table.{Log.RESET}")
+            if os.path.exists(USERS_FILE):
+                with open(USERS_FILE, "w") as f:
+                    json.dump({}, f)
+                
+            await msg.edit(content="✅ Successfully wiped ALL data (listens, users, settings). Rebuild from the ground up!")
+            print(f"{Log.RED}>>> Owner executed global wipe of all tables.{Log.RESET}")
         except Exception as e:
             await msg.edit(content=f"❌ Failed to wipe data: {e}")
 
