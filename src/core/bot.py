@@ -8,7 +8,18 @@ class GoatsBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix=',', intents=intents)
+        
+        # Power/Memory Saving Tweaks:
+        # 1. max_messages=None disables message caching
+        # 2. chunk_guilds_at_startup=False stops the bot from downloading member lists
+        # 3. member_cache_flags.none() stops the bot from keeping users in RAM unless active
+        super().__init__(
+            command_prefix=',', 
+            intents=intents,
+            max_messages=None,
+            chunk_guilds_at_startup=False,
+            member_cache_flags=discord.MemberCacheFlags.none()
+        )
         self.session = None
         self.db_pool = None
 
