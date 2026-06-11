@@ -112,11 +112,6 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
   
-  // Voice State
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -243,51 +238,7 @@ export default function ChatPage() {
     }
   };
 
-  const startRecording = async () => {
-    if (!selectedChannel || selectedChannel.type !== 2) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = async () => {
-          const base64data = (reader.result as string).split(',')[1];
-          try {
-            const res = await fetch("/api/admin/discord/voice", {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ channelId: selectedChannel.id, audioBase64: base64data })
-            });
-            if (!res.ok) setError("Failed to transmit voice.");
-          } catch(e) {
-            setError("Network error transmitting voice.");
-          }
-        };
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (e) {
-      setError("Microphone access denied or unavailable.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
 
   const toggleCategory = (id: string) => {
     setCollapsedCategories(prev => ({ ...prev, [id]: !prev[id] }));
@@ -606,27 +557,13 @@ export default function ChatPage() {
         {selectedChannel?.type === 2 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 -mt-20">
             <div className="w-24 h-24 rounded-full bg-[#1E1F22] flex items-center justify-center mb-6 shadow-lg relative">
-              <img src="/logo.png" className={`w-full h-full object-cover rounded-full ${isRecording ? 'animate-pulse ring-4 ring-[#23A559]' : ''}`} />
+              <img src="/logo.png" className="w-full h-full object-cover rounded-full" />
               <div className="absolute -bottom-2 -right-2 bg-[#2B2D31] p-1.5 rounded-full border-[3px] border-[#313338]">
                 <Icons.Voice />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2 text-center">Voice Connected to {selectedChannel.name}</h2>
-            <p className="text-[#949BA4] text-center mb-10 max-w-sm">Hold the button below to transmit your voice directly into the Discord Voice Channel as the bot.</p>
-            
-            <button 
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={stopRecording}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all shadow-xl active:scale-95 ${isRecording ? 'bg-[#23A559] text-white shadow-[#23A559]/50' : 'bg-[#5865F2] text-white hover:bg-[#4752C4]'}`}
-            >
-              <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
-            </button>
-            <span className={`mt-6 font-bold tracking-widest uppercase transition-opacity ${isRecording ? 'text-[#23A559] opacity-100' : 'text-[#80848E] opacity-50'}`}>
-              {isRecording ? 'Transmitting...' : 'Push to Talk'}
-            </span>
+            <h2 className="text-2xl font-bold text-white mb-2 text-center">{selectedChannel.name}</h2>
+            <p className="text-[#949BA4] text-center max-w-sm">Voice connections through the web dashboard have been disabled.</p>
           </div>
         ) : (
           <div className="px-4 pb-6 pt-0 shrink-0 relative">
