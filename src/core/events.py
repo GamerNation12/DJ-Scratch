@@ -170,6 +170,11 @@ async def setup_hook():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
                 except Exception as e:
                     print(f"Failed to add lastfm_username column: {e}")
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'")
+                except Exception as e:
+                    print(f"Failed to add timezone column: {e}")
 
                 # One-time migration
                 if os.path.exists("lastfm_users.json"):
