@@ -38,6 +38,17 @@ class LastFmCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @app_commands.command(name="cd", description="Check the bot's avatar cooldown")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def cd_slash(self, interaction: discord.Interaction):
+        cd = await self.bot.get_avatar_cooldown()
+        if cd > 0:
+            m, s = divmod(cd, 60)
+            await interaction.response.send_message(f"⏳ Avatar is on cooldown for **{m}m {s}s**.", ephemeral=True)
+        else:
+            await interaction.response.send_message("✅ Avatar is **ready** to be updated!", ephemeral=True)
+
     @app_commands.command(name="setfm", description="Link your Last.fm username to the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -170,6 +181,15 @@ class LastFmCog(commands.Cog):
         await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
 
     # --- PREFIX COMMANDS ---
+
+    @commands.command(name="cd", aliases=["cooldown"])
+    async def cd_prefix(self, ctx):
+        cd = await self.bot.get_avatar_cooldown()
+        if cd > 0:
+            m, s = divmod(cd, 60)
+            await ctx.send(f"⏳ Avatar is on cooldown for **{m}m {s}s**.")
+        else:
+            await ctx.send("✅ Avatar is **ready** to be updated!")
 
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, username: str):

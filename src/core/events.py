@@ -185,6 +185,7 @@ async def setup_hook():
                         print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
 
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+            bot.get_avatar_cooldown = get_avatar_cooldown
             bot.get_user_fm_mode = get_user_fm_mode
             bot.process_fm = process_fm
             bot.process_top_artists = process_top_artists
