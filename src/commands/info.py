@@ -46,5 +46,36 @@ class InfoCog(commands.Cog):
         
         await interaction.followup.send(embed=embed)
 
+    async def send_updates(self, context):
+        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=0x00ff00, timestamp=datetime.utcnow())
+        embed.add_field(
+            name="🤖 Dynamic Bot Avatar", 
+            value="The bot's profile picture now automatically syncs with the album cover of the track you are currently listening to!",
+            inline=False
+        )
+        embed.add_field(
+            name="⏳ Avatar Cooldown Command", 
+            value="Use `,cd` to check if the bot's avatar is on cooldown and preview the current avatar.",
+            inline=False
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Enjoy the new features!")
+        
+        if isinstance(context, discord.Interaction):
+            await context.followup.send(embed=embed)
+        else:
+            await context.send(embed=embed)
+
+    @app_commands.command(name="updates", description="Displays the latest bot updates and features")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def updates_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        await self.send_updates(interaction)
+
+    @commands.command(name="updates", aliases=["changelog", "news"])
+    async def updates_prefix(self, ctx):
+        await self.send_updates(ctx)
+
 async def setup(bot):
     await bot.add_cog(InfoCog(bot))
