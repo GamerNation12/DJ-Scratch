@@ -139,12 +139,17 @@ export default function Home() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Why The Goats DJ?</h2>
             <p className="text-zinc-400">Everything you need to show off your music.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
             {[
               {
                 icon: "🎵",
                 title: "Deep Last.fm Integration",
                 desc: "Connect your Last.fm account to instantly share your current playing tracks, recent scrobbles, and top artists with your server."
+              },
+              {
+                icon: "🤖",
+                title: "Dynamic Bot Avatar",
+                desc: "The bot's profile picture automatically syncs with the album cover of the track you are currently listening to, keeping your server fresh."
               },
               {
                 icon: "🎨",
