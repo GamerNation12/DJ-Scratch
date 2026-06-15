@@ -38,16 +38,40 @@ class LastFmCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="cd", description="Check the bot's avatar cooldown")
+    @app_commands.command(name="cd", description="Check the bot's avatar cooldown and preview avatar")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def cd_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         cd = await self.bot.get_avatar_cooldown()
-        if cd > 0:
-            m, s = divmod(cd, 60)
-            await interaction.response.send_message(f"⏳ Avatar is on cooldown for **{m}m {s}s**.", ephemeral=True)
-        else:
-            await interaction.response.send_message("✅ Avatar is **ready** to be updated!", ephemeral=True)
+        status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
+
+        from src.core.events import fetch_now_playing, get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        try:
+            username = await get_lastfm_username(interaction.user.id)
+            if username:
+                data = await fetch_now_playing(username)
+                if data and 'recenttracks' in data and data['recenttracks']['track']:
+                    t = data['recenttracks']['track'][0]
+                    is_p = t.get('@attr', {}).get('nowplaying') == 'true'
+                    if is_p:
+                        artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        if img:
+                            preview_embed = discord.Embed(
+                                title="Bot Avatar Preview", 
+                                description=f"Current track: **{song}** by **{artist}**", 
+                                color=LASTFM_COLOR
+                            )
+                            preview_embed.set_author(name=self.bot.user.name, icon_url=img)
+                            preview_embed.set_image(url=img)
+                            
+                            view = ApplyAvatarView(self.bot, artist, img)
+                            await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True)
+                            return
+        except Exception as e:
+            pass
+            
+        await interaction.followup.send(content=status_msg, ephemeral=True)
 
     @app_commands.command(name="setfm", description="Link your Last.fm username to the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -185,11 +209,34 @@ class LastFmCog(commands.Cog):
     @commands.command(name="cd", aliases=["cooldown"])
     async def cd_prefix(self, ctx):
         cd = await self.bot.get_avatar_cooldown()
-        if cd > 0:
-            m, s = divmod(cd, 60)
-            await ctx.send(f"⏳ Avatar is on cooldown for **{m}m {s}s**.")
-        else:
-            await ctx.send("✅ Avatar is **ready** to be updated!")
+        status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
+
+        from src.core.events import fetch_now_playing, get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        try:
+            username = await get_lastfm_username(ctx.author.id)
+            if username:
+                data = await fetch_now_playing(username)
+                if data and 'recenttracks' in data and data['recenttracks']['track']:
+                    t = data['recenttracks']['track'][0]
+                    is_p = t.get('@attr', {}).get('nowplaying') == 'true'
+                    if is_p:
+                        artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        if img:
+                            preview_embed = discord.Embed(
+                                title="Bot Avatar Preview", 
+                                description=f"Current track: **{song}** by **{artist}**", 
+                                color=LASTFM_COLOR
+                            )
+                            preview_embed.set_author(name=self.bot.user.name, icon_url=img)
+                            preview_embed.set_image(url=img)
+                            
+                            view = ApplyAvatarView(self.bot, artist, img)
+                            await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                            return
+        except Exception as e:
+            pass
+            
+        await ctx.send(content=status_msg)
 
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, username: str):
