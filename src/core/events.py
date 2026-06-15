@@ -925,7 +925,6 @@ async def process_fm(ctx_int, user, mode="full"):
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
         if is_p:
-            await update_bot_status(bot_instance, artist)
             cd = await get_avatar_cooldown()
         else:
             cd = 0
