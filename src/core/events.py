@@ -765,7 +765,7 @@ async def get_lastfm_username(uid):
 
 
 class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False):
+    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
@@ -777,7 +777,7 @@ class FMActionsView(discord.ui.View):
             btn1.callback = self.more_info
             self.add_item(btn1)
             
-        if is_p and img:
+        if is_p and img and cd <= 0:
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
             btn2.callback = self.preview_avatar
             self.add_item(btn2)
@@ -962,7 +962,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p)
+            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p, cd=cd)
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1029,7 +1029,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p)
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd)
             result = {"embed": embed}
             if is_p and img: result["view"] = view
             return result, is_p
@@ -1052,7 +1052,7 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p)
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd)
         result = {"embed": embed}
         if is_p and img: result["view"] = view
         return result, is_p
