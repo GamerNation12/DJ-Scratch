@@ -677,28 +677,37 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
         print(f"{Log.RED}>>> Failed to track command usage: {e}{Log.RESET}")
 
 # --- HELPER: AVATAR & STATUS CHANGER ---
-async def update_bot_avatar_and_status(bot_instance, artist, image_url):
+async def update_bot_status(bot_instance, artist):
     global db_pool
     try:
-        if bot_instance.activity and bot_instance.activity.name == artist:
-            return False, 0
+        if bot_instance.activity is None or bot_instance.activity.name != artist:
+            await bot_instance.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
     except: pass
 
-    if not image_url: return False, 0
+async def get_avatar_cooldown():
+    global db_pool
+    if not db_pool: return 0
     now = datetime.utcnow()
-    
-    # Check cooldown in Postgres
-    if db_pool:
-        async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'avatar_cooldown'")
-            if row and row['value']:
-                try:
-                    last_update = datetime.fromisoformat(row['value'])
-                    diff = (now - last_update).total_seconds()
-                    if diff < 300:
-                        return False, int(300 - diff)
-                except: pass
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'avatar_cooldown'")
+        if row and row['value']:
+            try:
+                last_update = datetime.fromisoformat(row['value'])
+                diff = (now - last_update).total_seconds()
+                if diff < 300: return int(300 - diff)
+            except: pass
+    return 0
 
+async def update_bot_avatar(bot_instance, artist, image_url):
+    global db_pool
+    if not image_url: return False, 0
+    cd = await get_avatar_cooldown()
+    if cd > 0: return False, cd
+
+    now = datetime.utcnow()
     session = getattr(bot_instance, 'session', None)
     local_session = False
     if session is None:
@@ -710,25 +719,16 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
             if resp.status == 200:
                 image_data = await resp.read()
                 await bot_instance.user.edit(avatar=image_data)
-                await bot_instance.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
+                await update_bot_status(bot_instance, artist)
                 
-                # Update cooldown and status in Postgres
                 if db_pool:
                     async with db_pool.acquire() as conn:
-                        await conn.execute(
-                            "INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                            now.isoformat()
-                        )
-                        await conn.execute(
-                            "INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                            artist
-                        )
+                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
                 return True, 300
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to update avatar/status: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to update avatar: {e}{Log.RESET}")
     finally:
-        if local_session:
-            await session.close()
+        if local_session: await session.close()
     return False, 0
 
 
@@ -764,14 +764,59 @@ async def get_lastfm_username(uid):
 # --- LAST.FM API FETCHERS ---
 
 
-class MoreInfoView(discord.ui.View):
-    def __init__(self, embed: discord.Embed):
+class FMActionsView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False):
         super().__init__(timeout=None)
-        self.embed = embed
+        self.bot_instance = bot_instance
+        self.artist = artist
+        self.img = img
+        self.compact_embed = compact_embed
+        
+        if compact_embed:
+            btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
+            btn1.callback = self.more_info
+            self.add_item(btn1)
+            
+        if is_p and img:
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
+            btn2.callback = self.preview_avatar
+            self.add_item(btn2)
 
-    @discord.ui.button(label="More info", style=discord.ButtonStyle.secondary)
-    async def more_info(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(embed=self.embed, ephemeral=True)
+    async def more_info(self, interaction: discord.Interaction):
+        await interaction.response.send_message(embed=self.compact_embed, ephemeral=True)
+
+    async def preview_avatar(self, interaction: discord.Interaction):
+        preview_embed = discord.Embed(
+            title="Bot Avatar Preview", 
+            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
+            color=LASTFM_COLOR
+        )
+        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_image(url=self.img)
+        
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img)
+        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+
+class ApplyAvatarView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img):
+        super().__init__(timeout=180)
+        self.bot_instance = bot_instance
+        self.artist = artist
+        self.img = img
+        
+    @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
+    async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        changed, cd = await update_bot_avatar(self.bot_instance, self.artist, self.img)
+        if changed:
+            await interaction.followup.send("✅ Avatar updated successfully!", ephemeral=True)
+            self.stop()
+        else:
+            if cd > 0:
+                m, s = divmod(cd, 60)
+                await interaction.followup.send(f"⏳ Avatar is on cooldown. Please wait {m}m {s}s.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Failed to update avatar. It might already be set.", ephemeral=True)
 
 async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
@@ -879,7 +924,11 @@ async def process_fm(ctx_int, user, mode="full"):
         status = "Now Playing" if is_p else "Last Played"
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
 
-        changed, cd = await update_bot_avatar_and_status(bot_instance, artist, img) if is_p else (False, 0)
+        if is_p:
+            await update_bot_status(bot_instance, artist)
+            cd = await get_avatar_cooldown()
+        else:
+            cd = 0
 
         show_playcount = await get_user_show_track_playcount(user.id)
         track_plays = -1
@@ -913,7 +962,9 @@ async def process_fm(ctx_int, user, mode="full"):
                 footer_text += f" • Avatar CD: {m}m {s}s"
                 
             embed.set_footer(text=footer_text)
-            return {"content": content, "view": MoreInfoView(embed)}, is_p
+            
+            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p)
+            return {"content": content, "view": view}, is_p
 
         if mode == "stats":
             desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
@@ -978,7 +1029,11 @@ async def process_fm(ctx_int, user, mode="full"):
                 footer_parts.append(" • ".join(stats_line))
                 
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
-            return {"embed": embed}, is_p
+            
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p)
+            result = {"embed": embed}
+            if is_p and img: result["view"] = view
+            return result, is_p
 
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
         if show_playcount and track_plays != -1:
@@ -998,7 +1053,10 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        return {"embed": embed}, is_p
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p)
+        result = {"embed": embed}
+        if is_p and img: result["view"] = view
+        return result, is_p
     except Exception as e: 
         print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
         return None, "Error formatting track."
