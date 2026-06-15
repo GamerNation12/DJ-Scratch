@@ -33,7 +33,7 @@ async def init_db():
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN show_track_playcount BOOLEAN DEFAULT FALSE")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass
         except Exception as e:
@@ -100,13 +100,13 @@ async def set_user_show_features(user_id, show_features: bool):
         print(f"Error setting show_features: {e}")
 
 async def get_user_show_track_playcount(user_id):
-    if not db_pool: return False
+    if not db_pool: return True
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow("SELECT show_track_playcount FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['show_track_playcount'] if row and row['show_track_playcount'] is not None else False
+            return row['show_track_playcount'] if row and row['show_track_playcount'] is not None else True
     except Exception:
-        return False
+        return True
 
 async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
     if not db_pool: return
