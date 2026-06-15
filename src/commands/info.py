@@ -50,7 +50,7 @@ class InfoCog(commands.Cog):
         embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=0x00ff00, timestamp=datetime.utcnow())
         embed.add_field(
             name="🤖 Dynamic Bot Avatar", 
-            value="The bot's profile picture now automatically syncs with the album cover of the track you are currently listening to!",
+            value="You can now manually set the bot's profile picture to match the album cover of the track you're listening to using the new button on your `/fm` embed!",
             inline=False
         )
         embed.add_field(

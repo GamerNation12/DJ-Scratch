@@ -149,7 +149,7 @@ export default function Home() {
               {
                 icon: "🤖",
                 title: "Dynamic Bot Avatar",
-                desc: "The bot's profile picture automatically syncs with the album cover of the track you are currently listening to, keeping your server fresh."
+                desc: "Users can manually set the bot's profile picture to match their current album cover directly from their music embeds."
               },
               {
                 icon: "🎨",
