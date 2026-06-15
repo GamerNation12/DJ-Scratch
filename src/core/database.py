@@ -32,6 +32,10 @@ async def init_db():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN lastfm_username TEXT")
                 except Exception:
                     pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN show_track_playcount BOOLEAN DEFAULT FALSE")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
@@ -94,6 +98,26 @@ async def set_user_show_features(user_id, show_features: bool):
             """, str(user_id), show_features)
     except Exception as e:
         print(f"Error setting show_features: {e}")
+
+async def get_user_show_track_playcount(user_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT show_track_playcount FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['show_track_playcount'] if row and row['show_track_playcount'] is not None else False
+    except Exception:
+        return False
+
+async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, show_track_playcount) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET show_track_playcount = $2
+            """, str(user_id), show_track_playcount)
+    except Exception as e:
+        print(f"Error setting show_track_playcount: {e}")
 
 async def get_user_data_source(user_id):
     if not db_pool: return 'combined'

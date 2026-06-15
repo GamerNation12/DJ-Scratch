@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone
+from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount
 from src.core.config import LASTFM_COLOR
 
 class MoreInfoView(discord.ui.View):
@@ -17,6 +17,7 @@ async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
+    playcount = await get_user_show_track_playcount(user_id)
     
     embed = discord.Embed(
         title="⚙️ Personal Preferences",
@@ -37,6 +38,10 @@ async def get_settings_embed(user_id, user):
     ds_desc = "📦 Imported Only" if d_source == "imported_only" else "🔄 Last.fm + Imported"
     embed.add_field(name="**Data Source**", value=f"> {ds_desc}\n*Choose whether to include your live Last.fm data along with your imported history.*", inline=False)
     
+    # Track Playcount
+    pc_desc = "👀 Visible" if playcount else "🙈 Hidden"
+    embed.add_field(name="**Track Playcount (`/fm`)**", value=f"> {pc_desc}\n*Shows how many times you've played the track (or if it's your first time).* \n*(Requires Last.fm integration to be accurate)*", inline=False)
+    
     # Timezone
     tz = await get_user_timezone(user_id)
     embed.add_field(name="**Timezone**", value=f"> 🌍 {tz}\n*Used to accurately calculate your yearly top tracks/artists.*", inline=False)
@@ -55,6 +60,8 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
             discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
             discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
+            discord.SelectOption(label="Show Track Playcount", description="Show playcount on /fm", emoji="👀", value="pc_on"),
+            discord.SelectOption(label="Hide Track Playcount", description="Hide playcount on /fm", emoji="🙈", value="pc_off"),
         ]
         super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
 
@@ -69,6 +76,9 @@ class SettingsDropdown(discord.ui.Select):
         elif val.startswith("ds_"):
             source = val[3:]
             await set_user_data_source(interaction.user.id, source)
+        elif val.startswith("pc_"):
+            on = (val == "pc_on")
+            await set_user_show_track_playcount(interaction.user.id, on)
             
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)

@@ -876,13 +876,28 @@ async def process_fm(ctx_int, user, mode="full"):
 
         changed, cd = await update_bot_avatar_and_status(bot_instance, artist, img) if is_p else (False, 0)
 
+        show_playcount = await get_user_show_track_playcount(user.id)
+        track_plays = -1
+        t_info = None
+        if show_playcount or mode == "stats":
+            t_info = await fetch_track_info(username, artist, song)
+            if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+                track_plays = int(t_info['track']['userplaycount'])
+
         if mode == "compact":
             if is_p:
                 content = f"<a:movingnotes:1476084305229910159> **{user.display_name}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
                 content = f"🎧 **{user.display_name}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
             
-            desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
+            desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
+            if show_playcount and track_plays != -1:
+                if track_plays == 0 and is_p:
+                    desc_lines.append("\n🎧 **First time listening!**")
+                else:
+                    desc_lines.append(f"\n🔢 **{track_plays}** plays")
+            
+            desc = chr(10).join(desc_lines)
             embed = discord.Embed(description=desc, color=color)
             embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
@@ -908,11 +923,16 @@ async def process_fm(ctx_int, user, mode="full"):
                 p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
                 desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
             
+            if show_playcount and track_plays != -1:
+                if track_plays == 0 and is_p:
+                    desc_lines.append("\n🎧 **First time listening!**")
+                else:
+                    desc_lines.append(f"\n🔢 **{track_plays}** plays")
+            
             embed = discord.Embed(description=chr(10).join(desc_lines), color=color)
             embed.set_author(name=f"Now playing for {user.display_name}" if is_p else f"Last played by {user.display_name}")
             if img: embed.set_thumbnail(url=img)
             
-            t_info_task = asyncio.create_task(fetch_track_info(username, artist, song))
             a_info_task = asyncio.create_task(fetch_artist_info(username, artist))
             
             guild = getattr(ctx_int, 'guild', None)
@@ -930,7 +950,6 @@ async def process_fm(ctx_int, user, mode="full"):
                         return lb[0]
                     crown_task = asyncio.create_task(fetch_crown())
             
-            t_info = await t_info_task
             a_info = await a_info_task
             crown_winner = await crown_task if crown_task else None
 
@@ -956,7 +975,14 @@ async def process_fm(ctx_int, user, mode="full"):
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
             return {"embed": embed}, is_p
 
-        desc = chr(10).join([f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"])
+        desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
+        if show_playcount and track_plays != -1:
+            if track_plays == 0 and is_p:
+                desc_lines.append("\n🎧 **First time listening!**")
+            else:
+                desc_lines.append(f"\n🔢 **{track_plays}** plays")
+                
+        desc = chr(10).join(desc_lines)
         embed = discord.Embed(description=desc, color=color)
         embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
