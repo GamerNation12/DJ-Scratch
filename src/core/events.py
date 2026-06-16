@@ -766,12 +766,13 @@ async def get_lastfm_username(uid):
 
 
 class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0):
+    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0, user=None):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
         self.compact_embed = compact_embed
+        self.user = user
         
         if compact_embed:
             btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
@@ -795,23 +796,49 @@ class FMActionsView(discord.ui.View):
         preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class ApplyAvatarView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img):
+    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None):
         super().__init__(timeout=180)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
+        self.original_msg = original_msg
+        self.original_user = original_user
         
     @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         changed, cd = await update_bot_avatar(self.bot_instance, self.artist, self.img)
         if changed:
-            await interaction.followup.send("✅ Avatar updated successfully!", ephemeral=True)
+            debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
+            await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
             self.stop()
+            
+            if self.original_msg and self.original_user:
+                try:
+                    await self.original_msg.delete()
+                except Exception as e:
+                    await interaction.followup.send(f"⚠️ Could not delete old msg: {e}", ephemeral=True)
+                
+                try:
+                    mode = await get_user_fm_mode(self.original_user.id)
+                    result, is_p = await process_fm(interaction, self.original_user, mode=mode or "full")
+                    
+                    channel = self.original_msg.channel if self.original_msg else interaction.channel
+                    if result and channel:
+                        if isinstance(result, dict):
+                            new_msg = await channel.send(**result)
+                            if is_p:
+                                await add_custom_reactions(new_msg)
+                        else:
+                            await channel.send(result)
+                    else:
+                        await interaction.followup.send(f"⚠️ Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
+                except Exception as e:
+                    await interaction.followup.send(f"⚠️ Error resending fm: {e}", ephemeral=True)
         else:
             if cd > 0:
                 m, s = divmod(cd, 60)
@@ -963,7 +990,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p, cd=cd)
+            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p, cd=cd, user=user)
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1030,7 +1057,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd)
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user)
             result = {"embed": embed}
             if is_p and img: result["view"] = view
             return result, is_p
@@ -1053,7 +1080,7 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd)
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user)
         result = {"embed": embed}
         if is_p and img: result["view"] = view
         return result, is_p
