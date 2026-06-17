@@ -81,7 +81,7 @@ def process_profile_images(image_bytes):
             # --- Generate Avatar ---
             # Discord avatar is 512x512
             avatar_size = 512
-            inner_size = int(avatar_size * 0.707) # Fit square perfectly inside the circle mask
+            inner_size = int(avatar_size * 0.85) # Zoomed in slightly (0.707 is perfectly fitted, 1.0 is full size)
             
             # Background: blurred cover
             avatar_bg = img.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
