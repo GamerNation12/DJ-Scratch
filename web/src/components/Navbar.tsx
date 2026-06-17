@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut, signIn } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -115,12 +115,12 @@ export default function Navbar() {
                 >
                   Invite
                 </a>
-                <Link
-                  href="/api/auth/signin"
+                <button
+                  onClick={() => signIn("discord", { callbackUrl: "/dashboard" })}
                   className="px-4 py-1.5 text-sm font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-lg shadow-lg shadow-white/10 transition-all"
                 >
                   Sign In
-                </Link>
+                </button>
               </div>
             )}
           </div>
