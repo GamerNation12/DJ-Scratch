@@ -4,6 +4,7 @@ from discord import app_commands
 import psutil
 import time
 from datetime import datetime, timedelta
+from src.core.theme import Theme
 
 class InfoCog(commands.Cog):
     def __init__(self, bot):
@@ -30,8 +31,6 @@ class InfoCog(commands.Cog):
         # Servers and Users
         server_count = len(self.bot.guilds)
         total_members = sum(g.member_count for g in self.bot.guilds if g.member_count)
-        
-        from src.core.theme import Theme
         
         embed = discord.Embed(title="🤖 Bot Status", color=Theme.PRIMARY, timestamp=datetime.utcnow())
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
