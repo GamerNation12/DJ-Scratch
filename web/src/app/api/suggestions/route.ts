@@ -50,6 +50,48 @@ export async function POST(req: Request) {
       [userId, username, title, description]
     );
     await pool.end();
+
+    // Send a DM to the owner via Discord API
+    const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+    if (DISCORD_TOKEN) {
+      try {
+        const dmRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bot ${DISCORD_TOKEN}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ recipient_id: ADMIN_ID })
+        });
+        const dmData = await dmRes.json();
+        
+        if (dmData.id) {
+          await fetch(`https://discord.com/api/v10/channels/${dmData.id}/messages`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bot ${DISCORD_TOKEN}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              embeds: [{
+                title: `💡 New Web Suggestion: ${title}`,
+                description: description,
+                color: 16766720,
+                author: {
+                  name: `${username} (${userId})`
+                },
+                footer: {
+                  text: "Sent from: Web Dashboard"
+                },
+                timestamp: new Date().toISOString()
+              }]
+            })
+          });
+        }
+      } catch (err) {
+        console.error("Failed to DM owner:", err);
+      }
+    }
     
     return NextResponse.json(result.rows[0]);
   } catch (err) {
