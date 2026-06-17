@@ -74,6 +74,44 @@ class LastFmCog(commands.Cog):
             
         await interaction.followup.send(content=status_msg, ephemeral=True)
 
+    @app_commands.command(name="privacy", description="Toggle privacy mode to hide your profile from public stats")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def privacy_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await self.toggle_privacy(interaction.user, interaction.followup.send)
+
+    @commands.command(name="privacy")
+    async def privacy_prefix(self, ctx):
+        await self.toggle_privacy(ctx.author, ctx.reply)
+
+    async def toggle_privacy(self, user: discord.User, send_func):
+        from src.core.events import db_pool
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT private_mode FROM user_settings WHERE user_id=$1", str(user.id))
+                    current = row['private_mode'] if row and 'private_mode' in row else False
+                    new_state = not current
+                    await conn.execute("""
+                        INSERT INTO user_settings (user_id, private_mode) 
+                        VALUES ($1, $2) 
+                        ON CONFLICT (user_id) 
+                        DO UPDATE SET private_mode=$2
+                    """, str(user.id), new_state)
+                    
+                    state_str = "Enabled" if new_state else "Disabled"
+                    desc = "Your profile is now hidden from the public dashboard and server stats." if new_state else "Your profile is now visible on the public dashboard and server stats."
+                    color = discord.Color.red() if new_state else discord.Color.green()
+                    
+                    embed = discord.Embed(title=f"🔒 Privacy Mode {state_str}", description=desc, color=color)
+                    await send_func(embed=embed)
+            except Exception as e:
+                print(f"Privacy toggle error: {e}")
+                await send_func(content="Failed to update privacy settings. Please try again.")
+        else:
+            await send_func(content="Database is not available right now. Please try again later.")
+
     @app_commands.command(name="setfm", description="Link your Last.fm username to the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)

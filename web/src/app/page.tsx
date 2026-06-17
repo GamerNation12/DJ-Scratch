@@ -146,20 +146,18 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Row 1: Small - Live Community Stats */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-pink-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-pink-500/20 flex flex-col justify-between">
-              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-pink-500/20 rounded-full blur-[80px] group-hover:bg-pink-500/30 transition-colors duration-700"></div>
+            {/* Row 1: Small - Dynamic Avatar */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-emerald-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 flex flex-col justify-between">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700"></div>
               
-              <div className="absolute top-8 right-8 flex -space-x-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "0ms"}}></div>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "150ms"}}></div>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "300ms"}}></div>
+              <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="w-16 h-16 rounded-full border-4 border-emerald-500/30 border-t-emerald-400 animate-spin"></div>
               </div>
 
               <div className="relative z-10 mt-auto">
-                <div className="w-12 h-12 bg-pink-500/20 border border-pink-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">👥</div>
-                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Live Community</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed">Watch the community grow. The website dynamically queries the database to showcase the top Discord users' profile pictures in real-time.</p>
+                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Dynamic Avatar</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">The bot dynamically updates its own Discord avatar to match the album cover of your currently playing track via the `/cd` command.</p>
               </div>
             </div>
 
@@ -216,7 +214,7 @@ export default function Home() {
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-rose-500/20 border border-rose-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🔒</div>
                 <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Privacy Focused</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed">Toggle Private Mode from your dashboard to hide your top tracks and listening stats from the public.</p>
+                <p className="text-zinc-400 font-medium leading-relaxed">Toggle Private Mode from your dashboard or via the `/privacy` Discord command to hide your stats from the public.</p>
               </div>
             </div>
 
