@@ -722,13 +722,9 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
             if resp.status == 200:
                 image_data = await resp.read()
                 from ..utils.images import process_profile_images
-                avatar_bytes, banner_bytes = process_profile_images(image_data)
+                avatar_bytes = process_profile_images(image_data)
                 
-                edit_kwargs = {'avatar': avatar_bytes}
-                if banner_bytes is not None:
-                    edit_kwargs['banner'] = banner_bytes
-                
-                await bot_instance.user.edit(**edit_kwargs)
+                await bot_instance.user.edit(avatar=avatar_bytes)
                 await update_bot_status(bot_instance, artist)
                 
                 if db_pool:

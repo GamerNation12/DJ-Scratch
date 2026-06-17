@@ -98,30 +98,9 @@ def process_profile_images(image_bytes):
             avatar_out.save(avatar_buf, format='PNG')
             avatar_bytes_out = avatar_buf.getvalue()
             
-            # --- Generate Banner ---
-            # Discord banner is 900x360
-            banner_width = 900
-            banner_height = 360
             
-            # Background: blurred and cropped cover
-            banner_bg = img.resize((banner_width, banner_width), Image.Resampling.LANCZOS)
-            top = (banner_width - banner_height) // 2
-            banner_bg = banner_bg.crop((0, top, banner_width, top + banner_height))
-            banner_bg = banner_bg.filter(ImageFilter.GaussianBlur(radius=15))
-            
-            # Foreground: cover fitted to height 360
-            banner_fg = img.resize((banner_height, banner_height), Image.Resampling.LANCZOS)
-            
-            banner_out = banner_bg.copy()
-            offset_x = (banner_width - banner_height) // 2
-            banner_out.paste(banner_fg, (offset_x, 0))
-            
-            banner_buf = io.BytesIO()
-            banner_out.save(banner_buf, format='PNG')
-            banner_bytes_out = banner_buf.getvalue()
-            
-            return avatar_bytes_out, banner_bytes_out
+            return avatar_bytes_out
     except Exception as e:
         print(f"Error processing profile images: {e}")
-        return image_bytes, None
+        return image_bytes
 
