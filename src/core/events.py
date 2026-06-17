@@ -704,7 +704,7 @@ async def get_avatar_cooldown():
             except: pass
     return 0
 
-async def update_bot_avatar(bot_instance, artist, image_url):
+async def update_bot_avatar_and_status(bot_instance, artist, image_url):
     global db_pool
     if not image_url: return False, 0
     cd = await get_avatar_cooldown()
@@ -721,7 +721,14 @@ async def update_bot_avatar(bot_instance, artist, image_url):
         async with session.get(image_url) as resp:
             if resp.status == 200:
                 image_data = await resp.read()
-                await bot_instance.user.edit(avatar=image_data)
+                from ..utils.images import process_profile_images
+                avatar_bytes, banner_bytes = process_profile_images(image_data)
+                
+                edit_kwargs = {'avatar': avatar_bytes}
+                if banner_bytes is not None:
+                    edit_kwargs['banner'] = banner_bytes
+                
+                await bot_instance.user.edit(**edit_kwargs)
                 await update_bot_status(bot_instance, artist)
                 
                 if db_pool:

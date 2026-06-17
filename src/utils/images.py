@@ -1,4 +1,4 @@
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io
 import os
 import textwrap
@@ -71,3 +71,57 @@ def generate_receipt_image(username, period_str, tracks):
     img.save(buf, format='PNG')
     buf.seek(0)
     return buf
+
+def process_profile_images(image_bytes):
+    """Processes an album cover to generate an avatar and a banner."""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img = img.convert('RGB')
+            
+            # --- Generate Avatar ---
+            # Discord avatar is 512x512
+            avatar_size = 512
+            inner_size = int(avatar_size * 0.707) # Fit square perfectly inside the circle mask
+            
+            # Background: blurred cover
+            avatar_bg = img.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
+            avatar_bg = avatar_bg.filter(ImageFilter.GaussianBlur(radius=15))
+            
+            # Foreground: actual cover
+            avatar_fg = img.resize((inner_size, inner_size), Image.Resampling.LANCZOS)
+            
+            avatar_out = avatar_bg.copy()
+            offset = ((avatar_size - inner_size) // 2, (avatar_size - inner_size) // 2)
+            avatar_out.paste(avatar_fg, offset)
+            
+            avatar_buf = io.BytesIO()
+            avatar_out.save(avatar_buf, format='PNG')
+            avatar_bytes_out = avatar_buf.getvalue()
+            
+            # --- Generate Banner ---
+            # Discord banner is 900x360
+            banner_width = 900
+            banner_height = 360
+            
+            # Background: blurred and cropped cover
+            banner_bg = img.resize((banner_width, banner_width), Image.Resampling.LANCZOS)
+            top = (banner_width - banner_height) // 2
+            banner_bg = banner_bg.crop((0, top, banner_width, top + banner_height))
+            banner_bg = banner_bg.filter(ImageFilter.GaussianBlur(radius=15))
+            
+            # Foreground: cover fitted to height 360
+            banner_fg = img.resize((banner_height, banner_height), Image.Resampling.LANCZOS)
+            
+            banner_out = banner_bg.copy()
+            offset_x = (banner_width - banner_height) // 2
+            banner_out.paste(banner_fg, (offset_x, 0))
+            
+            banner_buf = io.BytesIO()
+            banner_out.save(banner_buf, format='PNG')
+            banner_bytes_out = banner_buf.getvalue()
+            
+            return avatar_bytes_out, banner_bytes_out
+    except Exception as e:
+        print(f"Error processing profile images: {e}")
+        return image_bytes, None
+
