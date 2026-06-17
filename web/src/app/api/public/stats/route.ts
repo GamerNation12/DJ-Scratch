@@ -16,10 +16,40 @@ export async function GET() {
       activeMembers = stats.member_count || 0;
     }
     
-    return NextResponse.json({ totalUsers, activeMembers });
+    const topUsersResult = await pool.query(`
+      SELECT user_id, COUNT(*) as count 
+      FROM listens 
+      GROUP BY user_id 
+      ORDER BY count DESC 
+      LIMIT 3
+    `);
+
+    const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
+    const topAvatars = await Promise.all(topUsersResult.rows.map(async (row) => {
+      try {
+        const res = await fetch(`https://discord.com/api/v10/users/${row.user_id}`, {
+          headers: { Authorization: `Bot ${botToken}` },
+          next: { revalidate: 3600 } 
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.avatar) {
+            return `https://cdn.discordapp.com/avatars/${row.user_id}/${data.avatar}.png?size=128`;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch avatar for", row.user_id, e);
+      }
+      return null;
+    }));
+
+    // Filter out nulls and fill remaining slots if < 3
+    const validAvatars = topAvatars.filter(Boolean);
+    
+    return NextResponse.json({ totalUsers, activeMembers, topAvatars: validAvatars });
   } catch (err) {
     console.error("Public stats error:", err);
-    return NextResponse.json({ totalUsers: 0, activeMembers: 0 }, { status: 500 });
+    return NextResponse.json({ totalUsers: 0, activeMembers: 0, topAvatars: [] }, { status: 500 });
   } finally {
     await pool.end();
   }
