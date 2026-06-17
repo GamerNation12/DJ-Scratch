@@ -49,7 +49,9 @@ class InfoCog(commands.Cog):
 
     async def send_updates(self, context):
         import aiohttp
-        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.utcnow())
+        from datetime import timezone
+        
+        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -66,7 +68,7 @@ class InfoCog(commands.Cog):
                                 title = title[:247] + "..."
                                 
                             date_str = commit['commit']['author']['date']
-                            date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+                            date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
                             timestamp = f"<t:{int(date_obj.timestamp())}:R>"
                             
                             sha_short = commit['sha'][:7]
