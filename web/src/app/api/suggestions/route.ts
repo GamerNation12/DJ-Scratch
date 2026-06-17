@@ -81,9 +81,17 @@ export async function POST(req: Request) {
                   name: `${username} (${userId})`
                 },
                 footer: {
-                  text: "Sent from: Web Dashboard"
+                  text: "Sent from: Web Dashboard | Saved to Dashboard"
                 },
                 timestamp: new Date().toISOString()
+              }],
+              components: [{
+                type: 1, // ActionRow
+                components: [
+                  { type: 2, style: 3, label: "Approve", custom_id: "sugg_approve" },
+                  { type: 2, style: 4, label: "Deny", custom_id: "sugg_deny" },
+                  { type: 2, style: 1, label: "Released", custom_id: "sugg_released" }
+                ]
               }]
             })
           });

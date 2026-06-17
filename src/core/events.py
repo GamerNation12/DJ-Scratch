@@ -61,37 +61,83 @@ def get_medal(index):
     if index == 2: return "🥉"
     return f"` {index+1}. `"
 
-# --- SUGGESTION VIEW ---
+# --- SUGGESTION VIEW & MODAL ---
+class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
+    feedback = discord.ui.TextInput(
+        label="Feedback Message",
+        style=discord.TextStyle.long,
+        placeholder="Type your reply to the user here... (Optional)",
+        required=False
+    )
+
+    def __init__(self, action_status: str, action_color: discord.Color, action_emoji: str, db_status: str):
+        super().__init__()
+        self.action_status = action_status
+        self.action_color = action_color
+        self.action_emoji = action_emoji
+        self.db_status = db_status
+
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = interaction.message.embeds[0]
+        try:
+            suggester_id = int(embed.author.name.split('(')[-1].strip(')'))
+        except:
+            suggester_id = None
+            
+        feedback_text = self.feedback.value
+
+        # Update Database
+        db_pool = getattr(bot, 'db', None)
+        if hasattr(bot, 'pool'): db_pool = bot.pool
+        elif hasattr(bot, 'db_pool'): db_pool = bot.db_pool
+
+        if db_pool and suggester_id:
+            import asyncpg
+            if isinstance(db_pool, asyncpg.pool.Pool):
+                async with db_pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE suggestions SET status = $1, admin_feedback = $2, updated_at = CURRENT_TIMESTAMP WHERE user_id = $3 AND description = $4",
+                        self.db_status, feedback_text, str(suggester_id), embed.description
+                    )
+
+        # Update Message
+        embed.color = self.action_color
+        embed.add_field(name="Status", value=f"{self.action_emoji} **{self.action_status}**", inline=False)
+        if feedback_text:
+            embed.add_field(name="Your Reply", value=feedback_text, inline=False)
+            
+        view = discord.ui.View() # Empty view removes buttons
+        await interaction.response.edit_message(embed=embed, view=view)
+
+        # DM User
+        if suggester_id:
+            try:
+                suggester = await interaction.client.fetch_user(suggester_id)
+                desc_lines = [f"Your suggestion has been marked as **{self.action_status.upper()}**.", f"", f"**Your Idea:**", embed.description]
+                notify_embed = discord.Embed(title=f"{self.action_emoji} Suggestion Update", description=chr(10).join(desc_lines), color=self.action_color)
+                if feedback_text:
+                    notify_embed.add_field(name="Developer Reply", value=feedback_text, inline=False)
+                notify_embed.set_footer(text="The Goats DJ Feedback System")
+                await suggester.send(embed=notify_embed)
+                print(f"{Log.GREEN}>>> Notified user about suggestion: {self.action_status}{Log.RESET}")
+            except:
+                pass
+
 class SuggestionView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    async def handle_action(self, interaction: discord.Interaction, status: str, color: discord.Color, emoji: str):
-        embed = interaction.message.embeds[0]
-        try:
-            suggester_id = int(embed.author.name.split('(')[-1].strip(')'))
-        except: suggester_id = None
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, custom_id="sugg_approve")
+    async def approve_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Approved", discord.Color.green(), "🟢", "approved"))
 
-        embed.color = color
-        embed.add_field(name="Status", value=f"{emoji} **{status}**", inline=False)
-        for child in self.children: child.disabled = True
-        await interaction.response.edit_message(embed=embed, view=self)
-
-        if suggester_id:
-            try:
-                suggester = await interaction.client.fetch_user(suggester_id)
-                desc_lines = [f"**Suggestion:** {embed.description}", f"**Status:** {emoji} {status}"]
-                notify_embed = discord.Embed(title=f"Suggestion {status}", description=chr(10).join(desc_lines), color=color)
-                await suggester.send(embed=notify_embed)
-                print(f"{Log.GREEN}>>> Notified user about suggestion: {status}{Log.RESET}")
-            except: pass
-
-    @discord.ui.button(label="Accept", style=discord.ButtonStyle.success, custom_id="sugg_accept")
-    async def accept_btn(self, i: discord.Interaction, b: discord.ui.Button): await self.handle_action(i, "Accepted", discord.Color.green(), "✅")
-    @discord.ui.button(label="Working", style=discord.ButtonStyle.primary, custom_id="sugg_working")
-    async def working_btn(self, i: discord.Interaction, b: discord.ui.Button): await self.handle_action(i, "Working On It", discord.Color.orange(), "🛠️")
     @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, custom_id="sugg_deny")
-    async def deny_btn(self, i: discord.Interaction, b: discord.ui.Button): await self.handle_action(i, "Denied", discord.Color.red(), "❌")
+    async def deny_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Denied", discord.Color.red(), "🔴", "denied"))
+        
+    @discord.ui.button(label="Released", style=discord.ButtonStyle.primary, custom_id="sugg_released")
+    async def released_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Update Released", discord.Color.blurple(), "🚀", "completed"))
 
 async def setup_hook():
     bot.session = aiohttp.ClientSession()
