@@ -77,7 +77,7 @@ export default function Home() {
               </Link>
             ) : (
               <button 
-                onClick={() => signIn("discord")}
+                onClick={() => signIn("discord", { callbackUrl: "/dashboard" })}
                 className="px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Login to Dashboard
