@@ -146,20 +146,20 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Row 1: Small - Custom Layouts */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-purple-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/20 flex flex-col justify-between">
-              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-colors duration-700"></div>
+            {/* Row 1: Small - Live Community Stats */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-pink-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-pink-500/20 flex flex-col justify-between">
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-pink-500/20 rounded-full blur-[80px] group-hover:bg-pink-500/30 transition-colors duration-700"></div>
               
-              <div className="absolute top-8 right-8 flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="w-4 h-4 rounded-full bg-purple-500/50"></div>
-                <div className="w-4 h-4 rounded-md bg-white/20"></div>
-                <div className="w-4 h-4 rounded-sm bg-white/10"></div>
+              <div className="absolute top-8 right-8 flex -space-x-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "0ms"}}></div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "150ms"}}></div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 border-2 border-[#09090b] shadow-lg animate-bounce" style={{animationDelay: "300ms"}}></div>
               </div>
 
               <div className="relative z-10 mt-auto">
-                <div className="w-12 h-12 bg-purple-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🎨</div>
-                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Custom Layouts</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed">Choose from minimal text to rich, full-sized image embeds for your `/fm` command.</p>
+                <div className="w-12 h-12 bg-pink-500/20 border border-pink-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">👥</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Live Community</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Watch the community grow. The website dynamically queries the database to showcase the top Discord users' profile pictures in real-time.</p>
               </div>
             </div>
 
