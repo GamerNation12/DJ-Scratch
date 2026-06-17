@@ -163,18 +163,25 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Feature 3: Small - Dynamic Avatar */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-emerald-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 flex flex-col justify-between">
-              <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700"></div>
+            {/* Feature 3: Small - Server Leaderboards */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] group-hover:bg-amber-500/20 transition-colors duration-700"></div>
               
-              <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
-                <div className="w-16 h-16 rounded-full border-4 border-emerald-500/30 border-t-emerald-400 animate-spin"></div>
+              <div className="absolute top-10 right-10 flex flex-col gap-2 opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="flex items-center gap-2 bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-500/30">
+                  <span className="text-xs font-bold text-amber-400">#1</span>
+                  <div className="w-4 h-4 rounded-full bg-amber-400/50"></div>
+                </div>
+                <div className="flex items-center gap-2 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5 ml-4">
+                  <span className="text-xs font-bold text-zinc-500">#2</span>
+                  <div className="w-4 h-4 rounded-full bg-zinc-600/50"></div>
+                </div>
               </div>
 
               <div className="relative z-10 mt-auto">
-                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
-                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Dynamic Avatar</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed">The bot dynamically updates its avatar to match the album cover of your currently playing track.</p>
+                <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">👑</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Server Leaderboards</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Discover the top listeners for any artist and compete for the #1 spot on your server's global leaderboard.</p>
               </div>
             </div>
 
