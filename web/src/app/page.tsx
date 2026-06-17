@@ -102,54 +102,100 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Bento Grid Features Section */}
-        <section id="features" className="container mx-auto px-4 py-32 w-full max-w-7xl">
-          <div className="mb-16">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Powering your music <br className="hidden sm:block" /> experience.</h2>
-            <p className="text-zinc-500 text-lg font-medium max-w-xl">A complete suite of tools designed to make sharing and discovering music effortless and beautiful.</p>
+        {/* Premium Bento Grid Features Section */}
+        <section id="features" className="container mx-auto px-4 py-32 w-full max-w-7xl relative z-10">
+          <div className="mb-20 text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/10 text-indigo-300 text-xs font-semibold mb-6 uppercase tracking-widest">
+                Features
+              </div>
+              <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-500">
+                Powering your <br className="hidden sm:block" /> music experience.
+              </h2>
+            </div>
+            <p className="text-zinc-400 text-lg md:text-xl font-medium max-w-lg leading-relaxed">
+              A complete suite of tools designed to make sharing and discovering music effortless, interactive, and beautiful.
+            </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:auto-rows-[300px]">
-            {/* Feature 1: Large Span */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-950/50 border border-white/10 p-8 rounded-3xl hover:border-indigo-500/30 transition-colors flex flex-col justify-end">
-              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none"></div>
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] group-hover:bg-indigo-500/30 transition-colors"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]">
+            {/* Feature 1: Large Span - Deep Last.fm */}
+            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-indigo-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/20 flex flex-col justify-between">
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
+              <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] group-hover:bg-indigo-500/30 transition-colors duration-700"></div>
               
-              <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-2xl mb-6">🎵</div>
-                <h3 className="text-2xl font-bold mb-2 text-white">Deep Last.fm Integration</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed max-w-md">Connect your account once and instantly share real-time plays, recent scrobbles, and deep listening statistics directly in Discord.</p>
+              <div className="absolute top-10 right-10 opacity-20 group-hover:opacity-100 transition-opacity duration-500 hidden sm:block">
+                <div className="bg-zinc-950/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-64 shadow-2xl transform rotate-3 group-hover:rotate-6 transition-transform duration-500">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-500 to-orange-500 animate-pulse"></div>
+                    <div>
+                      <div className="h-3 w-24 bg-white/20 rounded-full mb-1"></div>
+                      <div className="h-2 w-16 bg-white/10 rounded-full"></div>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 w-2/3"></div>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Feature 2: Small */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-950/50 border border-white/10 p-8 rounded-3xl hover:border-purple-500/30 transition-colors flex flex-col justify-end">
-              <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] group-hover:bg-purple-500/30 transition-colors"></div>
-              <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-2xl mb-6">🎨</div>
-                <h3 className="text-xl font-bold mb-2 text-white">Custom Layouts</h3>
-                <p className="text-zinc-400 text-sm font-medium leading-relaxed">Choose from minimal text to rich, full-sized image embeds for your `/fm` command.</p>
-              </div>
-            </div>
-
-            {/* Feature 3: Small */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-950/50 border border-white/10 p-8 rounded-3xl hover:border-emerald-500/30 transition-colors flex flex-col justify-end">
-              <div className="absolute -top-12 -left-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-[60px] group-hover:bg-emerald-500/20 transition-colors"></div>
-              <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-2xl mb-6">🤖</div>
-                <h3 className="text-xl font-bold mb-2 text-white">Dynamic Bot Avatar</h3>
-                <p className="text-zinc-400 text-sm font-medium leading-relaxed">The bot dynamically updates its avatar to match the album cover of your currently playing track.</p>
-              </div>
-            </div>
-
-            {/* Feature 4: Large Span */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-950/50 border border-white/10 p-8 rounded-3xl hover:border-zinc-500/30 transition-colors flex flex-col justify-end">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-t from-zinc-800/10 to-transparent pointer-events-none"></div>
               
-              <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-2xl mb-6">⚡</div>
-                <h3 className="text-2xl font-bold mb-2 text-white">Lightning Fast & Reliable</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed max-w-md">Built on a highly optimized Python backend and Postgres DB, ensuring your music commands execute instantly with zero latency.</p>
+              <div className="relative z-10 mt-auto">
+                <div className="w-14 h-14 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(99,102,241,0.3)]">🎵</div>
+                <h3 className="text-3xl font-bold mb-3 text-white tracking-tight">Deep Last.fm Integration</h3>
+                <p className="text-zinc-400 text-lg font-medium leading-relaxed max-w-md">Connect your account once and instantly share real-time plays, recent scrobbles, and deep listening statistics directly in Discord.</p>
+              </div>
+            </div>
+
+            {/* Feature 2: Small - Custom Layouts */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-purple-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/20 flex flex-col justify-between">
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-colors duration-700"></div>
+              
+              <div className="absolute top-8 right-8 flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+                <div className="w-4 h-4 rounded-full bg-purple-500/50"></div>
+                <div className="w-4 h-4 rounded-md bg-white/20"></div>
+                <div className="w-4 h-4 rounded-sm bg-white/10"></div>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-12 h-12 bg-purple-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🎨</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Custom Layouts</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Choose from minimal text to rich, full-sized image embeds for your `/fm` command.</p>
+              </div>
+            </div>
+
+            {/* Feature 3: Small - Dynamic Avatar */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-emerald-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 flex flex-col justify-between">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700"></div>
+              
+              <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="w-16 h-16 rounded-full border-4 border-emerald-500/30 border-t-emerald-400 animate-spin"></div>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Dynamic Avatar</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">The bot dynamically updates its avatar to match the album cover of your currently playing track.</p>
+              </div>
+            </div>
+
+            {/* Feature 4: Large Span - Lightning Fast */}
+            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-zinc-400/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/5 flex flex-col justify-between">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05)_0%,transparent_70%)] pointer-events-none"></div>
+              
+              <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.04] pointer-events-none mix-blend-overlay"></div>
+              
+              <div className="absolute top-10 right-10 hidden sm:flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+                <span className="flex h-3 w-3 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-mono text-emerald-400 font-bold">12ms PING</span>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(255,255,255,0.1)]">⚡</div>
+                <h3 className="text-3xl font-bold mb-3 text-white tracking-tight">Lightning Fast & Reliable</h3>
+                <p className="text-zinc-400 text-lg font-medium leading-relaxed max-w-xl">Built on a highly optimized Python backend and Serverless Postgres DB, ensuring your music commands execute instantly with zero latency.</p>
               </div>
             </div>
           </div>
