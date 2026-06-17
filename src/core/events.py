@@ -87,10 +87,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
         feedback_text = self.feedback.value
 
         # Update Database
-        db_pool = getattr(bot, 'db', None)
-        if hasattr(bot, 'pool'): db_pool = bot.pool
-        elif hasattr(bot, 'db_pool'): db_pool = bot.db_pool
-
+        global db_pool
         if db_pool and suggester_id:
             import asyncpg
             if isinstance(db_pool, asyncpg.pool.Pool):
@@ -1633,12 +1630,7 @@ async def process_suggestion(ctx_int, user, suggestion_text):
         title = "Discord Command"
         description = suggestion_text
         
-        db_pool = getattr(bot, 'db', None)
-        if hasattr(bot, 'pool'):
-            db_pool = bot.pool
-        elif hasattr(bot, 'db_pool'):
-            db_pool = bot.db_pool
-
+        global db_pool
         if db_pool:
             import asyncpg
             if isinstance(db_pool, asyncpg.pool.Pool):
