@@ -51,8 +51,6 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error("Error updating settings:", err);
-      // Revert states if necessary based on individual updates, or just alert user
-      alert("Failed to update settings. Please try again.");
     } finally {
       setUpdatingSettings(false);
     }
@@ -63,153 +61,158 @@ export default function Dashboard() {
     updateSetting({ fmMode: mode });
   };
 
-  const handleToggleFeatures = () => {
-    const newVal = !showFeatures;
-    setShowFeatures(newVal);
-    updateSetting({ showFeatures: newVal });
-  };
-
-  const handleTogglePrivateMode = () => {
-    const newVal = !privateMode;
-    setPrivateMode(newVal);
-    updateSetting({ privateMode: newVal });
-  };
+  const ToggleSwitch = ({ checked, onChange, disabled }: { checked: boolean, onChange: () => void, disabled: boolean }) => (
+    <button 
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 ${checked ? 'bg-indigo-500' : 'bg-zinc-800'}`}
+    >
+      <span className="sr-only">Toggle</span>
+      <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+    </button>
+  );
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
-      <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none z-0" />
+    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
+      <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-indigo-600/5 rounded-full blur-[150px] pointer-events-none z-0" />
       
-      <main className="container mx-auto px-6 py-24 relative z-10 max-w-5xl">
-        <div className="mb-12 border-b border-white/5 pb-8">
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-4 bg-gradient-to-r from-white via-indigo-200 to-indigo-500 bg-clip-text text-transparent">
-            Your Dashboard
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-32 relative z-10 max-w-7xl animate-fade-in-up">
+        <div className="mb-12">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">
+            Settings
           </h1>
-          <p className="text-zinc-400 text-lg">Manage your profile, adjust settings, and tailor your music experience.</p>
+          <p className="text-zinc-400 text-lg">Manage your account and preferences.</p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* User Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 sticky top-24">
-              <div className="flex flex-col items-center text-center">
+        <div className="grid lg:grid-cols-4 gap-8">
+          {/* Side Nav / Profile Profile */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/5">
                 <img 
                   src={session.user?.image || "/logo.png"} 
                   alt="Avatar" 
-                  className="w-24 h-24 rounded-full border-4 border-zinc-800 mb-4 shadow-xl"
+                  className="w-16 h-16 rounded-full border border-zinc-800 shadow-xl"
                 />
-                <h2 className="text-2xl font-bold">{session.user?.name}</h2>
-                <p className="text-zinc-500 text-sm mb-6">Connected via Discord</p>
-                <div className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 text-emerald-400 py-2 rounded-xl border border-emerald-500/20 font-medium text-sm">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                  Live Sync Active
+                <div>
+                  <h2 className="font-bold text-lg leading-tight">{session.user?.name}</h2>
+                  <p className="text-zinc-500 text-xs mt-1">Discord User</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-full flex items-center gap-3 px-3 py-2 bg-white/5 text-white rounded-lg text-sm font-medium">
+                  <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                  Preferences
                 </div>
               </div>
             </div>
+            
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between">
+              <span className="text-emerald-400 text-sm font-medium">Sync Status</span>
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+            </div>
           </div>
 
-          {/* Settings Section */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* Main Content Area */}
+          <div className="lg:col-span-3 space-y-6">
             
-            {/* Display Preferences */}
-            <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
-              
-              <h3 className="text-2xl font-bold mb-2 flex items-center gap-3">
-                <span className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">🎨</span>
-                Display Preferences
-              </h3>
-              <p className="text-zinc-400 text-sm mb-8">Configure how your music is displayed when you use bot commands.</p>
-
-              <label className="block text-sm font-semibold text-zinc-300 mb-4">Default /fm Display Layout</label>
-              <div className="grid md:grid-cols-3 gap-4 mb-8">
-                {[
-                  { id: "compact", icon: "📝", title: "Compact Text", desc: "fm1 (1-line view)" },
-                  { id: "full", icon: "🖼️", title: "Full Embed", desc: "fm2 (detailed visual)" },
-                  { id: "stats", icon: "📊", title: "Stats View", desc: "fm3 (statistics)" }
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    onClick={() => handleUpdateFmMode(mode.id as any)}
-                    disabled={updatingSettings}
-                    className={`group relative overflow-hidden py-8 px-4 rounded-2xl font-medium border text-center transition-all duration-300 cursor-pointer ${
-                      fmMode === mode.id
-                        ? "bg-indigo-600/20 border-indigo-500 text-white shadow-[0_0_30px_rgba(99,102,241,0.15)]"
-                        : "bg-zinc-950/50 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                    }`}
-                  >
-                    {fmMode === mode.id && <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />}
-                    <div className="text-3xl mb-3 transform group-hover:scale-110 transition-transform">{mode.icon}</div>
-                    <div className="text-lg font-bold">{mode.title}</div>
-                    <div className="text-sm text-zinc-500 mt-2">{mode.desc}</div>
-                  </button>
-                ))}
+            {/* Display Preferences Card */}
+            <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+              <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
+                <h3 className="text-xl font-bold">Display Layout</h3>
+                <p className="text-zinc-400 text-sm mt-1">Select the default style for your Last.fm embeds.</p>
               </div>
-
-              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5 flex items-start gap-4">
-                <div className="text-indigo-400 text-xl mt-0.5">💡</div>
-                <p className="text-zinc-300 text-sm leading-relaxed">
-                  You can override your default layout directly in Discord by typing <code className="bg-black/40 text-emerald-400 px-2 py-0.5 rounded-md font-mono border border-white/10">,fm1</code>, <code className="bg-black/40 text-emerald-400 px-2 py-0.5 rounded-md font-mono border border-white/10">,fm2</code>, or <code className="bg-black/40 text-emerald-400 px-2 py-0.5 rounded-md font-mono border border-white/10">,fm3</code>.
-                </p>
+              
+              <div className="p-8">
+                <div className="grid md:grid-cols-3 gap-4">
+                  {[
+                    { id: "compact", icon: "📝", title: "Compact", desc: "1-line minimal view" },
+                    { id: "full", icon: "🖼️", title: "Full Embed", desc: "Detailed visual view" },
+                    { id: "stats", icon: "📊", title: "Stats View", desc: "Statistics & charts" }
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      onClick={() => handleUpdateFmMode(mode.id as any)}
+                      disabled={updatingSettings}
+                      className={`relative flex flex-col items-start p-6 rounded-2xl border transition-all duration-300 text-left ${
+                        fmMode === mode.id
+                          ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.1)]"
+                          : "bg-zinc-900/50 border-white/5 hover:border-white/20 hover:bg-zinc-900"
+                      }`}
+                    >
+                      <div className="text-2xl mb-4">{mode.icon}</div>
+                      <div className={`text-lg font-bold ${fmMode === mode.id ? 'text-indigo-300' : 'text-white'}`}>{mode.title}</div>
+                      <div className="text-sm text-zinc-500 mt-1">{mode.desc}</div>
+                      
+                      {/* Selection Indicator */}
+                      <div className={`absolute top-4 right-4 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${fmMode === mode.id ? 'border-indigo-500' : 'border-zinc-700'}`}>
+                        {fmMode === mode.id && <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Advanced Settings */}
-            <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
-              <h3 className="text-2xl font-bold mb-2 flex items-center gap-3">
-                <span className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">⚙️</span>
-                Advanced Settings
-              </h3>
-              <p className="text-zinc-400 text-sm mb-8">Fine-tune features and privacy options.</p>
-
-              <div className="space-y-2">
+            {/* Advanced Settings Card */}
+            <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+              <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
+                <h3 className="text-xl font-bold">Feature & Privacy Toggles</h3>
+                <p className="text-zinc-400 text-sm mt-1">Fine-tune exactly how the bot handles your data.</p>
+              </div>
+              
+              <div className="divide-y divide-white/5">
                 {/* Feature Toggle */}
-                <label className="flex items-center justify-between cursor-pointer group p-5 rounded-2xl bg-zinc-950/30 border border-zinc-800/50 hover:bg-zinc-900 transition-colors">
+                <div className="p-8 flex items-center justify-between">
                   <div className="pr-8">
                     <div className="text-lg font-semibold text-white mb-1">Show Featured Artists</div>
-                    <div className="text-sm text-zinc-400 leading-relaxed">Automatically extract featured artists from the track name and display them alongside the main artist.</div>
+                    <div className="text-sm text-zinc-400 leading-relaxed max-w-xl">
+                      Automatically extract featured artists from the track name and display them distinctly.
+                    </div>
                   </div>
-                  <div className="relative shrink-0">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only" 
-                      checked={showFeatures}
-                      onChange={handleToggleFeatures}
-                      disabled={updatingSettings}
-                    />
-                    <div className={`block w-14 h-8 rounded-full transition-colors duration-300 border ${showFeatures ? 'bg-indigo-500 border-indigo-400' : 'bg-zinc-800 border-zinc-700'}`}></div>
-                    <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 shadow-sm ${showFeatures ? 'transform translate-x-6' : ''}`}></div>
-                  </div>
-                </label>
+                  <ToggleSwitch 
+                    checked={showFeatures} 
+                    onChange={() => {
+                      const newVal = !showFeatures;
+                      setShowFeatures(newVal);
+                      updateSetting({ showFeatures: newVal });
+                    }} 
+                    disabled={updatingSettings} 
+                  />
+                </div>
 
                 {/* Privacy Toggle */}
-                <label className="flex items-center justify-between cursor-pointer group p-5 rounded-2xl bg-zinc-950/30 border border-zinc-800/50 hover:bg-zinc-900 transition-colors">
+                <div className="p-8 flex items-center justify-between">
                   <div className="pr-8">
-                    <div className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+                    <div className="text-lg font-semibold text-white mb-1 flex items-center gap-3">
                       Private Mode 
-                      <span className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30">New</span>
+                      <span className="text-[10px] uppercase font-bold bg-amber-500/10 text-amber-500 px-2.5 py-0.5 rounded-full border border-amber-500/20">Privacy</span>
                     </div>
-                    <div className="text-sm text-zinc-400 leading-relaxed">Hide your Last.fm username and profile link from bot embeds. Others will only see your Discord name.</div>
+                    <div className="text-sm text-zinc-400 leading-relaxed max-w-xl">
+                      Hide your Last.fm username and profile link from bot embeds. Others will only see your Discord name.
+                    </div>
                   </div>
-                  <div className="relative shrink-0">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only" 
-                      checked={privateMode}
-                      onChange={handleTogglePrivateMode}
-                      disabled={updatingSettings}
-                    />
-                    <div className={`block w-14 h-8 rounded-full transition-colors duration-300 border ${privateMode ? 'bg-amber-500 border-amber-400' : 'bg-zinc-800 border-zinc-700'}`}></div>
-                    <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 shadow-sm ${privateMode ? 'transform translate-x-6' : ''}`}></div>
-                  </div>
-                </label>
+                  <ToggleSwitch 
+                    checked={privateMode} 
+                    onChange={() => {
+                      const newVal = !privateMode;
+                      setPrivateMode(newVal);
+                      updateSetting({ privateMode: newVal });
+                    }} 
+                    disabled={updatingSettings} 
+                  />
+                </div>
               </div>
             </div>
 
