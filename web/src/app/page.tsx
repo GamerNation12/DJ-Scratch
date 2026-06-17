@@ -27,15 +27,7 @@ export default function Home() {
     );
   }
 
-  // Fallback avatars if not enough top users
-  const defaultAvatars = [
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Annie&backgroundColor=c0aede",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Bandit&backgroundColor=ffdfbf"
-  ];
-  const displayAvatars = (stats.topAvatars && stats.topAvatars.length > 0) 
-    ? [...stats.topAvatars, ...defaultAvatars].slice(0, 3) 
-    : defaultAvatars;
+  const displayAvatars = stats.topAvatars || [];
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-hidden relative flex flex-col items-center">
@@ -101,7 +93,7 @@ export default function Home() {
                 </div>
               ))}
               <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-zinc-800 flex items-center justify-center text-[11px] font-bold text-white shadow-lg shadow-indigo-500/10 backdrop-blur-md">
-                +{stats.totalUsers ? (stats.totalUsers > 3 ? stats.totalUsers - 3 : 0) : '...'}
+                +{stats.totalUsers ? (stats.totalUsers > displayAvatars.length ? stats.totalUsers - displayAvatars.length : 0) : '...'}
               </div>
             </div>
             <p className="text-sm text-zinc-400 font-medium text-center">
