@@ -119,7 +119,7 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]">
-            {/* Feature 1: Large Span - Deep Last.fm */}
+            {/* Row 1: Large Span - Deep Last.fm */}
             <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-indigo-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/20 flex flex-col justify-between">
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
               <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] group-hover:bg-indigo-500/30 transition-colors duration-700"></div>
@@ -146,7 +146,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Feature 2: Small - Custom Layouts */}
+            {/* Row 1: Small - Custom Layouts */}
             <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-purple-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/20 flex flex-col justify-between">
               <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-colors duration-700"></div>
               
@@ -163,7 +163,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Feature 3: Small - Server Leaderboards */}
+            {/* Row 2: Small - Server Leaderboards */}
             <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
               <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] group-hover:bg-amber-500/20 transition-colors duration-700"></div>
               
@@ -185,7 +185,59 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Feature 4: Large Span - Lightning Fast */}
+            {/* Row 2: Small - Suggestions */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-blue-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20 flex flex-col justify-between">
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] group-hover:bg-blue-500/20 transition-colors duration-700"></div>
+              
+              <div className="absolute top-10 right-10 flex flex-col items-end opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="w-16 h-8 bg-blue-500/20 border border-blue-500/30 rounded-full flex items-center justify-end px-1 mb-1">
+                  <div className="w-6 h-6 rounded-full bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]"></div>
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-12 h-12 bg-blue-500/20 border border-blue-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">💬</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Interactive Suggestions</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Submit feedback via Discord Modals and receive automated DMs when admins approve or update your idea.</p>
+              </div>
+            </div>
+
+            {/* Row 2: Small - Privacy First */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-rose-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/20 flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-rose-500/5 to-transparent pointer-events-none"></div>
+              <div className="absolute -top-12 -right-12 w-48 h-48 bg-rose-500/10 rounded-full blur-[60px] group-hover:bg-rose-500/20 transition-colors duration-700"></div>
+
+              <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="w-12 h-14 border-4 border-rose-500/30 rounded-t-full border-b-0 relative">
+                   <div className="absolute top-full -left-2 w-14 h-10 bg-rose-500/40 rounded-lg"></div>
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-12 h-12 bg-rose-500/20 border border-rose-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🔒</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Privacy Focused</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Toggle Private Mode from your dashboard to hide your top tracks and listening stats from the public.</p>
+              </div>
+            </div>
+
+            {/* Row 3: Medium Span - Spotify */}
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-green-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/20 flex flex-col justify-between">
+              <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-green-500/10 rounded-full blur-[80px] group-hover:bg-green-500/20 transition-colors duration-700"></div>
+              
+              <div className="absolute top-10 right-10 flex flex-col gap-1.5 opacity-30 group-hover:opacity-100 transition-all duration-700">
+                <div className="w-12 h-2 bg-green-500/50 rounded-full rounded-l-none -ml-4"></div>
+                <div className="w-16 h-2 bg-green-500/70 rounded-full"></div>
+                <div className="w-10 h-2 bg-green-500/40 rounded-full rounded-r-none ml-6"></div>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="w-12 h-12 bg-green-500/20 border border-green-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🎧</div>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Spotify Rich Data</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Automatically enriches Last.fm data with Spotify preview links, lyrics, and hi-res album art.</p>
+              </div>
+            </div>
+
+            {/* Row 3: Large Span - Lightning Fast */}
             <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-zinc-400/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/5 flex flex-col justify-between">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05)_0%,transparent_70%)] pointer-events-none"></div>
               
