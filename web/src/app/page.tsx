@@ -9,9 +9,14 @@ const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=150970926565
 export default function Home() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [stats, setStats] = useState({ totalUsers: 0, activeMembers: 0 });
 
   useEffect(() => {
     setMounted(true);
+    fetch("/api/public/stats")
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(console.error);
   }, []);
 
   if (!mounted || status === "loading") {
@@ -76,6 +81,18 @@ export default function Home() {
                 Login to Dashboard
               </button>
             )}
+          </div>
+          
+          <div className="mt-12 flex flex-col items-center gap-3 animate-fade-in-up animation-delay-400">
+            <div className="flex -space-x-3">
+              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-indigo-500 overflow-hidden shadow-lg"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4" alt="avatar" /></div>
+              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-emerald-500 overflow-hidden shadow-lg"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Annie&backgroundColor=c0aede" alt="avatar" /></div>
+              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-purple-500 overflow-hidden shadow-lg"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Bandit&backgroundColor=ffdfbf" alt="avatar" /></div>
+              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-zinc-800 flex items-center justify-center text-[11px] font-bold text-white shadow-lg shadow-indigo-500/10 backdrop-blur-md">+{stats.totalUsers ? (stats.totalUsers > 3 ? stats.totalUsers - 3 : 0) : '...'}</div>
+            </div>
+            <p className="text-sm text-zinc-400 font-medium text-center">
+              Join <span className="text-white font-bold">{stats.totalUsers ? stats.totalUsers.toLocaleString() : '...'} registered users</span> across <br className="sm:hidden" /><span className="text-white font-bold">{stats.activeMembers ? stats.activeMembers.toLocaleString() : '...'} Discord members</span> using the bot right now.
+            </p>
           </div>
         </section>
 
