@@ -65,8 +65,9 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=self.bot.user.name, icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img)
-                            await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user)
+                            msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True)
+                            view.original_msg = msg
                             return
         except Exception as e:
             pass
@@ -231,8 +232,9 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=self.bot.user.name, icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img)
-                            await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)
+                            msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                            view.original_msg = msg
                             return
         except Exception as e:
             pass
