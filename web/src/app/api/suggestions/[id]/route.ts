@@ -5,13 +5,13 @@ import { Pool } from "@neondatabase/serverless";
 
 const ADMIN_ID = "759433582107426816";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any)?.id !== ADMIN_ID) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   try {
     const { status, admin_feedback } = await req.json();
     
