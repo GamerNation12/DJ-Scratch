@@ -142,6 +142,22 @@ async def setup_hook():
                 
                 await conn.execute(
                     """
+                    CREATE TABLE IF NOT EXISTS suggestions (
+                        id SERIAL PRIMARY KEY,
+                        user_id VARCHAR(255) NOT NULL,
+                        username VARCHAR(255) NOT NULL,
+                        title VARCHAR(255) NOT NULL,
+                        description TEXT NOT NULL,
+                        status VARCHAR(50) DEFAULT 'pending',
+                        admin_feedback TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                
+                await conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS bot_actions (
                         id SERIAL PRIMARY KEY,
                         action_type VARCHAR(50) NOT NULL,
@@ -1568,15 +1584,35 @@ async def process_whoknows(guild, user, artist_name):
     return embed, None
 async def process_suggestion(ctx_int, user, suggestion_text):
     try:
+        title = "Discord Command"
+        description = suggestion_text
+        
+        db_pool = getattr(bot, 'db', None)
+        if hasattr(bot, 'pool'):
+            db_pool = bot.pool
+        elif hasattr(bot, 'db_pool'):
+            db_pool = bot.db_pool
+
+        if db_pool:
+            import asyncpg
+            if isinstance(db_pool, asyncpg.pool.Pool):
+                async with db_pool.acquire() as conn:
+                    await conn.execute(
+                        "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4)",
+                        str(user.id), str(user.name), title, description
+                    )
+            else:
+                print(f"{Log.YELLOW}>>> DB pool not found or wrong type, skipping DB insert.{Log.RESET}")
+
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(title="💡 New Bot Suggestion", description=suggestion_text, color=discord.Color.gold(), timestamp=datetime.now())
         embed.set_author(name=f"{user.display_name} ({user.id})", icon_url=user.display_avatar.url)
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
-        embed.set_footer(text=f"Sent from: {guild_name}")
+        embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
         await owner.send(embed=embed, view=SuggestionView())
-        print(f"{Log.GREEN}>>> New suggestion forwarded to owner.{Log.RESET}")
+        print(f"{Log.GREEN}>>> New suggestion forwarded to owner & DB.{Log.RESET}")
         
-        confirm = discord.Embed(description="✅ Suggestion sent directly to the developer!", color=discord.Color.green())
+        confirm = discord.Embed(description="✅ Suggestion saved to your Dashboard & sent directly to the developer!", color=discord.Color.green())
         if isinstance(ctx_int, discord.Interaction): await ctx_int.response.send_message(embed=confirm, ephemeral=True)
         else: await ctx_int.send(embed=confirm)
     except Exception as e:
