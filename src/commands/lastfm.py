@@ -310,7 +310,14 @@ class LastFmCog(commands.Cog):
         await ctx.send(embed=embed) if embed else await ctx.send(err)
 
     @commands.command(name="suggest", aliases=["suggestion"])
-    async def suggest_prefix(self, ctx, *, suggestion: str):
+    async def suggest_prefix(self, ctx, *, suggestion: str = None):
+        if not suggestion:
+            embed = discord.Embed(
+                title="❌ Missing Suggestion", 
+                description="Please provide a suggestion!\n\n**Usage:** `,suggest <your idea>`",
+                color=discord.Color.red()
+            )
+            return await ctx.send(embed=embed)
         await self.bot.process_suggestion(ctx, ctx.author, suggestion)
 
     @commands.command(name="help")
