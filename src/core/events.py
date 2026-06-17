@@ -820,7 +820,7 @@ class ApplyAvatarView(discord.ui.View):
     @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        changed, cd = await update_bot_avatar(self.bot_instance, self.artist, self.img)
+        changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img)
         if changed:
             debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
             await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
