@@ -126,6 +126,11 @@ async def setup_hook():
                 except Exception as e:
                     print(f"Failed to add data_source column: {e}")
                     
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE")
+                except Exception as e:
+                    print(f"Failed to add private_mode column: {e}")
+                    
                 await conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS global_settings (

@@ -49,6 +49,16 @@ export default function Navbar() {
                     : "text-gray-400 hover:text-white hover:bg-gray-800/50"
                 }`}
               >
+                Home
+              </Link>
+              <Link
+                href="/dashboard"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/dashboard"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                }`}
+              >
                 Dashboard
               </Link>
               {isAdmin && (
