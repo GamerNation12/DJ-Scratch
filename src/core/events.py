@@ -34,7 +34,8 @@ LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 OWNER_ID = 759433582107426816
 USERS_FILE = "lastfm_users.json"
 COOLDOWN_FILE = "avatar_cooldown.txt"
-LASTFM_COLOR = 0xba0000 
+from src.core.theme import Theme
+LASTFM_COLOR = Theme.PRIMARY 
 avatar_cooldown_time = None
 
 PERIOD_MAP = {
@@ -564,14 +565,15 @@ async def import_worker():
 
 @bot.event
 async def on_ready():
-    print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
-    print(f"{Log.CYAN}The Goats Dj is online as {bot.user}!{Log.RESET}")
+    print(f"{Log.CYAN}========================================================================{Log.RESET}")
+    print(f"{Log.CYAN}  _____ _             ____             _          ____     _ \n |_   _| |__   ___   / ___| ___   __ _| |_ ___   |  _ \   | |\n   | | | '_ \ / _ \ | |  _ / _ \ / _` | __/ __|  | | | |  | |\n   | | | | | |  __/ | |_| | (_) | (_| | |_\__ \  | |_| |  | |\n   |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |\n                                                        |__/ {Log.RESET}")
+    print(f"{Log.CYAN}========================================================================{Log.RESET}")
+    print(f"{Log.GREEN}✓ ONLINE AS: {bot.user}{Log.RESET}")
     total_servers = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
-    print(f"{Log.GREEN}>>> Connected to {total_servers} servers with {total_members} total members!{Log.RESET}")
-    print(f"{Log.YELLOW}>>> NOTE: Slash commands no longer auto-sync on boot.{Log.RESET}")
-    print(f"{Log.YELLOW}>>> Type ,sync in Discord to update commands.{Log.RESET}")
-    print(f"{Log.CYAN}----------------------------------------{Log.RESET}")
+    print(f"{Log.GREEN}✓ CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
+    print(f"{Log.YELLOW}! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.{Log.RESET}")
+    print(f"{Log.CYAN}========================================================================{Log.RESET}")
     
     if not getattr(bot, 'has_sent_startup_dm', False):
         try:
@@ -1618,25 +1620,67 @@ async def process_crowns(guild, user):
 
 
 
+class HelpDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="🎧 Last.fm Commands", description="Commands for tracking and viewing your Last.fm stats", emoji="🎧"),
+            discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="👑"),
+            discord.SelectOption(label="💡 Utility & Fun", description="Settings, games, and other utility commands", emoji="💡")
+        ]
+        super().__init__(placeholder="Choose a command category...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        from src.core.theme import Theme
+        
+        embed = discord.Embed(color=Theme.PRIMARY)
+        embed.set_author(name=f"Help: {self.values[0]}", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text=Theme.FOOTER_TEXT)
+        
+        if self.values[0] == "🎧 Last.fm Commands":
+            embed.description = (
+                "`/setfm` (or `,setfm`) - Link your Last.fm username\n"
+                "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
+                "`/topartists` (or `,ta`) - View your top played artists\n"
+                "`/toptracks` (or `,tt`) - View your top played tracks\n"
+                "`/artisttracks` (or `,at`) - View your top played tracks for an artist\n"
+                "`/recent` (or `,rt`) - View your recent listening history\n"
+                "`/profile` (or `,s`) - View your Last.fm stats\n"
+                "`/import` (or `,import`) - Upload your Spotify ZIP or JSON directly"
+            )
+        elif self.values[0] == "👑 Server Stats":
+            embed.description = (
+                "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
+                "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server"
+            )
+        elif self.values[0] == "💡 Utility & Fun":
+            embed.description = (
+                "`/settings` (or `,settings`) - Customize your bot preferences\n"
+                "`/status` (or `,status`) - View the bot's health and server stats\n"
+                "`/updates` (or `,updates`) - Read the latest bot news\n"
+                "`/suggest` (or `,suggest`) - Send a suggestion directly to the developer\n"
+                "`/deletedata` (or `,deletedata`) - Permanently delete all your database data\n"
+                "`/guess` (or `,guess`) - Play a game guessing a pixelated album cover\n"
+                "`/scramble` (or `,scramble`) - Play a game unscrambling an artist's name"
+            )
+            
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class HelpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(HelpDropdown())
+
 def get_help_embed(user):
-    embed = discord.Embed(title="Bot Commands Help", color=LASTFM_COLOR, description="Here are all the available commands for The Goats Dj bot.")
-    embed.add_field(name="🎧 Last.fm Commands", value=
-        "`/setfm` (or `,setfm`) - Link your Last.fm username\n"
-        "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
-        "`/topartists` (or `,ta`) - View your top played artists\n"
-        "`/toptracks` (or `,tt`) - View your top played tracks\n"
-        "`/artisttracks` (or `,at`) - View your top played tracks for an artist\n"
-        "`/recent` (or `,rt`) - View your recent listening history\n"
-        "`/profile` (or `,s`) - View your Last.fm stats\n"
-        "`/import` (or `,import`) - Upload your Spotify ZIP or JSON directly", inline=False)
-    embed.add_field(name="👑 Server Stats", value=
-        "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
-        "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server", inline=False)
-    embed.add_field(name="💡 Other", value=
-        "`/suggest` (or `,suggest`) - Send a suggestion directly to the developer\n"
-        "`/deletedata` (or `,deletedata`) - Permanently delete all your database data", inline=False)
+    from src.core.theme import Theme
+    embed = discord.Embed(
+        title="🤖 The Goats DJ | Command Center", 
+        color=Theme.PRIMARY, 
+        description="Welcome to **The Goats DJ**!\nSelect a category from the dropdown menu below to see available commands."
+    )
+    embed.set_thumbnail(url="https://i.imgur.com/your_logo_here.png") # Optional placeholder
     embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
-    return embed
+    embed.set_footer(text=Theme.FOOTER_TEXT)
+    return embed, HelpView()
 
 # --- ADMIN COMMAND ---
 

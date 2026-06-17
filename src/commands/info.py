@@ -31,7 +31,9 @@ class InfoCog(commands.Cog):
         server_count = len(self.bot.guilds)
         total_members = sum(g.member_count for g in self.bot.guilds if g.member_count)
         
-        embed = discord.Embed(title="🤖 Bot Status", color=0x00ff00, timestamp=datetime.utcnow())
+        from src.core.theme import Theme
+        
+        embed = discord.Embed(title="🤖 Bot Status", color=Theme.PRIMARY, timestamp=datetime.utcnow())
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         
         embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
@@ -47,7 +49,7 @@ class InfoCog(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     async def send_updates(self, context):
-        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=0x00ff00, timestamp=datetime.utcnow())
+        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.utcnow())
         embed.add_field(
             name="🤖 Dynamic Bot Avatar", 
             value="You can now manually set the bot's profile picture to match the album cover of the track you're listening to using the new button on your `/fm` embed!",

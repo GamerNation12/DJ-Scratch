@@ -45,10 +45,11 @@ class AdminCog(commands.Cog):
         if len(guilds) > 25:
             desc_lines.append(f"\n*...and {len(guilds) - 25} more servers.*")
             
+        from src.core.theme import Theme
         embed = discord.Embed(
             title="📊 Bot Server Usage Statistics",
             description=chr(10).join(desc_lines) if desc_lines else "Currently not in any servers.",
-            color=discord.Color.blue()
+            color=Theme.PRIMARY
         )
         embed.add_field(name="Total Servers", value=f"`{total_servers}`", inline=True)
         embed.add_field(name="Total Reach", value=f"`{total_members}` members", inline=True)

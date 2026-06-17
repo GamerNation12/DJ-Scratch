@@ -22,7 +22,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 USERS_FILE = "lastfm_users.json"
 COOLDOWN_FILE = "cooldowns.json"
-LASTFM_COLOR = 0xb90000
+from src.core.theme import Theme
+LASTFM_COLOR = Theme.PRIMARY
 
 PERIOD_MAP = {
     '7d': '7day',
