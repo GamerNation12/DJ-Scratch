@@ -1,0 +1,19 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+
+# If it's a directory, try looking for an index.html
+DirectoryIndex index.html
+
+# If the request is a file or directory that exists, serve it
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Try to serve the request with .html appended
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.*)$ $1.html [L]
+
+# For all other routes, fall back to index.html (useful for client-side routing, though Next.js static export generates individual HTML files)
+RewriteRule ^ index.html [L]
+</IfModule>
