@@ -14,7 +14,7 @@ export default function Dashboard() {
       router.push("/");
     }
   }, [status, router]);
-  const [activeTab, setActiveTab] = useState<"settings" | "suggestions">("settings");
+  const [activeTab, setActiveTab] = useState<"overview" | "settings" | "suggestions">("overview");
 
   // Settings State
   const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
@@ -35,6 +35,14 @@ export default function Dashboard() {
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
+  // Now Playing State
+  const [nowPlaying, setNowPlaying] = useState<any>(null);
+  const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
+
+  // User Stats State
+  const [userStats, setUserStats] = useState<any>(null);
+  const [userStatsLoading, setUserStatsLoading] = useState(true);
+
   useEffect(() => {
     if (session) {
       // Fetch Settings
@@ -51,6 +59,34 @@ export default function Dashboard() {
 
       // Fetch Suggestions
       fetchSuggestions();
+
+      // Fetch Now Playing
+      const fetchNowPlaying = () => {
+        fetchApi("/api/now-playing")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.playing) {
+              setNowPlaying(data.track);
+            } else {
+              setNowPlaying(null);
+            }
+          })
+          .catch((err) => console.error("Error fetching now playing:", err))
+          .finally(() => setNowPlayingLoading(false));
+      };
+
+      // Fetch User Stats
+      fetchApi("/api/user-stats")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) setUserStats(data.stats);
+        })
+        .catch(console.error)
+        .finally(() => setUserStatsLoading(false));
+
+      fetchNowPlaying();
+      const interval = setInterval(fetchNowPlaying, 30000);
+      return () => clearInterval(interval);
     }
   }, [session]);
 
@@ -184,7 +220,35 @@ export default function Dashboard() {
                   <p className="text-zinc-500 text-xs mt-1">Discord User</p>
                 </div>
               </div>
+
+              {/* Now Playing Widget */}
+              {!nowPlayingLoading && nowPlaying && (
+                <div className="mb-6 pb-6 border-b border-white/5 animate-fade-in-up">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Listening to Last.fm</span>
+                  </div>
+                  <a href={nowPlaying.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 bg-zinc-900/50 hover:bg-zinc-800/80 p-3 rounded-xl border border-white/5 transition-all">
+                    {nowPlaying.image ? (
+                      <img src={nowPlaying.image} alt="Album Art" className="w-12 h-12 rounded-lg shadow-md group-hover:scale-105 transition-transform" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">🎵</div>
+                    )}
+                    <div className="overflow-hidden flex-1">
+                      <div className="font-bold text-sm text-white truncate group-hover:text-green-400 transition-colors">{nowPlaying.name}</div>
+                      <div className="text-xs text-zinc-400 truncate mt-0.5">{nowPlaying.artist}</div>
+                    </div>
+                  </a>
+                </div>
+              )}
+
               <div className="space-y-2">
+                <button 
+                  onClick={() => setActiveTab("overview")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'overview' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+                >
+                  📊 Overview
+                </button>
                 <button 
                   onClick={() => setActiveTab("settings")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'settings' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
@@ -203,6 +267,50 @@ export default function Dashboard() {
 
           {/* Main Content Area */}
           <div className="lg:col-span-3 space-y-6">
+            
+            {activeTab === "overview" && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-8">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">📊 Last.fm Statistics</h3>
+                  
+                  {userStatsLoading ? (
+                    <div className="flex justify-center p-8">
+                      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : !userStats ? (
+                    <div className="text-center p-8 text-zinc-500 bg-zinc-900/50 rounded-2xl border border-white/5">
+                      Last.fm account not linked. Use the bot on Discord to link your account.
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div className="text-zinc-400 text-sm mb-1">Total Scrobbles</div>
+                        <div className="text-4xl font-extrabold text-white">{userStats.playcount.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div className="text-zinc-400 text-sm mb-1">Top Artist</div>
+                        <div className="text-2xl font-bold text-white truncate" title={userStats.topArtist}>{userStats.topArtist}</div>
+                        <div className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-bold">{userStats.topArtistPlays.toLocaleString()} plays</div>
+                      </div>
+                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div className="text-zinc-400 text-sm mb-1">Last.fm Username</div>
+                        <a href={userStats.url} target="_blank" rel="noreferrer" className="text-xl font-bold text-indigo-400 hover:text-indigo-300 transition-colors inline-block truncate max-w-full">
+                          @{userStats.username}
+                        </a>
+                      </div>
+                      {userStats.registered && (
+                        <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                          <div className="text-zinc-400 text-sm mb-1">Account Created</div>
+                          <div className="text-xl font-bold text-white">
+                            {new Date(userStats.registered * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             {activeTab === "settings" && (
               <>

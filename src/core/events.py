@@ -639,14 +639,7 @@ async def on_ready():
     print(f"{Log.YELLOW}! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.{Log.RESET}")
     print(f"{Log.CYAN}========================================================================{Log.RESET}")
     
-    if not getattr(bot, 'has_sent_startup_dm', False):
-        try:
-            owner = await bot.fetch_user(759433582107426816)
-            if owner:
-                await owner.send("✅ **Bot Online!** The Goats DJ has successfully (re)started and connected to Discord.")
-            bot.has_sent_startup_dm = True
-        except Exception as e:
-            print(f"Failed to DM owner on ready: {e}")
+
 
     from .database import db_pool
     if db_pool:
