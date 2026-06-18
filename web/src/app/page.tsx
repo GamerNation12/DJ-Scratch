@@ -98,7 +98,7 @@ export default function Home() {
               </div>
             </div>
             <p className="text-sm text-zinc-400 font-medium text-center">
-              Join <span className="text-white font-bold">{stats.totalUsers ? stats.totalUsers.toLocaleString() : '...'} registered users</span> across <br className="sm:hidden" /><span className="text-white font-bold">{stats.activeMembers ? stats.activeMembers.toLocaleString() : '...'} Discord members</span> using the bot right now.
+              Join <span className="text-white font-bold">{stats.totalUsers ? stats.totalUsers.toLocaleString() : '...'} Last.fm users</span> in <span className="text-white font-bold">{stats.serverCount ? stats.serverCount.toLocaleString() : '...'} servers</span> across <br className="sm:hidden" /><span className="text-white font-bold">{stats.activeMembers ? stats.activeMembers.toLocaleString() : '...'} Discord members</span> using the bot right now.
             </p>
           </div>
         </section>
