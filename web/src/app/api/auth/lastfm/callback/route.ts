@@ -11,8 +11,8 @@ export async function GET(req: Request) {
     return new NextResponse("Missing token or discord_id parameter.", { status: 400 });
   }
 
-  const apiKey = process.env.LASTFM_API_KEY || "9646832a8f5404dbc27af3632be57d0";
-  const sharedSecret = process.env.LASTFM_SHARED_SECRET;
+  const apiKey = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
+  const sharedSecret = process.env.LASTFM_SHARED_SECRET || "f8b8268e5067d5b927880f9d64abe5bc";
 
   if (!sharedSecret) {
     return new NextResponse(

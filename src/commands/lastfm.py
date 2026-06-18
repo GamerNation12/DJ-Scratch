@@ -117,7 +117,7 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def login_slash(self, interaction: discord.Interaction):
         import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
         cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={interaction.user.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
@@ -303,7 +303,7 @@ class LastFmCog(commands.Cog):
     @commands.command(name="login")
     async def login_prefix(self, ctx):
         import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
         cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={ctx.author.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
@@ -321,7 +321,7 @@ class LastFmCog(commands.Cog):
     async def setfm_prefix(self, ctx, *, username: str = None):
         if not username:
             import urllib.parse, os
-            api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+            api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
             cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={ctx.author.id}"
             auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
             
