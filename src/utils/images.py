@@ -83,9 +83,9 @@ def process_profile_images(image_bytes):
             avatar_size = 512
             inner_size = int(avatar_size * 0.85) # Zoomed in slightly (0.707 is perfectly fitted, 1.0 is full size)
             
-            # Background: heavily blurred cover
+            # Background: blurred cover
             avatar_bg = img.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
-            avatar_bg = avatar_bg.filter(ImageFilter.GaussianBlur(radius=60))
+            avatar_bg = avatar_bg.filter(ImageFilter.GaussianBlur(radius=25))
             
             avatar_out = avatar_bg
             
