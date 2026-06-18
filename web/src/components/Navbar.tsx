@@ -116,7 +116,7 @@ export default function Navbar() {
                   Invite
                 </a>
                 <button
-                  onClick={() => { window.location.href = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/api/auth/login'; }}
+                  onClick={() => { window.location.href = '/api/auth/login'; }}
                   className="px-4 py-1.5 text-sm font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-lg shadow-lg shadow-white/10 transition-all"
                 >
                   Sign In

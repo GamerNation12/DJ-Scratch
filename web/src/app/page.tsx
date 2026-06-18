@@ -78,7 +78,7 @@ export default function Home() {
               </Link>
             ) : (
               <button 
-                onClick={() => { window.location.href = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/api/auth/login'; }}
+                onClick={() => { window.location.href = '/api/auth/login'; }}
                 className="px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Login to Dashboard
