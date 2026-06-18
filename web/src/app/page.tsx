@@ -10,7 +10,7 @@ const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=150970926565
 export default function Home() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
-  const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, topAvatars: [] });
+  const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
 
   useEffect(() => {
     setMounted(true);
