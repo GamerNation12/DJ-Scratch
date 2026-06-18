@@ -834,21 +834,15 @@ async def get_lastfm_username(uid):
 # --- LAST.FM API FETCHERS ---
 
 
-class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0, user=None, spotify_url=None, song=None):
+class FMDetailsView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img, is_p, cd, user, spotify_url, song):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
-        self.compact_embed = compact_embed
         self.user = user
         self.song = song
         
-        if compact_embed:
-            btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
-            btn1.callback = self.more_info
-            self.add_item(btn1)
-            
         if spotify_url:
             self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
             
@@ -875,8 +869,62 @@ class FMActionsView(discord.ui.View):
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
-    async def more_info(self, interaction: discord.Interaction):
-        await interaction.response.send_message(embed=self.compact_embed, ephemeral=True)
+    async def preview_avatar(self, interaction: discord.Interaction):
+        preview_embed = discord.Embed(
+            title="Bot Avatar Preview", 
+            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
+            color=LASTFM_COLOR
+        )
+        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_image(url=self.img)
+        
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
+        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+
+class FMActionsView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0, user=None, spotify_url=None, song=None):
+        super().__init__(timeout=None)
+        self.bot_instance = bot_instance
+        self.artist = artist
+        self.img = img
+        self.compact_embed = compact_embed
+        self.user = user
+        self.song = song
+        self.spotify_url = spotify_url
+        self.is_p = is_p
+        self.cd = cd
+        
+        if compact_embed:
+            btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
+            btn1.callback = self.more_info
+            self.add_item(btn1)
+        else:
+            # If not compact, add buttons directly
+            if spotify_url:
+                self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
+                
+            if song and artist:
+                btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
+                btn_lyrics.callback = self.show_lyrics
+                self.add_item(btn_lyrics)
+                
+            if is_p and img and cd <= 0:
+                btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
+                btn2.callback = self.preview_avatar
+                self.add_item(btn2)
+
+    async def show_lyrics(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        from src.core.lyrics import fetch_lyrics
+        session = getattr(self.bot_instance, 'session', None)
+        lyrics = await fetch_lyrics(session, self.artist, self.song)
+        if lyrics:
+            if len(lyrics) > 4096:
+                lyrics = lyrics[:4093] + "..."
+            embed = discord.Embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
         preview_embed = discord.Embed(
@@ -889,6 +937,10 @@ class FMActionsView(discord.ui.View):
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+
+    async def more_info(self, interaction: discord.Interaction):
+        details_view = FMDetailsView(self.bot_instance, self.artist, self.img, self.is_p, self.cd, self.user, self.spotify_url, self.song)
+        await interaction.response.send_message(embed=self.compact_embed, view=details_view, ephemeral=True)
 
 class ApplyAvatarView(discord.ui.View):
     def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None):
