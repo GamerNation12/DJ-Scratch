@@ -1795,12 +1795,15 @@ async def process_crowns(guild, user):
 
 
 class HelpDropdown(discord.ui.Select):
-    def __init__(self):
+    def __init__(self, is_owner=False):
         options = [
             discord.SelectOption(label="🎧 Last.fm Commands", description="Commands for tracking and viewing your Last.fm stats", emoji="🎧"),
             discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="👑"),
             discord.SelectOption(label="💡 Utility & Fun", description="Settings, games, and other utility commands", emoji="💡")
         ]
+        if is_owner:
+            options.append(discord.SelectOption(label="🛡️ Owner Commands", description="Admin restricted commands", emoji="🛡️"))
+            
         super().__init__(placeholder="Choose a command category...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
@@ -1836,16 +1839,27 @@ class HelpDropdown(discord.ui.Select):
                 "`/guess` (or `,guess`) - Play a game guessing a pixelated album cover\n"
                 "`/scramble` (or `,scramble`) - Play a game unscrambling an artist's name"
             )
+        elif self.values[0] == "🛡️ Owner Commands":
+            embed.description = (
+                "`,sync` - Sync slash commands globally\n"
+                "`,stats` (or `,guilds`, `,servers`) - View server usage statistics\n"
+                "`,cleanduplicates` - Scan and clean duplicate database entries\n"
+                "`,wipedata` - Wipe all imported user data\n"
+                "`,testautorestart` - Simulate high RAM auto-restart\n"
+                "`,restart` - Manually restart the bot\n"
+                "`,resetcd` - Bypass the global avatar cooldown"
+            )
             
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class HelpView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, is_owner=False):
         super().__init__(timeout=None)
-        self.add_item(HelpDropdown())
+        self.add_item(HelpDropdown(is_owner))
 
 def get_help_embed(user):
     from src.core.theme import Theme
+    is_owner = user.id == 759433582107426816
     embed = discord.Embed(
         title="🤖 The Goats DJ | Command Center", 
         color=Theme.PRIMARY, 
@@ -1854,7 +1868,7 @@ def get_help_embed(user):
     embed.set_thumbnail(url="https://i.imgur.com/your_logo_here.png") # Optional placeholder
     embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
     embed.set_footer(text=Theme.FOOTER_TEXT)
-    return embed, HelpView()
+    return embed, HelpView(is_owner)
 
 # --- ADMIN COMMAND ---
 
