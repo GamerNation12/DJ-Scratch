@@ -85,9 +85,14 @@ def process_profile_images(image_bytes):
             
             # Background: blurred cover
             avatar_bg = img.resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
-            avatar_bg = avatar_bg.filter(ImageFilter.GaussianBlur(radius=25))
+            avatar_bg = avatar_bg.filter(ImageFilter.GaussianBlur(radius=15))
             
-            avatar_out = avatar_bg
+            # Foreground: actual cover
+            avatar_fg = img.resize((inner_size, inner_size), Image.Resampling.LANCZOS)
+            
+            avatar_out = avatar_bg.copy()
+            offset = ((avatar_size - inner_size) // 2, (avatar_size - inner_size) // 2)
+            avatar_out.paste(avatar_fg, offset)
             
             avatar_buf = io.BytesIO()
             avatar_out.save(avatar_buf, format='PNG')
