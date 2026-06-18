@@ -136,7 +136,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
     @commands.command(name="resetcd")
     async def resetcd(self, ctx):
-        from src.core.db import db_pool
+        from src.core.database import db_pool
         from datetime import datetime, timedelta
         if db_pool:
             past_dt = datetime.utcnow() - timedelta(hours=1)
