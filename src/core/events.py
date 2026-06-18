@@ -835,13 +835,14 @@ async def get_lastfm_username(uid):
 
 
 class FMDetailsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, is_p, cd, user, spotify_url, song):
+    def __init__(self, bot_instance, artist, img, is_p, cd, user, spotify_url, song, original_msg=None):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
         self.user = user
         self.song = song
+        self.original_msg = original_msg
         
         if spotify_url:
             self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
@@ -878,7 +879,7 @@ class FMDetailsView(discord.ui.View):
         preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
@@ -939,7 +940,7 @@ class FMActionsView(discord.ui.View):
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
     async def more_info(self, interaction: discord.Interaction):
-        details_view = FMDetailsView(self.bot_instance, self.artist, self.img, self.is_p, self.cd, self.user, self.spotify_url, self.song)
+        details_view = FMDetailsView(self.bot_instance, self.artist, self.img, self.is_p, self.cd, self.user, self.spotify_url, self.song, original_msg=interaction.message)
         await interaction.response.send_message(embed=self.compact_embed, view=details_view, ephemeral=True)
 
 class ApplyAvatarView(discord.ui.View):
