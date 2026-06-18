@@ -704,7 +704,7 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
             if not target_guild_id and str(guild.id) != "1360772594122358834":
                 continue
                 
-            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            channel = discord.utils.get(guild.text_channels, name=channel_name, category_id=1517288792103321641)
             if channel:
                 await channel.send(embed=embed)
                 return
