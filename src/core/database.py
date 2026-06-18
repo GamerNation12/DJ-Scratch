@@ -159,7 +159,17 @@ async def get_user_timezone(user_id):
 async def get_user_update_notifs(uid):
     if not db_pool: return True
     async with db_pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
+        try:
+            row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
+        except asyncpg.exceptions.UndefinedColumnError:
+            try:
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
+                row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
+            except Exception as e:
+                print(f"Auto-recovery for update_notifs failed: {e}")
+                return True
+                
         if row and row['update_notifs'] is not None:
             return row['update_notifs']
         return True
@@ -176,7 +186,17 @@ async def set_user_update_notifs(uid, enabled: bool):
 async def get_user_last_update_seen(uid):
     if not db_pool: return ''
     async with db_pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
+        try:
+            row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
+        except asyncpg.exceptions.UndefinedColumnError:
+            try:
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
+                row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
+            except Exception as e:
+                print(f"Auto-recovery for last_update_seen failed: {e}")
+                return ''
+                
         if row and row['last_update_seen'] is not None:
             return row['last_update_seen']
         return ''
