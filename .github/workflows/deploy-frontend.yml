@@ -28,6 +28,8 @@ jobs:
         env:
           BUILD_STATIC: "true"
           NEXT_PUBLIC_API_URL: "https://the-goats-dj.vercel.app"
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.DATABASE_URL }}
         run: |
           # Temporarily hide the api folder so static export doesn't crash
           mv src/app/api src/app/_api_temp
