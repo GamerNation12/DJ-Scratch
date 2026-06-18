@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function LoginCallback() {
+function LoginCallbackInner() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("Please wait while we securely connect your Last.fm account to Discord.");
@@ -118,5 +118,21 @@ export default function LoginCallback() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginCallback() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="relative h-24 w-24 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-t-4 border-l-4 border-red-500 animate-spin" />
+          <div className="absolute inset-2 rounded-full border-b-4 border-r-4 border-blue-500 animate-[spin_1.5s_reverse_infinite]" />
+          <span className="text-2xl animate-pulse">⏳</span>
+        </div>
+      </div>
+    }>
+      <LoginCallbackInner />
+    </Suspense>
   );
 }
