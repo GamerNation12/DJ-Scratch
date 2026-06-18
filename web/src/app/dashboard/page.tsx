@@ -1,5 +1,5 @@
-import { fetchApi } from "@/lib/fetchApi";
 "use client";
+import { fetchApi } from "@/lib/fetchApi";
 
 import { useSession } from "@/app/providers";
 import { useState, useEffect } from "react";
