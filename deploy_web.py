@@ -53,31 +53,7 @@ def deploy_web():
             print(f"Could not change to remote directory {remote_dir}: {e}")
             return
             
-        def clear_remote_dir(ftp, path):
-            ftp.cwd(path)
-            items = []
-            ftp.retrlines('LIST', items.append)
-            
-            for item in items:
-                parts = item.split()
-                if not parts:
-                    continue
-                name = " ".join(parts[8:])
-                if name in ('.', '..'):
-                    continue
-                if item.startswith('d'):
-                    clear_remote_dir(ftp, name)
-                    ftp.rmd(name)
-                else:
-                    ftp.delete(name)
-            ftp.cwd('..')
-            
-        print("Clearing existing files in public_html...")
-        try:
-            clear_remote_dir(ftp, remote_dir)
-        except Exception as e:
-            print(f"Warning during clear: {e}")
-            ftp.cwd(remote_dir) # Make sure we are in the right dir
+        # File clearing has been disabled to speed up deployment
             
         def upload_dir(ftp, local_path):
             for item in os.listdir(local_path):
