@@ -696,7 +696,14 @@ async def on_guild_remove(guild):
 async def log_to_channel(channel_name: str, embed: discord.Embed):
     try:
         await bot.wait_until_ready()
+        target_guild_id = os.getenv("LOG_GUILD_ID")
+        
         for guild in bot.guilds:
+            if target_guild_id and str(guild.id) != target_guild_id:
+                continue
+            if not target_guild_id and guild.name != "The Goats DJ":
+                continue
+                
             channel = discord.utils.get(guild.text_channels, name=channel_name)
             if channel:
                 await channel.send(embed=embed)
