@@ -116,7 +116,9 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def setfm_slash(self, interaction: discord.Interaction, username: str):
-        user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
+        import re
+        user_name = re.sub(r'^(?:<)?https?:\/\/(?:www\.)?last\.fm\/user\/([^\/\s>]+).*$', r'\1', username.strip(), flags=re.IGNORECASE)
+        user_name = user_name.replace("/", "").strip()
         await self.bot.save_user(interaction.user.id, user_name)
         await interaction.response.send_message(f"✅ Linked your Discord to Last.fm account: **{user_name}**", ephemeral=True)
 
@@ -281,7 +283,9 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, username: str):
-        user_name = username.replace("https://www.last.fm/user/", "").replace("/", "").strip()
+        import re
+        user_name = re.sub(r'^(?:<)?https?:\/\/(?:www\.)?last\.fm\/user\/([^\/\s>]+).*$', r'\1', username.strip(), flags=re.IGNORECASE)
+        user_name = user_name.replace("/", "").strip()
         await self.bot.save_user(ctx.author.id, user_name)
         await ctx.send(f"✅ Linked your Discord to Last.fm account: **{user_name}**")
 
