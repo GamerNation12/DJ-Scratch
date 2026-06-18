@@ -116,6 +116,16 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def login_slash(self, interaction: discord.Interaction):
+        from src.core.events import get_lastfm_username
+        username = await get_lastfm_username(interaction.user.id)
+        if username:
+            embed = discord.Embed(
+                title="✅ Already Logged In",
+                description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `/logout` command first.",
+                color=discord.Color.green()
+            )
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
         cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={interaction.user.id}"
@@ -305,6 +315,16 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="login")
     async def login_prefix(self, ctx):
+        from src.core.events import get_lastfm_username
+        username = await get_lastfm_username(ctx.author.id)
+        if username:
+            embed = discord.Embed(
+                title="✅ Already Logged In",
+                description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `,logout` command first.",
+                color=discord.Color.green()
+            )
+            return await ctx.send(embed=embed)
+            
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
         cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={ctx.author.id}"
