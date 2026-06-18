@@ -804,7 +804,6 @@ async def update_bot_avatar_and_status(bot_instance, artist, image_url):
 
 async def add_custom_reactions(message):
     try:
-        await message.add_reaction("<:info_more_info:1516963968361431090>")
         await message.add_reaction("<a:mc_Fire:1423825520516141138>")
         await message.add_reaction("<a:Jamming:1441565477313970259>")
     except: pass
@@ -897,8 +896,9 @@ class FMActionsView(discord.ui.View):
         self.cd = cd
         
         if compact_embed:
-            # We removed the grey button box; instead we will just add it as a reaction
-            pass
+            btn1 = discord.ui.Button(label="More info", emoji=discord.PartialEmoji.from_str("<:info_more_info:1516963968361431090>"), style=discord.ButtonStyle.secondary)
+            btn1.callback = self.more_info
+            self.add_item(btn1)
         else:
             # If not compact, add buttons directly
             if spotify_url:
@@ -913,6 +913,19 @@ class FMActionsView(discord.ui.View):
                 btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
                 btn2.callback = self.preview_avatar
                 self.add_item(btn2)
+
+    async def more_info(self, interaction: discord.Interaction):
+        await interaction.response.send_message(embed=self.compact_embed, view=self, ephemeral=True)
+        for item in self.children:
+            if isinstance(item, discord.ui.Button) and item.label == "More info":
+                item.disabled = True
+        try:
+            if interaction.message:
+                await interaction.message.edit(view=self)
+            else:
+                await interaction.edit_original_response(view=self)
+        except:
+            pass
 
     async def show_lyrics(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
