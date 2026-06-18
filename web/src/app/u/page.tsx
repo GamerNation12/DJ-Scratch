@@ -1,19 +1,23 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchApi } from "@/lib/fetchApi";
 
-function PublicProfile() {
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+export default function PublicProfile() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      fetchApi(`/api/u/${id}`)
+    const id = window.location.hash.replace('#', '');
+    
+    if (!id) {
+      setError("No user specified.");
+      setLoading(false);
+      return;
+    }
+
+    fetchApi(`/api/u/${id}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.error) {
@@ -24,8 +28,7 @@ function PublicProfile() {
         })
         .catch(() => setError("Failed to load profile."))
         .finally(() => setLoading(false));
-    }
-  }, [id]);
+  }, []);
 
   if (loading) {
     return (
@@ -168,17 +171,5 @@ function PublicProfile() {
         </div>
       </main>
     </div>
-  );
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
-      </div>
-    }>
-      <PublicProfile />
-    </Suspense>
   );
 }
