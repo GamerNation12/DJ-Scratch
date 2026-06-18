@@ -5,7 +5,7 @@ import { useSession } from "@/app/providers";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=2147863616&scope=bot%20applications.commands";
+const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=347200&scope=bot%20applications.commands";
 
 export default function Home() {
   const { data: session, status } = useSession();
