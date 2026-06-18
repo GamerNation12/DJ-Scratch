@@ -81,7 +81,7 @@ export default function Navbar() {
             {session ? (
               <div className="flex items-center gap-4">
                 <a 
-                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=8&scope=bot%20applications.commands"
+                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=2147863616&scope=bot%20applications.commands"
                   target="_blank" 
                   rel="noreferrer"
                   className="hidden md:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
@@ -108,7 +108,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-3">
                 <a 
-                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=8&scope=bot%20applications.commands"
+                  href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=2147863616&scope=bot%20applications.commands"
                   target="_blank" 
                   rel="noreferrer"
                   className="hidden md:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
