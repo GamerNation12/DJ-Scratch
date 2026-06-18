@@ -226,7 +226,7 @@ export default function Dashboard() {
                 <div className="mb-6 pb-6 border-b border-white/5 animate-fade-in-up">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                    <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Listening to Last.fm</span>
+                    <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Now Playing</span>
                   </div>
                   <a href={nowPlaying.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 bg-zinc-900/50 hover:bg-zinc-800/80 p-3 rounded-xl border border-white/5 transition-all">
                     {nowPlaying.image ? (
@@ -265,7 +265,7 @@ export default function Dashboard() {
             {activeTab === "settings" && (
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-8">
-                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">📊 Last.fm Statistics</h3>
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">📊 Account Info</h3>
                   
                   {userStatsLoading ? (
                     <div className="flex justify-center p-8">
@@ -273,7 +273,7 @@ export default function Dashboard() {
                     </div>
                   ) : !userStats ? (
                     <div className="text-center p-8 text-zinc-500 bg-zinc-900/50 rounded-2xl border border-white/5">
-                      Last.fm account not linked. Use the bot on Discord to link your account.
+                      Account not linked. Use the bot on Discord to link your account.
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-6">
@@ -287,7 +287,7 @@ export default function Dashboard() {
                         <div className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-bold">{userStats.topArtistPlays.toLocaleString()} plays</div>
                       </div>
                       <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                        <div className="text-zinc-400 text-sm mb-1">Last.fm Username</div>
+                        <div className="text-zinc-400 text-sm mb-1">Username</div>
                         <a href={userStats.url} target="_blank" rel="noreferrer" className="text-xl font-bold text-indigo-400 hover:text-indigo-300 transition-colors inline-block truncate max-w-full">
                           @{userStats.username}
                         </a>
