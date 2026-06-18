@@ -895,7 +895,7 @@ class FMActionsView(discord.ui.View):
         self.cd = cd
         
         if compact_embed:
-            btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
+            btn1 = discord.ui.Button(emoji="ℹ️", style=discord.ButtonStyle.secondary)
             btn1.callback = self.more_info
             self.add_item(btn1)
         else:
