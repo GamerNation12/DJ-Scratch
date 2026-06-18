@@ -14,7 +14,7 @@ export default function Dashboard() {
       router.push("/");
     }
   }, [status, router]);
-  const [activeTab, setActiveTab] = useState<"overview" | "settings" | "suggestions">("overview");
+  const [activeTab, setActiveTab] = useState<"settings" | "suggestions">("settings");
 
   // Settings State
   const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
@@ -244,12 +244,6 @@ export default function Dashboard() {
 
               <div className="space-y-2">
                 <button 
-                  onClick={() => setActiveTab("overview")}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'overview' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
-                >
-                  📊 Overview
-                </button>
-                <button 
                   onClick={() => setActiveTab("settings")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'settings' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
                 >
@@ -268,7 +262,7 @@ export default function Dashboard() {
           {/* Main Content Area */}
           <div className="lg:col-span-3 space-y-6">
             
-            {activeTab === "overview" && (
+            {activeTab === "settings" && (
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-8">
                   <h3 className="text-xl font-bold mb-6 flex items-center gap-2">📊 Last.fm Statistics</h3>
@@ -309,11 +303,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-            
-            {activeTab === "settings" && (
-              <>
+                
                 {/* Display Preferences Card */}
                 <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
                   <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
@@ -383,7 +373,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {activeTab === "suggestions" && (
