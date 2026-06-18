@@ -978,7 +978,8 @@ class ApplyAvatarView(discord.ui.View):
                 try:
                     await self.original_msg.delete()
                 except Exception as e:
-                    await interaction.followup.send(f"⚠️ Could not delete old msg: {e}", ephemeral=True)
+                    if interaction.guild:
+                        await interaction.followup.send(f"⚠️ Could not delete old msg: {e}", ephemeral=True)
                 
                 try:
                     mode = await get_user_fm_mode(self.original_user.id)
@@ -993,9 +994,11 @@ class ApplyAvatarView(discord.ui.View):
                         else:
                             await channel.send(result)
                     else:
-                        await interaction.followup.send(f"⚠️ Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
+                        if interaction.guild:
+                            await interaction.followup.send(f"⚠️ Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
                 except Exception as e:
-                    await interaction.followup.send(f"⚠️ Error resending fm: {e}", ephemeral=True)
+                    if interaction.guild:
+                        await interaction.followup.send(f"⚠️ Error resending fm: {e}", ephemeral=True)
         else:
             if cd > 0:
                 m, s = divmod(cd, 60)
