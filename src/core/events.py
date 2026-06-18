@@ -701,7 +701,7 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
         for guild in bot.guilds:
             if target_guild_id and str(guild.id) != target_guild_id:
                 continue
-            if not target_guild_id and guild.name != "The Goats DJ":
+            if not target_guild_id and str(guild.id) != "1360772594122358834":
                 continue
                 
             channel = discord.utils.get(guild.text_channels, name=channel_name)
