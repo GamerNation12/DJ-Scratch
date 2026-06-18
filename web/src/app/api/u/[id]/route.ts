@@ -14,47 +14,51 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const sql = neon(DB_URL!);
     
     // Fetch user settings and Last.fm username
-    const row = await sql`
+    const rows = await sql`
       SELECT user_id, lastfm_username, private_mode, data_source 
       FROM user_settings 
       WHERE lastfm_username ILIKE ${userId}
     `;
 
-    if (row.length === 0) {
+    if (rows.length === 0) {
       return NextResponse.json({ error: "User not found or has not set up the bot." }, { status: 404 });
     }
 
-    const { user_id: discordId, lastfm_username, private_mode, data_source } = row[0];
+    const publicRows = rows.filter(r => !r.private_mode);
 
-    if (private_mode) {
+    if (publicRows.length === 0) {
       return NextResponse.json({ error: "This profile is private." }, { status: 403 });
     }
+
+    // Since they share the same lastfm_username, we can just use the first one's lastfm_username
+    const lastfm_username = publicRows[0].lastfm_username;
 
     if (!lastfm_username) {
       return NextResponse.json({ error: "This user has not linked a Last.fm account." }, { status: 404 });
     }
 
-    if (data_source === "spotify") {
-      return NextResponse.json({ error: "This user has set their data source to Spotify only, which does not support public API profiles." }, { status: 400 });
-    }
-
-    // Fetch Discord Info
-    let discordUser = { name: "Unknown User", avatar: null as string | null };
-    try {
-      const discordRes = await fetch(`https://discord.com/api/v10/users/${discordId}`, {
-        headers: { Authorization: `Bot ${DISCORD_TOKEN}` },
-        next: { revalidate: 3600 } 
-      });
-      if (discordRes.ok) {
-        const dData = await discordRes.json();
-        discordUser.name = dData.global_name || dData.username;
-        if (dData.avatar) {
-          discordUser.avatar = `https://cdn.discordapp.com/avatars/${discordId}/${dData.avatar}.png?size=256`;
+    // Fetch Discord Info for ALL public users
+    let discordUsers: any[] = [];
+    
+    await Promise.all(publicRows.map(async (r) => {
+      let discordUser = { name: "Unknown User", avatar: null as string | null };
+      try {
+        const discordRes = await fetch(`https://discord.com/api/v10/users/${r.user_id}`, {
+          headers: { Authorization: `Bot ${DISCORD_TOKEN}` },
+          next: { revalidate: 3600 } 
+        });
+        if (discordRes.ok) {
+          const dData = await discordRes.json();
+          discordUser.name = dData.global_name || dData.username;
+          if (dData.avatar) {
+            discordUser.avatar = `https://cdn.discordapp.com/avatars/${r.user_id}/${dData.avatar}.png?size=256`;
+          }
         }
+      } catch (e) {
+        console.error("Failed to fetch discord user:", e);
       }
-    } catch (e) {
-      console.error("Failed to fetch discord user:", e);
-    }
+      discordUsers.push(discordUser);
+    }));
 
     // Fetch Last.fm Data
     let lastfmData = {
@@ -108,7 +112,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json({
       success: true,
-      user: discordUser,
+      users: discordUsers,
       stats: lastfmData
     });
 

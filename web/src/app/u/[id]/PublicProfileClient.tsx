@@ -53,7 +53,7 @@ export default function PublicProfileClient({ id }: { id: string }) {
 
   if (!profile) return null;
 
-  const { user, stats } = profile;
+  const { users, stats } = profile;
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden pb-32">
@@ -67,16 +67,22 @@ export default function PublicProfileClient({ id }: { id: string }) {
         <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden mb-8 text-center flex flex-col items-center">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
           
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 animate-pulse"></div>
-            <img 
-              src={user.avatar || "/logo.png"} 
-              alt="Avatar" 
-              className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900 shadow-2xl relative z-10"
-            />
+          <div className="flex flex-wrap justify-center gap-8 mb-6 relative">
+            {users.map((user: any, idx: number) => (
+              <div key={idx} className="flex flex-col items-center">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 animate-pulse"></div>
+                  <img 
+                    src={user.avatar || "/logo.png"} 
+                    alt="Avatar" 
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-zinc-900 shadow-2xl relative z-10"
+                  />
+                </div>
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">{user.name}</h1>
+              </div>
+            ))}
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-white">{user.name}</h1>
           <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-6">The Goats DJ Profile</p>
           
           <div className="bg-zinc-900/50 border border-white/10 px-8 py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
