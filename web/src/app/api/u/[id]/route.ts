@@ -15,16 +15,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     
     // Fetch user settings and Last.fm username
     const row = await sql`
-      SELECT lastfm_username, private_mode, data_source 
+      SELECT user_id, lastfm_username, private_mode, data_source 
       FROM user_settings 
-      WHERE user_id = ${userId}
+      WHERE lastfm_username ILIKE ${userId}
     `;
 
     if (row.length === 0) {
       return NextResponse.json({ error: "User not found or has not set up the bot." }, { status: 404 });
     }
 
-    const { lastfm_username, private_mode, data_source } = row[0];
+    const { user_id: discordId, lastfm_username, private_mode, data_source } = row[0];
 
     if (private_mode) {
       return NextResponse.json({ error: "This profile is private." }, { status: 403 });
@@ -41,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Fetch Discord Info
     let discordUser = { name: "Unknown User", avatar: null as string | null };
     try {
-      const discordRes = await fetch(`https://discord.com/api/v10/users/${userId}`, {
+      const discordRes = await fetch(`https://discord.com/api/v10/users/${discordId}`, {
         headers: { Authorization: `Bot ${DISCORD_TOKEN}` },
         next: { revalidate: 3600 } 
       });
@@ -49,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const dData = await discordRes.json();
         discordUser.name = dData.global_name || dData.username;
         if (dData.avatar) {
-          discordUser.avatar = `https://cdn.discordapp.com/avatars/${userId}/${dData.avatar}.png?size=256`;
+          discordUser.avatar = `https://cdn.discordapp.com/avatars/${discordId}/${dData.avatar}.png?size=256`;
         }
       }
     } catch (e) {
