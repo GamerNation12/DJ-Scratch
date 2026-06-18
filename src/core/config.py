@@ -22,6 +22,17 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 USERS_FILE = "lastfm_users.json"
 COOLDOWN_FILE = "cooldowns.json"
+
+CURRENT_UPDATE_VERSION = "v1.2.0"
+CURRENT_UPDATE_MESSAGE = """🎉 **The Goats DJ Update `v1.2.0`** 🎉
+
+- **Dynamic Bot Avatar**: You can now choose to preview and set the bot's profile picture to a beautiful, abstract blur of your current album art directly from `/fm`!
+- **Spotify Rich Data Integration**: If your Last.fm track doesn't have an album cover, we now automatically fetch the high-res cover from Spotify.
+- **Lyrics Search**: In compact mode, click *More info* to fetch the official lyrics for the track!
+- **Settings**: You can now toggle these update notifications in `/settings`. 
+
+*(You can disable these update notifications in `/settings`)*"""
+
 from src.core.theme import Theme
 LASTFM_COLOR = Theme.PRIMARY
 

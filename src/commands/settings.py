@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount
+from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount, get_user_update_notifs, set_user_update_notifs
 from src.core.config import LASTFM_COLOR
 
 class MoreInfoView(discord.ui.View):
@@ -42,6 +42,11 @@ async def get_settings_embed(user_id, user):
     pc_desc = "👀 Visible" if playcount else "🙈 Hidden"
     embed.add_field(name="**Track Playcount (`/fm`)**", value=f"> {pc_desc}\n*Shows how many times you've played the track (or if it's your first time).* \n*(Requires Last.fm integration to be accurate)*", inline=False)
     
+    # Update Notifications
+    notifs = await get_user_update_notifs(user_id)
+    notifs_desc = "🔔 Enabled" if notifs else "🔕 Disabled"
+    embed.add_field(name="**Update Notifications**", value=f"> {notifs_desc}\n*Receive a one-time message about new features after an update.*", inline=False)
+    
     # Timezone
     tz = await get_user_timezone(user_id)
     embed.add_field(name="**Timezone**", value=f"> 🌍 {tz}\n*Used to accurately calculate your yearly top tracks/artists.*", inline=False)
@@ -62,6 +67,8 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
             discord.SelectOption(label="Show Track Playcount", description="Show playcount on /fm", emoji="👀", value="pc_on"),
             discord.SelectOption(label="Hide Track Playcount", description="Hide playcount on /fm", emoji="🙈", value="pc_off"),
+            discord.SelectOption(label="Enable Update Notifs", description="Turn on update alerts", emoji="🔔", value="notifs_on"),
+            discord.SelectOption(label="Disable Update Notifs", description="Turn off update alerts", emoji="🔕", value="notifs_off"),
         ]
         super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
 
@@ -79,6 +86,9 @@ class SettingsDropdown(discord.ui.Select):
         elif val.startswith("pc_"):
             on = (val == "pc_on")
             await set_user_show_track_playcount(interaction.user.id, on)
+        elif val.startswith("notifs_"):
+            on = (val == "notifs_on")
+            await set_user_update_notifs(interaction.user.id, on)
             
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)

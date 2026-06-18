@@ -2047,5 +2047,36 @@ async def process_receipt(user, period='overall', limit=10):
     embed.set_image(url="attachment://receipt.png")
     
     return embed, file, None
+# --- UPDATE NOTIFICATIONS ---
+async def check_update_notification(user_id: int, send_message_func):
+    from src.core.config import CURRENT_UPDATE_VERSION
+    from src.core.database import get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
+    
+    wants_notifs = await get_user_update_notifs(user_id)
+    if not wants_notifs:
+        return
+        
+    last_seen = await get_user_last_update_seen(user_id)
+    if last_seen != CURRENT_UPDATE_VERSION:
+        await set_user_last_update_seen(user_id, CURRENT_UPDATE_VERSION)
+        await send_message_func()
 
+@bot.listen('on_command_completion')
+async def update_notif_prefix(ctx):
+    from src.core.config import CURRENT_UPDATE_MESSAGE
+    async def send_msg():
+        try:
+            await ctx.send(f"<@{ctx.author.id}>\n{CURRENT_UPDATE_MESSAGE}", delete_after=15.0)
+        except Exception:
+            pass
+    await check_update_notification(ctx.author.id, send_msg)
 
+@bot.listen('on_app_command_completion')
+async def update_notif_slash(interaction, command):
+    from src.core.config import CURRENT_UPDATE_MESSAGE
+    async def send_msg():
+        try:
+            await interaction.followup.send(CURRENT_UPDATE_MESSAGE, ephemeral=True)
+        except Exception:
+            pass
+    await check_update_notification(interaction.user.id, send_msg)

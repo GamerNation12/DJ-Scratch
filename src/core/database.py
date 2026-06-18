@@ -36,6 +36,14 @@ async def init_db():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
@@ -147,6 +155,40 @@ async def get_user_timezone(user_id):
             return row['timezone'] if row and row['timezone'] is not None else 'UTC'
     except Exception:
         return 'UTC'
+
+async def get_user_update_notifs(uid):
+    if not db_pool: return True
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
+        if row and row['update_notifs'] is not None:
+            return row['update_notifs']
+        return True
+
+async def set_user_update_notifs(uid, enabled: bool):
+    if not db_pool: return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO user_settings (user_id, update_notifs) VALUES ($1, $2) "
+            "ON CONFLICT (user_id) DO UPDATE SET update_notifs = EXCLUDED.update_notifs",
+            str(uid), enabled
+        )
+
+async def get_user_last_update_seen(uid):
+    if not db_pool: return ''
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
+        if row and row['last_update_seen'] is not None:
+            return row['last_update_seen']
+        return ''
+
+async def set_user_last_update_seen(uid, version: str):
+    if not db_pool: return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO user_settings (user_id, last_update_seen) VALUES ($1, $2) "
+            "ON CONFLICT (user_id) DO UPDATE SET last_update_seen = EXCLUDED.last_update_seen",
+            str(uid), version
+        )
 
 async def set_user_timezone(user_id, tz):
     if not db_pool: return
