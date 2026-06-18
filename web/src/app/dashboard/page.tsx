@@ -181,16 +181,16 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full flex items-center justify-between bg-zinc-900/50 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
+          className={`w-full flex items-center justify-between gap-3 bg-zinc-900/50 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
         >
-          {selectedOption.label}
-          <span className={`text-zinc-500 text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : ''}`}>▼</span>
+          <span className="truncate">{selectedOption.label}</span>
+          <span className={`shrink-0 text-zinc-500 text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : ''}`}>▼</span>
         </button>
         
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
-            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
+            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto overflow-x-hidden max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
               {options.map((opt) => (
                 <button
                   key={opt.value}
@@ -199,7 +199,7 @@ export default function Dashboard() {
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-3 hover:bg-indigo-500/20 transition-colors ${value === opt.value ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-zinc-300 font-medium'}`}
+                  className={`w-full text-left px-4 py-3 truncate hover:bg-indigo-500/20 transition-colors ${value === opt.value ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-zinc-300 font-medium'}`}
                 >
                   {opt.label}
                 </button>
@@ -375,7 +375,7 @@ export default function Dashboard() {
                           Choose whether the bot uses Last.fm, your imported Spotify data, or a smart combination of both for commands.
                         </div>
                       </div>
-                      <div className="shrink-0 w-full md:w-48">
+                      <div className="shrink-0 w-full md:w-56">
                         <CustomSelect 
                           value={unsavedDataSource} 
                           onChange={(val) => setUnsavedDataSource(val as any)}
@@ -395,7 +395,7 @@ export default function Dashboard() {
                           Set your local timezone so daily resets and timestamps are perfectly accurate.
                         </div>
                       </div>
-                      <div className="shrink-0 w-full md:w-48">
+                      <div className="shrink-0 w-full md:w-56">
                         <CustomSelect 
                           value={unsavedTimezone} 
                           onChange={(val) => setUnsavedTimezone(val)}
