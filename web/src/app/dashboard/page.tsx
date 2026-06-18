@@ -172,6 +172,45 @@ export default function Dashboard() {
     </button>
   );
 
+  const CustomSelect = ({ value, options, onChange }: { value: string, options: {label: string, value: string}[], onChange: (val: string) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedOption = options.find(o => o.value === value) || options[0];
+
+    return (
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center justify-between bg-zinc-900/50 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
+        >
+          {selectedOption.label}
+          <span className={`text-zinc-500 text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : ''}`}>▼</span>
+        </button>
+        
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 hover:bg-indigo-500/20 transition-colors ${value === opt.value ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-zinc-300 font-medium'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'approved': return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Approved</span>;
@@ -337,15 +376,15 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="shrink-0 w-full md:w-48">
-                        <select 
+                        <CustomSelect 
                           value={unsavedDataSource} 
-                          onChange={(e) => setUnsavedDataSource(e.target.value as any)}
-                          className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-semibold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all appearance-none cursor-pointer"
-                        >
-                          <option value="combined">Combined</option>
-                          <option value="lastfm">Last.fm Only</option>
-                          <option value="spotify">Spotify Only</option>
-                        </select>
+                          onChange={(val) => setUnsavedDataSource(val as any)}
+                          options={[
+                            { value: "combined", label: "Combined" },
+                            { value: "lastfm", label: "Last.fm Only" },
+                            { value: "spotify", label: "Spotify Only" }
+                          ]}
+                        />
                       </div>
                     </div>
 
@@ -357,21 +396,21 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="shrink-0 w-full md:w-48">
-                        <select 
+                        <CustomSelect 
                           value={unsavedTimezone} 
-                          onChange={(e) => setUnsavedTimezone(e.target.value)}
-                          className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-semibold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all appearance-none cursor-pointer"
-                        >
-                          <option value="UTC">UTC (Default)</option>
-                          <option value="America/New_York">America/New_York</option>
-                          <option value="America/Chicago">America/Chicago</option>
-                          <option value="America/Denver">America/Denver</option>
-                          <option value="America/Los_Angeles">America/Los_Angeles</option>
-                          <option value="Europe/London">Europe/London</option>
-                          <option value="Europe/Berlin">Europe/Berlin</option>
-                          <option value="Asia/Tokyo">Asia/Tokyo</option>
-                          <option value="Australia/Sydney">Australia/Sydney</option>
-                        </select>
+                          onChange={(val) => setUnsavedTimezone(val)}
+                          options={[
+                            { value: "UTC", label: "UTC (Default)" },
+                            { value: "America/New_York", label: "America/New_York" },
+                            { value: "America/Chicago", label: "America/Chicago" },
+                            { value: "America/Denver", label: "America/Denver" },
+                            { value: "America/Los_Angeles", label: "America/Los_Angeles" },
+                            { value: "Europe/London", label: "Europe/London" },
+                            { value: "Europe/Berlin", label: "Europe/Berlin" },
+                            { value: "Asia/Tokyo", label: "Asia/Tokyo" },
+                            { value: "Australia/Sydney", label: "Australia/Sydney" }
+                          ]}
+                        />
                       </div>
                     </div>
                   </div>
