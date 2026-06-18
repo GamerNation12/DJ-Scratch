@@ -112,7 +112,26 @@ class LastFmCog(commands.Cog):
         else:
             await send_func(content="Database is not available right now. Please try again later.")
 
-    @app_commands.command(name="setfm", description="Link your Last.fm username to the bot")
+    @app_commands.command(name="login", description="Securely login and link your Last.fm account")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def login_slash(self, interaction: discord.Interaction):
+        import urllib.parse, os
+        api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={interaction.user.id}"
+        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+        
+        embed = discord.Embed(
+            title="🔗 Connect Last.fm",
+            description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @app_commands.command(name="setfm", description="Manually link your Last.fm username to the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def setfm_slash(self, interaction: discord.Interaction, username: str):
@@ -281,15 +300,40 @@ class LastFmCog(commands.Cog):
             
         await ctx.send(content=status_msg)
 
+    @commands.command(name="login")
+    async def login_prefix(self, ctx):
+        import urllib.parse, os
+        api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={ctx.author.id}"
+        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+        
+        embed = discord.Embed(
+            title="🔗 Connect Last.fm",
+            description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed, view=view)
+
     @commands.command(name="setfm")
     async def setfm_prefix(self, ctx, *, username: str = None):
         if not username:
+            import urllib.parse, os
+            api_key = os.getenv("LASTFM_API_KEY", "9646832a8f5404dbc27af3632be57d0")
+            cb_url = f"https://the-goats-dj.hostedbyfps.com/api/auth/lastfm/callback?discord_id={ctx.author.id}"
+            auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+            
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+            
             embed = discord.Embed(
                 title="❌ Missing Username", 
-                description="Please provide your Last.fm username or profile link!\n\n**Usage:** `,setfm <username>`",
+                description="Please provide your Last.fm username or profile link!\n\n**Usage:** `,setfm <username>`\n\nAlternatively, you can securely log in via the button below:",
                 color=discord.Color.red()
             )
-            return await ctx.send(embed=embed)
+            return await ctx.send(embed=embed, view=view)
             
         import re
         user_name = re.sub(r'^(?:<)?https?:\/\/(?:www\.)?last\.fm\/user\/([^\/\s>]+).*$', r'\1', username.strip(), flags=re.IGNORECASE)
