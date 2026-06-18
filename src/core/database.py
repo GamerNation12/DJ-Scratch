@@ -177,11 +177,14 @@ async def get_user_update_notifs(uid):
 async def set_user_update_notifs(uid, enabled: bool):
     if not db_pool: return
     async with db_pool.acquire() as conn:
-        await conn.execute(
-            "INSERT INTO user_settings (user_id, update_notifs) VALUES ($1, $2) "
-            "ON CONFLICT (user_id) DO UPDATE SET update_notifs = EXCLUDED.update_notifs",
-            str(uid), enabled
-        )
+        try:
+            await conn.execute(
+                "INSERT INTO user_settings (user_id, update_notifs) VALUES ($1, $2) "
+                "ON CONFLICT (user_id) DO UPDATE SET update_notifs = EXCLUDED.update_notifs",
+                str(uid), enabled
+            )
+        except Exception as e:
+            print(f"Failed to set_user_update_notifs: {e}")
 
 async def get_user_last_update_seen(uid):
     if not db_pool: return ''
@@ -204,11 +207,14 @@ async def get_user_last_update_seen(uid):
 async def set_user_last_update_seen(uid, version: str):
     if not db_pool: return
     async with db_pool.acquire() as conn:
-        await conn.execute(
-            "INSERT INTO user_settings (user_id, last_update_seen) VALUES ($1, $2) "
-            "ON CONFLICT (user_id) DO UPDATE SET last_update_seen = EXCLUDED.last_update_seen",
-            str(uid), version
-        )
+        try:
+            await conn.execute(
+                "INSERT INTO user_settings (user_id, last_update_seen) VALUES ($1, $2) "
+                "ON CONFLICT (user_id) DO UPDATE SET last_update_seen = EXCLUDED.last_update_seen",
+                str(uid), version
+            )
+        except Exception as e:
+            print(f"Failed to set_user_last_update_seen: {e}")
 
 async def set_user_timezone(user_id, tz):
     if not db_pool: return

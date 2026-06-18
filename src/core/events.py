@@ -2049,17 +2049,20 @@ async def process_receipt(user, period='overall', limit=10):
     return embed, file, None
 # --- UPDATE NOTIFICATIONS ---
 async def check_update_notification(user_id: int, send_message_func):
-    from src.core.config import CURRENT_UPDATE_VERSION
-    from src.core.database import get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
-    
-    wants_notifs = await get_user_update_notifs(user_id)
-    if not wants_notifs:
-        return
+    try:
+        from src.core.config import CURRENT_UPDATE_VERSION
+        from src.core.database import get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
         
-    last_seen = await get_user_last_update_seen(user_id)
-    if last_seen != CURRENT_UPDATE_VERSION:
-        await set_user_last_update_seen(user_id, CURRENT_UPDATE_VERSION)
-        await send_message_func()
+        wants_notifs = await get_user_update_notifs(user_id)
+        if not wants_notifs:
+            return
+            
+        last_seen = await get_user_last_update_seen(user_id)
+        if last_seen != CURRENT_UPDATE_VERSION:
+            await set_user_last_update_seen(user_id, CURRENT_UPDATE_VERSION)
+            await send_message_func()
+    except Exception as e:
+        print(f"Silently caught error in update notification check: {e}")
 
 @bot.listen('on_command_completion')
 async def update_notif_prefix(ctx):
