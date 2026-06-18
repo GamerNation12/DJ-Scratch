@@ -64,8 +64,26 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
   );
 }
 
-export default function AdminClient({ data }: { data: any }) {
+export default function AdminClient() {
   const { data: session } = useSession();
+  const [statsData, setStatsData] = useState<any>({ totalPlays: 0, totalUsers: 0, botStats: null, commandUsage: [] });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (session && (session.user as any)?.id === "759433582107426816") {
+      fetchApi("/api/admin/stats")
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setStatsData(data);
+          setStatsLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setStatsLoading(false);
+        });
+    }
+  }, [session]);
+
   
   const [activeTab, setActiveTab] = useState<"dashboard" | "suggestions">("dashboard");
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -111,7 +129,7 @@ export default function AdminClient({ data }: { data: any }) {
     return null;
   }
 
-  const { totalPlays, totalUsers, botStats, commandUsage } = data;
+  const { totalPlays, totalUsers, botStats, commandUsage } = statsData;
   const servers = botStats?.servers || [];
 
   const StatCard = ({ title, value, icon, color }: any) => (
