@@ -276,27 +276,51 @@ export default function Dashboard() {
                       Account not linked. Use the bot on Discord to link your account.
                     </div>
                   ) : (
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                        <div className="text-zinc-400 text-sm mb-1">Total Scrobbles</div>
-                        <div className="text-4xl font-extrabold text-white">{userStats.playcount.toLocaleString()}</div>
-                      </div>
-                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                        <div className="text-zinc-400 text-sm mb-1">Top Artist</div>
-                        <div className="text-2xl font-bold text-white truncate" title={userStats.topArtist}>{userStats.topArtist}</div>
-                        <div className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-bold">{userStats.topArtistPlays.toLocaleString()} plays</div>
-                      </div>
-                      <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                        <div className="text-zinc-400 text-sm mb-1">Username</div>
-                        <a href={userStats.url} target="_blank" rel="noreferrer" className="text-xl font-bold text-indigo-400 hover:text-indigo-300 transition-colors inline-block truncate max-w-full">
-                          @{userStats.username}
-                        </a>
-                      </div>
-                      {userStats.registered && (
-                        <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                          <div className="text-zinc-400 text-sm mb-1">Account Created</div>
-                          <div className="text-xl font-bold text-white">
-                            {new Date(userStats.registered * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    <div className="space-y-6">
+                      {userStats.hasLastfm && (
+                        <div>
+                          <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-3">Last.fm</h4>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="text-zinc-400 text-sm mb-1">Total Scrobbles</div>
+                              <div className="text-4xl font-extrabold text-white">{userStats.lastfm.playcount.toLocaleString()}</div>
+                            </div>
+                            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="text-zinc-400 text-sm mb-1">Top Artist</div>
+                              <div className="text-2xl font-bold text-white truncate" title={userStats.lastfm.topArtist}>{userStats.lastfm.topArtist}</div>
+                              <div className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-bold">{userStats.lastfm.topArtistPlays.toLocaleString()} plays</div>
+                            </div>
+                            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="text-zinc-400 text-sm mb-1">Username</div>
+                              <a href={userStats.lastfm.url} target="_blank" rel="noreferrer" className="text-xl font-bold text-indigo-400 hover:text-indigo-300 transition-colors inline-block truncate max-w-full">
+                                @{userStats.lastfm.username}
+                              </a>
+                            </div>
+                            {userStats.lastfm.registered && (
+                              <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                <div className="text-zinc-400 text-sm mb-1">Account Created</div>
+                                <div className="text-xl font-bold text-white">
+                                  {new Date(userStats.lastfm.registered * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {userStats.hasSpotify && (
+                        <div>
+                          <h4 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-3">Spotify (Imported Data)</h4>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="text-zinc-400 text-sm mb-1">Total Streams</div>
+                              <div className="text-4xl font-extrabold text-white">{userStats.spotify.playcount.toLocaleString()}</div>
+                            </div>
+                            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                              <div className="text-zinc-400 text-sm mb-1">Top Artist</div>
+                              <div className="text-2xl font-bold text-white truncate" title={userStats.spotify.topArtist}>{userStats.spotify.topArtist}</div>
+                              <div className="text-xs text-zinc-500 mt-1 uppercase tracking-wider font-bold">{userStats.spotify.topArtistPlays.toLocaleString()} streams</div>
+                            </div>
                           </div>
                         </div>
                       )}

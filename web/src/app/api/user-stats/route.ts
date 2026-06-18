@@ -19,42 +19,71 @@ export async function GET(req: Request) {
 
   try {
     const sql = neon(DB_URL!);
+    
     const row = await sql`
       SELECT lastfm_username FROM user_settings WHERE user_id = ${userId}
     `;
+    const lastfmUsername = row.length > 0 ? row[0].lastfm_username : null;
 
-    if (row.length === 0 || !row[0].lastfm_username) {
+    let userStats: any = {
+      hasLastfm: false,
+      hasSpotify: false,
+    };
+
+    if (lastfmUsername) {
+      try {
+        const infoRes = await fetch(
+          `http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json`,
+          { next: { revalidate: 300 } }
+        );
+        const infoData = await infoRes.json();
+        
+        const artistRes = await fetch(
+          `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
+          { next: { revalidate: 3600 } }
+        );
+        const artistData = await artistRes.json();
+        
+        if (!infoData.error) {
+          userStats.hasLastfm = true;
+          userStats.lastfm = {
+            username: infoData.user.name,
+            playcount: parseInt(infoData.user.playcount || "0", 10),
+            registered: infoData.user.registered?.unixtime || null,
+            topArtist: artistData.topartists?.artist?.[0]?.name || "None",
+            topArtistPlays: parseInt(artistData.topartists?.artist?.[0]?.playcount || "0", 10),
+            url: infoData.user.url
+          };
+        }
+      } catch (e) {
+        console.error("Last.fm fetch error", e);
+      }
+    }
+
+    const spotifyPlaysRow = await sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${userId}`;
+    const spotifyPlaycount = parseInt(spotifyPlaysRow[0]?.count || "0", 10);
+    
+    if (spotifyPlaycount > 0) {
+      userStats.hasSpotify = true;
+      userStats.spotify = { playcount: spotifyPlaycount, topArtist: "None", topArtistPlays: 0 };
+      
+      const spotifyTopArtistRow = await sql`
+        SELECT artist_name, COUNT(*) as playcount
+        FROM listens
+        WHERE user_id = ${userId}
+        GROUP BY artist_name
+        ORDER BY playcount DESC
+        LIMIT 1
+      `;
+      if (spotifyTopArtistRow.length > 0) {
+        userStats.spotify.topArtist = spotifyTopArtistRow[0].artist_name;
+        userStats.spotify.topArtistPlays = parseInt(spotifyTopArtistRow[0].playcount || "0", 10);
+      }
+    }
+
+    if (!userStats.hasLastfm && !userStats.hasSpotify) {
       return NextResponse.json({ success: false, error: "not_linked" });
     }
-
-    const lastfmUsername = row[0].lastfm_username;
-
-    // Fetch user info (playcount, registered, etc)
-    const infoRes = await fetch(
-      `http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json`,
-      { next: { revalidate: 300 } } // Cache for 5 mins
-    );
-    const infoData = await infoRes.json();
-
-    // Fetch top artist
-    const artistRes = await fetch(
-      `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour
-    );
-    const artistData = await artistRes.json();
-
-    if (infoData.error) {
-      return NextResponse.json({ success: false, error: infoData.message });
-    }
-
-    const userStats = {
-      username: infoData.user.name,
-      playcount: parseInt(infoData.user.playcount || "0", 10),
-      registered: infoData.user.registered?.unixtime || null,
-      topArtist: artistData.topartists?.artist?.[0]?.name || "None",
-      topArtistPlays: parseInt(artistData.topartists?.artist?.[0]?.playcount || "0", 10),
-      url: infoData.user.url
-    };
 
     return NextResponse.json({ success: true, stats: userStats });
   } catch (error) {
