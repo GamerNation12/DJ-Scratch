@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STATIC === 'true' ? 'export' : undefined,
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },
