@@ -156,8 +156,8 @@ export default function Home() {
 
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
-                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Dynamic Avatar</h3>
-                <p className="text-zinc-400 font-medium leading-relaxed">The bot dynamically updates its own Discord avatar to match the album cover of your currently playing track via the `/cd` command.</p>
+                <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Interactive Bot Avatar</h3>
+                <p className="text-zinc-400 font-medium leading-relaxed">Run the `/fm` command and click the avatar button on your track to preview what the bot's profile picture would look like with your album cover—then choose to apply it!</p>
               </div>
             </div>
 
