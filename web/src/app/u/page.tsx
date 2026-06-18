@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { fetchApi } from "@/lib/fetchApi";
 
 function PublicProfile() {
   const searchParams = useSearchParams();
@@ -12,7 +13,7 @@ function PublicProfile() {
 
   useEffect(() => {
     if (id) {
-      fetch(`/api/u/${id}`)
+      fetchApi(`/api/u/${id}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.error) {
