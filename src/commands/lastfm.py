@@ -118,7 +118,7 @@ class LastFmCog(commands.Cog):
     async def login_slash(self, interaction: discord.Interaction):
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-        cb_url = f"https://the-goats-dj.vercel.app/api/auth/lastfm/callback?discord_id={interaction.user.id}"
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback.html?discord_id={interaction.user.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
         view = discord.ui.View()
@@ -304,7 +304,7 @@ class LastFmCog(commands.Cog):
     async def login_prefix(self, ctx):
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-        cb_url = f"https://the-goats-dj.vercel.app/api/auth/lastfm/callback?discord_id={ctx.author.id}"
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback.html?discord_id={ctx.author.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
         view = discord.ui.View()
@@ -322,7 +322,7 @@ class LastFmCog(commands.Cog):
         if not username:
             import urllib.parse, os
             api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-            cb_url = f"https://the-goats-dj.vercel.app/api/auth/lastfm/callback?discord_id={ctx.author.id}"
+            cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback.html?discord_id={ctx.author.id}"
             auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
             
             view = discord.ui.View()
