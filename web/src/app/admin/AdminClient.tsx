@@ -1,7 +1,8 @@
 "use client";
+import { fetchApi } from '@/lib/fetchApi';
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/app/providers";
 
 function AdminActionCard({ title, description, actionType, icon, colorClass }: any) {
   const [loading, setLoading] = useState(false);
@@ -11,7 +12,7 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
     setLoading(true);
     setStatus("idle");
     try {
-      const res = await fetch("/api/admin/action", {
+      const res = await fetchApi("/api/admin/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actionType }),
@@ -80,7 +81,7 @@ export default function AdminClient({ data }: { data: any }) {
 
   const fetchSuggestions = async () => {
     try {
-      const res = await fetch("/api/suggestions");
+      const res = await fetchApi("/api/suggestions");
       if (res.ok) {
         const data = await res.json();
         setSuggestions(data);
@@ -92,7 +93,7 @@ export default function AdminClient({ data }: { data: any }) {
 
   const saveSuggestionUpdate = async (id: string) => {
     try {
-      const res = await fetch(`/api/suggestions/${id}`, {
+      const res = await fetchApi(`/api/suggestions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: editStatus, admin_feedback: editFeedback })

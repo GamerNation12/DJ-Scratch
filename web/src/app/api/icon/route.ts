@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     if (!DB_URL) {
       console.error("No database URL provided");

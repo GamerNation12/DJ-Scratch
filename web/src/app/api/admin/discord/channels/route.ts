@@ -1,9 +1,11 @@
+import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/authOptions";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  const session = user ? { user } : null;
 
   if (!session || (session.user as any)?.id !== "759433582107426816") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

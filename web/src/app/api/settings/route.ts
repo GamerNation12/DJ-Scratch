@@ -1,12 +1,14 @@
-import { getServerSession } from "next-auth/next";
+import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/authOptions";
 import { neon } from "@neondatabase/serverless";
 
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  const session = user ? { user } : null;
 
   if (!session || !session.user || !(session.user as any).id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,7 +32,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  const session = user ? { user } : null;
 
   if (!session || !session.user || !(session.user as any).id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut, signIn } from "next-auth/react";
+import { useSession } from "@/app/providers";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
-  const { data: session } = useSession();
+  const { data: session, logout } = useSession();
   const pathname = usePathname();
   const [botMode, setBotMode] = useState(false);
 
@@ -99,7 +99,7 @@ export default function Navbar() {
                   </span>
                 </div>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => logout()}
                   className="px-3 py-1.5 text-xs font-medium text-red-400/80 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
                 >
                   Sign Out
@@ -116,7 +116,7 @@ export default function Navbar() {
                   Invite
                 </a>
                 <button
-                  onClick={() => signIn("discord", { callbackUrl: "/dashboard" })}
+                  onClick={() => { window.location.href = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/api/auth/login'; }}
                   className="px-4 py-1.5 text-sm font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-lg shadow-lg shadow-white/10 transition-all"
                 >
                   Sign In

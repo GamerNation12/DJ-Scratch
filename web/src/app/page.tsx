@@ -1,6 +1,7 @@
 "use client";
+import { fetchApi } from '@/lib/fetchApi';
 
-import { useSession, signIn } from "next-auth/react";
+import { useSession } from "@/app/providers";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -13,7 +14,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    fetch("/api/public/stats")
+    fetchApi("/api/public/stats")
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(console.error);
@@ -77,7 +78,7 @@ export default function Home() {
               </Link>
             ) : (
               <button 
-                onClick={() => signIn("discord", { callbackUrl: "/dashboard" })}
+                onClick={() => { window.location.href = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/api/auth/login'; }}
                 className="px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Login to Dashboard

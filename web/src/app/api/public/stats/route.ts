@@ -3,7 +3,7 @@ import { Pool } from "@neondatabase/serverless";
 
 export const revalidate = 60;
 
-export async function GET() {
+export async function GET(req: Request) {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     const usersResult = await pool.query("SELECT COUNT(*) FROM imported_users");

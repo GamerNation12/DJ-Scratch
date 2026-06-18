@@ -1,18 +1,18 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/app/providers";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.push("/api/auth/signin");
-    },
-  });
+  const { data: session, status } = useSession();
   const router = useRouter();
 
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
   const [activeTab, setActiveTab] = useState<"settings" | "suggestions">("settings");
 
   // Settings State
@@ -174,12 +174,12 @@ export default function Dashboard() {
             <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/5">
                 <img 
-                  src={session.user?.image || "/logo.png"} 
+                  src={session?.user?.image || "/logo.png"} 
                   alt="Avatar" 
                   className="w-16 h-16 rounded-full border border-zinc-800 shadow-xl"
                 />
                 <div>
-                  <h2 className="font-bold text-lg leading-tight">{session.user?.name}</h2>
+                  <h2 className="font-bold text-lg leading-tight">{session?.user?.name}</h2>
                   <p className="text-zinc-500 text-xs mt-1">Discord User</p>
                 </div>
               </div>

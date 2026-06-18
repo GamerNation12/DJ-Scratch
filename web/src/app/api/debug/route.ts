@@ -1,10 +1,12 @@
+import { verifyToken } from "@/lib/jwt";
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/authOptions";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
+export async function GET(req: Request) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  const session = user ? { user } : null;
 
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || "NOT_SET";
   const safeUrl = dbUrl !== "NOT_SET" ? dbUrl.split("@")[1] : "NOT_SET"; // hide credentials
