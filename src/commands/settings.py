@@ -4,14 +4,7 @@ from discord import app_commands
 from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount, get_user_update_notifs, set_user_update_notifs
 from src.core.config import LASTFM_COLOR
 
-class MoreInfoView(discord.ui.View):
-    def __init__(self, embed: discord.Embed):
-        super().__init__(timeout=None)
-        self.embed = embed
 
-    @discord.ui.button(label="More info", style=discord.ButtonStyle.secondary)
-    async def more_info(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(embed=self.embed, ephemeral=True)
 
 async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
