@@ -12,6 +12,8 @@ function LoginCallbackInner() {
   useEffect(() => {
     const token = searchParams.get("token");
     const discordId = searchParams.get("discord_id");
+    const channelId = searchParams.get("channel_id");
+    const messageId = searchParams.get("message_id");
 
     if (!token || !discordId) {
       setStatus("error");
@@ -21,7 +23,10 @@ function LoginCallbackInner() {
 
     const processLogin = async () => {
       try {
-        const res = await fetch(`https://the-goats-dj.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`);
+        let url = `https://the-goats-dj.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
+        if (channelId) url += `&channel_id=${channelId}`;
+        if (messageId) url += `&message_id=${messageId}`;
+        const res = await fetch(url);
         const data = await res.json();
 
         if (res.ok && data.success) {

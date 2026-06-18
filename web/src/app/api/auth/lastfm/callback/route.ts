@@ -56,6 +56,31 @@ export async function GET(req: Request) {
     );
     await pool.end();
 
+    const channelId = searchParams.get("channel_id");
+    const messageId = searchParams.get("message_id");
+
+    if (channelId && messageId && process.env.DISCORD_TOKEN) {
+      try {
+        await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            embeds: [{
+              title: "✅ Account Linked!",
+              description: `Successfully linked your Discord to Last.fm account: **${lastfmUsername}**`,
+              color: 0x4caf50
+            }],
+            components: []
+          })
+        });
+      } catch (e) {
+        console.error("Failed to update discord message:", e);
+      }
+    }
+
     // Return JSON response with CORS headers
     return NextResponse.json(
       { success: true, username: lastfmUsername },

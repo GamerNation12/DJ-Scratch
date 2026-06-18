@@ -126,20 +126,22 @@ class LastFmCog(commands.Cog):
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
             
-        import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={interaction.user.id}"
-        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
-        
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-        
         embed = discord.Embed(
             title="🔗 Connect Last.fm",
             description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
             color=discord.Color.red()
         )
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        msg = await interaction.original_response()
+        
+        import urllib.parse, os
+        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={interaction.user.id}&channel_id={interaction.channel_id}&message_id={msg.id}"
+        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+        await interaction.edit_original_response(view=view)
 
     @app_commands.command(name="logout", description="Unlink your Last.fm account from the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -325,20 +327,21 @@ class LastFmCog(commands.Cog):
             )
             return await ctx.send(embed=embed)
             
-        import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={ctx.author.id}"
-        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
-        
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-        
         embed = discord.Embed(
             title="🔗 Connect Last.fm",
             description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
             color=discord.Color.red()
         )
-        await ctx.send(embed=embed, view=view)
+        msg = await ctx.send(embed=embed)
+        
+        import urllib.parse, os
+        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
+        cb_url = f"https://the-goats-dj.hostedbyfps.com/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
+        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+        await msg.edit(view=view)
 
     @commands.command(name="logout")
     async def logout_prefix(self, ctx):
