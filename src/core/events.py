@@ -835,23 +835,45 @@ async def get_lastfm_username(uid):
 
 
 class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0, user=None):
+    def __init__(self, bot_instance, artist, img, compact_embed=None, is_p=False, cd=0, user=None, spotify_url=None, song=None):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
         self.compact_embed = compact_embed
         self.user = user
+        self.song = song
         
         if compact_embed:
             btn1 = discord.ui.Button(label="More info", style=discord.ButtonStyle.secondary)
             btn1.callback = self.more_info
             self.add_item(btn1)
             
+        if spotify_url:
+            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
+            
+        if song and artist:
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
+            btn_lyrics.callback = self.show_lyrics
+            self.add_item(btn_lyrics)
+            
         if is_p and img and cd <= 0:
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
             btn2.callback = self.preview_avatar
             self.add_item(btn2)
+
+    async def show_lyrics(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        from src.core.lyrics import fetch_lyrics
+        session = getattr(self.bot_instance, 'session', None)
+        lyrics = await fetch_lyrics(session, self.artist, self.song)
+        if lyrics:
+            if len(lyrics) > 4096:
+                lyrics = lyrics[:4093] + "..."
+            embed = discord.Embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def more_info(self, interaction: discord.Interaction):
         await interaction.response.send_message(embed=self.compact_embed, ephemeral=True)
@@ -1015,6 +1037,18 @@ async def process_fm(ctx_int, user, mode="full"):
         show_features = await get_user_show_features(user.id)
         if show_features:
             artist, song = await apply_features(session, artist, song)
+            
+        spotify_url = None
+        try:
+            from src.core.spotify import get_spotify_track_info
+            s_info = await get_spotify_track_info(session, artist, song)
+            if s_info:
+                spotify_url = s_info.get("spotify_url")
+                s_img = s_info.get("image_url")
+                if s_img:
+                    img = s_img
+        except Exception as e:
+            print(f"Spotify fetch error: {e}")
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
@@ -1059,7 +1093,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p, cd=cd, user=user)
+            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1126,9 +1160,8 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user)
-            result = {"embed": embed}
-            if is_p and img: result["view"] = view
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
+            result = {"embed": embed, "view": view}
             return result, is_p
 
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
@@ -1149,9 +1182,8 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user)
-        result = {"embed": embed}
-        if is_p and img: result["view"] = view
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
+        result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
         print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
