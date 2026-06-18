@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function PublicProfile() {
-  const { id } = useParams();
+function PublicProfile() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,5 +167,17 @@ export default function PublicProfile() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
+      </div>
+    }>
+      <PublicProfile />
+    </Suspense>
   );
 }

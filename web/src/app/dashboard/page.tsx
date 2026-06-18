@@ -252,7 +252,7 @@ export default function Dashboard() {
                   <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest">Discord Connected</p>
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/u/${(session?.user as any)?.id}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/u?id=${(session?.user as any)?.id}`);
                       alert("Profile link copied to clipboard!");
                     }}
                     className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
