@@ -391,32 +391,7 @@ class LastFmCog(commands.Cog):
         else:
             await ctx.send(embed=embed, file=file)
 
-    @app_commands.command(name="resetcd", description="Reset the bot avatar cooldown (Admin only)")
-    @app_commands.default_permissions(administrator=True)
-    async def resetcd(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        from src.core.db import db_pool
-        from datetime import datetime, timedelta
-        if db_pool:
-            past_dt = datetime.utcnow() - timedelta(hours=1)
-            async with db_pool.acquire() as conn:
-                await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", past_dt.isoformat())
-            await interaction.followup.send("✅ Avatar cooldown has been bypassed.")
-        else:
-            await interaction.followup.send("❌ Database not connected.")
 
-    @commands.command(name="resetcd")
-    @commands.has_permissions(administrator=True)
-    async def resetcd_prefix(self, ctx):
-        from src.core.db import db_pool
-        from datetime import datetime, timedelta
-        if db_pool:
-            past_dt = datetime.utcnow() - timedelta(hours=1)
-            async with db_pool.acquire() as conn:
-                await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", past_dt.isoformat())
-            await ctx.send("✅ Avatar cooldown has been bypassed.")
-        else:
-            await ctx.send("❌ Database not connected.")
 
 async def setup(bot):
     await bot.add_cog(LastFmCog(bot))

@@ -14,14 +14,15 @@ class Log:
     CYAN = '\033[96m'
     MAGENTA = '\033[95m'
 
-class AdminCog(commands.Cog):
+class OwnerCommands(commands.Cog, name="Owner Commands"):
     def __init__(self, bot):
         self.bot = bot
 
+    async def cog_check(self, ctx):
+        return ctx.author.id == OWNER_ID
 
     @commands.command(name="sync")
     async def sync_commands(self, ctx):
-        if ctx.author.id != OWNER_ID: return
         msg = await ctx.send("Syncing slash commands globally... (This may take a moment)")
         try:
             synced = await self.bot.tree.sync()
@@ -32,8 +33,6 @@ class AdminCog(commands.Cog):
 
     @commands.command(name="stats", aliases=["guilds", "servers"])
     async def stats_command(self, ctx):
-        if ctx.author.id != OWNER_ID: return
-        
         guilds = sorted(self.bot.guilds, key=lambda g: g.member_count or 0, reverse=True)
         total_servers = len(guilds)
         total_members = sum(g.member_count for g in guilds if g.member_count)
@@ -58,7 +57,6 @@ class AdminCog(commands.Cog):
 
     @commands.command(name="cleanduplicates")
     async def clean_duplicates_command(self, ctx):
-        if ctx.author.id != OWNER_ID: return
         msg = await ctx.send("🧹 Scanning database for bugged duplicates (Account Data & overlapping timestamps)...")
         try:
             if not getattr(self.bot, 'db_pool', None):
@@ -86,7 +84,6 @@ class AdminCog(commands.Cog):
 
     @commands.command(name="testautorestart")
     async def test_auto_restart(self, ctx):
-        if ctx.author.id != OWNER_ID: return
         await ctx.send("🔄 Simulating high RAM usage. Auto-restarting bot...")
         print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
         try:
@@ -100,7 +97,6 @@ class AdminCog(commands.Cog):
 
     @commands.command(name="wipedata")
     async def wipe_data(self, ctx):
-        if ctx.author.id != OWNER_ID: return
         msg = await ctx.send("🧨 Wiping ALL imported data from the database. This cannot be undone...")
         try:
             from src.core.database import db_pool, USERS_FILE
@@ -126,7 +122,6 @@ class AdminCog(commands.Cog):
 
     @commands.command(name="restart")
     async def restart_bot(self, ctx):
-        if ctx.author.id != OWNER_ID: return
         await ctx.send("🔄 Restarting bot...")
         print(f"{Log.RED}>>> Restart triggered by owner. Exiting process...{Log.RESET}")
         try:
@@ -139,5 +134,18 @@ class AdminCog(commands.Cog):
         os._exit(0)
 
 
+    @commands.command(name="resetcd")
+    async def resetcd(self, ctx):
+        from src.core.db import db_pool
+        from datetime import datetime, timedelta
+        if db_pool:
+            past_dt = datetime.utcnow() - timedelta(hours=1)
+            async with db_pool.acquire() as conn:
+                await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", past_dt.isoformat())
+            await ctx.send("✅ Avatar cooldown has been bypassed.")
+        else:
+            await ctx.send("❌ Database not connected.")
+
+
 async def setup(bot):
-    await bot.add_cog(AdminCog(bot))
+    await bot.add_cog(OwnerCommands(bot))
