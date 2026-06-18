@@ -119,6 +119,14 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                 print(f"{Log.GREEN}>>> Notified user about suggestion: {self.action_status}{Log.RESET}")
             except:
                 pass
+        try:
+            log_embed = discord.Embed(title="Suggestion Updated (Admin)", description=embed.description, color=self.action_color, timestamp=datetime.now())
+            log_embed.add_field(name="Status", value=f"{self.action_emoji} **{self.action_status}**", inline=False)
+            if feedback_text:
+                log_embed.add_field(name="Reply", value=feedback_text, inline=False)
+            log_embed.set_footer(text=f"User ID: {suggester_id or 'Unknown'}")
+            await log_to_channel("website-log", log_embed)
+        except: pass
 
 class SuggestionView(discord.ui.View):
     def __init__(self):
@@ -684,6 +692,18 @@ async def on_guild_remove(guild):
         await owner.send(embed=embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
 
+# --- HELPER: LOG TO CHANNEL ---
+async def log_to_channel(channel_name: str, embed: discord.Embed):
+    try:
+        await bot.wait_until_ready()
+        for guild in bot.guilds:
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if channel:
+                await channel.send(embed=embed)
+                return
+    except Exception as e:
+        print(f"Failed to log to {channel_name}: {e}")
+
 # --- HELPER: ERROR DM ---
 async def notify_owner(ctx, err):
     print(f"{Log.RED}>>> ERROR in {ctx}: {err}{Log.RESET}")
@@ -694,13 +714,22 @@ async def notify_owner(ctx, err):
         code_block = tick + tick + tick
         msg_lines = [f"An error occurred in **{str(ctx)}**:", f"{code_block}py", str(err)[:1800], code_block]
         embed = discord.Embed(title="⚠️ Bot Error", description=chr(10).join(msg_lines), color=discord.Color.red())
+        embed.timestamp = datetime.now()
         await owner.send(embed=embed)
+        await log_to_channel("errors", embed)
     except Exception as e: print(f"{Log.RED}>>> FAILED to notify owner: {e}{Log.RESET}")
 
 @bot.event
 async def on_command(ctx):
     location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
     print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
+    try:
+        embed = discord.Embed(title="Prefix Command Executed", color=discord.Color.purple(), timestamp=datetime.now())
+        embed.add_field(name="User", value=f"{ctx.author} (`{ctx.author.id}`)")
+        embed.add_field(name="Message", value=f"`{ctx.message.content}`")
+        embed.add_field(name="Location", value=location)
+        await log_to_channel("log", embed)
+    except: pass
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -721,6 +750,13 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
     print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
+    try:
+        embed = discord.Embed(title="Slash Command Executed", color=discord.Color.blue(), timestamp=datetime.now())
+        embed.add_field(name="User", value=f"{interaction.user} (`{interaction.user.id}`)")
+        embed.add_field(name="Command", value=f"`/{command.name}`")
+        embed.add_field(name="Location", value=location)
+        await log_to_channel("log", embed)
+    except: pass
     global db_pool
     if not db_pool: return
     try:
