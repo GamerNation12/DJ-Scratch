@@ -64,6 +64,20 @@ def save_user(uid, username):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f)
 
+async def unlink_user(uid):
+    users = load_users()
+    if str(uid) in users:
+        del users[str(uid)]
+        with open(USERS_FILE, "w") as f:
+            json.dump(users, f)
+    
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(uid))
+        except Exception as e:
+            print(f"Error unlinking user in DB: {e}")
+
 def get_lastfm_username(uid):
     return load_users().get(str(uid))
 
