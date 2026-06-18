@@ -1,3 +1,4 @@
+import { fetchApi } from "@/lib/fetchApi";
 "use client";
 
 import { useSession } from "@/app/providers";
@@ -37,7 +38,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (session) {
       // Fetch Settings
-      fetch("/api/settings")
+      fetchApi("/api/settings")
         .then((res) => res.json())
         .then((data) => {
           if (data) {
@@ -56,7 +57,7 @@ export default function Dashboard() {
   const fetchSuggestions = async () => {
     setSuggestionsLoading(true);
     try {
-      const res = await fetch("/api/suggestions");
+      const res = await fetchApi("/api/suggestions");
       if (res.ok) {
         const data = await res.json();
         setSuggestions(data);
@@ -84,7 +85,7 @@ export default function Dashboard() {
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetchApi("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -112,7 +113,7 @@ export default function Dashboard() {
     if (!newSuggestionTitle || !newSuggestionDesc) return;
     setSubmittingSuggestion(true);
     try {
-      const res = await fetch("/api/suggestions", {
+      const res = await fetchApi("/api/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newSuggestionTitle, description: newSuggestionDesc })
