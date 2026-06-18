@@ -5,10 +5,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  const frontendUrl = 'http://the-goats-dj.hostedbyfps.com';
-
   if (!code) {
-    return NextResponse.redirect(`${frontendUrl}/?error=NoCode`);
+    return NextResponse.redirect(new URL('/?error=NoCode', request.url));
   }
 
   const clientId = process.env.DISCORD_CLIENT_ID!;
@@ -30,7 +28,7 @@ export async function GET(request: Request) {
   const tokenData = await tokenResponse.json();
 
   if (!tokenData.access_token) {
-    return NextResponse.redirect(`${frontendUrl}/?error=TokenFailed`);
+    return NextResponse.redirect(new URL('/?error=TokenFailed', request.url));
   }
 
   const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -46,5 +44,5 @@ export async function GET(request: Request) {
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });
 
-  return NextResponse.redirect(`${frontendUrl}/dashboard#token=${jwt}`);
+  return NextResponse.redirect(new URL(`/dashboard#token=${jwt}`, request.url));
 }
