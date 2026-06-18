@@ -3,14 +3,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchApi } from "@/lib/fetchApi";
 
-export default function PublicProfile() {
+export default function PublicProfileClient({ id }: { id: string }) {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = window.location.hash.replace('#', '');
-    
     if (!id) {
       setError("No user specified.");
       setLoading(false);
@@ -28,7 +26,7 @@ export default function PublicProfile() {
         })
         .catch(() => setError("Failed to load profile."))
         .finally(() => setLoading(false));
-  }, []);
+  }, [id]);
 
   if (loading) {
     return (
@@ -107,7 +105,7 @@ export default function PublicProfile() {
                    className="bg-zinc-900/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
                  >
                    <div className="w-16 h-16 rounded-full bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
-                      {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? ( // default last.fm star image
+                      {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
                         <img src={artist.image} alt={artist.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">🎤</div>
