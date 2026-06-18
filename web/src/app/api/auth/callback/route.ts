@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = 'http://the-goats-dj.hostedbyfps.com';
 
   if (!code) {
     return NextResponse.redirect(`${frontendUrl}/?error=NoCode`);
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   const clientId = process.env.DISCORD_CLIENT_ID!;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/auth/callback`;
+  const redirectUri = `${'https://the-goats-dj.vercel.app'}/api/auth/callback`;
 
   const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
