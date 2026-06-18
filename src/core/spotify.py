@@ -72,7 +72,8 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                     return {
                         "spotify_url": track.get("external_urls", {}).get("spotify"),
                         "preview_url": track.get("preview_url"),
-                        "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None
+                        "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,
+                        "artists": [a.get("name") for a in track.get("artists", [])]
                     }
     except Exception as e:
         print(f"Failed to fetch Spotify track: {e}")

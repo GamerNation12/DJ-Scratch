@@ -1036,13 +1036,18 @@ class SettingsView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(SettingsDropdown())
 
-async def apply_features(session, artist, song):
+async def apply_features(session, artist, song, s_artists=None):
     import re
     m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
         return f"{artist}, {features}", song
+        
+    if s_artists and len(s_artists) > 1:
+        features = [a for a in s_artists if a.lower() not in artist.lower()]
+        if features:
+            return f"{artist}, {', '.join(features)}", song
     
     try:
         url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=1"
@@ -1086,11 +1091,8 @@ async def process_fm(ctx_int, user, mode="full"):
         t = tracks[0]
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
         
-        show_features = await get_user_show_features(user.id)
-        if show_features:
-            artist, song = await apply_features(session, artist, song)
-            
         spotify_url = None
+        s_artists = None
         try:
             from src.core.spotify import get_spotify_track_info
             s_info = await get_spotify_track_info(session, artist, song)
@@ -1099,8 +1101,13 @@ async def process_fm(ctx_int, user, mode="full"):
                 s_img = s_info.get("image_url")
                 if s_img:
                     img = s_img
+                s_artists = s_info.get("artists")
         except Exception as e:
             print(f"Spotify fetch error: {e}")
+
+        show_features = await get_user_show_features(user.id)
+        if show_features:
+            artist, song = await apply_features(session, artist, song, s_artists)
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
