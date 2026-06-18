@@ -43,4 +43,4 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./web/out/
           server-dir: /domains/the-goats-dj.hostedbyfps.com/public_html/
-          dangerous-clean-slate: true # This automatically clears old files before uploading new ones
+          dangerous-clean-slate: false # This automatically clears old files before uploading new ones
