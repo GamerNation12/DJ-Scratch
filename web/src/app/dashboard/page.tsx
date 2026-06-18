@@ -190,7 +190,7 @@ export default function Dashboard() {
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
-            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up">
+            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
               {options.map((opt) => (
                 <button
                   key={opt.value}
@@ -361,8 +361,8 @@ export default function Dashboard() {
                 </div>
                 
                 {/* Core Bot Settings */}
-                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-                  <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 rounded-3xl shadow-2xl relative z-20">
+                  <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01] rounded-t-3xl">
                     <h3 className="text-xl font-bold">Data Source & Localization</h3>
                     <p className="text-zinc-400 text-sm mt-1">Configure where the bot pulls your music stats from.</p>
                   </div>
