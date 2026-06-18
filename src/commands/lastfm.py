@@ -282,7 +282,15 @@ class LastFmCog(commands.Cog):
         await ctx.send(content=status_msg)
 
     @commands.command(name="setfm")
-    async def setfm_prefix(self, ctx, username: str):
+    async def setfm_prefix(self, ctx, *, username: str = None):
+        if not username:
+            embed = discord.Embed(
+                title="❌ Missing Username", 
+                description="Please provide your Last.fm username or profile link!\n\n**Usage:** `,setfm <username>`",
+                color=discord.Color.red()
+            )
+            return await ctx.send(embed=embed)
+            
         import re
         user_name = re.sub(r'^(?:<)?https?:\/\/(?:www\.)?last\.fm\/user\/([^\/\s>]+).*$', r'\1', username.strip(), flags=re.IGNORECASE)
         user_name = user_name.replace("/", "").strip()
