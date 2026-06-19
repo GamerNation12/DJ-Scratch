@@ -11,10 +11,12 @@ class AdminIPC(commands.Cog):
         self.bot = bot
         self.poll_actions.start()
         self.push_stats.start()
+        self.poll_website_logs.start()
 
     def cog_unload(self):
         self.poll_actions.cancel()
         self.push_stats.cancel()
+        self.poll_website_logs.cancel()
 
     @tasks.loop(seconds=5)
     async def poll_actions(self):
@@ -96,6 +98,33 @@ class AdminIPC(commands.Cog):
 
     @push_stats.before_loop
     async def before_push_stats(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(seconds=5)
+    async def poll_website_logs(self):
+        global db_pool
+        from ..core.events import db_pool, log_to_channel
+        if not db_pool:
+            return
+            
+        try:
+            async with db_pool.acquire() as conn:
+                records = await conn.fetch("SELECT id, user_id, username, action, details, timestamp FROM website_logs ORDER BY timestamp ASC")
+                for record in records:
+                    log_id = record['id']
+                    
+                    embed = discord.Embed(title=f"🌐 Website: {record['action']}", description=record['details'], color=discord.Color.teal(), timestamp=record['timestamp'])
+                    embed.set_author(name=f"{record['username']} ({record['user_id']})")
+                    await log_to_channel("website-log", embed)
+                    
+                    await conn.execute("DELETE FROM website_logs WHERE id = $1", log_id)
+        except Exception as e:
+            # Ignore errors if table doesn't exist yet
+            if "relation \"website_logs\" does not exist" not in str(e):
+                print(f"{Log.RED}>>> [IPC] Website logs poll error: {e}{Log.RESET}")
+
+    @poll_website_logs.before_loop
+    async def before_poll_website_logs(self):
         await self.bot.wait_until_ready()
 
 async def setup(bot):
