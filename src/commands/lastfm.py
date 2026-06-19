@@ -365,16 +365,9 @@ class LastFmCog(commands.Cog):
             m = await self.bot.get_user_fm_mode(target_user.id)
             if not m: m = "full"
         result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
-        if result is None:
-            try:
-                await ctx.reply(is_p, mention_author=False)
-            except Exception:
-                await ctx.send(is_p)
+        if result is None: await ctx.send(is_p)
         elif isinstance(result, dict):
-            try:
-                msg = await ctx.reply(**result, mention_author=False)
-            except Exception:
-                msg = await ctx.send(**result)
+            msg = await ctx.send(**result)
             if is_p: await self.bot.add_custom_reactions(msg)
 
     @commands.command(name="ta", aliases=["topartists"])
