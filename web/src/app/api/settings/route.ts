@@ -114,6 +114,13 @@ export async function POST(req: Request) {
         INSERT INTO website_logs (user_id, username, action, details)
         VALUES (${userId}, ${(session.user as any).name || 'Unknown'}, 'Settings Updated', ${changedItems.join(', ')})
       `;
+      // Prevent database bloat by keeping only the last 200 logs
+      await sql`
+        DELETE FROM website_logs 
+        WHERE id NOT IN (
+          SELECT id FROM website_logs ORDER BY timestamp DESC LIMIT 200
+        )
+      `;
     }
 
     return NextResponse.json({ 

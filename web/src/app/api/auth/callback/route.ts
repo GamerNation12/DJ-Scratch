@@ -53,6 +53,12 @@ export async function GET(request: Request) {
       INSERT INTO website_logs (user_id, username, action, details)
       VALUES (${userData.id}, ${userData.username}, 'Website Login', 'Logged in via Discord OAuth')
     `;
+    await sql`
+      DELETE FROM website_logs 
+      WHERE id NOT IN (
+        SELECT id FROM website_logs ORDER BY timestamp DESC LIMIT 200
+      )
+    `;
   } catch (e) {
     console.error("Failed to log website login:", e);
   }

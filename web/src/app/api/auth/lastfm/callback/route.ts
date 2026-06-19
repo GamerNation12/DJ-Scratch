@@ -62,6 +62,9 @@ export async function GET(req: Request) {
         `INSERT INTO website_logs (user_id, username, action, details) VALUES ($1, $2, $3, $4)`,
         [discordId, discordId, 'Account Linked', `Linked Last.fm account: ${lastfmUsername}`]
       );
+      await pool.query(
+        `DELETE FROM website_logs WHERE id NOT IN (SELECT id FROM website_logs ORDER BY timestamp DESC LIMIT 200)`
+      );
     } catch (e) {
       console.error("Failed to log website action:", e);
     }
