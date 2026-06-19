@@ -38,6 +38,20 @@ class LastFmCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _reply_and_delete(self, ctx, *args, **kwargs):
+        kwargs['mention_author'] = False
+        try:
+            msg = await ctx.reply(*args, **kwargs)
+        except Exception:
+            kwargs.pop('mention_author', None)
+            msg = await ctx.send(*args, **kwargs)
+        
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        return msg
+
     @app_commands.command(name="cd", description="Check the bot's avatar cooldown and preview avatar")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -366,21 +380,10 @@ class LastFmCog(commands.Cog):
             if not m: m = "full"
         result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
         if result is None:
-            try:
-                await ctx.reply(is_p, mention_author=False)
-            except Exception:
-                await ctx.send(is_p)
+            await self._reply_and_delete(ctx, is_p)
         elif isinstance(result, dict):
-            try:
-                msg = await ctx.reply(**result, mention_author=False)
-            except Exception:
-                msg = await ctx.send(**result)
+            msg = await self._reply_and_delete(ctx, **result)
             if is_p: await self.bot.add_custom_reactions(msg)
-            
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
 
     @commands.command(name="ta", aliases=["topartists"])
     async def ta_prefix(self, ctx, *, args: str = None):
@@ -388,9 +391,9 @@ class LastFmCog(commands.Cog):
         if not period: period = 'all'
         embed, view, err = await self.bot.process_top_artists(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=view)
+            await self._reply_and_delete(ctx, embed=embed, view=view)
         else:
-            await ctx.send(err)
+            await self._reply_and_delete(ctx, err)
 
     @commands.command(name="tt", aliases=["toptracks"])
     async def tt_prefix(self, ctx, *, args: str = None):
@@ -398,37 +401,37 @@ class LastFmCog(commands.Cog):
         if not period: period = 'all'
         embed, view, err = await self.bot.process_top_tracks(target_user, period)
         if embed:
-            await ctx.send(embed=embed, view=view)
+            await self._reply_and_delete(ctx, embed=embed, view=view)
         else:
-            await ctx.send(err)
+            await self._reply_and_delete(ctx, err)
 
     @commands.command(name="rt", aliases=["recent"])
     async def rt_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_recent(target_user)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="at", aliases=["artisttracks"])
     async def at_prefix(self, ctx, *, args: str = None):
         target_user, artist = await get_target_user(ctx, args)
         embed, view, err = await self.bot.process_artist_tracks(target_user, artist)
         if err:
-            await ctx.send(err)
+            await self._reply_and_delete(ctx, err)
         else:
-            await ctx.send(embed=embed, view=view)
+            await self._reply_and_delete(ctx, embed=embed, view=view)
 
 
     @commands.command(name="s", aliases=["profile"])
     async def s_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_profile(target_user)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="wk", aliases=["whoknows"])
     async def wk_prefix(self, ctx, *, args: str = None):
         target_user, artist = await get_target_user(ctx, args)
         embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="suggest", aliases=["suggestion"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
@@ -450,13 +453,13 @@ class LastFmCog(commands.Cog):
     async def crowns_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_crowns(ctx.guild, target_user)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="judge", aliases=["roast"])
     async def judge_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_judge(target_user)
-        await ctx.send(embed=embed) if embed else await ctx.send(err)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="receipt")
     async def receipt_prefix(self, ctx, *, args: str = None):
@@ -468,9 +471,9 @@ class LastFmCog(commands.Cog):
         
         embed, file, err = await self.bot.process_receipt(target_user, p, 10)
         if err:
-            await ctx.send(err)
+            await self._reply_and_delete(ctx, err)
         else:
-            await ctx.send(embed=embed, file=file)
+            await self._reply_and_delete(ctx, embed=embed, file=file)
 
 
 
