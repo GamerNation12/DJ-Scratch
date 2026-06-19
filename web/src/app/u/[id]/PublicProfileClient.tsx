@@ -64,10 +64,10 @@ export default function PublicProfileClient({ id }: { id: string }) {
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 relative z-10 max-w-5xl animate-fade-in-up">
         
         {/* HERO BANNER */}
-        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden mb-8 text-center flex flex-col items-center">
+        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-12 shadow-2xl relative overflow-hidden mb-8 text-center flex flex-col items-center">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
           
-          <div className="flex flex-wrap justify-center gap-8 mb-6 relative">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-6 relative">
             {users.map((user: any, idx: number) => (
               <div key={idx} className="flex flex-col items-center">
                 <div className="relative mb-4">
@@ -85,7 +85,7 @@ export default function PublicProfileClient({ id }: { id: string }) {
           
           <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-6">The Goats DJ Profile</p>
           
-          <div className="bg-zinc-900/50 border border-white/10 px-8 py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
+          <div className="bg-zinc-900/50 border border-white/10 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
              <div className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Scrobbles</div>
              <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
                {stats.playcount.toLocaleString()}
@@ -97,11 +97,11 @@ export default function PublicProfileClient({ id }: { id: string }) {
           
           {/* Top Artists Grid */}
           <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-             <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+             <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
                <h3 className="text-xl font-bold flex items-center gap-2">⭐ Top Artists</h3>
                <p className="text-zinc-400 text-sm mt-1">Their most listened to artists of all time.</p>
              </div>
-             <div className="p-6 grid grid-cols-2 gap-4">
+             <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                {stats.topArtists.length > 0 ? stats.topArtists.map((artist: any, i: number) => (
                  <a 
                    key={i} 

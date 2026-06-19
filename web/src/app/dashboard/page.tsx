@@ -266,7 +266,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="w-full md:w-auto min-w-[300px]">
+            <div className="w-full md:w-auto md:min-w-[300px]">
               <NowPlayingWidget />
             </div>
           </div>
@@ -312,16 +312,16 @@ export default function Dashboard() {
 
         {/* TAB SWITCHER */}
         <div className="flex items-center justify-center mb-8">
-          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex gap-2">
+          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex gap-1 sm:gap-2">
             <button 
               onClick={() => setActiveTab("settings")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               ⚙️ Preferences
             </button>
             <button 
               onClick={() => setActiveTab("suggestions")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               💡 Feedback & Ideas
             </button>

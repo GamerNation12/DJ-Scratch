@@ -50,21 +50,21 @@ export default function Home() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             The Ultimate Music Bot
           </div>
-          <h1 className="text-6xl sm:text-7xl md:text-9xl font-black tracking-tighter mb-6 leading-[0.95] max-w-5xl mx-auto animate-fade-in-up animation-delay-100">
+          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tighter mb-6 leading-[0.95] max-w-5xl mx-auto animate-fade-in-up animation-delay-100">
             Elevate Your <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 via-purple-400 to-emerald-400 drop-shadow-sm">
               Server's Vibe.
             </span>
           </h1>
-          <p className="text-lg md:text-2xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed font-medium tracking-tight animate-fade-in-up animation-delay-200">
+          <p className="text-base sm:text-lg md:text-2xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed font-medium tracking-tight animate-fade-in-up animation-delay-200 px-4">
             Seamless Last.fm integration, gorgeous embed layouts, and deeply personalized music statistics for your Discord community.
           </p>
-          <div className="flex flex-col sm:flex-row items-center gap-4 animate-fade-in-up animation-delay-300">
+          <div className="flex flex-col sm:flex-row items-center gap-4 animate-fade-in-up animation-delay-300 w-full sm:w-auto px-4 sm:px-0">
             <a 
               href={INVITE_LINK}
               target="_blank"
               rel="noreferrer"
-              className="px-8 py-4 bg-white text-zinc-950 font-bold rounded-xl text-sm md:text-base hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.2)] flex items-center gap-2"
+              className="w-full sm:w-auto justify-center px-8 py-4 bg-white text-zinc-950 font-bold rounded-xl text-sm md:text-base hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.2)] flex items-center gap-2"
             >
               <span>Add to Discord</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
@@ -72,14 +72,14 @@ export default function Home() {
             {session ? (
               <Link 
                 href="/dashboard"
-                className="px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
+                className="w-full sm:w-auto justify-center px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Go to Dashboard
               </Link>
             ) : (
               <button 
                 onClick={() => { window.location.href = '/api/auth/login'; }}
-                className="px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
+                className="w-full sm:w-auto justify-center px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Login to Dashboard
               </button>
@@ -121,7 +121,7 @@ export default function Home() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]">
             {/* Row 1: Large Span - Deep Last.fm */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-indigo-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/20 flex flex-col justify-between">
+            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-indigo-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/20 flex flex-col justify-between">
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
               <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] group-hover:bg-indigo-500/30 transition-colors duration-700"></div>
               
@@ -148,7 +148,7 @@ export default function Home() {
             </div>
 
             {/* Row 1: Small - Dynamic Avatar */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-emerald-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-emerald-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/20 flex flex-col justify-between">
               <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
@@ -163,7 +163,7 @@ export default function Home() {
             </div>
 
             {/* Row 2: Small - Server Leaderboards */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
               <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] group-hover:bg-amber-500/20 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex flex-col gap-2 opacity-30 group-hover:opacity-100 transition-all duration-700">
@@ -185,7 +185,7 @@ export default function Home() {
             </div>
 
             {/* Row 2: Small - Suggestions */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-blue-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20 flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-blue-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20 flex flex-col justify-between">
               <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] group-hover:bg-blue-500/20 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex flex-col items-end opacity-30 group-hover:opacity-100 transition-all duration-700">
@@ -202,7 +202,7 @@ export default function Home() {
             </div>
 
             {/* Row 2: Small - Privacy First */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-rose-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/20 flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-rose-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/20 flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-rose-500/5 to-transparent pointer-events-none"></div>
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-rose-500/10 rounded-full blur-[60px] group-hover:bg-rose-500/20 transition-colors duration-700"></div>
 
@@ -220,7 +220,7 @@ export default function Home() {
             </div>
 
             {/* Row 3: Medium Span - Spotify */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-green-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/20 flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-green-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/20 flex flex-col justify-between">
               <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-green-500/10 rounded-full blur-[80px] group-hover:bg-green-500/20 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex flex-col gap-1.5 opacity-30 group-hover:opacity-100 transition-all duration-700">
@@ -237,7 +237,7 @@ export default function Home() {
             </div>
 
             {/* Row 3: Large Span - Lightning Fast */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-10 rounded-[2rem] hover:border-zinc-400/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/5 flex flex-col justify-between">
+            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-zinc-400/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/5 flex flex-col justify-between">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05)_0%,transparent_70%)] pointer-events-none"></div>
               
               <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.04] pointer-events-none mix-blend-overlay"></div>

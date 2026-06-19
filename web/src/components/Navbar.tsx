@@ -79,15 +79,23 @@ export default function Navbar() {
 
           <div className="flex items-center space-x-4">
             {session ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <a 
                   href="https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=347200&scope=bot%20applications.commands"
                   target="_blank" 
                   rel="noreferrer"
-                  className="hidden md:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
+                  className="hidden lg:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
                 >
                   Invite
                 </a>
+                {pathname !== '/dashboard' && (
+                  <Link
+                    href="/dashboard"
+                    className="md:hidden px-3 py-1.5 text-xs font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/20 transition-all"
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded-full border border-white/5">
                   <img
                     src={displayImage}
@@ -100,7 +108,7 @@ export default function Navbar() {
                 </div>
                 <button
                   onClick={() => logout()}
-                  className="px-3 py-1.5 text-xs font-medium text-red-400/80 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                  className="hidden sm:block px-3 py-1.5 text-xs font-medium text-red-400/80 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
                 >
                   Sign Out
                 </button>
