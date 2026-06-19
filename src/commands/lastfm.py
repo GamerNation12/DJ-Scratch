@@ -376,6 +376,11 @@ class LastFmCog(commands.Cog):
             except Exception:
                 msg = await ctx.send(**result)
             if is_p: await self.bot.add_custom_reactions(msg)
+            
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
 
     @commands.command(name="ta", aliases=["topartists"])
     async def ta_prefix(self, ctx, *, args: str = None):
