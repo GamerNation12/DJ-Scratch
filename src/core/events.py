@@ -1132,6 +1132,10 @@ async def process_fm(ctx_int, user, mode="full"):
     if not username: return None, "Link Last.fm with `/setfm [username]`"
     
     data = await fetch_now_playing(username, 2 if mode == 'stats' else 1)
+    if isinstance(data, dict) and 'error' in data:
+        err_msg = data.get('message', 'Unknown error')
+        return None, f"Last.fm API Error: {err_msg}"
+        
     if not data or 'recenttracks' not in data or not data['recenttracks']['track']: 
         return None, "Could not find recent tracks."
     
