@@ -167,6 +167,16 @@ async def setup_hook():
                     )
                     """
                 )
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS website_logs (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT,
+                        username TEXT,
+                        action TEXT,
+                        details TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE")
                 except Exception as e:
@@ -730,13 +740,6 @@ async def notify_owner(ctx, err):
 async def on_command(ctx):
     location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
     print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
-    try:
-        embed = discord.Embed(title="Prefix Command Executed", color=discord.Color.purple(), timestamp=datetime.now())
-        embed.add_field(name="User", value=f"{ctx.author} (`{ctx.author.id}`)")
-        embed.add_field(name="Message", value=f"`{ctx.message.content}`")
-        embed.add_field(name="Location", value=location)
-        await log_to_channel("log", embed)
-    except: pass
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -757,13 +760,6 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
     print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
-    try:
-        embed = discord.Embed(title="Slash Command Executed", color=discord.Color.blue(), timestamp=datetime.now())
-        embed.add_field(name="User", value=f"{interaction.user} (`{interaction.user.id}`)")
-        embed.add_field(name="Command", value=f"`/{command.name}`")
-        embed.add_field(name="Location", value=location)
-        await log_to_channel("log", embed)
-    except: pass
     global db_pool
     if not db_pool: return
     try:

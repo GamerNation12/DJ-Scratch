@@ -54,6 +54,18 @@ export async function GET(req: Request) {
        ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username`,
       [discordId, lastfmUsername]
     );
+
+    // Log the action
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      await pool.query(
+        `INSERT INTO website_logs (user_id, username, action, details) VALUES ($1, $2, $3, $4)`,
+        [discordId, discordId, 'Account Linked', `Linked Last.fm account: ${lastfmUsername}`]
+      );
+    } catch (e) {
+      console.error("Failed to log website action:", e);
+    }
+
     await pool.end();
 
     const channelId = searchParams.get("channel_id");

@@ -85,8 +85,9 @@ export default function AdminClient() {
   }, [session]);
 
   
-  const [activeTab, setActiveTab] = useState<"dashboard" | "suggestions">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "suggestions" | "logs">("dashboard");
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [editingSuggestion, setEditingSuggestion] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState("pending");
   const [editFeedback, setEditFeedback] = useState("");
@@ -94,6 +95,8 @@ export default function AdminClient() {
   useEffect(() => {
     if (activeTab === "suggestions") {
       fetchSuggestions();
+    } else if (activeTab === "logs") {
+      fetchLogs();
     }
   }, [activeTab]);
 
@@ -103,6 +106,18 @@ export default function AdminClient() {
       if (res.ok) {
         const data = await res.json();
         setSuggestions(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetchApi("/api/admin/logs");
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data);
       }
     } catch (e) {
       console.error(e);
@@ -168,7 +183,7 @@ export default function AdminClient() {
             </h1>
             <p className="text-zinc-400 mt-2 text-lg">System analytics and administrative controls.</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <button 
               onClick={() => setActiveTab("dashboard")}
               className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
@@ -181,8 +196,48 @@ export default function AdminClient() {
             >
               Manage Suggestions
             </button>
+            <button 
+              onClick={() => setActiveTab("logs")}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
+            >
+              Audit Logs
+            </button>
           </div>
         </header>
+
+        {activeTab === "logs" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+              <div className="p-6 border-b border-white/5 bg-white/[0.02]">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">📜 Website Audit Logs</h2>
+                <p className="text-zinc-400 text-sm mt-1">Real-time log of user logins and settings changes on the dashboard.</p>
+              </div>
+              <div className="divide-y divide-white/5">
+                {logs.length > 0 ? (
+                  logs.map((log: any) => (
+                    <div key={log.id} className="p-6 hover:bg-white/[0.02] transition-colors flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                            {log.action}
+                          </span>
+                          <span className="text-white font-bold">{log.username}</span>
+                          <span className="text-zinc-500 text-sm font-mono">{log.user_id}</span>
+                        </div>
+                        <p className="text-zinc-400 text-sm mt-2">{log.details}</p>
+                      </div>
+                      <div className="text-zinc-500 text-xs font-mono whitespace-nowrap">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-12 text-center text-zinc-500">No logs found. Actions will appear here as they occur.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTab === "dashboard" && (
           <>

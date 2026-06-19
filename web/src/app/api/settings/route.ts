@@ -99,6 +99,23 @@ export async function POST(req: Request) {
         show_track_playcount = EXCLUDED.show_track_playcount
     `;
 
+    // Log the change
+    let changedItems = [];
+    if (newFmMode !== currentFmMode) changedItems.push(`Layout: ${newFmMode}`);
+    if (newShowFeatures !== currentShowFeatures) changedItems.push(`Show Features: ${newShowFeatures}`);
+    if (newPrivateMode !== currentPrivateMode) changedItems.push(`Private Mode: ${newPrivateMode}`);
+    if (newDataSource !== currentDataSource) changedItems.push(`Data Source: ${newDataSource}`);
+    if (newTimezone !== currentTimezone) changedItems.push(`Timezone: ${newTimezone}`);
+    if (newShowTrackPlaycount !== currentShowTrackPlaycount) changedItems.push(`Show Playcount: ${newShowTrackPlaycount}`);
+    
+    if (changedItems.length > 0) {
+      await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`
+        INSERT INTO website_logs (user_id, username, action, details)
+        VALUES (${userId}, ${(session.user as any).name || 'Unknown'}, 'Settings Updated', ${changedItems.join(', ')})
+      `;
+    }
+
     return NextResponse.json({ 
       success: true, 
       fmMode: newFmMode, 

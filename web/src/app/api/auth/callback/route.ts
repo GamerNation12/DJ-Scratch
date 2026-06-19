@@ -44,5 +44,18 @@ export async function GET(request: Request) {
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });
 
+  // Log the login
+  try {
+    const { neon } = require('@neondatabase/serverless');
+    const sql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+    await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+    await sql`
+      INSERT INTO website_logs (user_id, username, action, details)
+      VALUES (${userData.id}, ${userData.username}, 'Website Login', 'Logged in via Discord OAuth')
+    `;
+  } catch (e) {
+    console.error("Failed to log website login:", e);
+  }
+
   return NextResponse.redirect(new URL(`/dashboard#token=${jwt}`, request.url));
 }

@@ -237,7 +237,7 @@ export default function Dashboard() {
         <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
           <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
               <div className="relative">
                 <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
                 <img 
@@ -247,9 +247,9 @@ export default function Dashboard() {
                 />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-1 text-white">{session?.user?.name}</h1>
-                <div className="flex items-center gap-3">
-                  <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest">Discord Connected</p>
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-white">{session?.user?.name}</h1>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <p className="text-indigo-400 text-xs sm:text-sm font-semibold uppercase tracking-widest">Discord Connected</p>
                   <button 
                     onClick={() => {
                       if (!userStats || !userStats.hasLastfm || !userStats.lastfm?.username) {
@@ -259,7 +259,7 @@ export default function Dashboard() {
                       navigator.clipboard.writeText(`${window.location.origin}/u/${userStats.lastfm.username}`);
                       alert("Profile link copied to clipboard!");
                     }}
-                    className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                    className="text-[10px] sm:text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1"
                   >
                     🔗 Share Profile
                   </button>

@@ -24,6 +24,16 @@ async def init_db():
                         timezone TEXT DEFAULT 'UTC'
                     )
                 ''')
+                await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS website_logs (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT,
+                        username TEXT,
+                        action TEXT,
+                        details TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
                 except Exception:
