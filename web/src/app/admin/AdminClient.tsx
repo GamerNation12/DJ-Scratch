@@ -163,21 +163,21 @@ export default function AdminClient() {
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-8">
           <div>
-            <h1 className="text-5xl font-extrabold bg-gradient-to-br from-white via-indigo-200 to-indigo-500 bg-clip-text text-transparent inline-block pb-1 tracking-tight">
+            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-br from-white via-indigo-200 to-indigo-500 bg-clip-text text-transparent inline-block pb-1 tracking-tight">
               Command Center
             </h1>
             <p className="text-zinc-400 mt-2 text-lg">System analytics and administrative controls.</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full md:w-auto">
             <button 
               onClick={() => setActiveTab("dashboard")}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
+              className={`w-full sm:w-auto px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
             >
               Overview
             </button>
             <button 
               onClick={() => setActiveTab("suggestions")}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'suggestions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
+              className={`w-full sm:w-auto px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'suggestions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'}`}
             >
               Manage Suggestions
             </button>

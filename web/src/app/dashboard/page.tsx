@@ -274,7 +274,7 @@ export default function Dashboard() {
 
         {/* AT A GLANCE STATS (Only show if linked) */}
         {!userStatsLoading && userStats && (userStats.hasLastfm || userStats.hasSpotify) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12">
             {userStats.hasSpotify && (
               <>
                 <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">
@@ -312,7 +312,7 @@ export default function Dashboard() {
 
         {/* TAB SWITCHER */}
         <div className="flex items-center justify-center mb-8">
-          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex gap-1 sm:gap-2">
+          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
             <button 
               onClick={() => setActiveTab("settings")}
               className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}

@@ -50,7 +50,7 @@ export default function Home() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             The Ultimate Music Bot
           </div>
-          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tighter mb-6 leading-[0.95] max-w-5xl mx-auto animate-fade-in-up animation-delay-100">
+          <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter mb-6 leading-[0.95] max-w-5xl mx-auto animate-fade-in-up animation-delay-100">
             Elevate Your <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 via-purple-400 to-emerald-400 drop-shadow-sm">
               Server's Vibe.
