@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       await pool.end();
 
       // Send IPC message to notify bot instantly
-      await sendDiscordIPC(`[IPC] SET_GLOBAL_UPDATE|${version}|${message}`);
+      await sendDiscordIPC(`[WEBSITE] SET_GLOBAL_UPDATE|${version}|${message}`);
       return NextResponse.json({ success: true, message: "Global update notification updated successfully!" });
     }
 
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     }
 
     // For other actions, just send an IPC message to Discord
-    await sendDiscordIPC(`[IPC] ${actionType}`);
+    await sendDiscordIPC(`[WEBSITE] ${actionType}`);
     return NextResponse.json({ success: true, message: `Action ${actionType} queued via Discord IPC.` });
   } catch (error) {
     console.error("Failed to process bot action:", error);
