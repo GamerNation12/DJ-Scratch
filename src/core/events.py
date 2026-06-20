@@ -167,6 +167,10 @@ async def setup_hook():
                     )
                     """
                 )
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD CONSTRAINT user_settings_user_id_key UNIQUE (user_id)")
+                except Exception:
+                    pass
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS website_logs (
                         id SERIAL PRIMARY KEY,
