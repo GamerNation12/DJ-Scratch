@@ -192,8 +192,8 @@ async def get_user_update_notifs(uid):
             row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
         except asyncpg.exceptions.UndefinedColumnError:
             try:
-                await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
-                await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT ''")
                 row = await conn.fetchrow("SELECT update_notifs FROM user_settings WHERE user_id = $1", str(uid))
             except Exception as e:
                 print(f"Auto-recovery for update_notifs failed: {e}")
@@ -222,8 +222,8 @@ async def get_user_last_update_seen(uid):
             row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
         except asyncpg.exceptions.UndefinedColumnError:
             try:
-                await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
-                await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT ''")
                 row = await conn.fetchrow("SELECT last_update_seen FROM user_settings WHERE user_id = $1", str(uid))
             except Exception as e:
                 print(f"Auto-recovery for last_update_seen failed: {e}")

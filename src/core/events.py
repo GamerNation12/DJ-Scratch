@@ -180,17 +180,42 @@ async def setup_hook():
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE")
                 except Exception as e:
-                    print(f"Failed to add show_features column: {e}")
+                    pass
                     
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined'")
                 except Exception as e:
-                    print(f"Failed to add data_source column: {e}")
+                    pass
                     
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE")
                 except Exception as e:
-                    print(f"Failed to add private_mode column: {e}")
+                    pass
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'")
+                except Exception as e:
+                    pass
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username TEXT")
+                except Exception as e:
+                    pass
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
+                except Exception as e:
+                    pass
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE")
+                except Exception as e:
+                    pass
+                    
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT ''")
+                except Exception as e:
+                    pass
                     
                 await conn.execute(
                     """
