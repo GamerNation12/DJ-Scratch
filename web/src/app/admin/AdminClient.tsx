@@ -64,6 +64,221 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
   );
 }
 
+function SendUpdateCard() {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [channelId, setChannelId] = useState("");
+  const [title, setTitle] = useState("New AI Update 🚀");
+  const [content, setContent] = useState("");
+
+  const [commits, setCommits] = useState<any[]>([]);
+  const [commitsLoading, setCommitsLoading] = useState(false);
+
+  useEffect(() => {
+    setCommitsLoading(true);
+    fetch("https://api.github.com/repos/GamerNation12/The-Goats-Dj/commits")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCommits(data.slice(0, 10)); // Top 10 commits
+        }
+      })
+      .catch(console.error)
+      .finally(() => setCommitsLoading(false));
+  }, []);
+
+  const handleCommitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const sha = e.target.value;
+    if (!sha) return;
+    const commit = commits.find(c => c.sha === sha);
+    if (commit) {
+      const message = commit.commit.message;
+      const titleLine = message.split('\n')[0];
+      setTitle(`🔨 ${titleLine.length > 200 ? titleLine.substring(0, 197) + "..." : titleLine}`);
+      const shaShort = sha.substring(0, 7);
+      const url = commit.html_url;
+      setContent(`[${shaShort}](${url}) • <t:${Math.floor(new Date(commit.commit.author.date).getTime() / 1000)}:R>`);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!channelId || !content) return;
+    setLoading(true);
+    setStatus("idle");
+    try {
+      const res = await fetchApi("/api/admin/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          actionType: "SEND_MESSAGE",
+          payload: { 
+            channelId, 
+            embeds: [
+              {
+                title: title,
+                description: content,
+                color: 5814783, // Indigo
+              }
+            ]
+          }
+        }),
+      });
+      if (res.ok) {
+        setStatus("success");
+        setContent("");
+        setTimeout(() => setStatus("idle"), 3000);
+      } else {
+        setStatus("error");
+      }
+    } catch (e) {
+      setStatus("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderContent = (text: string) => {
+    let parsedText = text.replace(/<t:\d+:R>/g, "Just now");
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(parsedText)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(parsedText.substring(lastIndex, match.index));
+      }
+      parts.push(
+        <a key={match.index} href={match[2]} target="_blank" rel="noreferrer" className="text-[#00a8fc] hover:underline cursor-pointer">
+          {match[1]}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < parsedText.length) {
+      parts.push(parsedText.substring(lastIndex));
+    }
+    return parts;
+  };
+
+  return (
+    <div className="bg-zinc-950/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-indigo-500/30 transition-all duration-300 shadow-xl">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shadow-inner">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-white font-bold text-lg">Send AI Update</h3>
+          <p className="text-zinc-400 text-xs">Push an update embed directly to a channel.</p>
+        </div>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Fetch from GitHub</label>
+          <select 
+            onChange={handleCommitSelect}
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer appearance-none"
+            defaultValue=""
+          >
+            <option value="" disabled>
+              {commitsLoading ? "Loading commits..." : "Select a recent commit..."}
+            </option>
+            {commits.map(c => (
+              <option key={c.sha} value={c.sha}>
+                {c.commit.message.split('\n')[0].substring(0, 60)}...
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Channel ID</label>
+          <input 
+            type="text" 
+            value={channelId}
+            onChange={(e) => setChannelId(e.target.value)}
+            placeholder="e.g. 123456789012345678"
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Title</label>
+          <input 
+            type="text" 
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Embed Title"
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Message Content</label>
+          <textarea 
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Write the update details here..."
+            rows={4}
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+          />
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wider">Embed Preview</label>
+          <div className="bg-[#313338] rounded-md p-4 max-w-full">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#1e1f22] flex items-center justify-center border border-[#1e1f22] overflow-hidden">
+                <span className="text-2xl">🐐</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-white font-medium text-[15px] hover:underline cursor-pointer">The Goats DJ</span>
+                  <span className="bg-[#5865F2] text-white text-[10px] px-1.5 py-0.5 rounded flex items-center font-bold">
+                    <svg className="w-3 h-3 mr-0.5" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M7.39999 1.7L3.39999 5.8L7.39999 9.8L8.79999 8.3L6.19999 5.8L8.79999 3.2L7.39999 1.7Z" />
+                      <path d="M11.8 1.7L7.80005 5.8L11.8 9.8L13.2 8.3L10.6 5.8L13.2 3.2L11.8 1.7Z" />
+                    </svg>
+                    APP
+                  </span>
+                  <span className="text-[#949BA4] text-xs">Today at 12:00 PM</span>
+                </div>
+                <div className="bg-[#2b2d31] border-l-4 border-[#58b9ff] rounded-[4px] p-3 max-w-md mt-1">
+                  <div className="text-white font-semibold text-[15px] mb-1.5 leading-snug">{title || "Title"}</div>
+                  <div className="text-[#dbdee1] text-sm whitespace-pre-wrap leading-relaxed">
+                    {renderContent(content || "Description")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSend}
+          disabled={loading || !channelId || !content}
+          className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex justify-center items-center gap-2 ${
+            status === "success" ? "bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]" :
+            status === "error" ? "bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]" :
+            "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+          }`}
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Sending...
+            </span>
+          ) : status === "success" ? "Sent!" : status === "error" ? "Failed" : "Send Notification"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminClient() {
   const { data: session } = useSession();
   const [statsData, setStatsData] = useState<any>({ totalPlays: 0, totalUsers: 0, botStats: null, commandUsage: [] });
@@ -222,6 +437,8 @@ export default function AdminClient() {
                     </svg>
                   }
                 />
+
+                <SendUpdateCard />
               </div>
 
               {/* Tables */}

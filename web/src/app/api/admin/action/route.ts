@@ -23,9 +23,10 @@ export async function POST(req: Request) {
     if (actionType === "SEND_MESSAGE") {
       const channelId = payload?.channelId;
       const content = payload?.content;
+      const embeds = payload?.embeds;
 
-      if (!channelId || !content) {
-        return NextResponse.json({ error: "Missing channelId or content" }, { status: 400 });
+      if (!channelId || (!content && !embeds)) {
+        return NextResponse.json({ error: "Missing channelId or content/embeds" }, { status: 400 });
       }
 
       const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
@@ -34,13 +35,17 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Missing bot token" }, { status: 500 });
       }
 
+      const bodyData: any = {};
+      if (content) bodyData.content = content;
+      if (embeds) bodyData.embeds = embeds;
+
       const discordRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
         method: "POST",
         headers: {
           "Authorization": `Bot ${botToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(bodyData),
       });
 
       if (!discordRes.ok) {
