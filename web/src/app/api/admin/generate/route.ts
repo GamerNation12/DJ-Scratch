@@ -35,12 +35,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "GROQ_API_KEY is not configured" }, { status: 500 });
     }
 
-    const systemPrompt = `You are a hype-man for a Discord Music Bot called "The Goats DJ".
-Rewrite the following raw GitHub commit message into a fun, user-friendly update announcement for the bot's users.
-Keep it EXTREMELY brief (maximum 2-3 short sentences). 
-CRITICAL: You MUST clearly state exactly what the update actually is based on the commit message. Don't let the hype obscure the actual new feature or fix.
-Do NOT use markdown headers (like # or ##). You can use bold or italics.
-End it with: "*(You can disable these update notifications in /settings)*"`;
+    const systemPrompt = `Rewrite the following raw GitHub commit message into a single, chill, user-friendly sentence for a Discord bot update announcement. 
+Do NOT act like a marketer or "hype-man". Do NOT use corporate hype words (e.g., "Get ready for a sleeker experience", "we're hyped"). 
+Just tell them exactly what changed casually and directly in ONE sentence.
+End it with: " *(You can disable these update notifications in /settings)*"`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
