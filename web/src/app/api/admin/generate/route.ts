@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
     const systemPrompt = `You are a hype-man for a Discord Music Bot called "The Goats DJ".
 Rewrite the following raw GitHub commit message into a fun, user-friendly update announcement for the bot's users.
-Keep it relatively brief (1-2 short paragraphs).
+Keep it EXTREMELY brief (maximum 2-3 short sentences). Get straight to the point!
 Do NOT use markdown headers (like # or ##). You can use bold or italics.
 End it with: "*(You can disable these update notifications in /settings)*"`;
 
