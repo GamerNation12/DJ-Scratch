@@ -73,8 +73,9 @@ function PushGlobalUpdateCard() {
 
   const [commits, setCommits] = useState<any[]>([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
+  const [selectedShas, setSelectedShas] = useState<string[]>([]);
 
-  useEffect(() => {
+  const fetchCommits = () => {
     setCommitsLoading(true);
     fetch("https://api.github.com/repos/GamerNation12/The-Goats-Dj/commits")
       .then(res => res.json())
@@ -85,16 +86,32 @@ function PushGlobalUpdateCard() {
       })
       .catch(console.error)
       .finally(() => setCommitsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchCommits();
+    const interval = setInterval(fetchCommits, 10000); // refresh every 10s
+    return () => clearInterval(interval);
   }, []);
 
   const handleCommitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const sha = e.target.value;
-    if (!sha) return;
-    const commit = commits.find(c => c.sha === sha);
-    if (commit) {
-      const shaShort = sha.substring(0, 7);
-      setVersion(`v-${shaShort}`);
-      setContent(`🎉 **The Goats DJ Update \`v-${shaShort}\`** 🎉\n\n${commit.commit.message}\n\n*(You can disable these update notifications in /settings)*`);
+    const options = Array.from(e.target.selectedOptions);
+    const shas = options.map(o => o.value);
+    setSelectedShas(shas);
+
+    if (shas.length > 0) {
+      const latestSha = shas[0].substring(0, 7);
+      setVersion(`v-${latestSha}`);
+
+      const combinedMessages = shas.map(sha => {
+        const commit = commits.find(c => c.sha === sha);
+        return commit ? `- ${commit.commit.message.split('\n')[0]}` : "";
+      }).join('\n');
+
+      setContent(`🎉 **The Goats DJ Update \`v-${latestSha}\`** 🎉\n\n${combinedMessages}\n\n*(You can disable these update notifications in /settings)*`);
+    } else {
+      setContent("");
+      setVersion("");
     }
   };
 
@@ -189,19 +206,18 @@ function PushGlobalUpdateCard() {
         <div>
           <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Fetch from GitHub</label>
           <select 
+            multiple
             onChange={handleCommitSelect}
-            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer appearance-none"
-            defaultValue=""
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer min-h-[120px] custom-scrollbar"
+            value={selectedShas}
           >
-            <option value="" disabled>
-              {commitsLoading ? "Loading commits..." : "Select a recent commit..."}
-            </option>
             {commits.map(c => (
-              <option key={c.sha} value={c.sha}>
+              <option key={c.sha} value={c.sha} className="py-1.5 px-2 mb-1 hover:bg-zinc-800 rounded checked:bg-indigo-500/20 checked:text-indigo-300">
                 {c.commit.message.split('\n')[0].substring(0, 60)}...
               </option>
             ))}
           </select>
+          <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">Hold Ctrl/Cmd to select multiple commits</p>
         </div>
 
         <div>

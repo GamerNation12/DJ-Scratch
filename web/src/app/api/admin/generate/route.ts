@@ -1,5 +1,7 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
+import fs from 'fs';
+import path from 'path';
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -18,7 +20,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing message to enhance" }, { status: 400 });
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
+    let apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      try {
+        const envContent = fs.readFileSync(path.join(process.cwd(), '../.env'), 'utf8');
+        const match = envContent.match(/GROQ_API_KEY=(.*)/);
+        if (match) apiKey = match[1].trim();
+      } catch (e) {
+        console.error("Could not read ../.env:", e);
+      }
+    }
+
     if (!apiKey) {
       return NextResponse.json({ error: "GROQ_API_KEY is not configured" }, { status: 500 });
     }
