@@ -1020,7 +1020,10 @@ class ApplyAvatarView(discord.ui.View):
                     channel = self.original_msg.channel if self.original_msg else interaction.channel
                     if result and channel:
                         if isinstance(result, dict):
-                            new_msg = await channel.send(**result)
+                            try:
+                                new_msg = await interaction.followup.send(**result, ephemeral=False, wait=True)
+                            except Exception:
+                                new_msg = await channel.send(**result)
                             if is_p:
                                 await add_custom_reactions(new_msg)
                         else:
