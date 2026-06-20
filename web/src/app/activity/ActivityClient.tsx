@@ -123,6 +123,26 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
     }
   };
 
+  const handleGuess = (opt: string) => {
+    if (gameState !== 'playing' || !correctTrack) return;
+    
+    setSelectedOption(opt);
+    setGameState('revealed');
+    
+    const correctAnswer = questionType === 'song' ? correctTrack.trackName : 
+                          questionType === 'artist' ? correctTrack.artistName : 
+                          correctTrack.collectionName;
+                      
+    if (opt === correctAnswer) {
+      setScore(s => s + 1);
+    }
+    
+    setTimeout(() => {
+      setRound(r => r + 1);
+      startRound(tracks);
+    }, 4000);
+  };
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white p-4">
