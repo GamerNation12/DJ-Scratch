@@ -970,6 +970,31 @@ class FMActionsView(discord.ui.View):
         details_view = FMDetailsView(self.bot_instance, self.artist, self.img, self.is_p, self.cd, self.user, self.spotify_url, self.song, original_msg=interaction.message)
         await interaction.response.send_message(embed=self.compact_embed, view=details_view, ephemeral=True)
 
+async def update_bot_avatar_and_status(bot_instance, artist, img):
+    try:
+        cd = await get_avatar_cooldown()
+        if cd > 0:
+            return False, cd
+
+        async with bot_instance.session.get(img) as resp:
+            if resp.status == 200:
+                image_bytes = await resp.read()
+                await bot_instance.user.edit(avatar=image_bytes)
+                
+                activity = discord.Activity(type=discord.ActivityType.listening, name=artist)
+                await bot_instance.change_presence(activity=activity)
+                
+                from src.core.database import db_pool
+                if db_pool:
+                    now = datetime.utcnow()
+                    async with db_pool.acquire() as conn:
+                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
+                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
+                return True, 300
+    except Exception as e:
+        print(f"Error updating bot avatar: {e}")
+    return False, 0
+
 class ApplyAvatarView(discord.ui.View):
     def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None):
         super().__init__(timeout=180)
