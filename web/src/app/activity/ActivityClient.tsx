@@ -11,14 +11,33 @@ interface Track {
   artworkUrl100: string;
 }
 
+const SUGGESTED_PLAYLISTS = [
+  { id: '1', title: 'Rock Classics', icon: '🎸', value: 'rock' },
+  { id: '2', title: '2000s Music', icon: '💿', value: '2000s hits' },
+  { id: '3', title: 'All-Time Hits & Classics', icon: '📻', value: 'classic hits' },
+  { id: '4', title: 'Pop', icon: '🎤', value: 'pop' },
+  { id: '5', title: 'Top Hits by Year', icon: '📅', value: 'hits' },
+  { id: '6', title: 'Viral TikTok Hits', icon: '📱', value: 'tiktok' },
+];
+
 export default function ActivityClient({ clientId }: { clientId: string }) {
+  // SDK & Connection State
   const [error, setError] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<'loading' | 'waiting' | 'playing' | 'revealed'>('loading');
+  const [user, setUser] = useState<{ username: string, avatar: string | null } | null>(null);
   
+  // Game Flow State
+  const [appState, setAppState] = useState<'lobby' | 'fetching' | 'playing' | 'revealed'>('lobby');
+  
+  // Lobby Settings State
+  const [selectedPlaylist, setSelectedPlaylist] = useState(SUGGESTED_PLAYLISTS[2]);
+  const [settings, setSettings] = useState({ mode: 'Multiple Choice', rounds: 20, duration: 15 });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // In-Game State
   const [tracks, setTracks] = useState<Track[]>([]);
   const [score, setScore] = useState(0);
-  const [round, setRound] = useState(1);
-  
+  const [currentRound, setCurrentRound] = useState(1);
   const [questionType, setQuestionType] = useState<'song' | 'artist' | 'album'>('song');
   const [correctTrack, setCorrectTrack] = useState<Track | null>(null);
   const [options, setOptions] = useState<string[]>([]);
@@ -32,42 +51,67 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
       sdk = new DiscordSDK(clientId);
     } catch (e: any) {
       console.error("SDK Init Error:", e);
-      setError("This page must be opened within a Discord Voice Channel or App Launcher.");
+      // Fallback for local testing if needed, but error is fine
       return;
     }
 
     async function setup() {
       try {
         await sdk.ready();
+        const { code } = await sdk.commands.authorize({
+          client_id: clientId,
+          response_type: "code",
+          state: "",
+          prompt: "none",
+          scope: ["identify"],
+        });
         
-        // Use a variety of terms to get a good mix of popular music
-        const genres = ["pop", "rap", "rock", "hip hop", "r&b", "hits", "top 40", "dance"];
-        const randomGenre = genres[Math.floor(Math.random() * genres.length)];
-        
-        const res = await fetch(`https://itunes.apple.com/search?term=${randomGenre}&limit=200&entity=song`);
-        const data = await res.json();
-        
-        const validTracks = data.results.filter((t: any) => t.previewUrl && t.trackName && t.artistName && t.collectionName);
-        if (validTracks.length < 4) throw new Error("Not enough tracks found from iTunes.");
-        
-        setTracks(validTracks);
-        setGameState('waiting');
+        // Since we are running in an activity, we might not have a backend to exchange the token.
+        // But we can get current user info if needed via discord APIs.
+        // For now, we'll mock the user info based on sdk instance if available.
+        setUser({ username: "GamerNation12", avatar: null }); 
       } catch (e: any) {
         console.error("Setup error:", e);
-        setError(e.message || "Failed to initialize game. Please try reloading.");
       }
     }
-    
     setup();
   }, [clientId]);
 
+  const handleStartGame = async () => {
+    setAppState('fetching');
+    try {
+      const searchTerm = searchQuery.trim() || selectedPlaylist.value;
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&limit=200&entity=song`);
+      const data = await res.json();
+      
+      const validTracks = data.results.filter((t: any) => t.previewUrl && t.trackName && t.artistName && t.collectionName);
+      if (validTracks.length < 4) {
+        setError(`Not enough tracks found for "${searchTerm}". Try a different genre!`);
+        setAppState('lobby');
+        return;
+      }
+      
+      setTracks(validTracks);
+      setScore(0);
+      setCurrentRound(1);
+      startRound(validTracks);
+    } catch (e) {
+      setError("Failed to fetch tracks. Please try again.");
+      setAppState('lobby');
+    }
+  };
+
   const startRound = (pool: Track[]) => {
+    if (currentRound > settings.rounds) {
+      setAppState('lobby'); // End game
+      return;
+    }
+
     const types: ('song' | 'artist' | 'album')[] = ['song', 'artist', 'album'];
     const type = types[Math.floor(Math.random() * types.length)];
     
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     const selectedTracks = shuffled.slice(0, 4);
-    
     const correct = selectedTracks[0];
     
     let opts = selectedTracks.map(t => {
@@ -89,116 +133,208 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
     setCorrectTrack(correct);
     setOptions(opts);
     setSelectedOption(null);
-    setGameState('playing');
+    setAppState('playing');
     
     if (audioRef.current) {
       audioRef.current.src = correct.previewUrl;
       audioRef.current.volume = 0.5;
-      audioRef.current.play().catch(e => console.error("Autoplay prevented", e));
-    }
-  };
-
-  const [customSearch, setCustomSearch] = useState("");
-
-  const handleStart = () => {
-    // If they typed something, we need to fetch a new pool of songs
-    if (customSearch.trim()) {
-      setGameState('loading');
-      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(customSearch.trim())}&limit=200&entity=song`)
-        .then(res => res.json())
-        .then(data => {
-          const validTracks = data.results.filter((t: any) => t.previewUrl && t.trackName && t.artistName && t.collectionName);
-          if (validTracks.length < 4) {
-            setError(`Not enough tracks found for "${customSearch}". Try a different artist or genre!`);
-            return;
-          }
-          setTracks(validTracks);
-          startRound(validTracks);
-        })
-        .catch(e => {
-          setError("Failed to fetch custom tracks.");
-        });
-    } else {
-      startRound(tracks);
+      audioRef.current.play().catch(e => console.error(e));
     }
   };
 
   const handleGuess = (opt: string) => {
-    if (gameState !== 'playing' || !correctTrack) return;
+    if (appState !== 'playing' || !correctTrack) return;
     
     setSelectedOption(opt);
-    setGameState('revealed');
+    setAppState('revealed');
     
     const correctAnswer = questionType === 'song' ? correctTrack.trackName : 
                           questionType === 'artist' ? correctTrack.artistName : 
                           correctTrack.collectionName;
                       
-    if (opt === correctAnswer) {
-      setScore(s => s + 1);
-    }
+    if (opt === correctAnswer) setScore(s => s + 1);
     
     setTimeout(() => {
-      setRound(r => r + 1);
+      setCurrentRound(r => r + 1);
       startRound(tracks);
     }, 4000);
   };
 
-  if (error) {
+  // --------------------------------------------------------------------------
+  // LOBBY RENDER
+  // --------------------------------------------------------------------------
+  if (appState === 'lobby' || appState === 'fetching') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white p-4">
-        <div className="bg-zinc-900/50 border border-red-500/20 p-8 rounded-3xl text-center shadow-2xl relative">
-          <button onClick={() => { setError(null); setGameState('waiting'); }} className="absolute top-4 right-4 text-zinc-500 hover:text-white">✕</button>
-          <div className="text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold mb-2">Error</h2>
-          <p className="text-zinc-400 mb-6">{error}</p>
-          <button onClick={() => { setError(null); setGameState('waiting'); }} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors font-bold">Go Back</button>
+      <div className="min-h-screen bg-[#111214] text-white flex font-sans overflow-hidden">
+        {/* LEFT SIDEBAR */}
+        <div className="w-[300px] bg-[#1e1f22] flex flex-col border-r border-[#2b2d31]">
+          <div className="p-6">
+            <h1 className="text-3xl font-black italic tracking-tight text-white mb-8">Guess The Song</h1>
+            
+            <div className="flex justify-between items-center mb-4 text-xs font-bold text-zinc-400">
+              <span>PLAYERS (1)</span>
+              <button className="flex items-center gap-1 bg-[#2b2d31] px-2 py-1 rounded">
+                🏆 Leaderboard
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between bg-[#2b2d31] p-3 rounded-lg border border-[#3f4147]">
+              <div className="flex items-center gap-3">
+                <span className="text-yellow-500 font-black text-sm">1</span>
+                <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-bold">
+                  GN
+                </div>
+                <span className="font-semibold text-sm">GamerNation12</span>
+              </div>
+              <span className="text-indigo-400 text-xl font-bold">?</span>
+            </div>
+          </div>
+          
+          <div className="mt-auto p-4 flex flex-col gap-2">
+            <button className="bg-[#2b2d31] hover:bg-[#3f4147] transition-colors py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              <span>⏪</span> Previous Games
+            </button>
+            <button className="bg-[#2b2d31] hover:bg-[#3f4147] transition-colors py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              <span>👁️</span> Spectator Mode
+            </button>
+            <button className="bg-[#2b2d31] hover:bg-[#3f4147] transition-colors py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              <span>💬</span> Support Server
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT MAIN PANEL */}
+        <div className="flex-1 flex flex-col relative">
+          
+          {/* HEADER */}
+          <div className="h-20 border-b border-[#2b2d31] flex items-center justify-between px-8 bg-[#111214] z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-[#2b2d31] rounded-lg flex items-center justify-center text-xl">📻</div>
+              <div>
+                <div className="font-bold text-lg flex items-center gap-2">
+                  {selectedPlaylist.title} <span className="text-zinc-500 cursor-pointer text-sm">✏️</span>
+                </div>
+                <div className="text-xs text-zinc-400 flex items-center gap-1">
+                  <div className="w-4 h-4 bg-indigo-500 rounded-full inline-block"></div>
+                  GamerNation12 • The Goats
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button className="text-zinc-400 hover:text-white">⋮</button>
+              <button className="text-zinc-400 hover:text-white">⚙️</button>
+              <button onClick={handleStartGame} disabled={appState === 'fetching'} className="bg-white text-black font-bold px-6 py-2 rounded-full hover:bg-zinc-200 transition">
+                {appState === 'fetching' ? 'Starting...' : 'Start Game'}
+              </button>
+            </div>
+          </div>
+
+          {/* MAIN CONTENT */}
+          <div className="flex-1 p-10 flex flex-col justify-center relative max-w-5xl mx-auto w-full">
+            
+            <div className="flex justify-between items-start mb-16 relative">
+              <div>
+                <h2 className="text-5xl font-black mb-2 flex items-center gap-3">
+                  {selectedPlaylist.title} <span className="text-zinc-500 text-3xl cursor-pointer">✏️</span>
+                </h2>
+                <p className="text-zinc-400 text-lg">Ready to Start</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="w-12 h-12 bg-[#2b2d31] rounded-full flex items-center justify-center text-xl hover:bg-[#3f4147]">📄</button>
+                <button className="w-12 h-12 bg-[#2b2d31] rounded-full flex items-center justify-center text-xl hover:bg-[#3f4147]">🔀</button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 mb-12">
+              <div className="bg-[#1e1f22] p-6 rounded-2xl border border-[#2b2d31]">
+                <div className="text-zinc-400 text-xs font-bold mb-2 uppercase flex items-center gap-2">
+                  <span>🔲</span> Mode
+                </div>
+                <div className="text-xl font-bold">{settings.mode}</div>
+              </div>
+              <div className="bg-[#1e1f22] p-6 rounded-2xl border border-[#2b2d31]">
+                <div className="text-zinc-400 text-xs font-bold mb-2 uppercase flex items-center gap-2">
+                  <span>🔁</span> Rounds
+                </div>
+                <div className="text-xl font-bold">{settings.rounds}</div>
+              </div>
+              <div className="bg-[#1e1f22] p-6 rounded-2xl border border-[#2b2d31]">
+                <div className="text-zinc-400 text-xs font-bold mb-2 uppercase flex items-center gap-2">
+                  <span>⏱️</span> Duration
+                </div>
+                <div className="text-xl font-bold">{settings.duration}s</div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setIsDropdownOpen(true)}
+              className="w-full bg-white text-black font-black text-2xl py-6 rounded-2xl hover:bg-zinc-200 transition-transform active:scale-[0.98] disabled:opacity-50"
+              disabled={appState === 'fetching'}
+            >
+              {appState === 'fetching' ? 'Loading Music...' : 'Start Game'}
+            </button>
+
+            {/* Error Message */}
+            {error && <div className="mt-4 text-red-400 text-center font-semibold">{error}</div>}
+
+            {/* PLAYLIST DROPDOWN MODAL */}
+            {isDropdownOpen && (
+              <div className="absolute top-0 left-0 w-full bg-[#1e1f22] rounded-2xl border border-[#2b2d31] shadow-2xl z-50 overflow-hidden flex flex-col max-h-[600px] animate-fade-in-up">
+                <div className="p-4 border-b border-[#2b2d31]">
+                  <div className="bg-[#111214] rounded-xl flex items-center px-4 py-3">
+                    <span className="text-zinc-500 mr-3">🔍</span>
+                    <input 
+                      type="text" 
+                      placeholder="Search for a playlist or enter a playlist link..." 
+                      className="bg-transparent border-none outline-none text-white w-full placeholder:text-zinc-500"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => { if(e.key === 'Enter') { setIsDropdownOpen(false); handleStartGame(); } }}
+                    />
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    {['Your Playlists', 'Genres', 'Artists', 'Recent'].map(tab => (
+                      <button key={tab} className="bg-[#2b2d31] hover:bg-[#3f4147] px-4 py-1.5 rounded-lg text-sm font-semibold text-zinc-300">
+                        {tab}
+                      </button>
+                    ))}
+                    <button className="ml-auto flex items-center gap-1 bg-[#2b2d31] px-4 py-1.5 rounded-lg text-sm font-semibold text-zinc-300">
+                      <span>➕</span> Manage
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="p-4 overflow-y-auto">
+                  <div className="text-xs font-bold text-zinc-500 mb-3">SUGGESTIONS</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {SUGGESTED_PLAYLISTS.map(pl => (
+                      <button 
+                        key={pl.id}
+                        onClick={() => {
+                          setSelectedPlaylist(pl);
+                          setSearchQuery("");
+                          setIsDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-3 p-3 bg-[#2b2d31] hover:bg-[#3f4147] rounded-xl text-left transition-colors"
+                      >
+                        <div className="w-10 h-10 bg-[#111214] rounded-lg flex items-center justify-center text-xl">{pl.icon}</div>
+                        <span className="font-bold">{pl.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={() => setIsDropdownOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white">✕</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  if (gameState === 'loading') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
-        <p className="text-indigo-400 font-bold tracking-widest uppercase animate-pulse">Loading Tunes...</p>
-      </div>
-    );
-  }
-
-  if (gameState === 'waiting') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/20 blur-[100px] rounded-full pointer-events-none" />
-        <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 mb-6 text-center drop-shadow-2xl">
-          Guess The Tune
-        </h1>
-        <p className="text-zinc-400 mb-8 text-center max-w-md text-lg">
-          Listen to the 30-second snippet and guess the song name, artist, or album!
-        </p>
-        
-        <div className="w-full max-w-md mb-10 relative z-10">
-          <input 
-            type="text"
-            value={customSearch}
-            onChange={(e) => setCustomSearch(e.target.value)}
-            placeholder="Optional: Enter an Artist or Genre..."
-            className="w-full bg-zinc-900/80 border-2 border-white/10 focus:border-indigo-500 rounded-2xl px-6 py-4 text-white text-lg font-semibold placeholder:text-zinc-500 transition-all outline-none shadow-xl text-center"
-            onKeyDown={(e) => { if (e.key === 'Enter') handleStart(); }}
-          />
-          <p className="text-zinc-500 text-xs text-center mt-2 font-semibold">Leave blank for random popular hits</p>
-        </div>
-
-        <button 
-          onClick={handleStart}
-          className="px-12 py-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black text-2xl rounded-full shadow-[0_0_40px_rgba(99,102,241,0.5)] hover:shadow-[0_0_60px_rgba(99,102,241,0.7)] hover:scale-105 transition-all duration-300 flex items-center gap-4 z-10"
-        >
-          <span className="text-3xl">▶</span> START GAME
-        </button>
-      </div>
-    );
-  }
-
+  // --------------------------------------------------------------------------
+  // IN-GAME RENDER
+  // --------------------------------------------------------------------------
   if (!correctTrack) return null;
 
   const getQuestionText = () => {
@@ -214,44 +350,43 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white flex flex-col p-6 selection:bg-indigo-500/30 overflow-hidden relative">
-      <div className="fixed inset-0 bg-gradient-to-b from-indigo-900/10 to-[#09090b] pointer-events-none" />
-      <div className="absolute top-0 left-1/4 w-1/2 h-[300px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
-      
-      <div className="flex justify-between items-center mb-8 relative z-10 w-full max-w-4xl mx-auto">
-        <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+    <div className="min-h-screen bg-[#111214] text-white flex flex-col p-6 selection:bg-indigo-500/30 overflow-hidden relative">
+      <div className="flex justify-between items-center mb-8 w-full max-w-5xl mx-auto">
+        <div className="bg-[#1e1f22] border border-[#2b2d31] px-6 py-3 rounded-2xl flex items-center gap-3">
           <span className="text-2xl">🏆</span>
           <div>
             <div className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest">Score</div>
             <div className="text-xl font-black text-white leading-none">{score}</div>
           </div>
         </div>
-        <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+        <div className="bg-[#1e1f22] border border-[#2b2d31] px-6 py-3 rounded-2xl flex items-center gap-3">
           <span className="text-2xl">💿</span>
           <div>
             <div className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest">Round</div>
-            <div className="text-xl font-black text-white leading-none">{round}</div>
+            <div className="text-xl font-black text-white leading-none">{currentRound} / {settings.rounds}</div>
           </div>
         </div>
+        <button onClick={() => setAppState('lobby')} className="bg-[#2b2d31] hover:bg-red-500/20 text-red-400 px-6 py-3 rounded-2xl font-bold transition">
+          Quit
+        </button>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full relative z-10">
-        
         <h2 className="text-4xl md:text-5xl font-black text-center mb-12 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
           {getQuestionText()}
         </h2>
 
-        {gameState === 'playing' ? (
+        {appState === 'playing' ? (
           <div className="relative w-56 h-56 mb-16 flex items-center justify-center">
-            <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full animate-ping opacity-75 [animation-duration:2s]"></div>
-            <div className="absolute inset-6 border-4 border-indigo-400/50 rounded-full animate-ping [animation-delay:0.4s] [animation-duration:2s] opacity-50"></div>
-            <div className="absolute inset-12 border-4 border-purple-400/50 rounded-full animate-ping [animation-delay:0.8s] [animation-duration:2s] opacity-25"></div>
-            <div className="w-36 h-36 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-[0_0_60px_rgba(99,102,241,0.6)] flex items-center justify-center z-10">
+            <div className="absolute inset-0 border-4 border-[#2b2d31] rounded-full animate-ping opacity-75 [animation-duration:2s]"></div>
+            <div className="w-36 h-36 bg-[#1e1f22] border border-[#2b2d31] rounded-full flex items-center justify-center z-10 shadow-2xl">
               <span className="text-6xl animate-bounce">🎵</span>
             </div>
+            {/* Timer visualizer */}
+            <div className="absolute inset-[-20px] rounded-full border-4 border-t-indigo-500 border-r-indigo-500 border-b-transparent border-l-transparent animate-spin [animation-duration:3s]"></div>
           </div>
         ) : (
-          <div className="w-56 h-56 mb-16 rounded-3xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.6)] border-4 border-white/10 relative group animate-fade-in-up">
+          <div className="w-56 h-56 mb-16 rounded-3xl overflow-hidden shadow-2xl border-4 border-[#2b2d31] relative group animate-fade-in-up">
             <img src={correctTrack.artworkUrl100.replace('100x100', '600x600')} alt="Album Art" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-6 text-center">
               <div className="font-bold text-white text-lg mb-1 truncate">{correctTrack.trackName}</div>
@@ -262,25 +397,25 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full px-4">
           {options.map((opt, idx) => {
-            let btnState = "bg-zinc-900/50 border-white/10 hover:border-indigo-500/50 hover:bg-white/5 hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] text-white hover:-translate-y-1";
+            let btnState = "bg-[#1e1f22] border-[#2b2d31] hover:border-indigo-500/50 hover:bg-[#2b2d31] text-white hover:-translate-y-1";
             
-            if (gameState === 'revealed') {
+            if (appState === 'revealed') {
               const isCorrectOpt = opt === getCorrectAnswer();
               const isSelected = opt === selectedOption;
               
               if (isCorrectOpt) {
-                btnState = "bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_30px_rgba(34,197,94,0.4)] z-10 scale-[1.02] border-2";
+                btnState = "bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_30px_rgba(34,197,94,0.2)] z-10 scale-[1.02] border-2";
               } else if (isSelected) {
                 btnState = "bg-red-500/20 border-red-500/50 text-red-300 opacity-80 border-2";
               } else {
-                btnState = "bg-zinc-900/20 border-white/5 text-zinc-600 opacity-40 scale-95";
+                btnState = "bg-[#1e1f22]/50 border-[#2b2d31] text-zinc-600 opacity-40 scale-95";
               }
             }
 
             return (
               <button
                 key={idx}
-                disabled={gameState !== 'playing'}
+                disabled={appState !== 'playing'}
                 onClick={() => handleGuess(opt)}
                 className={`p-6 rounded-2xl border-2 font-bold text-lg transition-all duration-500 text-center shadow-lg flex items-center justify-center ${btnState}`}
               >
@@ -289,16 +424,10 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
             );
           })}
         </div>
-
-        {gameState === 'revealed' && (
-          <div className={`mt-10 text-3xl font-black uppercase tracking-widest animate-bounce ${selectedOption === getCorrectAnswer() ? 'text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'text-red-400 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`}>
-            {selectedOption === getCorrectAnswer() ? 'CORRECT! +1 🏆' : 'INCORRECT! ❌'}
-          </div>
-        )}
       </div>
 
       <audio ref={audioRef} onEnded={() => {
-        if (gameState === 'playing') handleGuess("");
+        if (appState === 'playing') handleGuess("");
       }} />
     </div>
   );
