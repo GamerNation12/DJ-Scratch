@@ -775,17 +775,7 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
     except Exception as e:
         print(f"{Log.RED}>>> Failed to track command usage: {e}{Log.RESET}")
 
-# --- HELPER: AVATAR & STATUS CHANGER ---
-async def update_bot_status(bot_instance, artist):
-    global db_pool
-    try:
-        if bot_instance.activity is None or bot_instance.activity.name != artist:
-            await bot_instance.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=artist))
-            if db_pool:
-                async with db_pool.acquire() as conn:
-                    await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
-    except: pass
-
+# --- HELPER: AVATAR COOLDOWN ---
 async def get_avatar_cooldown():
     global db_pool
     if not db_pool: return 0
@@ -799,39 +789,6 @@ async def get_avatar_cooldown():
                 if diff < 300: return int(300 - diff)
             except: pass
     return 0
-
-async def update_bot_avatar_and_status(bot_instance, artist, image_url):
-    global db_pool
-    if not image_url: return False, 0
-    cd = await get_avatar_cooldown()
-    if cd > 0: return False, cd
-
-    now = datetime.utcnow()
-    session = getattr(bot_instance, 'session', None)
-    local_session = False
-    if session is None:
-        session = aiohttp.ClientSession()
-        local_session = True
-
-    try:
-        async with session.get(image_url) as resp:
-            if resp.status == 200:
-                image_data = await resp.read()
-                from ..utils.images import process_profile_images
-                avatar_bytes = process_profile_images(image_data)
-                
-                await bot_instance.user.edit(avatar=avatar_bytes)
-                await update_bot_status(bot_instance, artist)
-                
-                if db_pool:
-                    async with db_pool.acquire() as conn:
-                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
-                return True, 300
-    except Exception as e:
-        print(f"{Log.RED}>>> Failed to update avatar: {e}{Log.RESET}")
-    finally:
-        if local_session: await session.close()
-    return False, 0
 
 
 async def add_custom_reactions(message):
@@ -2061,19 +2018,6 @@ async def on_message(message):
 
     if is_stats_bot or has_phrase:
         await add_custom_reactions(message)
-        
-        spotify_act = None
-        if getattr(message, 'interaction_metadata', None) and message.guild:
-            member = message.guild.get_member(message.interaction_metadata.user.id)
-            if member and member.activities:
-                spotify_act = next((act for act in member.activities if isinstance(act, discord.Spotify)), None)
-        elif not is_stats_bot and message.guild:
-            member = message.guild.get_member(message.author.id)
-            if member and member.activities:
-                spotify_act = next((act for act in member.activities if isinstance(act, discord.Spotify)), None)
-
-        if spotify_act:
-            await update_bot_avatar_and_status(bot, spotify_act.artist, spotify_act.album_cover_url)
 
     await bot.process_commands(message)
 
