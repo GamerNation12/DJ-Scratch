@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = postgres(process.env.DATABASE_URL!);
 
     await sql`
       CREATE TABLE IF NOT EXISTS imported_users (

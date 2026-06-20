@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { verifyToken } from '@/lib/jwt';
 
 export async function GET(req: Request) {

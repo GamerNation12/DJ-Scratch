@@ -1,5 +1,5 @@
 import { verifyToken } from "@/lib/jwt";
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const safeUrl = dbUrl !== "NOT_SET" ? dbUrl.split("@")[1] : "NOT_SET"; // hide credentials
 
   try {
-    const sql = neon(dbUrl);
+    const sql = postgres(dbUrl);
     await sql`SELECT 1`;
     return NextResponse.json({
       db: "connected",

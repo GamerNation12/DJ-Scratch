@@ -1,5 +1,5 @@
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
 export function getDb() {
-  return neon(process.env.DATABASE_URL!);
+  return postgres(process.env.DATABASE_URL!);
 }

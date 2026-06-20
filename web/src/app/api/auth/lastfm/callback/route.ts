@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import crypto from "crypto";
 
 export async function GET(req: Request) {

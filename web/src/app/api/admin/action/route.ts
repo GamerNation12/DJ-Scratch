@@ -1,6 +1,6 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");

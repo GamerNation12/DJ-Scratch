@@ -24,7 +24,7 @@ export default function NowPlayingWidget() {
     };
 
     fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, 1000);
+    const interval = setInterval(fetchNowPlaying, 15000);
     return () => clearInterval(interval);
   }, []);
 

@@ -1,6 +1,6 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 
 const ADMIN_ID = "759433582107426816";
 
