@@ -3,69 +3,62 @@ from discord.ext import commands, tasks
 import json
 import os
 import sys
-from ..core.database import db_pool
 from ..core.events import Log
+
+IPC_CHANNEL_ID = 1517288950522187947
 
 class AdminIPC(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.poll_actions.start()
         self.push_stats.start()
-        self.poll_website_logs.start()
 
     def cog_unload(self):
-        self.poll_actions.cancel()
         self.push_stats.cancel()
-        self.poll_website_logs.cancel()
 
-    @tasks.loop(seconds=5)
-    async def poll_actions(self):
-        global db_pool
-        from ..core.events import db_pool
-        if not db_pool:
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.channel.id != IPC_CHANNEL_ID:
             return
             
-        try:
-            async with db_pool.acquire() as conn:
-                # Fetch pending actions
-                records = await conn.fetch("SELECT id, action_type FROM bot_actions WHERE status = 'PENDING' ORDER BY created_at ASC")
-                for record in records:
-                    action_id = record['id']
-                    action_type = record['action_type']
-                    
-                    print(f"{Log.CYAN}>>> [IPC] Received action: {action_type}{Log.RESET}")
-                    
-                    if action_type == 'SYNC_COMMANDS':
-                        try:
-                            synced = await self.bot.tree.sync()
-                            print(f"{Log.GREEN}>>> Synced {len(synced)} commands via IPC!{Log.RESET}")
-                            await conn.execute("UPDATE bot_actions SET status = 'COMPLETED' WHERE id = $1", action_id)
-                        except Exception as e:
-                            print(f"{Log.RED}>>> Sync failed: {e}{Log.RESET}")
-                            await conn.execute("UPDATE bot_actions SET status = 'ERROR' WHERE id = $1", action_id)
-                            
-                    elif action_type == 'RESTART_BOT':
-                        await conn.execute("UPDATE bot_actions SET status = 'COMPLETED' WHERE id = $1", action_id)
-                        print(f"{Log.YELLOW}>>> [IPC] Restarting bot...{Log.RESET}")
-                        os.execv(sys.executable, ['python'] + sys.argv)
-                        
-                    elif action_type == 'CLEAR_DUPLICATES':
-                        # Dummy action for now
-                        await conn.execute("UPDATE bot_actions SET status = 'COMPLETED' WHERE id = $1", action_id)
-                        print(f"{Log.GREEN}>>> [IPC] Cleared duplicates (dummy).{Log.RESET}")
-                        
-                    else:
-                        print(f"{Log.RED}>>> [IPC] Unknown action: {action_type}{Log.RESET}")
-                        await conn.execute("UPDATE bot_actions SET status = 'ERROR' WHERE id = $1", action_id)
-                        
-        except Exception as e:
-            print(f"{Log.RED}>>> [IPC] Polling error: {e}{Log.RESET}")
+        if not message.content.startswith("[IPC]"):
+            return
+            
+        action_payload = message.content[5:].strip()
+        print(f"{Log.CYAN}>>> [IPC] Received action via Discord: {action_payload}{Log.RESET}")
+        
+        if action_payload == "RESTART_BOT":
+            await message.add_reaction("✅")
+            print(f"{Log.YELLOW}>>> [IPC] Restarting bot...{Log.RESET}")
+            os.execv(sys.executable, ['python'] + sys.argv)
+            
+        elif action_payload == "SYNC_COMMANDS":
+            try:
+                synced = await self.bot.tree.sync()
+                print(f"{Log.GREEN}>>> Synced {len(synced)} commands via IPC!{Log.RESET}")
+                await message.add_reaction("✅")
+            except Exception as e:
+                print(f"{Log.RED}>>> Sync failed: {e}{Log.RESET}")
+                await message.add_reaction("❌")
+                
+        elif action_payload == "CLEAR_DUPLICATES":
+            await message.add_reaction("✅")
+            print(f"{Log.GREEN}>>> [IPC] Cleared duplicates (dummy).{Log.RESET}")
+            
+        elif action_payload.startswith("SET_GLOBAL_UPDATE|"):
+            parts = action_payload.split("|", 2)
+            if len(parts) == 3:
+                version = parts[1]
+                msg_content = parts[2]
+                from ..core.events import CACHED_GLOBAL_UPDATE_VERSION, CACHED_GLOBAL_UPDATE_MESSAGE
+                import src.core.events as events_module
+                events_module.CACHED_GLOBAL_UPDATE_VERSION = version
+                events_module.CACHED_GLOBAL_UPDATE_MESSAGE = msg_content
+                print(f"{Log.GREEN}>>> [IPC] Global update cache updated to {version}{Log.RESET}")
+                await message.add_reaction("✅")
+            else:
+                await message.add_reaction("❌")
 
-    @poll_actions.before_loop
-    async def before_poll_actions(self):
-        await self.bot.wait_until_ready()
-
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=30)
     async def push_stats(self):
         global db_pool
         from ..core.events import db_pool
@@ -73,7 +66,6 @@ class AdminIPC(commands.Cog):
             return
             
         try:
-            # Gather stats
             servers = []
             for g in self.bot.guilds:
                 servers.append({
@@ -98,33 +90,6 @@ class AdminIPC(commands.Cog):
 
     @push_stats.before_loop
     async def before_push_stats(self):
-        await self.bot.wait_until_ready()
-
-    @tasks.loop(seconds=5)
-    async def poll_website_logs(self):
-        global db_pool
-        from ..core.events import db_pool, log_to_channel
-        if not db_pool:
-            return
-            
-        try:
-            async with db_pool.acquire() as conn:
-                records = await conn.fetch("SELECT id, user_id, username, action, details, timestamp FROM website_logs ORDER BY timestamp ASC")
-                for record in records:
-                    log_id = record['id']
-                    
-                    embed = discord.Embed(title=f"🌐 Website: {record['action']}", description=record['details'], color=discord.Color.teal(), timestamp=record['timestamp'])
-                    embed.set_author(name=f"{record['username']} ({record['user_id']})")
-                    await log_to_channel("website-log", embed)
-                    
-                    await conn.execute("DELETE FROM website_logs WHERE id = $1", log_id)
-        except Exception as e:
-            # Ignore errors if table doesn't exist yet
-            if "relation \"website_logs\" does not exist" not in str(e):
-                print(f"{Log.RED}>>> [IPC] Website logs poll error: {e}{Log.RESET}")
-
-    @poll_website_logs.before_loop
-    async def before_poll_website_logs(self):
         await self.bot.wait_until_ready()
 
 async def setup(bot):

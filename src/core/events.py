@@ -2103,15 +2103,25 @@ async def process_receipt(user, period='overall', limit=10):
     
     return embed, file, None
 # --- UPDATE NOTIFICATIONS ---
+CACHED_GLOBAL_UPDATE_VERSION = None
+CACHED_GLOBAL_UPDATE_MESSAGE = None
+
 async def check_update_notification(user_id: int, send_message_func):
     try:
         from src.core.database import get_global_update_version, get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
+        global CACHED_GLOBAL_UPDATE_VERSION
         
+        if CACHED_GLOBAL_UPDATE_VERSION is None:
+            CACHED_GLOBAL_UPDATE_VERSION = await get_global_update_version()
+            
+        current_version = CACHED_GLOBAL_UPDATE_VERSION
+        if not current_version:
+            return
+
         wants_notifs = await get_user_update_notifs(user_id)
         if not wants_notifs:
             return
             
-        current_version = await get_global_update_version()
         last_seen = await get_user_last_update_seen(user_id)
         if last_seen != current_version:
             await set_user_last_update_seen(user_id, current_version)
@@ -2138,8 +2148,11 @@ class DismissUpdateView(discord.ui.View):
 async def update_notif_prefix(ctx):
     from src.core.database import get_global_update_message
     async def send_msg():
+        global CACHED_GLOBAL_UPDATE_MESSAGE
         try:
-            msg = await get_global_update_message()
+            if CACHED_GLOBAL_UPDATE_MESSAGE is None:
+                CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
+            msg = CACHED_GLOBAL_UPDATE_MESSAGE
             view = DismissUpdateView(ctx.author.id)
             await ctx.send(f"<@{ctx.author.id}>\n{msg}", view=view, delete_after=60.0)
         except Exception:
@@ -2150,8 +2163,11 @@ async def update_notif_prefix(ctx):
 async def update_notif_slash(interaction, command):
     from src.core.database import get_global_update_message
     async def send_msg():
+        global CACHED_GLOBAL_UPDATE_MESSAGE
         try:
-            msg = await get_global_update_message()
+            if CACHED_GLOBAL_UPDATE_MESSAGE is None:
+                CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
+            msg = CACHED_GLOBAL_UPDATE_MESSAGE
             await interaction.followup.send(msg, ephemeral=True)
         except Exception:
             pass

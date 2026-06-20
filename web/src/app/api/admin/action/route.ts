@@ -28,8 +28,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Missing version or message" }, { status: 400 });
       }
 
+      // Keep DB update so it persists across bot restarts
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-      
       await pool.query(
         "INSERT INTO global_settings (key, value) VALUES ('current_update_version', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
         [version]
@@ -38,8 +38,10 @@ export async function POST(req: Request) {
         "INSERT INTO global_settings (key, value) VALUES ('current_update_message', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
         [message]
       );
-
       await pool.end();
+
+      // Send IPC message to notify bot instantly
+      await sendDiscordIPC(`[IPC] SET_GLOBAL_UPDATE|${version}|${message}`);
       return NextResponse.json({ success: true, message: "Global update notification updated successfully!" });
     }
 
@@ -53,10 +55,7 @@ export async function POST(req: Request) {
       }
 
       const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
-      if (!botToken) {
-        console.error("No Discord Token found on Vercel!");
-        return NextResponse.json({ error: "Missing bot token" }, { status: 500 });
-      }
+      if (!botToken) return NextResponse.json({ error: "Missing bot token" }, { status: 500 });
 
       const bodyData: any = {};
       if (content) bodyData.content = content;
@@ -64,34 +63,34 @@ export async function POST(req: Request) {
 
       const discordRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bot ${botToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Authorization": `Bot ${botToken}`, "Content-Type": "application/json" },
         body: JSON.stringify(bodyData),
       });
 
-      if (!discordRes.ok) {
-        const errData = await discordRes.json();
-        console.error("Discord API Error:", errData);
-        return NextResponse.json({ error: "Failed to send message to Discord" }, { status: discordRes.status });
-      }
-
+      if (!discordRes.ok) return NextResponse.json({ error: "Failed to send message to Discord" }, { status: discordRes.status });
       return NextResponse.json({ success: true, message: "Message sent directly via Discord API!" });
     }
 
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    
-    await pool.query(
-      "INSERT INTO bot_actions (action_type, status) VALUES ($1, 'PENDING')",
-      [actionType]
-    );
-
-    await pool.end();
-
-    return NextResponse.json({ success: true, message: `Action ${actionType} queued successfully.` });
+    // For other actions, just send an IPC message to Discord
+    await sendDiscordIPC(`[IPC] ${actionType}`);
+    return NextResponse.json({ success: true, message: `Action ${actionType} queued via Discord IPC.` });
   } catch (error) {
-    console.error("Failed to insert bot action:", error);
+    console.error("Failed to process bot action:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
+}
+
+async function sendDiscordIPC(content: string) {
+  const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
+  if (!botToken) return;
+
+  const channelId = "1517288950522187947";
+  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bot ${botToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
 }

@@ -11,7 +11,12 @@ async def init_db():
     db_conn_string = POSTGRES_URL or DATABASE_URL
     if db_conn_string:
         try:
-            db_pool = await asyncpg.create_pool(db_conn_string)
+            db_pool = await asyncpg.create_pool(
+                db_conn_string,
+                min_size=0,
+                max_size=10,
+                max_inactive_connection_lifetime=30.0
+            )
             print(f"{Log.GREEN}>>> Database pool created successfully{Log.RESET}")
             async with db_pool.acquire() as conn:
                 await conn.execute('''
