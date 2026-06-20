@@ -370,3 +370,31 @@ async def get_local_recent_tracks(user_id, limit=10):
         str(user_id), limit
     )
     return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]
+
+async def get_global_update_version():
+    if not db_pool: 
+        from src.core.config import CURRENT_UPDATE_VERSION
+        return CURRENT_UPDATE_VERSION
+    async with db_pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'current_update_version'")
+            if row and row['value']:
+                return row['value']
+        except Exception as e:
+            print(f"Error fetching global update version: {e}")
+        from src.core.config import CURRENT_UPDATE_VERSION
+        return CURRENT_UPDATE_VERSION
+
+async def get_global_update_message():
+    if not db_pool: 
+        from src.core.config import CURRENT_UPDATE_MESSAGE
+        return CURRENT_UPDATE_MESSAGE
+    async with db_pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'current_update_message'")
+            if row and row['value']:
+                return row['value']
+        except Exception as e:
+            print(f"Error fetching global update message: {e}")
+        from src.core.config import CURRENT_UPDATE_MESSAGE
+        return CURRENT_UPDATE_MESSAGE

@@ -64,12 +64,12 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
   );
 }
 
-function SendUpdateCard() {
+function PushGlobalUpdateCard() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [channelId, setChannelId] = useState("");
-  const [title, setTitle] = useState("New AI Update 🚀");
+  const [version, setVersion] = useState("v1.0.0");
   const [content, setContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [commits, setCommits] = useState<any[]>([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
@@ -92,17 +92,34 @@ function SendUpdateCard() {
     if (!sha) return;
     const commit = commits.find(c => c.sha === sha);
     if (commit) {
-      const message = commit.commit.message;
-      const titleLine = message.split('\n')[0];
-      setTitle(`🔨 ${titleLine.length > 200 ? titleLine.substring(0, 197) + "..." : titleLine}`);
       const shaShort = sha.substring(0, 7);
-      const url = commit.html_url;
-      setContent(`[${shaShort}](${url}) • <t:${Math.floor(new Date(commit.commit.author.date).getTime() / 1000)}:R>`);
+      setVersion(`v-${shaShort}`);
+      setContent(`🎉 **The Goats DJ Update \`v-${shaShort}\`** 🎉\n\n${commit.commit.message}\n\n*(You can disable these update notifications in /settings)*`);
+    }
+  };
+
+  const handleEnhanceWithAI = async () => {
+    if (!content) return;
+    setAiLoading(true);
+    try {
+      const res = await fetchApi("/api/admin/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: content }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setContent(`🎉 **The Goats DJ Update \`${version}\`** 🎉\n\n${data.result}`);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAiLoading(false);
     }
   };
 
   const handleSend = async () => {
-    if (!channelId || !content) return;
+    if (!version || !content) return;
     setLoading(true);
     setStatus("idle");
     try {
@@ -110,22 +127,15 @@ function SendUpdateCard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          actionType: "SEND_MESSAGE",
+          actionType: "SET_GLOBAL_UPDATE",
           payload: { 
-            channelId, 
-            embeds: [
-              {
-                title: title,
-                description: content,
-                color: 5814783, // Indigo
-              }
-            ]
+            version,
+            message: content
           }
         }),
       });
       if (res.ok) {
         setStatus("success");
-        setContent("");
         setTimeout(() => setStatus("idle"), 3000);
       } else {
         setStatus("error");
@@ -170,8 +180,8 @@ function SendUpdateCard() {
           </svg>
         </div>
         <div>
-          <h3 className="text-white font-bold text-lg">Send AI Update</h3>
-          <p className="text-zinc-400 text-xs">Push an update embed directly to a channel.</p>
+          <h3 className="text-white font-bold text-lg">Push Global Update</h3>
+          <p className="text-zinc-400 text-xs">Update the bot's global notification system.</p>
         </div>
       </div>
       
@@ -195,38 +205,45 @@ function SendUpdateCard() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Channel ID</label>
+          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Version ID</label>
           <input 
             type="text" 
-            value={channelId}
-            onChange={(e) => setChannelId(e.target.value)}
-            placeholder="e.g. 123456789012345678"
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+            placeholder="e.g. v1.2.0"
             className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Title</label>
-          <input 
-            type="text" 
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Embed Title"
-            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-zinc-500 mb-1 uppercase tracking-wider">Message Content</label>
+          <div className="flex justify-between items-end mb-1">
+            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Message Content</label>
+            <button 
+              onClick={handleEnhanceWithAI}
+              disabled={aiLoading || !content}
+              className="text-xs font-bold text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition-colors flex items-center gap-1 bg-indigo-500/10 px-2 py-1 rounded-md"
+            >
+              {aiLoading ? (
+                <>
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Generating...
+                </>
+              ) : "✨ Enhance with AI"}
+            </button>
+          </div>
           <textarea 
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write the update details here..."
-            rows={4}
-            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+            rows={8}
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors resize-y"
           />
         </div>
 
         <div className="mt-4 pt-4 border-t border-white/10">
-          <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wider">Embed Preview</label>
+          <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wider">Discord Message Preview</label>
           <div className="bg-[#313338] rounded-md p-4 max-w-full">
             <div className="flex gap-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#1e1f22] flex items-center justify-center border border-[#1e1f22] overflow-hidden">
@@ -244,11 +261,8 @@ function SendUpdateCard() {
                   </span>
                   <span className="text-[#949BA4] text-xs">Today at 12:00 PM</span>
                 </div>
-                <div className="bg-[#2b2d31] border-l-4 border-[#58b9ff] rounded-[4px] p-3 max-w-md mt-1">
-                  <div className="text-white font-semibold text-[15px] mb-1.5 leading-snug">{title || "Title"}</div>
-                  <div className="text-[#dbdee1] text-sm whitespace-pre-wrap leading-relaxed">
-                    {renderContent(content || "Description")}
-                  </div>
+                <div className="text-[#dbdee1] text-[15px] whitespace-pre-wrap leading-relaxed mt-1">
+                  {renderContent(content || "Description")}
                 </div>
               </div>
             </div>
@@ -257,7 +271,7 @@ function SendUpdateCard() {
 
         <button
           onClick={handleSend}
-          disabled={loading || !channelId || !content}
+          disabled={loading || !version || !content}
           className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex justify-center items-center gap-2 ${
             status === "success" ? "bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]" :
             status === "error" ? "bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]" :
@@ -270,9 +284,9 @@ function SendUpdateCard() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              Sending...
+              Pushing Update...
             </span>
-          ) : status === "success" ? "Sent!" : status === "error" ? "Failed" : "Send Notification"}
+          ) : status === "success" ? "Pushed!" : status === "error" ? "Failed" : "Push Update Notification"}
         </button>
       </div>
     </div>
@@ -438,7 +452,7 @@ export default function AdminClient() {
                   }
                 />
 
-                <SendUpdateCard />
+                <PushGlobalUpdateCard />
               </div>
 
               {/* Tables */}

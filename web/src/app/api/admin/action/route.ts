@@ -16,8 +16,31 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { actionType, payload } = body;
 
-    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES", "SEND_MESSAGE"].includes(actionType)) {
+    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES", "SEND_MESSAGE", "SET_GLOBAL_UPDATE"].includes(actionType)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    }
+
+    if (actionType === "SET_GLOBAL_UPDATE") {
+      const version = payload?.version;
+      const message = payload?.message;
+
+      if (!version || !message) {
+        return NextResponse.json({ error: "Missing version or message" }, { status: 400 });
+      }
+
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      await pool.query(
+        "INSERT INTO global_settings (key, value) VALUES ('current_update_version', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        [version]
+      );
+      await pool.query(
+        "INSERT INTO global_settings (key, value) VALUES ('current_update_message', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        [message]
+      );
+
+      await pool.end();
+      return NextResponse.json({ success: true, message: "Global update notification updated successfully!" });
     }
 
     if (actionType === "SEND_MESSAGE") {

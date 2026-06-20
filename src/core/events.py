@@ -2105,36 +2105,38 @@ async def process_receipt(user, period='overall', limit=10):
 # --- UPDATE NOTIFICATIONS ---
 async def check_update_notification(user_id: int, send_message_func):
     try:
-        from src.core.config import CURRENT_UPDATE_VERSION
-        from src.core.database import get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
+        from src.core.database import get_global_update_version, get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
         
         wants_notifs = await get_user_update_notifs(user_id)
         if not wants_notifs:
             return
             
+        current_version = await get_global_update_version()
         last_seen = await get_user_last_update_seen(user_id)
-        if last_seen != CURRENT_UPDATE_VERSION:
-            await set_user_last_update_seen(user_id, CURRENT_UPDATE_VERSION)
+        if last_seen != current_version:
+            await set_user_last_update_seen(user_id, current_version)
             await send_message_func()
     except Exception as e:
         print(f"Silently caught error in update notification check: {e}")
 
 @bot.listen('on_command_completion')
 async def update_notif_prefix(ctx):
-    from src.core.config import CURRENT_UPDATE_MESSAGE
+    from src.core.database import get_global_update_message
     async def send_msg():
         try:
-            await ctx.send(f"<@{ctx.author.id}>\n{CURRENT_UPDATE_MESSAGE}", delete_after=15.0)
+            msg = await get_global_update_message()
+            await ctx.send(f"<@{ctx.author.id}>\n{msg}", delete_after=15.0)
         except Exception:
             pass
     await check_update_notification(ctx.author.id, send_msg)
 
 @bot.listen('on_app_command_completion')
 async def update_notif_slash(interaction, command):
-    from src.core.config import CURRENT_UPDATE_MESSAGE
+    from src.core.database import get_global_update_message
     async def send_msg():
         try:
-            await interaction.followup.send(CURRENT_UPDATE_MESSAGE, ephemeral=True)
+            msg = await get_global_update_message()
+            await interaction.followup.send(msg, ephemeral=True)
         except Exception:
             pass
     await check_update_notification(interaction.user.id, send_msg)
