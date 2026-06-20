@@ -2119,13 +2119,29 @@ async def check_update_notification(user_id: int, send_message_func):
     except Exception as e:
         print(f"Silently caught error in update notification check: {e}")
 
+class DismissUpdateView(discord.ui.View):
+    def __init__(self, user_id: int):
+        super().__init__(timeout=60.0)
+        self.user_id = user_id
+
+    @discord.ui.button(label="Dismiss", style=discord.ButtonStyle.secondary, emoji="🗑️")
+    async def dismiss(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id == self.user_id:
+            try:
+                await interaction.message.delete()
+            except:
+                pass
+        else:
+            await interaction.response.send_message("Only the person who triggered this update can dismiss it.", ephemeral=True)
+
 @bot.listen('on_command_completion')
 async def update_notif_prefix(ctx):
     from src.core.database import get_global_update_message
     async def send_msg():
         try:
             msg = await get_global_update_message()
-            await ctx.send(f"<@{ctx.author.id}>\n{msg}", delete_after=15.0)
+            view = DismissUpdateView(ctx.author.id)
+            await ctx.send(f"<@{ctx.author.id}>\n{msg}", view=view, delete_after=60.0)
         except Exception:
             pass
     await check_update_notification(ctx.author.id, send_msg)
