@@ -127,9 +127,13 @@ function PushGlobalUpdateCard() {
       if (res.ok) {
         const data = await res.json();
         setContent(`🎉 **The Goats DJ Update \`${version}\`** 🎉\n\n${data.result}`);
+      } else {
+        const errData = await res.json();
+        alert(`AI Error: ${errData.error || "Something went wrong"}`);
       }
     } catch (e) {
       console.error(e);
+      alert("Failed to connect to the AI service.");
     } finally {
       setAiLoading(false);
     }
