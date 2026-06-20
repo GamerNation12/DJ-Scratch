@@ -20,7 +20,15 @@ export default function ActivityClient({ clientId }: { clientId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const sdk = new DiscordSDK(clientId);
+    let sdk: DiscordSDK;
+    try {
+      sdk = new DiscordSDK(clientId);
+    } catch (e: any) {
+      console.error("SDK Init Error:", e);
+      setError("This page must be opened within a Discord Voice Channel Activity.");
+      setLoading(false);
+      return;
+    }
 
     async function setupDiscordSdk() {
       try {
