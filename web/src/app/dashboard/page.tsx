@@ -3,6 +3,7 @@ import { fetchApi } from "@/lib/fetchApi";
 import { useSession } from "@/app/providers";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 
 export default function Dashboard() {
@@ -129,9 +130,11 @@ export default function Dashboard() {
         if (data.timezone) setTimezone(data.timezone);
         if (data.showTrackPlaycount !== undefined) setShowTrackPlaycount(data.showTrackPlaycount);
         setHasUnsavedChanges(false);
+        toast.success("Settings saved successfully!");
       }
     } catch (err) {
       console.error("Error saving settings:", err);
+      toast.error("Failed to save settings.");
     } finally {
       setSavingSettings(false);
     }
@@ -151,9 +154,11 @@ export default function Dashboard() {
         setNewSuggestionTitle("");
         setNewSuggestionDesc("");
         fetchSuggestions();
+        toast.success("Suggestion submitted!");
       }
     } catch (e) {
       console.error(e);
+      toast.error("Failed to submit suggestion.");
     } finally {
       setSubmittingSuggestion(false);
     }
@@ -253,11 +258,11 @@ export default function Dashboard() {
                   <button 
                     onClick={() => {
                       if (!userStats || !userStats.hasLastfm || !userStats.lastfm?.username) {
-                        alert("Please link a Last.fm account in the settings below to enable your public profile!");
+                        toast.error("Please link a Last.fm account in the settings below to enable your public profile!");
                         return;
                       }
                       navigator.clipboard.writeText(`${window.location.origin}/u/${userStats.lastfm.username}`);
-                      alert("Profile link copied to clipboard!");
+                      toast.success("Profile link copied to clipboard!");
                     }}
                     className="text-[10px] sm:text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1"
                   >

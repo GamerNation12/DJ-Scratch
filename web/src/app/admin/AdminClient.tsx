@@ -1,6 +1,6 @@
 "use client";
 import { fetchApi } from '@/lib/fetchApi';
-
+import { toast } from 'react-hot-toast';
 import { useState, useEffect } from "react";
 import { useSession } from "@/app/providers";
 
@@ -129,11 +129,11 @@ function PushGlobalUpdateCard() {
         setContent(`🎉 **The Goats DJ Update \`${version}\`** 🎉\n\n${data.result}`);
       } else {
         const errData = await res.json();
-        alert(`AI Error: ${errData.error || "Something went wrong"}`);
+        toast.error(`AI Error: ${errData.error || "Something went wrong"}`);
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to connect to the AI service.");
+      toast.error("Failed to connect to the AI service.");
     } finally {
       setAiLoading(false);
     }
@@ -157,12 +157,16 @@ function PushGlobalUpdateCard() {
       });
       if (res.ok) {
         setStatus("success");
+        toast.success("Global update pushed successfully!");
         setTimeout(() => setStatus("idle"), 3000);
       } else {
         setStatus("error");
+        toast.error("Failed to push update");
+        setTimeout(() => setStatus("idle"), 3000);
       }
     } catch (e) {
       setStatus("error");
+      toast.error("An error occurred while pushing the update");
     } finally {
       setLoading(false);
     }
