@@ -7,7 +7,7 @@ async function verifyOwner(req: Request) {
   const authHeader = req.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.split(' ')[1];
-  const decoded = await verifyToken(token);
+  const decoded: any = await verifyToken(token);
   if (!decoded || !decoded.id) return null;
   const role = await getAdminRole(decoded.id);
   if (role !== 'owner') return null;
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     const res = await pool.query("SELECT value FROM global_settings WHERE key = 'admin_users'");
-    let adminUsers = { admins: [], moderators: [] };
+    let adminUsers: { admins: string[], moderators: string[] } = { admins: [], moderators: [] };
     if (res.rows.length > 0) {
       adminUsers = JSON.parse(res.rows[0].value);
     }
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     try {
       const res = await pool.query("SELECT value FROM global_settings WHERE key = 'admin_users'");
-      let adminUsers = { admins: [], moderators: [] };
+      let adminUsers: { admins: string[], moderators: string[] } = { admins: [], moderators: [] };
       if (res.rows.length > 0) {
         adminUsers = JSON.parse(res.rows[0].value);
       }
@@ -90,7 +90,7 @@ export async function DELETE(req: Request) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     try {
       const res = await pool.query("SELECT value FROM global_settings WHERE key = 'admin_users'");
-      let adminUsers = { admins: [], moderators: [] };
+      let adminUsers: { admins: string[], moderators: string[] } = { admins: [], moderators: [] };
       if (res.rows.length > 0) {
         adminUsers = JSON.parse(res.rows[0].value);
       }

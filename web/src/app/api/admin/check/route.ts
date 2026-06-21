@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   }
 
   const token = authHeader.split(' ')[1];
-  const decoded = await verifyToken(token);
+  const decoded: any = await verifyToken(token);
   
   if (!decoded || !decoded.id) {
     return NextResponse.json({ role: null }, { status: 401 });

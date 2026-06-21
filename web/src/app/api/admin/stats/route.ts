@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   }
 
   const token = authHeader.split(' ')[1];
-  const decoded = await verifyToken(token);
+  const decoded: any = await verifyToken(token);
   
   const role = decoded ? await getAdminRole(decoded.id) : null;
   if (!role || (role !== "owner" && role !== "admin")) {
