@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
   const jwt = await signToken({
     id: userData.id,
-    name: userData.username,
+    name: userData.global_name || userData.username,
     email: userData.email,
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)
-      VALUES (${userData.id}, ${userData.username}, 'Website Login', 'Logged in via Discord OAuth')
+      VALUES (${userData.id}, ${userData.global_name || userData.username}, 'Website Login', 'Logged in via Discord OAuth')
     `;
     await sql`
       DELETE FROM website_logs 

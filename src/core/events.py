@@ -516,7 +516,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                     VALUES ($1, $2)
                     ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
                     """,
-                    str(user.id), user.name
+                    str(user.id), user.display_name
                 )
         except Exception as e:
             print(f"Error ensuring imported_user: {e}")
@@ -665,14 +665,14 @@ import_queue = asyncio.Queue()
 async def import_worker():
     while True:
         user, temp_filepath, is_zip, response_target = await import_queue.get()
-        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {user.name} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
+        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {user.display_name} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
         try:
             await process_discord_import_in_background(user, temp_filepath, is_zip, response_target)
         except Exception as e:
-            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {user.name}: {e}{Log.RESET}")
+            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {user.display_name}: {e}{Log.RESET}")
         finally:
             import_queue.task_done()
-            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {user.name}.{Log.RESET}")
+            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {user.display_name}.{Log.RESET}")
 
 
 
@@ -900,7 +900,7 @@ class FMDetailsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_author(name=self.bot_instance.user.display_name, icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
@@ -984,7 +984,7 @@ class FMActionsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_author(name=self.bot_instance.user.display_name, icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
@@ -1795,7 +1795,7 @@ async def process_whoknows(guild, user, artist_name):
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    footer_text = f"Requested by {user.name}"
+    footer_text = f"Requested by {user.display_name}"
     if lb[0]['name'] == user.display_name: footer_text = "👑 You hold the crown! • " + footer_text
     embed.set_footer(text=footer_text)
     return embed, None
@@ -1811,7 +1811,7 @@ async def process_suggestion(ctx_int, user, suggestion_text):
                 async with db_pool.acquire() as conn:
                     await conn.execute(
                         "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4)",
-                        str(user.id), str(user.name), title, description
+                        str(user.id), str(user.display_name), title, description
                     )
             else:
                 print(f"{Log.YELLOW}>>> DB pool not found or wrong type, skipping DB insert.{Log.RESET}")
@@ -2063,7 +2063,7 @@ class PurgeConfirmView(discord.ui.View):
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_commands.Choice[str]):
-    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.user.name}{Log.RESET}")
+    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.user.display_name}{Log.RESET}")
     if not db_pool:
         await interaction.response.send_message("❌ Database is currently offline.", ephemeral=True)
         return
