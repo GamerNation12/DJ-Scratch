@@ -106,11 +106,11 @@ export default function Navbar() {
                   href="/admin"
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                     pathname === "/admin"
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                      : "text-zinc-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                      ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                      : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                   Admin
                 </Link>
               )}
