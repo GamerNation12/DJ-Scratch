@@ -20,7 +20,7 @@ LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
 LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-USERS_FILE = "lastfm_users.json"
+
 COOLDOWN_FILE = "cooldowns.json"
 
 CURRENT_UPDATE_VERSION = "v1.2.0"

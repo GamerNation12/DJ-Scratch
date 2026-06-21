@@ -151,7 +151,7 @@ async def setup_hook():
     db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
     if db_url:
         try:
-            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require")
+            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=3)
             
             # Pass the pool to the database module
             import src.core.database as db_module
@@ -827,8 +827,12 @@ async def add_custom_reactions(message):
     except: pass
 
 # --- HELPER: DATABASE MANAGEMENT ---
-def load_users():
-    return json.load(open(USERS_FILE)) if os.path.exists(USERS_FILE) else {}
+async def load_users():
+    global db_pool
+    if not db_pool: return {}
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT user_id, lastfm_username FROM user_settings WHERE lastfm_username IS NOT NULL")
+        return {r['user_id']: r['lastfm_username'] for r in rows}
 
 async def save_user(uid, username):
     global db_pool
@@ -1260,7 +1264,7 @@ async def process_fm(ctx_int, user, mode="full"):
             guild = getattr(ctx_int, 'guild', None)
             crown_task = None
             if guild:
-                users_db = load_users()
+                users_db = await load_users()
                 linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
                 if linked:
                     async def fetch_crown():
@@ -1764,7 +1768,7 @@ async def process_whoknows(guild, user, artist_name):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
     if not guild: return None, "Must be used in a server."
-    users_db = load_users()
+    users_db = await load_users()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
     if not linked: return None, "No one in this server has linked their account."
     if not artist_name:
@@ -1831,7 +1835,7 @@ async def process_crowns(guild, user):
     username = await get_lastfm_username(user.id)
     if not username: return None, "Link your account first with `/setfm [username]`"
     
-    users_db = load_users()
+    users_db = await load_users()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
     if not linked: return None, "No one in this server has linked their account."
     
@@ -2014,14 +2018,15 @@ class PurgeConfirmView(discord.ui.View):
                 print(f"Error purging user data from DB: {e}")
         
         unlinked = False
-        try:
-            users = load_users()
-            if str(self.user.id) in users:
-                del users[str(self.user.id)]
-                with open(USERS_FILE, "w") as f: json.dump(users, f)
-                unlinked = True
-        except Exception as e:
-            print(f"Error clearing Last.fm json link: {e}")
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT lastfm_username FROM user_settings WHERE user_id=$1", str(self.user.id))
+                    if row and row['lastfm_username']:
+                        unlinked = True
+                        await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(self.user.id))
+            except Exception as e:
+                print(f"Error clearing Last.fm DB link: {e}")
 
         embed = discord.Embed(
             title="🗑️ Data Successfully Deleted",

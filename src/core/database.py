@@ -13,8 +13,8 @@ async def init_db():
         try:
             db_pool = await asyncpg.create_pool(
                 db_conn_string,
-                min_size=0,
-                max_size=10,
+                min_size=1,
+                max_size=3,
                 max_inactive_connection_lifetime=30.0
             )
             print(f"{Log.GREEN}>>> Database pool created successfully{Log.RESET}")
@@ -64,37 +64,7 @@ async def init_db():
     else:
         print(f"{Log.YELLOW}>>> No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
 
-def load_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "r") as f:
-            try:
-                return json.load(f)
-            except:
-                return {}
-    return {}
 
-def save_user(uid, username):
-    users = load_users()
-    users[str(uid)] = username
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f)
-
-async def unlink_user(uid):
-    users = load_users()
-    if str(uid) in users:
-        del users[str(uid)]
-        with open(USERS_FILE, "w") as f:
-            json.dump(users, f)
-    
-    if db_pool:
-        try:
-            async with db_pool.acquire() as conn:
-                await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(uid))
-        except Exception as e:
-            print(f"Error unlinking user in DB: {e}")
-
-def get_lastfm_username(uid):
-    return load_users().get(str(uid))
 
 async def get_user_fm_mode(user_id):
     if not db_pool: return None
