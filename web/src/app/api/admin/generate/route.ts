@@ -1,3 +1,4 @@
+import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
 import fs from 'fs';
@@ -9,7 +10,8 @@ export async function POST(req: Request) {
   const user = token ? await verifyToken(token) : null;
   const session = user ? { user } : null;
 
-  if (!session || (session.user as any)?.id !== "759433582107426816") {
+  const role = session ? await getAdminRole((session.user as any)?.id) : null;
+  if (!role || (role !== "owner" && role !== "admin")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

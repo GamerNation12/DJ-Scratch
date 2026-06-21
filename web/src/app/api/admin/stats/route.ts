@@ -1,3 +1,4 @@
+import { getAdminRole } from "@/lib/admin";
 import { NextResponse } from 'next/server';
 import { Pool } from "pg";
 import { verifyToken } from '@/lib/jwt';
@@ -11,7 +12,8 @@ export async function GET(req: Request) {
   const token = authHeader.split(' ')[1];
   const decoded = await verifyToken(token);
   
-  if (!decoded || decoded.id !== "759433582107426816") {
+  const role = decoded ? await getAdminRole(decoded.id) : null;
+  if (!role || (role !== "owner" && role !== "admin")) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

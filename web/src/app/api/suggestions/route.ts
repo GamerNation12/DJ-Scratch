@@ -1,3 +1,4 @@
+import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
@@ -12,7 +13,8 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as any)?.id;
-  const isAdmin = userId === ADMIN_ID;
+  const role = await getAdminRole(userId);
+  const isAdmin = role === "owner" || role === "admin" || role === "moderator";
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   

@@ -1,3 +1,4 @@
+import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
 import { Pool } from "pg";

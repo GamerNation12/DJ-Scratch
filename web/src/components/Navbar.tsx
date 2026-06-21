@@ -10,6 +10,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const [botMode, setBotMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<string | null>(null);
 
   useEffect(() => {
     const handleStorage = () => {
@@ -25,7 +27,25 @@ export default function Navbar() {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const isAdmin = (session?.user as any)?.id === "759433582107426816";
+  useEffect(() => {
+    if (session) {
+      import('@/lib/fetchApi').then(({ fetchApi }) => {
+        fetchApi("/api/admin/check")
+          .then(res => res.json())
+          .then(data => {
+            if (data.role) {
+              setIsAdmin(true);
+              setAdminRole(data.role);
+            } else {
+              setIsAdmin(false);
+            }
+          })
+          .catch(console.error);
+      });
+    } else {
+      setIsAdmin(false);
+    }
+  }, [session]);
 
   const displayName = botMode ? "The Goats DJ" : session?.user?.name;
   const displayImage = botMode ? "/logo.png" : session?.user?.image || "";
