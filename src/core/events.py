@@ -151,7 +151,9 @@ async def setup_hook():
     db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
     if db_url:
         try:
-            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=3)
+            if "pooler.supabase.com" in db_url and ":5432" in db_url:
+                db_url = db_url.replace(":5432", ":6543")
+            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=3, statement_cache_size=0)
             
             # Pass the pool to the database module
             import src.core.database as db_module
