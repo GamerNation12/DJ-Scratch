@@ -10,10 +10,13 @@ IPC_CHANNEL_ID = 1517288950522187947
 class AdminIPC(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.last_log_id = None
         self.push_stats.start()
+        self.poll_website_logs.start()
 
     def cog_unload(self):
         self.push_stats.cancel()
+        self.poll_website_logs.cancel()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -90,6 +93,44 @@ class AdminIPC(commands.Cog):
 
     @push_stats.before_loop
     async def before_push_stats(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(seconds=15)
+    async def poll_website_logs(self):
+        global db_pool
+        from ..core.events import db_pool, log_to_channel
+        if not db_pool:
+            return
+            
+        try:
+            async with db_pool.acquire() as conn:
+                if self.last_log_id is None:
+                    # On first run, just get the max ID so we don't spam old logs
+                    row = await conn.fetchrow("SELECT MAX(id) FROM website_logs")
+                    self.last_log_id = row[0] if row and row[0] else 0
+                    return
+                
+                rows = await conn.fetch("SELECT id, user_id, username, action, details, timestamp FROM website_logs WHERE id > $1 ORDER BY id ASC", self.last_log_id)
+                for row in rows:
+                    log_id = row['id']
+                    self.last_log_id = max(self.last_log_id, log_id)
+                    
+                    embed = discord.Embed(
+                        title="🌐 Website Activity",
+                        color=discord.Color.blue(),
+                        timestamp=row['timestamp']
+                    )
+                    embed.add_field(name="User", value=f"{row['username']} (`{row['user_id']}`)", inline=False)
+                    embed.add_field(name="Action", value=f"**{row['action']}**", inline=False)
+                    embed.add_field(name="Details", value=row['details'] or "None", inline=False)
+                    
+                    await log_to_channel("website-log", embed)
+                    
+        except Exception as e:
+            print(f"{Log.RED}>>> [IPC] Website logs poll error: {e}{Log.RESET}")
+
+    @poll_website_logs.before_loop
+    async def before_poll_website_logs(self):
         await self.bot.wait_until_ready()
 
 async def setup(bot):
