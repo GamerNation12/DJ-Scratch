@@ -23,7 +23,7 @@ export default function Home() {
   if (!mounted || status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -31,12 +31,12 @@ export default function Home() {
   const displayAvatars = stats.topAvatars || [];
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-orange-500/30 overflow-hidden relative flex flex-col items-center">
+    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-cyan-500/30 overflow-hidden relative flex flex-col items-center">
       {/* Premium Animated Mesh Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex justify-center items-center opacity-50">
-        <div className="absolute w-[800px] h-[800px] bg-orange-600/20 rounded-full blur-[120px] mix-blend-screen animate-blob"></div>
-        <div className="absolute w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[120px] mix-blend-screen animate-blob animation-delay-200"></div>
-        <div className="absolute w-[700px] h-[700px] bg-red-600/10 rounded-full blur-[120px] mix-blend-screen animate-blob animation-delay-400"></div>
+        <div className="absolute w-[800px] h-[800px] bg-cyan-600/20 rounded-full blur-[120px] mix-blend-screen animate-blob"></div>
+        <div className="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] mix-blend-screen animate-blob animation-delay-200"></div>
+        <div className="absolute w-[700px] h-[700px] bg-teal-600/10 rounded-full blur-[120px] mix-blend-screen animate-blob animation-delay-400"></div>
       </div>
       
       {/* Grid Pattern Overlay */}
@@ -47,12 +47,12 @@ export default function Home() {
         {/* Hero Section */}
         <section className="container mx-auto px-4 pt-32 pb-24 text-center flex flex-col items-center min-h-[85vh] justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-300 text-xs font-semibold mb-8 backdrop-blur-md animate-fade-in-up uppercase tracking-widest hover:bg-white/10 transition-colors">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
             The Ultimate Music Bot
           </div>
           <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter mb-6 leading-[0.95] max-w-5xl mx-auto animate-fade-in-up animation-delay-100">
             Elevate Your <br className="hidden sm:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-br from-orange-400 via-red-400 to-amber-400 drop-shadow-sm">
+            <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 via-teal-400 to-cyan-400 drop-shadow-sm">
               Server's Vibe.
             </span>
           </h1>
@@ -93,7 +93,7 @@ export default function Home() {
                   <img src={src} alt="Top User" className="w-full h-full object-cover" />
                 </div>
               ))}
-              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-zinc-800 flex items-center justify-center text-[11px] font-bold text-white shadow-lg shadow-orange-500/10 backdrop-blur-md">
+              <div className="w-10 h-10 rounded-full border-2 border-[#09090b] bg-zinc-800 flex items-center justify-center text-[11px] font-bold text-white shadow-lg shadow-cyan-500/10 backdrop-blur-md">
                 +{stats.totalUsers ? (stats.totalUsers > displayAvatars.length ? stats.totalUsers - displayAvatars.length : 0) : '...'}
               </div>
             </div>
@@ -107,7 +107,7 @@ export default function Home() {
         <section id="features" className="container mx-auto px-4 py-32 w-full max-w-7xl relative z-10">
           <div className="mb-20 text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-8">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/20 bg-orange-500/10 text-orange-300 text-xs font-semibold mb-6 uppercase tracking-widest">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 text-xs font-semibold mb-6 uppercase tracking-widest">
                 Features
               </div>
               <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-500">
@@ -121,55 +121,55 @@ export default function Home() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]">
             {/* Row 1: Large Span - Deep Last.fm */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-orange-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/20 flex flex-col justify-between">
-              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-orange-500/10 via-transparent to-transparent pointer-events-none"></div>
-              <div className="absolute -top-32 -right-32 w-96 h-96 bg-orange-500/20 rounded-full blur-[100px] group-hover:bg-orange-500/30 transition-colors duration-700"></div>
+            <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-cyan-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/20 flex flex-col justify-between">
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent pointer-events-none"></div>
+              <div className="absolute -top-32 -right-32 w-96 h-96 bg-cyan-500/20 rounded-full blur-[100px] group-hover:bg-cyan-500/30 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 opacity-20 group-hover:opacity-100 transition-opacity duration-500 hidden sm:block">
                 <div className="bg-zinc-950/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-64 shadow-2xl transform rotate-3 group-hover:rotate-6 transition-transform duration-500">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-500 to-orange-500 animate-pulse"></div>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 animate-pulse"></div>
                     <div>
                       <div className="h-3 w-24 bg-white/20 rounded-full mb-1"></div>
                       <div className="h-2 w-16 bg-white/10 rounded-full"></div>
                     </div>
                   </div>
                   <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-orange-500 w-2/3"></div>
+                    <div className="h-full bg-cyan-500 w-2/3"></div>
                   </div>
                 </div>
               </div>
               
               <div className="relative z-10 mt-auto">
-                <div className="w-14 h-14 bg-orange-500/20 border border-orange-500/30 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(99,102,241,0.3)]">🎵</div>
+                <div className="w-14 h-14 bg-cyan-500/20 border border-cyan-500/30 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(99,102,241,0.3)]">🎵</div>
                 <h3 className="text-3xl font-bold mb-3 text-white tracking-tight">Deep Last.fm Integration</h3>
                 <p className="text-zinc-400 text-lg font-medium leading-relaxed max-w-md">Connect your account once and instantly share real-time plays, recent scrobbles, and deep listening statistics directly in Discord.</p>
               </div>
             </div>
 
             {/* Row 1: Small - Dynamic Avatar */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
-              <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/20 rounded-full blur-[80px] group-hover:bg-amber-500/30 transition-colors duration-700"></div>
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-cyan-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/20 flex flex-col justify-between">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-[80px] group-hover:bg-cyan-500/30 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex items-center justify-center opacity-30 group-hover:opacity-100 transition-all duration-700">
-                <div className="w-16 h-16 rounded-full border-4 border-amber-500/30 border-t-amber-400 animate-spin"></div>
+                <div className="w-16 h-16 rounded-full border-4 border-cyan-500/30 border-t-cyan-400 animate-spin"></div>
               </div>
 
               <div className="relative z-10 mt-auto">
-                <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
+                <div className="w-12 h-12 bg-cyan-500/20 border border-cyan-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
                 <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Interactive Bot Avatar</h3>
                 <p className="text-zinc-400 font-medium leading-relaxed">Run the `/fm` command and click the avatar button on your track to preview what the bot's profile picture would look like with your album cover—then choose to apply it!</p>
               </div>
             </div>
 
             {/* Row 2: Small - Server Leaderboards */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-500/20 flex flex-col justify-between">
-              <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] group-hover:bg-amber-500/20 transition-colors duration-700"></div>
+            <div className="md:col-span-1 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-cyan-500/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/20 flex flex-col justify-between">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] group-hover:bg-cyan-500/20 transition-colors duration-700"></div>
               
               <div className="absolute top-10 right-10 flex flex-col gap-2 opacity-30 group-hover:opacity-100 transition-all duration-700">
-                <div className="flex items-center gap-2 bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-500/30">
-                  <span className="text-xs font-bold text-amber-400">#1</span>
-                  <div className="w-4 h-4 rounded-full bg-amber-400/50"></div>
+                <div className="flex items-center gap-2 bg-cyan-500/20 px-3 py-1.5 rounded-full border border-cyan-500/30">
+                  <span className="text-xs font-bold text-cyan-400">#1</span>
+                  <div className="w-4 h-4 rounded-full bg-cyan-400/50"></div>
                 </div>
                 <div className="flex items-center gap-2 bg-zinc-800/50 px-3 py-1.5 rounded-full border border-white/5 ml-4">
                   <span className="text-xs font-bold text-zinc-500">#2</span>
@@ -178,7 +178,7 @@ export default function Home() {
               </div>
 
               <div className="relative z-10 mt-auto">
-                <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">👑</div>
+                <div className="w-12 h-12 bg-cyan-500/20 border border-cyan-500/30 rounded-2xl flex items-center justify-center text-2xl mb-5">👑</div>
                 <h3 className="text-2xl font-bold mb-2 text-white tracking-tight">Server Leaderboards</h3>
                 <p className="text-zinc-400 font-medium leading-relaxed">Discover the top listeners for any artist and compete for the #1 spot on your server's global leaderboard.</p>
               </div>
@@ -244,10 +244,10 @@ export default function Home() {
               
               <div className="absolute top-10 right-10 hidden sm:flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
                 <span className="flex h-3 w-3 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
                 </span>
-                <span className="text-xs font-mono text-amber-400 font-bold">12ms PING</span>
+                <span className="text-xs font-mono text-cyan-400 font-bold">12ms PING</span>
               </div>
 
               <div className="relative z-10 mt-auto">

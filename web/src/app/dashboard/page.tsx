@@ -134,7 +134,7 @@ export default function Dashboard() {
         toast.error("Failed to submit.");
       }
     } catch (err) {
-      toast.error("An error occurred.");
+      toast.error("An error occurteal.");
     } finally {
       setSubmittingSuggestion(false);
     }
@@ -143,7 +143,7 @@ export default function Dashboard() {
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
-        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -151,8 +151,8 @@ export default function Dashboard() {
   const getStatusBadge = (s: string) => {
     switch(s) {
       case 'approved': return <span className="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-[10px] font-bold uppercase">Approved</span>;
-      case 'denied': return <span className="px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] font-bold uppercase">Denied</span>;
-      case 'completed': return <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded text-[10px] font-bold uppercase">Released</span>;
+      case 'denied': return <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded text-[10px] font-bold uppercase">Denied</span>;
+      case 'completed': return <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded text-[10px] font-bold uppercase">Released</span>;
       default: return <span className="px-2 py-0.5 bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 rounded text-[10px] font-bold uppercase">Pending</span>;
     }
   };
@@ -161,36 +161,36 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#09090b] text-white flex flex-col md:flex-row font-sans pt-16 relative">
       {/* Background glowing mesh */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 opacity-40">
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-orange-600/10 rounded-full blur-[120px] mix-blend-screen"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px] mix-blend-screen"></div>
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[120px] mix-blend-screen"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-teal-600/10 rounded-full blur-[120px] mix-blend-screen"></div>
       </div>
 
       {/* Sidebar Layout */}
       <aside className="w-full md:w-64 flex-shrink-0 border-b md:border-b-0 md:border-r border-white/10 bg-zinc-950/50 backdrop-blur-2xl z-10 hidden md:block relative">
         <div className="p-6 sticky top-16">
           <div className="flex items-center gap-3 mb-8">
-            <img src={session?.user?.image || "/logo.png"} alt="Avatar" className="w-10 h-10 rounded-full border border-orange-500/30" />
+            <img src={session?.user?.image || "/logo.png"} alt="Avatar" className="w-10 h-10 rounded-full border border-cyan-500/30" />
             <div>
               <p className="text-sm font-bold text-white leading-tight">{session?.user?.name}</p>
-              <p className="text-xs text-orange-400 font-medium">DJ Dashboard</p>
+              <p className="text-xs text-cyan-400 font-medium">DJ Dashboard</p>
             </div>
           </div>
 
           <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Menu</h2>
           <nav className="space-y-1">
-            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
               Overview
             </button>
-            <button onClick={() => setActiveTab('embed')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'embed' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <button onClick={() => setActiveTab('embed')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'embed' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
               Embed Settings
             </button>
-            <button onClick={() => setActiveTab('privacy')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'privacy' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <button onClick={() => setActiveTab('privacy')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'privacy' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               Privacy
             </button>
-            <button onClick={() => setActiveTab('feedback')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'feedback' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <button onClick={() => setActiveTab('feedback')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'feedback' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'}`}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
               Feedback
             </button>
@@ -200,10 +200,10 @@ export default function Dashboard() {
 
       {/* Mobile Nav */}
       <div className="md:hidden w-full overflow-x-auto flex gap-2 p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md sticky top-14 z-20 styled-scrollbar">
-        <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'overview' ? 'bg-orange-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Overview</button>
-        <button onClick={() => setActiveTab('embed')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'embed' ? 'bg-orange-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Embed Settings</button>
-        <button onClick={() => setActiveTab('privacy')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'privacy' ? 'bg-orange-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Privacy</button>
-        <button onClick={() => setActiveTab('feedback')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'feedback' ? 'bg-orange-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Feedback</button>
+        <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'overview' ? 'bg-cyan-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Overview</button>
+        <button onClick={() => setActiveTab('embed')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'embed' ? 'bg-cyan-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Embed Settings</button>
+        <button onClick={() => setActiveTab('privacy')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'privacy' ? 'bg-cyan-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Privacy</button>
+        <button onClick={() => setActiveTab('feedback')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'feedback' ? 'bg-cyan-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Feedback</button>
       </div>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-5xl mx-auto pb-32 z-10 relative">
@@ -219,8 +219,8 @@ export default function Dashboard() {
 
         {activeTab === 'overview' && (
           <div className="space-y-8 animate-fade-in-up">
-            <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:border-orange-500/20 transition-all">
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/20 transition-colors"></div>
+            <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:border-cyan-500/20 transition-all">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] group-hover:bg-cyan-500/20 transition-colors"></div>
               <h3 className="text-xl font-bold text-white mb-6">Live Now Playing</h3>
               <NowPlayingWidget />
             </div>
@@ -228,15 +228,17 @@ export default function Dashboard() {
             {userStats && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-400 to-red-500"></div>
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-400 to-teal-500"></div>
                   <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-2">Total Scrobbles</p>
-                  <h4 className="text-4xl font-black text-white">{userStats.playcount.toLocaleString()}</h4>
+                  <h4 className="text-4xl font-black text-white">{(userStats.lastfm?.playcount || userStats.spotify?.playcount || 0).toLocaleString()}</h4>
                 </div>
-                <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-400 to-pink-500"></div>
-                  <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-2">Registered On</p>
-                  <h4 className="text-xl font-bold text-white mt-2">{new Date(userStats.registered * 1000).toLocaleDateString()}</h4>
-                </div>
+                {userStats.lastfm?.registered && (
+                  <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-pink-500"></div>
+                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-2">Registered On</p>
+                    <h4 className="text-xl font-bold text-white mt-2">{new Date(userStats.lastfm.registered * 1000).toLocaleDateString()}</h4>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -253,7 +255,7 @@ export default function Dashboard() {
                   <button 
                     key={mode}
                     onClick={() => setUnsavedFmMode(mode as any)}
-                    className={`p-4 rounded-xl border text-left transition-all ${unsavedFmMode === mode ? 'bg-orange-500/10 border-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'bg-black/20 border-white/5 text-zinc-400 hover:bg-white/5'}`}
+                    className={`p-4 rounded-xl border text-left transition-all ${unsavedFmMode === mode ? 'bg-cyan-500/10 border-cyan-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'bg-black/20 border-white/5 text-zinc-400 hover:bg-white/5'}`}
                   >
                     <div className="font-bold mb-1 capitalize">{mode} Layout</div>
                     <div className="text-xs opacity-70">
@@ -274,7 +276,7 @@ export default function Dashboard() {
                     <div className="font-bold text-white">Show Track Features</div>
                     <div className="text-sm text-zinc-400">Fetch Spotify API to display track tempo, key, and mood.</div>
                   </div>
-                  <input type="checkbox" checked={unsavedShowFeatures} onChange={(e) => setUnsavedShowFeatures(e.target.checked)} className="w-5 h-5 rounded border-zinc-700 text-orange-500 focus:ring-orange-500 focus:ring-offset-zinc-900 bg-zinc-900" />
+                  <input type="checkbox" checked={unsavedShowFeatures} onChange={(e) => setUnsavedShowFeatures(e.target.checked)} className="w-5 h-5 rounded border-zinc-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-zinc-900 bg-zinc-900" />
                 </label>
 
                 <label className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-colors cursor-pointer">
@@ -282,7 +284,7 @@ export default function Dashboard() {
                     <div className="font-bold text-white">Show Track Playcount</div>
                     <div className="text-sm text-zinc-400">Display how many times you've played the current track in the embed footer.</div>
                   </div>
-                  <input type="checkbox" checked={unsavedShowTrackPlaycount} onChange={(e) => setUnsavedShowTrackPlaycount(e.target.checked)} className="w-5 h-5 rounded border-zinc-700 text-orange-500 focus:ring-orange-500 focus:ring-offset-zinc-900 bg-zinc-900" />
+                  <input type="checkbox" checked={unsavedShowTrackPlaycount} onChange={(e) => setUnsavedShowTrackPlaycount(e.target.checked)} className="w-5 h-5 rounded border-zinc-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-zinc-900 bg-zinc-900" />
                 </label>
 
                 <div className="space-y-2">
@@ -291,7 +293,7 @@ export default function Dashboard() {
                   <select 
                     value={unsavedDataSource} 
                     onChange={(e) => setUnsavedDataSource(e.target.value as any)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500"
                   >
                     <option value="combined">Combined (Best of both)</option>
                     <option value="spotify">Spotify Only (Max Quality)</option>
@@ -305,19 +307,19 @@ export default function Dashboard() {
 
         {activeTab === 'privacy' && (
           <div className="space-y-6 animate-fade-in-up">
-            <div className="bg-zinc-900/40 backdrop-blur-xl border border-red-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-[50px] group-hover:bg-red-500/20 transition-colors"></div>
+            <div className="bg-zinc-900/40 backdrop-blur-xl border border-teal-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-[50px] group-hover:bg-teal-500/20 transition-colors"></div>
               <h2 className="text-xl font-bold text-white mb-2">Privacy & Visibility</h2>
               <p className="text-zinc-400 text-sm mb-6">Control who can see your listening data.</p>
               
-              <label className="flex items-center justify-between p-5 rounded-xl bg-black/30 border border-red-500/20 hover:border-red-500/40 transition-colors cursor-pointer">
+              <label className="flex items-center justify-between p-5 rounded-xl bg-black/30 border border-teal-500/20 hover:border-teal-500/40 transition-colors cursor-pointer">
                 <div>
                   <div className="font-bold text-white flex items-center gap-2">
-                    Private Mode <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] uppercase tracking-wider">Strict</span>
+                    Private Mode <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 rounded text-[10px] uppercase tracking-wider">Strict</span>
                   </div>
                   <div className="text-sm text-zinc-400 mt-1">If enabled, other users cannot use `/fm user:@you` to check your stats.</div>
                 </div>
-                <input type="checkbox" checked={unsavedPrivateMode} onChange={(e) => setUnsavedPrivateMode(e.target.checked)} className="w-5 h-5 rounded border-red-900 text-red-500 focus:ring-red-500 focus:ring-offset-zinc-900 bg-zinc-900" />
+                <input type="checkbox" checked={unsavedPrivateMode} onChange={(e) => setUnsavedPrivateMode(e.target.checked)} className="w-5 h-5 rounded border-teal-900 text-teal-500 focus:ring-teal-500 focus:ring-offset-zinc-900 bg-zinc-900" />
               </label>
 
               <div className="mt-8 space-y-2">
@@ -326,7 +328,7 @@ export default function Dashboard() {
                 <select 
                   value={unsavedTimezone} 
                   onChange={(e) => setUnsavedTimezone(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500"
                 >
                   <option value="UTC">UTC (Default)</option>
                   <option value="America/New_York">Eastern Time (US)</option>
@@ -355,7 +357,7 @@ export default function Dashboard() {
                     value={newSuggestionTitle}
                     onChange={(e) => setNewSuggestionTitle(e.target.value)}
                     required
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   />
                 </div>
                 <div>
@@ -365,13 +367,13 @@ export default function Dashboard() {
                     onChange={(e) => setNewSuggestionDesc(e.target.value)}
                     required
                     rows={4}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   ></textarea>
                 </div>
                 <button 
                   type="submit" 
                   disabled={submittingSuggestion || !newSuggestionTitle || !newSuggestionDesc}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all"
+                  className="w-full bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all"
                 >
                   {submittingSuggestion ? "Submitting..." : "Send Feedback"}
                 </button>
@@ -394,9 +396,9 @@ export default function Dashboard() {
                       </div>
                       <p className="text-sm text-zinc-400 mb-3">{s.description}</p>
                       {s.admin_feedback && (
-                        <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                          <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Developer Reply</p>
-                          <p className="text-sm text-orange-100">{s.admin_feedback}</p>
+                        <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl">
+                          <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-1">Developer Reply</p>
+                          <p className="text-sm text-cyan-100">{s.admin_feedback}</p>
                         </div>
                       )}
                     </div>
@@ -432,7 +434,7 @@ export default function Dashboard() {
             <button 
               onClick={saveSettings}
               disabled={savingSettings}
-              className="px-6 py-2.5 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all flex-1 sm:flex-none"
+              className="px-6 py-2.5 rounded-xl font-bold bg-cyan-500 hover:bg-cyan-600 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all flex-1 sm:flex-none"
             >
               {savingSettings ? "Saving..." : "Save Changes"}
             </button>
