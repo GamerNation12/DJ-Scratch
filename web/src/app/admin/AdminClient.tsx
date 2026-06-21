@@ -382,7 +382,7 @@ export default function AdminClient() {
     return null;
   }
 
-  const { totalPlays, totalUsers, botStats, commandUsage } = statsData;
+  const { totalPlays, totalUsers, botStats, commandUsage, statusActivity } = statsData;
   const servers = botStats?.servers || [];
 
   const StatCard = ({ title, value, icon, color }: any) => (
@@ -420,6 +420,12 @@ export default function AdminClient() {
               Command Center
             </h1>
             <p className="text-zinc-400 mt-2 text-lg">System analytics and administrative controls.</p>
+            {statusActivity && (
+              <p className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/20 font-medium">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                Bot is listening to: <strong className="text-white">{statusActivity}</strong>
+              </p>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full md:w-auto">
             <button 

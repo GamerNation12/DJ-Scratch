@@ -48,6 +48,9 @@ export default function Dashboard() {
   const [userStats, setUserStats] = useState<any>(null);
   const [userStatsLoading, setUserStatsLoading] = useState(true);
 
+  // Bot Status State
+  const [botStatus, setBotStatus] = useState<string | null>(null);
+
   useEffect(() => {
     if (session) {
       fetchApi("/api/settings")
@@ -73,6 +76,13 @@ export default function Dashboard() {
         })
         .catch(console.error)
         .finally(() => setUserStatsLoading(false));
+
+      fetchApi("/api/bot-status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status) setBotStatus(data.status);
+        })
+        .catch(console.error);
     }
   }, [session]);
 
@@ -248,12 +258,21 @@ export default function Dashboard() {
                 <img 
                   src={session?.user?.image || "/logo.png"} 
                   alt="Avatar" 
-                  className="w-20 h-20 rounded-full border-2 border-white/20 shadow-2xl relative z-10"
+                  className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10"
                 />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-white">{session?.user?.name}</h1>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
+                  Welcome back, <span className="text-indigo-400">{session?.user?.name}</span>
+                </h1>
+                <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
+                {botStatus && (
+                  <p className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/20 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                    Bot is currently listening to: <strong className="text-white">{botStatus}</strong>
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-4">
                   <p className="text-indigo-400 text-xs sm:text-sm font-semibold uppercase tracking-widest">Discord Connected</p>
                   <button 
                     onClick={() => {

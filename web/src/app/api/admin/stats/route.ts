@@ -20,6 +20,7 @@ export async function GET(req: Request) {
   let totalPlays = 0;
   let totalUsers = 0;
   let botStats = null;
+  let statusActivity = null;
   let commandUsage = [];
   
   try {
@@ -34,6 +35,11 @@ export async function GET(req: Request) {
       botStats = JSON.parse(botStatsResult.rows[0].value);
     }
 
+    const botStatusResult = await pool.query("SELECT value FROM global_settings WHERE key = 'bot_status'");
+    if (botStatusResult.rows.length > 0) {
+      statusActivity = botStatusResult.rows[0].value;
+    }
+
     const commandsResult = await pool.query("SELECT command_name, usage_count FROM command_usage ORDER BY usage_count DESC LIMIT 5");
     commandUsage = commandsResult.rows;
 
@@ -44,5 +50,5 @@ export async function GET(req: Request) {
     await pool.end();
   }
   
-  return NextResponse.json({ totalPlays, totalUsers, botStats, commandUsage });
+  return NextResponse.json({ totalPlays, totalUsers, botStats, commandUsage, statusActivity });
 }
