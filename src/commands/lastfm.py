@@ -70,6 +70,17 @@ class LastFmCog(commands.Cog):
                     is_p = t.get('@attr', {}).get('nowplaying') == 'true'
                     if is_p:
                         artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        
+                        try:
+                            from src.core.spotify import get_spotify_track_info
+                            session = getattr(self.bot, 'session', None)
+                            if session:
+                                s_info = await get_spotify_track_info(session, artist, song)
+                                if s_info and s_info.get("image_url"):
+                                    img = s_info.get("image_url")
+                        except Exception as e:
+                            print(f"Spotify fetch error in cd_slash: {e}")
+
                         if img:
                             preview_embed = discord.Embed(
                                 title="Bot Avatar Preview", 
@@ -311,6 +322,17 @@ class LastFmCog(commands.Cog):
                     is_p = t.get('@attr', {}).get('nowplaying') == 'true'
                     if is_p:
                         artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        
+                        try:
+                            from src.core.spotify import get_spotify_track_info
+                            session = getattr(self.bot, 'session', None)
+                            if session:
+                                s_info = await get_spotify_track_info(session, artist, song)
+                                if s_info and s_info.get("image_url"):
+                                    img = s_info.get("image_url")
+                        except Exception as e:
+                            print(f"Spotify fetch error in cd_prefix: {e}")
+
                         if img:
                             preview_embed = discord.Embed(
                                 title="Bot Avatar Preview", 

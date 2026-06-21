@@ -1259,7 +1259,7 @@ async def process_fm(ctx_int, user, mode="full"):
             
             embed = discord.Embed(description=chr(10).join(desc_lines), color=color)
             embed.set_author(name=f"Now playing for {user.display_name}" if is_p else f"Last played by {user.display_name}")
-            if img: embed.set_thumbnail(url=img)
+            if img: embed.set_image(url=img)
             
             a_info_task = asyncio.create_task(fetch_artist_info(username, artist))
             
@@ -1316,7 +1316,7 @@ async def process_fm(ctx_int, user, mode="full"):
         desc = chr(10).join(desc_lines)
         embed = discord.Embed(description=desc, color=color)
         embed.set_author(name=f"{user.display_name}'s {status}", icon_url=user.display_avatar.url)
-        if img: embed.set_thumbnail(url=img)
+        if img: embed.set_image(url=img)
         
         footer_text = f"Scrobbling as {username}"
         if cd > 0:
