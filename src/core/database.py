@@ -2,7 +2,7 @@ import json
 import os
 import asyncpg
 from datetime import datetime, timedelta
-from .config import POSTGRES_URL, DATABASE_URL, USERS_FILE, Log, PERIOD_TO_DAYS
+from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
 
 db_pool = None
 

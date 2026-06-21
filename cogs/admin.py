@@ -99,7 +99,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
     async def wipe_data(self, ctx):
         msg = await ctx.send("🧨 Wiping ALL imported data from the database. This cannot be undone...")
         try:
-            from src.core.database import db_pool, USERS_FILE
+            from src.core.database import db_pool
             import json
             import os
             
@@ -111,10 +111,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
                 await conn.execute("TRUNCATE TABLE listens;")
                 await conn.execute("TRUNCATE TABLE imported_users;")
                 
-            if os.path.exists(USERS_FILE):
-                with open(USERS_FILE, "w") as f:
-                    json.dump({}, f)
-                
+                await conn.execute("TRUNCATE TABLE user_settings;")
             await msg.edit(content="✅ Successfully wiped ALL data (listens, users, settings). Rebuild from the ground up!")
             print(f"{Log.RED}>>> Owner executed global wipe of all tables.{Log.RESET}")
         except Exception as e:

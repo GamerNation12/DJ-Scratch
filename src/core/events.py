@@ -32,7 +32,7 @@ bot.remove_command('help')
 # === LAST.FM CONFIG ===
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
 OWNER_ID = 759433582107426816
-USERS_FILE = "lastfm_users.json"
+
 COOLDOWN_FILE = "avatar_cooldown.txt"
 from src.core.theme import Theme
 LASTFM_COLOR = Theme.PRIMARY 
