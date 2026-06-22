@@ -1,18 +1,20 @@
 "use client";
 import { fetchApi } from "@/lib/fetchApi";
 import { useSession } from "@/app/providers";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 import Link from "next/link";
 
-export default function CombinedProfileDashboard({ params }: { params: { username: string } }) {
+export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
+  const resolvedParams = use(params);
+  const usernameParam = resolvedParams.username;
   const { data: session, status } = useSession();
   const router = useRouter();
   
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
-  const isOwner = status === "authenticated" && displayUsername && displayUsername === params.username;
+  const isOwner = status === "authenticated" && displayUsername && displayUsername === usernameParam;
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions">("profile");
@@ -54,7 +56,7 @@ export default function CombinedProfileDashboard({ params }: { params: { usernam
   // Fetch Public Profile Data
   useEffect(() => {
     setProfileLoading(true);
-    fetchApi(`/api/u/${params.username}`)
+    fetchApi(`/api/u/${usernameParam}`)
       .then(res => res.json())
       .then(data => {
         if (data.error) setProfileError(data.error);
@@ -62,7 +64,7 @@ export default function CombinedProfileDashboard({ params }: { params: { usernam
       })
       .catch(() => setProfileError("Failed to load profile."))
       .finally(() => setProfileLoading(false));
-  }, [params.username]);
+  }, [usernameParam]);
 
   // Fetch Dashboard Data (only if owner)
   useEffect(() => {
@@ -301,7 +303,7 @@ export default function CombinedProfileDashboard({ params }: { params: { usernam
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-2">{profile?.users?.[0]?.name || params.username}</h1>
+                  <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
                   <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest">The Goats DJ Profile</p>
                 </>
               )}
