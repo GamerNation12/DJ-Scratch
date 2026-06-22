@@ -1085,7 +1085,7 @@ async def get_settings_embed(user_id, user):
     embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
     embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
-    source_label = "Imported Only" if d_source == 'imported_only' else "Last.fm + Imported"
+    source_label = "Imported Only" if d_source == 'imported_only' else ("Last.fm Only" if d_source == 'lastfm_only' else "Last.fm + Imported")
     embed.add_field(name="Data Source", value=f"`{source_label}`", inline=True)
     
     embed.set_footer(text="Use the dropdown below to change your settings.")
@@ -1367,7 +1367,9 @@ async def process_top_artists(user, input_period=None):
             if data and 'topartists' in data:
                 lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
-    local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
+    local_data = {}
+    if d_source != 'lastfm_only':
+        local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_data:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -1398,7 +1400,9 @@ async def process_top_tracks(user, input_period=None):
                     key = (t['name'], t['artist']['name'])
                     lastfm_tracks[key] = int(t['playcount'])
 
-    local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
+    local_tracks = []
+    if d_source != 'lastfm_only':
+        local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_tracks:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -1557,7 +1561,9 @@ async def process_artist_tracks(user, artist_name):
         for t_name, playcount in tracks:
             lastfm_tracks[t_name] = playcount
 
-    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=None)
+    local_tracks = []
+    if d_source != 'lastfm_only':
+        local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=None)
 
     if not username and not local_tracks:
         return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -1603,14 +1609,17 @@ async def process_recent(user):
             embed.set_footer(text=f"Scrobbling as {username}")
             return embed, None
     # Fallback to local DB
-    local = await get_local_recent_tracks(user.id, 10)
-    if not local: return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
-    lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
-    embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Requested by {user.display_name} • Using Imported Data", icon_url=user.display_avatar.url)
-    return embed, None
+    if d_source != 'lastfm_only':
+        local = await get_local_recent_tracks(user.id, 10)
+        if local:
+            lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
+            embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            embed.set_author(name=f"{user.display_name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text=f"Requested by {user.display_name} • Using Imported Data", icon_url=user.display_avatar.url)
+            return embed, None
+    return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+
 
 async def process_judge(user):
     username = await get_lastfm_username(user.id)
@@ -1624,7 +1633,9 @@ async def process_judge(user):
             for a in data['topartists']['artist']:
                 artists_dict[a['name']] = int(a['playcount'])
     
-    local_artists = await get_local_top_artists(user.id, 50, 'overall')
+    local_artists = {}
+    if d_source != 'lastfm_only':
+        local_artists = await get_local_top_artists(user.id, 50, 'overall')
     for a, c in local_artists.items():
         artists_dict[a] = max(artists_dict.get(a, 0), c)
         
@@ -1750,6 +1761,10 @@ async def process_profile(user):
             if d_source == 'imported_only':
                 total = local_total
                 embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
+            elif d_source == 'lastfm_only':
+                total = lastfm_plays
+                embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
+                embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             else:
                 total = max(lastfm_plays, local_total)
                 embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)

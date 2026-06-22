@@ -28,7 +28,7 @@ async def get_settings_embed(user_id, user):
     embed.add_field(name="**Featured Artists**", value=f"> {feat_desc}\n*Extracts features from song names to show them in the artist field.*", inline=False)
     
     # Data source
-    ds_desc = "📦 Imported Only" if d_source == "imported_only" else "🔄 Last.fm + Imported"
+    ds_desc = "📦 Imported Only" if d_source == "imported_only" else ("🎧 Last.fm Only" if d_source == "lastfm_only" else "🔄 Last.fm + Imported")
     embed.add_field(name="**Data Source**", value=f"> {ds_desc}\n*Choose whether to include your live Last.fm data along with your imported history.*", inline=False)
     
     # Track Playcount
@@ -58,6 +58,7 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
             discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
             discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
+            discord.SelectOption(label="Data: Last.fm Only", description="Use strictly your Last.fm Data", emoji="🎧", value="ds_lastfm_only"),
             discord.SelectOption(label="Show Track Playcount", description="Show playcount on /fm", emoji="👀", value="pc_on"),
             discord.SelectOption(label="Hide Track Playcount", description="Hide playcount on /fm", emoji="🙈", value="pc_off"),
             discord.SelectOption(label="Enable Update Notifs", description="Turn on update alerts", emoji="🔔", value="notifs_on"),
