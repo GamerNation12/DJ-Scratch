@@ -22,8 +22,9 @@ async function getSpotifyToken() {
       body: 'grant_type=client_credentials'
     });
     if (!res.ok) {
-      console.error("Spotify token error:", await res.text());
-      return null;
+      const errorText = await res.text();
+      console.error("Spotify token error:", errorText);
+      return { token: null, error: `Token HTTP ${res.status}: ${errorText}` };
     }
     const data = await res.json();
     return { token: data.access_token, error: null };
@@ -39,8 +40,9 @@ async function getSpotifyArtistImage(artistName: string, token: string) {
       next: { revalidate: 86400 } // Cache artist image for 24 hours
     });
     if (!res.ok) {
-      console.error(`Spotify search error for ${artistName}:`, await res.text());
-      return null;
+      const errorText = await res.text();
+      console.error(`Spotify search error for ${artistName}:`, errorText);
+      return { url: null, error: `Search HTTP ${res.status}: ${errorText}` };
     }
     const data = await res.json();
     if (data.artists?.items?.length > 0) {
