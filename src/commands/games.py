@@ -5,6 +5,14 @@ import io
 from PIL import Image
 from ..utils.api import fetch_top_artists, fetch_top_tracks
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

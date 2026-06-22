@@ -3,6 +3,14 @@ import io
 import os
 import textwrap
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 FONT_PATH = os.path.join(os.path.dirname(__file__), "Inconsolata.ttf")
 
 def generate_receipt_image(username, period_str, tracks):

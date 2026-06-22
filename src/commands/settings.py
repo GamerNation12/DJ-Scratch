@@ -4,6 +4,14 @@ from discord import app_commands
 from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount, get_user_update_notifs, set_user_update_notifs
 from src.core.config import LASTFM_COLOR
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 
 
 async def get_settings_embed(user_id, user):
@@ -17,7 +25,7 @@ async def get_settings_embed(user_id, user):
         description="Customize your experience with the bot below. These settings apply globally across all servers.",
         color=LASTFM_COLOR
     )
-    embed.set_author(name=f"{user.name}'s Settings", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{format_name(user)}'s Settings", icon_url=user.display_avatar.url)
     
     # Mode description
     mode_desc = "📝 Compact" if mode == "compact" else ("📊 Stats" if mode == "stats" else "🖼️ Full Embed")

@@ -34,6 +34,14 @@ CURRENT_UPDATE_MESSAGE = """🎉 **The Goats DJ Update `v1.2.0`** 🎉
 *(You can disable these update notifications in `/settings`)*"""
 
 from src.core.theme import Theme
+
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
 LASTFM_COLOR = Theme.PRIMARY
 
 PERIOD_MAP = {

@@ -2,6 +2,14 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 class ImporterCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

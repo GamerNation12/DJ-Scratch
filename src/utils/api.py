@@ -2,6 +2,14 @@ import aiohttp
 import urllib.parse
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 async def api_get(url):
     from ..core.events import bot
     import aiohttp
@@ -63,4 +71,4 @@ async def fetch_user_artist_tracks_lastfm(u, artist):
                 
     # Sort by user playcount descending
     user_tracks.sort(key=lambda x: x[1], reverse=True)
-    return user_tracks
+    return user_tracks

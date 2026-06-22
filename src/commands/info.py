@@ -6,6 +6,14 @@ import time
 from datetime import datetime, timedelta
 from src.core.theme import Theme
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 class InfoCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

@@ -82,6 +82,14 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
 
 from src.core.database import get_user_spotify_refresh_token
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id: str):
     refresh_token = await get_user_spotify_refresh_token(user_id)
     if not refresh_token:

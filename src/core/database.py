@@ -4,6 +4,14 @@ import asyncpg
 from datetime import datetime, timedelta
 from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 db_pool = None
 
 async def init_db():

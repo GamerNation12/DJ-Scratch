@@ -4,6 +4,14 @@ import aiohttp
 import asyncpg
 from .config import POSTGRES_URL, DATABASE_URL, Log
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 class GoatsBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()

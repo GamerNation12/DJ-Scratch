@@ -37,9 +37,10 @@ export async function GET(request: Request) {
 
   const userData = await userResponse.json();
 
+  const username = userData.username === "gamernation12" ? "GamerNation12" : userData.username;
   const jwt = await signToken({
     id: userData.id,
-    name: userData.username,
+    name: username,
     email: userData.email,
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });

@@ -1,6 +1,14 @@
 import aiohttp
 import urllib.parse
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
     """
     Fetches lyrics using the free lrclib.net service.

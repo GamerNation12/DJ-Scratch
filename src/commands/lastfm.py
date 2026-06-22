@@ -2,6 +2,14 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 async def get_target_user(ctx, arg_string: str = None):
     target_user = ctx.author
     
@@ -87,7 +95,7 @@ class LastFmCog(commands.Cog):
                                 description=f"Current track: **{song}** by **{artist}**", 
                                 color=LASTFM_COLOR
                             )
-                            preview_embed.set_author(name=self.bot.user.name, icon_url=img)
+                            preview_embed.set_author(name=self.bot.format_name(user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user)
@@ -339,7 +347,7 @@ class LastFmCog(commands.Cog):
                                 description=f"Current track: **{song}** by **{artist}**", 
                                 color=LASTFM_COLOR
                             )
-                            preview_embed.set_author(name=self.bot.user.name, icon_url=img)
+                            preview_embed.set_author(name=self.bot.format_name(user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)

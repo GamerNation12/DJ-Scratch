@@ -521,7 +521,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                     VALUES ($1, $2)
                     ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
                     """,
-                    str(user.id), user.name
+                    str(user.id), format_name(user)
                 )
         except Exception as e:
             print(f"Error ensuring imported_user: {e}")
@@ -604,7 +604,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         embed = discord.Embed(
             title="✅ Spotify Import Complete!",
             description=(
-                f"Hey **{user.name}**, your Spotify history has finished importing!\n\n"
+                f"Hey **{format_name(user)}**, your Spotify history has finished importing!\n\n"
                 f"• **{processed_count:,}** tracks processed successfully.\n\n"
                 f"You can now use bot commands like `/profile` or `/topartists`!"
             ),
@@ -670,14 +670,14 @@ import_queue = asyncio.Queue()
 async def import_worker():
     while True:
         user, temp_filepath, is_zip, response_target = await import_queue.get()
-        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {user.name} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
+        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {format_name(user)} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
         try:
             await process_discord_import_in_background(user, temp_filepath, is_zip, response_target)
         except Exception as e:
-            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {user.name}: {e}{Log.RESET}")
+            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {format_name(user)}: {e}{Log.RESET}")
         finally:
             import_queue.task_done()
-            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {user.name}.{Log.RESET}")
+            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {format_name(user)}.{Log.RESET}")
 
 
 
@@ -905,7 +905,7 @@ class FMDetailsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_author(name=self.bot_instance.format_name(user), icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
@@ -999,7 +999,7 @@ class FMActionsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.user.name, icon_url=self.img)
+        preview_embed.set_author(name=self.bot_instance.format_name(user), icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
@@ -1087,7 +1087,7 @@ async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
-    embed = discord.Embed(title=f"⚙️ Settings for {user.name}", color=LASTFM_COLOR)
+    embed = discord.Embed(title=f"⚙️ Settings for {format_name(user)}", color=LASTFM_COLOR)
     embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
     embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
@@ -1181,6 +1181,14 @@ async def apply_features(session, artist, song, s_artists=None):
 import discord
 from datetime import datetime, timedelta
 
+def format_name(user):
+    if not user: return "Unknown"
+    name = getattr(user, 'name', str(user))
+    if name == "gamernation12":
+        return "GamerNation12"
+    return name
+
+
 
 
 async def process_fm(ctx_int, user, mode="full"):
@@ -1241,9 +1249,9 @@ async def process_fm(ctx_int, user, mode="full"):
 
         if mode == "compact":
             if is_p:
-                content = f"<a:movingnotes:1476084305229910159> **{user.name}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
-                content = f"🎧 **{user.name}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
             
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:
@@ -1254,7 +1262,7 @@ async def process_fm(ctx_int, user, mode="full"):
             
             desc = chr(10).join(desc_lines)
             embed = discord.Embed(description=desc, color=color)
-            embed.set_author(name=f"{user.name}'s {status}", icon_url=user.display_avatar.url)
+            embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
             footer_text = f"Scrobbling as {username}"
@@ -1287,7 +1295,7 @@ async def process_fm(ctx_int, user, mode="full"):
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
             
             embed = discord.Embed(description=chr(10).join(desc_lines), color=color)
-            embed.set_author(name=f"Now playing for {user.name}" if is_p else f"Last played by {user.name}")
+            embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
             if img: embed.set_thumbnail(url=img)
             
             a_info_task = asyncio.create_task(fetch_artist_info(username, artist))
@@ -1344,7 +1352,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
         desc = chr(10).join(desc_lines)
         embed = discord.Embed(description=desc, color=color)
-        embed.set_author(name=f"{user.name}'s {status}", icon_url=user.display_avatar.url)
+        embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
         footer_text = f"Scrobbling as {username}"
@@ -1449,10 +1457,10 @@ class TopItemsPaginator(discord.ui.View):
 
         if self.cmd_type == 'tt':
             lines = [f"{start + idx + 1}. {a} - {t} - {c:,} plays" for idx, ((t, a), c) in enumerate(page_items)]
-            title = f"{self.user.name}'s Top Tracks ({self.disp_p})"
+            title = f"{self.format_name(user)}'s Top Tracks ({self.disp_p})"
         else:
             lines = [f"{start + idx + 1}. {name} - {count:,} plays" for idx, (name, count) in enumerate(page_items)]
-            title = f"{self.user.name}'s Top Artists ({self.disp_p})"
+            title = f"{self.format_name(user)}'s Top Artists ({self.disp_p})"
             
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
         embed.set_author(name=title, icon_url=self.user.display_avatar.url)
@@ -1531,7 +1539,7 @@ class ArtistTracksPaginator(discord.ui.View):
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
         embed.set_author(name=f"Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
         
-        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{self.user.name} has {self.total_plays:,} total artist plays"
+        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{self.format_name(user)} has {self.total_plays:,} total artist plays"
         embed.set_footer(text=footer_text)
         return embed
 
@@ -1610,7 +1618,7 @@ async def process_recent(user):
         if data:
             lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
             embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-            embed.set_author(name=f"{user.name}'s Recent Tracks", icon_url=user.display_avatar.url)
+            embed.set_author(name=f"{format_name(user)}'s Recent Tracks", icon_url=user.display_avatar.url)
             embed.set_thumbnail(url=user.display_avatar.url)
             embed.set_footer(text=f"Scrobbling as {username}")
             return embed, None
@@ -1620,9 +1628,9 @@ async def process_recent(user):
         if local:
             lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
             embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-            embed.set_author(name=f"{user.name}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
+            embed.set_author(name=f"{format_name(user)}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
             embed.set_thumbnail(url=user.display_avatar.url)
-            embed.set_footer(text=f"Requested by {user.name} • Using Imported Data", icon_url=user.display_avatar.url)
+            embed.set_footer(text=f"Requested by {format_name(user)} • Using Imported Data", icon_url=user.display_avatar.url)
             return embed, None
     return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
 
@@ -1733,7 +1741,7 @@ async def process_judge(user):
             color=0xFF7A01,
             timestamp=datetime.now()
         )
-        embed.set_author(name=f"{user.name}'s .fmbot AI judgement - Roast 🔥", icon_url=user.display_avatar.url)
+        embed.set_author(name=f"{format_name(user)}'s .fmbot AI judgement - Roast 🔥", icon_url=user.display_avatar.url)
         embed.set_footer(text="Powered by Groq")
         return embed, None
     except Exception as e:
@@ -1753,7 +1761,7 @@ async def process_profile(user):
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
 
     embed = discord.Embed(color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.name}'s Profile", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{format_name(user)}'s Profile", icon_url=user.display_avatar.url)
 
     if username:
         data = await fetch_user_profile(username)
@@ -1810,7 +1818,7 @@ async def process_whoknows(guild, user, artist_name):
     for idx, pc in enumerate(results):
         if pc > 0:
             m = guild.get_member(int(tasks[idx][0]))
-            lb.append({"name": m.name if m else tasks[idx][1], "plays": pc})
+            lb.append({"name": format_name(m) if m else tasks[idx][1], "plays": pc})
 
     if not lb: return None, f"No one here listens to **{artist_name}**."
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
@@ -1819,8 +1827,8 @@ async def process_whoknows(guild, user, artist_name):
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    footer_text = f"Requested by {user.name}"
-    if lb[0]['name'] == user.name: footer_text = "👑 You hold the crown! • " + footer_text
+    footer_text = f"Requested by {format_name(user)}"
+    if lb[0]['name'] == format_name(user): footer_text = "👑 You hold the crown! • " + footer_text
     embed.set_footer(text=footer_text)
     return embed, None
 async def process_suggestion(ctx_int, user, suggestion_text):
@@ -1835,14 +1843,14 @@ async def process_suggestion(ctx_int, user, suggestion_text):
                 async with db_pool.acquire() as conn:
                     await conn.execute(
                         "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4)",
-                        str(user.id), str(user.name), title, description
+                        str(user.id), str(format_name(user)), title, description
                     )
             else:
                 print(f"{Log.YELLOW}>>> DB pool not found or wrong type, skipping DB insert.{Log.RESET}")
 
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(title="💡 New Bot Suggestion", description=suggestion_text, color=discord.Color.gold(), timestamp=datetime.now())
-        embed.set_author(name=f"{user.name} ({user.id})", icon_url=user.display_avatar.url)
+        embed.set_author(name=f"{format_name(user)} ({user.id})", icon_url=user.display_avatar.url)
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
         embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
         await owner.send(embed=embed, view=SuggestionView())
@@ -1888,9 +1896,9 @@ async def process_crowns(guild, user):
         
     lines = [f"👑 **{artist}** — **{plays:,}** plays" for artist, plays in crowns]
     embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{user.name}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Checked your top 15 artists • Requested by {user.name}", icon_url=user.display_avatar.url)
+    embed.set_footer(text=f"Checked your top 15 artists • Requested by {format_name(user)}", icon_url=user.display_avatar.url)
     return embed, None
 
 
@@ -1972,7 +1980,7 @@ def get_help_embed(user):
         description="Welcome to **The Goats DJ**!\nSelect a category from the dropdown menu below to see available commands."
     )
     embed.set_thumbnail(url="https://i.imgur.com/your_logo_here.png") # Optional placeholder
-    embed.set_author(name=user.name, icon_url=user.display_avatar.url)
+    embed.set_author(name=format_name(user), icon_url=user.display_avatar.url)
     embed.set_footer(text=Theme.FOOTER_TEXT)
     return embed, HelpView(is_owner)
 
@@ -2087,7 +2095,7 @@ class PurgeConfirmView(discord.ui.View):
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_commands.Choice[str]):
-    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.user.name}{Log.RESET}")
+    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.format_name(user)}{Log.RESET}")
     if not db_pool:
         await interaction.response.send_message("❌ Database is currently offline.", ephemeral=True)
         return
@@ -2137,7 +2145,7 @@ async def process_receipt(user, period='overall', limit=10):
     buf = generate_receipt_image(username, period, tracks)
     file = discord.File(buf, filename="receipt.png")
     
-    embed = discord.Embed(title=f"🧾 {user.name}'s Top Tracks Receipt", color=LASTFM_COLOR)
+    embed = discord.Embed(title=f"🧾 {format_name(user)}'s Top Tracks Receipt", color=LASTFM_COLOR)
     embed.set_image(url="attachment://receipt.png")
     
     return embed, file, None
