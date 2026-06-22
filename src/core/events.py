@@ -1361,28 +1361,20 @@ async def process_top_artists(user, input_period=None):
 
 
     lastfm_data = {}
-    reg_datetime = None
     if username and d_source != 'imported_only':
-        # Fetch user profile to get registration date for deduplication
-        user_info = await fetch_user_profile(username)
-        if user_info and 'user' in user_info:
-            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
-            
-        if api_p.isdigit() and len(api_p) == 4:
-            reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
-        else:
+        if not (api_p.isdigit() and len(api_p) == 4):
             data = await fetch_top_artists(username, api_p, 250)
             if data and 'topartists' in data:
                 lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
-    local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=reg_datetime)
+    local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_data:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
 
     combined = dict(lastfm_data)
     for artist, count in local_data.items():
-        combined[artist] = combined.get(artist, 0) + count
+        combined[artist] = max(combined.get(artist, 0), count)
 
     sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_artists: return None, None, "No artist data found."
@@ -1398,23 +1390,15 @@ async def process_top_tracks(user, input_period=None):
 
 
     lastfm_tracks = {}  # (track, artist) -> plays
-    reg_datetime = None
     if username and d_source != 'imported_only':
-        # Fetch user profile to get registration date for deduplication
-        user_info = await fetch_user_profile(username)
-        if user_info and 'user' in user_info:
-            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
-            
-        if api_p.isdigit() and len(api_p) == 4:
-            reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
-        else:
+        if not (api_p.isdigit() and len(api_p) == 4):
             data = await fetch_top_tracks(username, api_p, 250)
             if data and 'toptracks' in data:
                 for t in data['toptracks']['track']:
                     key = (t['name'], t['artist']['name'])
                     lastfm_tracks[key] = int(t['playcount'])
 
-    local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=reg_datetime)
+    local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_tracks:
         return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
@@ -1422,7 +1406,7 @@ async def process_top_tracks(user, input_period=None):
     combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
         key = (track_name, artist_name)
-        combined[key] = combined.get(key, 0) + plays
+        combined[key] = max(combined.get(key, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return None, None, "No track data found."
@@ -1568,24 +1552,19 @@ async def process_artist_tracks(user, artist_name):
         except: return None, None, "You aren't playing anything right now and didn't provide an artist!"
 
     lastfm_tracks = {}
-    reg_datetime = None
     if username and d_source != 'imported_only':
-        user_info = await fetch_user_profile(username)
-        if user_info and 'user' in user_info:
-            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
-            
         tracks = await fetch_user_artist_tracks_lastfm(username, artist_name)
         for t_name, playcount in tracks:
             lastfm_tracks[t_name] = playcount
 
-    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=reg_datetime)
+    local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=None)
 
     if not username and not local_tracks:
         return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
-        combined[track_name] = combined.get(track_name, 0) + plays
+        combined[track_name] = max(combined.get(track_name, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return None, None, f"No track data found for **{artist_name}**."
@@ -1647,7 +1626,7 @@ async def process_judge(user):
     
     local_artists = await get_local_top_artists(user.id, 50, 'overall')
     for a, c in local_artists.items():
-        artists_dict[a] = artists_dict.get(a, 0) + c
+        artists_dict[a] = max(artists_dict.get(a, 0), c)
         
     top_artists = sorted(artists_dict.items(), key=lambda x: x[1], reverse=True)[:14]
     
@@ -1772,16 +1751,10 @@ async def process_profile(user):
                 total = local_total
                 embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
             else:
-                # We only count imported database plays that occurred BEFORE their Last.fm registration time.
-                # All plays after registration are already scrobbled and counted in lastfm_plays!
-                reg_unixtime = int(info['registered']['unixtime'])
-                reg_datetime = datetime.fromtimestamp(reg_unixtime, tz=timezone.utc)
-                local_unique = await get_local_plays_before(user.id, reg_datetime)
-                
-                total = lastfm_plays + local_unique
+                total = max(lastfm_plays, local_total)
                 embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
                 if local_total > 0:
-                    embed.add_field(name="📦 Imported Plays (Unique)", value=f"**{local_unique:,}**", inline=True)
+                    embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
                     embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             
             country = info.get('country', 'Not Set')
@@ -1789,8 +1762,8 @@ async def process_profile(user):
             if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
             
             if local_total > 0 and d_source != 'imported_only':
-                overlap = local_total - local_unique
-                embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles during Last.fm overlap.")
+                overlap = (lastfm_plays + local_total) - total
+                embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles using MAX deduplication.")
     elif local_total > 0:
         embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
         embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/setfm`", inline=True)
