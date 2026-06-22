@@ -23,7 +23,7 @@ class SpotifyRemoteView(discord.ui.View):
         
     async def handle_response(self, interaction: discord.Interaction, result):
         if result == "no_token":
-            app_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+            app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://the-goats-dj.vercel.app")
             await interaction.response.send_message(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
         elif result is True:
             await interaction.response.send_message("Action successful!", ephemeral=True)
@@ -73,7 +73,7 @@ class SpotifyRemote(commands.Cog):
         async with aiohttp.ClientSession() as session:
             token = await get_user_spotify_access_token(session, str(ctx.author.id))
             if not token:
-                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://the-goats-dj.vercel.app")
                 return await ctx.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})")
                 
             track = await search_spotify_track(session, query)
@@ -111,7 +111,7 @@ class SpotifyRemote(commands.Cog):
                     if res is True:
                         return await ctx.send("▶️ Resumed playback.")
                     elif res == "no_token":
-                        app_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+                        app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://the-goats-dj.vercel.app")
                         return await ctx.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})")
                     else:
                         return await ctx.send(f"Failed to resume: {res}")

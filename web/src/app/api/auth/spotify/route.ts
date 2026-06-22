@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     return new NextResponse('Missing SPOTIFY_CLIENT_ID', { status: 500 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://the-goats-dj.vercel.app';
   const redirectUri = encodeURIComponent(`${appUrl}/api/auth/spotify/callback`);
   const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state user-library-modify');
   const state = encodeURIComponent(userId);

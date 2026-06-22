@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const error = urlParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}?error=spotify_auth_failed`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://the-goats-dj.vercel.app'}?error=spotify_auth_failed`);
   }
 
   if (!code || !state) {
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const userId = state;
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://the-goats-dj.vercel.app';
   const redirectUri = `${appUrl}/api/auth/spotify/callback`;
 
   if (!clientId || !clientSecret) {
