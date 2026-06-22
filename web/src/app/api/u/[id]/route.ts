@@ -48,7 +48,6 @@ async function getSpotifyArtistImage(artistName: string, token: string) {
   return null;
 }
 
-export const revalidate = 60; // Cache for 60 seconds
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: userId } = await params;
