@@ -7,7 +7,7 @@ import urllib.parse
 from discord.ext import commands, tasks
 from discord import app_commands
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncpg
 from ..utils.api import *
 
@@ -1366,7 +1366,7 @@ async def process_top_artists(user, input_period=None):
         # Fetch user profile to get registration date for deduplication
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
-            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
             
         if api_p.isdigit() and len(api_p) == 4:
             reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
@@ -1403,7 +1403,7 @@ async def process_top_tracks(user, input_period=None):
         # Fetch user profile to get registration date for deduplication
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
-            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
             
         if api_p.isdigit() and len(api_p) == 4:
             reg_datetime = None # Can't fetch Last.fm data for specific years, so don't deduplicate
@@ -1572,7 +1572,7 @@ async def process_artist_tracks(user, artist_name):
     if username:
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
-            reg_datetime = datetime.utcfromtimestamp(int(user_info['user']['registered']['unixtime']))
+            reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
             
         tracks = await fetch_user_artist_tracks_lastfm(username, artist_name)
         for t_name, playcount in tracks:
@@ -1769,7 +1769,7 @@ async def process_profile(user):
             # We only count imported database plays that occurred BEFORE their Last.fm registration time.
             # All plays after registration are already scrobbled and counted in lastfm_plays!
             reg_unixtime = int(info['registered']['unixtime'])
-            reg_datetime = datetime.utcfromtimestamp(reg_unixtime)
+            reg_datetime = datetime.fromtimestamp(reg_unixtime, tz=timezone.utc)
             local_unique = await get_local_plays_before(user.id, reg_datetime)
             
             total = lastfm_plays + local_unique
