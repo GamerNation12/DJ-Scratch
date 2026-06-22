@@ -432,6 +432,77 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                  )}
                </div>
             </div>
+
+            {/* Top Albums Grid */}
+            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-xl font-bold flex items-center gap-2">💿 Top Albums</h3>
+                 <p className="text-zinc-400 text-sm mt-1">Their most listened to albums of all time.</p>
+               </div>
+               <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 {profile.stats?.topAlbums?.length > 0 ? profile.stats.topAlbums.map((album: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={album.url} 
+                     target="_blank"
+                     rel="noreferrer"
+                     className="bg-zinc-900/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                   >
+                     <div className="w-16 h-16 rounded-xl bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                        {album.image ? (
+                          <img src={album.image} alt={album.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">💿</div>
+                        )}
+                     </div>
+                     <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{album.name}</div>
+                     <div className="text-xs text-zinc-400 truncate mt-0.5 w-full">{album.artist}</div>
+                     <div className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider">{parseInt(album.playcount).toLocaleString()} plays</div>
+                   </a>
+                 )) : (
+                   <div className="col-span-2 text-center py-8 text-zinc-500">No top albums found.</div>
+                 )}
+               </div>
+            </div>
+
+            {/* Top Tracks List */}
+            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-xl font-bold flex items-center gap-2">🔥 Top Tracks</h3>
+                 <p className="text-zinc-400 text-sm mt-1">Their most played individual songs.</p>
+               </div>
+               <div className="divide-y divide-white/5">
+                 {profile.stats?.topTracks?.length > 0 ? profile.stats.topTracks.map((track: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={track.url}
+                     target="_blank"
+                     rel="noreferrer"
+                     className="flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                   >
+                     <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
+                       {track.image ? (
+                         <img src={track.image} alt="Album Art" className="w-full h-full object-cover" />
+                       ) : (
+                         <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
+                       )}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
+                         {track.name}
+                       </div>
+                       <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
+                     </div>
+                     <div className="text-xs font-bold text-indigo-400 whitespace-nowrap shrink-0">
+                       {parseInt(track.playcount).toLocaleString()}
+                       <span className="text-[10px] text-zinc-500 uppercase tracking-widest ml-1 font-normal">plays</span>
+                     </div>
+                   </a>
+                 )) : (
+                   <div className="text-center py-8 text-zinc-500">No top tracks found.</div>
+                 )}
+               </div>
+            </div>
           </div>
         )}
 

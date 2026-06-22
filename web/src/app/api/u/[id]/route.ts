@@ -120,20 +120,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let lastfmData = {
       playcount: 0,
       topArtists: [] as any[],
-      recentTracks: [] as any[]
+      recentTracks: [] as any[],
+      topTracks: [] as any[],
+      topAlbums: [] as any[]
     };
     let debugLogs: any[] = [];
 
     try {
-      const [infoRes, artistRes, recentRes] = await Promise.all([
+      const [infoRes, artistRes, recentRes, tracksRes, albumsRes] = await Promise.all([
         fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`)
+        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=12`),
+        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=10`),
+        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`),
+        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`)
       ]);
 
       const infoData = await infoRes.json();
       const artistData = await artistRes.json();
       const recentData = await recentRes.json();
+      const tracksData = await tracksRes.json();
+      const albumsData = await albumsRes.json();
 
       if (!infoData.error) {
         lastfmData.playcount = parseInt(infoData.user.playcount || "0", 10);
@@ -181,6 +187,38 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           nowPlaying: t["@attr"]?.nowplaying === "true",
           date: t.date?.uts || null
         }));
+      }
+
+      if (!tracksData.error && tracksData.toptracks?.track) {
+        const topTracks = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
+        lastfmData.topTracks = topTracks.map((t: any) => ({
+          name: t.name,
+          artist: t.artist?.name,
+          playcount: t.playcount,
+          url: t.url,
+          image: t.image?.find((i: any) => i.size === "large")?.["#text"] || null
+        }));
+      }
+
+      if (!albumsData.error && albumsData.topalbums?.album) {
+        const topAlbums = Array.isArray(albumsData.topalbums.album) ? albumsData.topalbums.album : [albumsData.topalbums.album];
+        
+        lastfmData.topAlbums = [];
+        for (const a of topAlbums) {
+          let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
+          
+          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+            imageUrl = null;
+          }
+
+          lastfmData.topAlbums.push({
+            name: a.name,
+            artist: a.artist?.name,
+            playcount: a.playcount,
+            url: a.url,
+            image: imageUrl
+          });
+        }
       }
 
     } catch (e) {
