@@ -155,7 +155,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // Prepare Spotify Token for image fetching
         const spotifyToken = await getSpotifyToken();
         
-        lastfmData.topArtists = await Promise.all(artistData.topartists.artist.map(async (a: any) => {
+        const artistsList = artistData.topartists.artist;
+        lastfmData.topArtists = [];
+        
+        for (const a of artistsList) {
           let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
           
           // Last.fm's default generic star image hash
@@ -163,18 +166,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             imageUrl = null;
           }
 
-          // Fetch from Spotify if Last.fm image is generic or missing
+          // Fetch from Spotify sequentially to avoid 429 Too Many Requests burst limits
           if (!imageUrl && spotifyToken) {
             imageUrl = await getSpotifyArtistImage(a.name, spotifyToken);
           }
 
-          return {
+          lastfmData.topArtists.push({
             name: a.name,
             playcount: a.playcount,
             url: a.url,
             image: imageUrl
-          };
-        }));
+          });
+        }
       }
 
       if (!recentData.error && recentData.recenttracks?.track) {
