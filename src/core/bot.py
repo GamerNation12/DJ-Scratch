@@ -29,7 +29,7 @@ class GoatsBot(commands.Bot):
         if db_conn_string:
             try:
                 self.db_pool = await asyncpg.create_pool(db_conn_string)
-                print(f"{Log.GREEN}>>> Connected to Neon PostgreSQL{Log.RESET}")
+                print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
                 async with self.db_pool.acquire() as conn:
                     await conn.execute('''
                         CREATE TABLE IF NOT EXISTS user_settings (
