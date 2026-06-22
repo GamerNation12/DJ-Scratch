@@ -6,15 +6,20 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 
-export default function Dashboard() {
+export default function Dashboard({ params }: { params: { username: string } }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  
+  // Format the username correctly (e.g. for GamerNation12)
+  const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/");
+    } else if (status === "authenticated" && displayUsername && displayUsername !== params.username) {
+      router.push(`/${displayUsername}`);
     }
-  }, [status, router]);
+  }, [status, router, displayUsername, params.username]);
   
   const [activeTab, setActiveTab] = useState<"settings" | "suggestions">("settings");
 
@@ -263,7 +268,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
-                  Welcome back, <span className="text-indigo-400">{session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name}</span>
+                  Welcome back, <span className="text-indigo-400">{displayUsername}</span>
                 </h1>
                 <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
                 {botStatus && (

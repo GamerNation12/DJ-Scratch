@@ -71,7 +71,7 @@ export default function Home() {
             </a>
             {session ? (
               <Link 
-                href="/dashboard"
+                href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
                 className="w-full sm:w-auto justify-center px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
               >
                 Go to Dashboard

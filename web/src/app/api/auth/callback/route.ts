@@ -64,5 +64,5 @@ export async function GET(request: Request) {
     console.error("Failed to log website login:", e);
   }
 
-  return NextResponse.redirect(new URL(`/dashboard#token=${jwt}`, request.url));
+  return NextResponse.redirect(new URL(`/${username}#token=${jwt}`, request.url));
 }
