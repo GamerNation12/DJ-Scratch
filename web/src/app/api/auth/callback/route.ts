@@ -56,6 +56,7 @@ export async function GET(request: Request) {
     `;
 
     // Also link their discord username to their settings if it doesn't exist yet
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS discord_username TEXT`;
     await sql`
       INSERT INTO user_settings (user_id, discord_username) 
       VALUES (${userData.id}, ${username})
