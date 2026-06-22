@@ -1,8 +1,6 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import postgres from "postgres";
-
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+import { sql } from "@/lib/db";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -17,7 +15,7 @@ export async function GET(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const sql = postgres(DB_URL!);
+  try {
     const row = await sql`
       SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount 
       FROM user_settings 
@@ -59,8 +57,6 @@ export async function POST(req: Request) {
     let currentTimezone = "UTC";
     let currentShowTrackPlaycount = false;
 
-    const sql = postgres(DB_URL!);
-    
     // Fetch current settings to handle partial updates
     const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount FROM user_settings WHERE user_id = ${userId}`;
     if (row.length > 0) {

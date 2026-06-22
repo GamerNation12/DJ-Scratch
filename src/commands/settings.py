@@ -17,7 +17,7 @@ async def get_settings_embed(user_id, user):
         description="Customize your experience with the bot below. These settings apply globally across all servers.",
         color=LASTFM_COLOR
     )
-    embed.set_author(name=f"{user.display_name}'s Settings", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{user.name}'s Settings", icon_url=user.display_avatar.url)
     
     # Mode description
     mode_desc = "📝 Compact" if mode == "compact" else ("📊 Stats" if mode == "stats" else "🖼️ Full Embed")
