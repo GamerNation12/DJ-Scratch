@@ -19,9 +19,12 @@ async function getSpotifyToken() {
         'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: 'grant_type=client_credentials',
-      next: { revalidate: 3500 } // Cache token for nearly 1 hour
+      body: 'grant_type=client_credentials'
     });
+    if (!res.ok) {
+      console.error("Spotify token error:", await res.text());
+      return null;
+    }
     const data = await res.json();
     return data.access_token;
   } catch (e) {
@@ -35,6 +38,10 @@ async function getSpotifyArtistImage(artistName: string, token: string) {
       headers: { 'Authorization': `Bearer ${token}` },
       next: { revalidate: 86400 } // Cache artist image for 24 hours
     });
+    if (!res.ok) {
+      console.error(`Spotify search error for ${artistName}:`, await res.text());
+      return null;
+    }
     const data = await res.json();
     if (data.artists?.items?.length > 0) {
       const artist = data.artists.items[0];
