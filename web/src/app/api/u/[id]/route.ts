@@ -35,6 +35,28 @@ async function getDeezerArtistImage(artistName: string) {
   }
 }
 
+async function getDeezerTrackImage(trackName: string, artistName: string) {
+  try {
+    const res = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(trackName + " " + artistName)}`, {
+      next: { revalidate: 86400 } // Cache track image for 24 hours
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      return { url: null, error: `Search HTTP ${res.status}: ${errorText}` };
+    }
+    const data = await res.json();
+    if (data.data?.length > 0) {
+      const track = data.data[0];
+      if (track.album?.cover_xl || track.album?.cover_big || track.album?.cover) {
+        return { url: track.album?.cover_xl || track.album?.cover_big || track.album?.cover, error: null };
+      }
+    }
+    return { url: null, error: "No images found for track" };
+  } catch (e: any) {
+    return { url: null, error: e.message || String(e) };
+  }
+}
+
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: userId } = await params;
@@ -190,14 +212,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
 
       if (!tracksData.error && tracksData.toptracks?.track) {
-        const topTracks = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
-        lastfmData.topTracks = topTracks.map((t: any) => ({
-          name: t.name,
-          artist: t.artist?.name,
-          playcount: t.playcount,
-          url: t.url,
-          image: t.image?.find((i: any) => i.size === "large")?.["#text"] || null
-        }));
+        const topTracksList = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
+        lastfmData.topTracks = [];
+
+        for (const t of topTracksList) {
+          let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
+          
+          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+            imageUrl = null;
+          }
+
+          if (!imageUrl) {
+            const imgRes = await getDeezerTrackImage(t.name, t.artist?.name || "");
+            if (imgRes?.error) {
+              debugLogs.push({ track: t.name, error: imgRes.error });
+            }
+            imageUrl = imgRes?.url || null;
+          }
+
+          lastfmData.topTracks.push({
+            name: t.name,
+            artist: t.artist?.name,
+            playcount: t.playcount,
+            url: t.url,
+            image: imageUrl
+          });
+        }
       }
 
       if (!albumsData.error && albumsData.topalbums?.album) {
