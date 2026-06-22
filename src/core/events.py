@@ -907,63 +907,67 @@ class FMDetailsView(discord.ui.View):
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, compact_embed=None, compact_content=None, is_p=False, cd=0, user=None, spotify_url=None, song=None, is_expanded=False):
+    def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full"):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
-        self.compact_embed = compact_embed
-        self.compact_content = compact_content
         self.user = user
         self.song = song
         self.spotify_url = spotify_url
         self.is_p = is_p
         self.cd = cd
-        self.is_expanded = is_expanded
+        self.current_mode = current_mode
         
-        if compact_embed and not is_expanded:
-            btn1 = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
-            btn1.callback = self.more_info
-            self.add_item(btn1)
-        else:
-            # If not compact, or if it is expanded, add buttons
-            if compact_embed and is_expanded:
-                btn_shrink = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary)
-                btn_shrink.callback = self.shrink
-                self.add_item(btn_shrink)
-                
-            if spotify_url:
-                self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
-                
-            if song and artist:
-                btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
-                btn_lyrics.callback = self.show_lyrics
-                self.add_item(btn_lyrics)
-                
-            if is_p and img and cd <= 0:
-                btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
-                btn2.callback = self.preview_avatar
-                self.add_item(btn2)
+        if current_mode == "compact":
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
+            btn_down.callback = self.go_down
+            self.add_item(btn_down)
+        elif current_mode == "full":
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary)
+            btn_up.callback = self.go_up
+            self.add_item(btn_up)
+            
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
+            btn_down.callback = self.go_down
+            self.add_item(btn_down)
+        elif current_mode == "stats":
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary)
+            btn_up.callback = self.go_up
+            self.add_item(btn_up)
+            
+        if spotify_url and current_mode != "compact":
+            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
+            
+        if song and artist and current_mode != "compact":
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
+            btn_lyrics.callback = self.show_lyrics
+            self.add_item(btn_lyrics)
+            
+        if is_p and img and cd <= 0 and current_mode != "compact":
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
+            btn2.callback = self.preview_avatar
+            self.add_item(btn2)
 
-    async def more_info(self, interaction: discord.Interaction):
-        expanded_view = FMActionsView(
-            self.bot_instance, self.artist, self.img, 
-            compact_embed=self.compact_embed, compact_content=self.compact_content, 
-            is_p=self.is_p, cd=self.cd, user=self.user, 
-            spotify_url=self.spotify_url, song=self.song, 
-            is_expanded=True
-        )
-        await interaction.response.edit_message(content="", embed=self.compact_embed, view=expanded_view)
+    async def go_down(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        new_mode = "full" if self.current_mode == "compact" else "stats"
+        result, _ = await process_fm(interaction, self.user, mode=new_mode)
+        if result:
+            content = result.get('content')
+            if content is None:
+                content = ""
+            await interaction.message.edit(content=content, embed=result.get('embed'), view=result.get('view'))
 
-    async def shrink(self, interaction: discord.Interaction):
-        compact_view = FMActionsView(
-            self.bot_instance, self.artist, self.img, 
-            compact_embed=self.compact_embed, compact_content=self.compact_content, 
-            is_p=self.is_p, cd=self.cd, user=self.user, 
-            spotify_url=self.spotify_url, song=self.song, 
-            is_expanded=False
-        )
-        await interaction.response.edit_message(content=self.compact_content, embed=None, view=compact_view)
+    async def go_up(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        new_mode = "full" if self.current_mode == "stats" else "compact"
+        result, _ = await process_fm(interaction, self.user, mode=new_mode)
+        if result:
+            content = result.get('content')
+            if content is None:
+                content = ""
+            await interaction.message.edit(content=content, embed=result.get('embed'), view=result.get('view'))
 
     async def show_lyrics(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -1235,7 +1239,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, compact_embed=embed, compact_content=content, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="compact")
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1302,7 +1306,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="stats")
             result = {"embed": embed, "view": view}
             return result, is_p
 
@@ -1324,7 +1328,7 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song)
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="full")
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
