@@ -26,9 +26,9 @@ async function getSpotifyToken() {
       return null;
     }
     const data = await res.json();
-    return data.access_token;
-  } catch (e) {
-    return null;
+    return { token: data.access_token, error: null };
+  } catch (e: any) {
+    return { token: null, error: e.message || String(e) };
   }
 }
 
@@ -46,13 +46,14 @@ async function getSpotifyArtistImage(artistName: string, token: string) {
     if (data.artists?.items?.length > 0) {
       const artist = data.artists.items[0];
       if (artist.images?.length > 0) {
-        return artist.images[0].url;
+        return { url: artist.images[0].url, error: null };
       }
+      return { url: null, error: "No images found for artist" };
     }
-  } catch (e) {
-    // Ignore errors
+    return { url: null, error: "Artist not found" };
+  } catch (e: any) {
+    return { url: null, error: e.message || String(e) };
   }
-  return null;
 }
 
 
@@ -142,6 +143,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       topArtists: [] as any[],
       recentTracks: [] as any[]
     };
+    let spotifyDebug: any[] = [];
 
     try {
       const [infoRes, artistRes, recentRes] = await Promise.all([
@@ -160,7 +162,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
       if (!artistData.error && artistData.topartists?.artist) {
         // Prepare Spotify Token for image fetching
-        const spotifyToken = await getSpotifyToken();
+        const spotifyTokenRes = await getSpotifyToken();
+        const spotifyToken = spotifyTokenRes?.token;
+        if (spotifyTokenRes?.error) {
+          spotifyDebug.push({ action: "getToken", error: spotifyTokenRes.error });
+        }
         
         const artistsList = artistData.topartists.artist;
         lastfmData.topArtists = [];
@@ -175,7 +181,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
           // Fetch from Spotify sequentially to avoid 429 Too Many Requests burst limits
           if (!imageUrl && spotifyToken) {
-            imageUrl = await getSpotifyArtistImage(a.name, spotifyToken);
+            const imgRes = await getSpotifyArtistImage(a.name, spotifyToken);
+            if (imgRes?.error) {
+              spotifyDebug.push({ artist: a.name, error: imgRes.error });
+            }
+            imageUrl = imgRes?.url || null;
           }
 
           lastfmData.topArtists.push({
@@ -209,7 +219,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({
       success: true,
       users: discordUsers,
-      stats: lastfmData
+      stats: lastfmData,
+      _debug: spotifyDebug
     });
 
   } catch (error) {
