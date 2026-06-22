@@ -297,8 +297,17 @@ export default function Dashboard() {
         </div>
 
         {/* AT A GLANCE STATS (Only show if linked) */}
-        {!userStatsLoading && userStats && (userStats.hasLastfm || userStats.hasSpotify) && (
+        {!userStatsLoading && userStats && (userStats.hasLastfm || userStats.hasSpotify || userStats.hasSpotifyRemote) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            {userStats.hasSpotifyRemote && (
+              <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">
+                <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-green-400 transition-colors">Spotify Remote</div>
+                <div className="text-xl font-extrabold text-white flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
+                  Linked
+                </div>
+              </div>
+            )}
             {userStats.hasSpotify && (
               <>
                 <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">

@@ -21,13 +21,15 @@ export async function GET(req: Request) {
     const sql = postgres(DB_URL!);
     
     const row = await sql`
-      SELECT lastfm_username FROM user_settings WHERE user_id = ${userId}
+      SELECT lastfm_username, spotify_refresh_token FROM user_settings WHERE user_id = ${userId}
     `;
     const lastfmUsername = row.length > 0 ? row[0].lastfm_username : null;
+    const hasSpotifyRemote = row.length > 0 && row[0].spotify_refresh_token ? true : false;
 
     let userStats: any = {
       hasLastfm: false,
       hasSpotify: false,
+      hasSpotifyRemote: hasSpotifyRemote,
     };
 
     if (lastfmUsername) {
@@ -81,7 +83,7 @@ export async function GET(req: Request) {
       }
     }
 
-    if (!userStats.hasLastfm && !userStats.hasSpotify) {
+    if (!userStats.hasLastfm && !userStats.hasSpotify && !userStats.hasSpotifyRemote) {
       return NextResponse.json({ success: false, error: "not_linked" });
     }
 
