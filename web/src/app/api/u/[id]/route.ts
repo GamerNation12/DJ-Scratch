@@ -9,46 +9,23 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 export const revalidate = 60; // Cache for 60 seconds
 
-async function getSpotifyToken() {
-  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) return null;
-  const credentials = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
-  try {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: 'grant_type=client_credentials'
-    });
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Spotify token error:", errorText);
-      return { token: null, error: `Token HTTP ${res.status}: ${errorText}` };
-    }
-    const data = await res.json();
-    return { token: data.access_token, error: null };
-  } catch (e: any) {
-    return { token: null, error: e.message || String(e) };
-  }
-}
+// Removed Spotify logic since it requires Premium now
 
-async function getSpotifyArtistImage(artistName: string, token: string) {
+async function getDeezerArtistImage(artistName: string) {
   try {
-    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+    const res = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}`, {
       next: { revalidate: 86400 } // Cache artist image for 24 hours
     });
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`Spotify search error for ${artistName}:`, errorText);
+      console.error(`Deezer search error for ${artistName}:`, errorText);
       return { url: null, error: `Search HTTP ${res.status}: ${errorText}` };
     }
     const data = await res.json();
-    if (data.artists?.items?.length > 0) {
-      const artist = data.artists.items[0];
-      if (artist.images?.length > 0) {
-        return { url: artist.images[0].url, error: null };
+    if (data.data?.length > 0) {
+      const artist = data.data[0];
+      if (artist.picture_xl || artist.picture_big || artist.picture) {
+        return { url: artist.picture_xl || artist.picture_big || artist.picture, error: null };
       }
       return { url: null, error: "No images found for artist" };
     }
@@ -145,7 +122,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       topArtists: [] as any[],
       recentTracks: [] as any[]
     };
-    let spotifyDebug: any[] = [];
+    let debugLogs: any[] = [];
 
     try {
       const [infoRes, artistRes, recentRes] = await Promise.all([
@@ -163,13 +140,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
 
       if (!artistData.error && artistData.topartists?.artist) {
-        // Prepare Spotify Token for image fetching
-        const spotifyTokenRes = await getSpotifyToken();
-        const spotifyToken = spotifyTokenRes?.token;
-        if (spotifyTokenRes?.error) {
-          spotifyDebug.push({ action: "getToken", error: spotifyTokenRes.error });
-        }
-        
         const artistsList = artistData.topartists.artist;
         lastfmData.topArtists = [];
         
@@ -181,11 +151,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             imageUrl = null;
           }
 
-          // Fetch from Spotify sequentially to avoid 429 Too Many Requests burst limits
-          if (!imageUrl && spotifyToken) {
-            const imgRes = await getSpotifyArtistImage(a.name, spotifyToken);
+          // Fetch from Deezer sequentially
+          if (!imageUrl) {
+            const imgRes = await getDeezerArtistImage(a.name);
             if (imgRes?.error) {
-              spotifyDebug.push({ artist: a.name, error: imgRes.error });
+              debugLogs.push({ artist: a.name, error: imgRes.error });
             }
             imageUrl = imgRes?.url || null;
           }
@@ -222,7 +192,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       success: true,
       users: discordUsers,
       stats: lastfmData,
-      _debug: spotifyDebug
+      _debug: debugLogs
     });
 
   } catch (error) {
