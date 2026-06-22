@@ -263,7 +263,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
-                  Welcome back, <span className="text-indigo-400">{session?.user?.name}</span>
+                  Welcome back, <span className="text-indigo-400">{session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name}</span>
                 </h1>
                 <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
                 {botStatus && (
