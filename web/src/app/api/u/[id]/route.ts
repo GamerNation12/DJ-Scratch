@@ -59,7 +59,8 @@ async function getDeezerTrackImage(trackName: string, artistName: string) {
 
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id: userId } = await params;
+  const { id: rawUserId } = await params;
+  const userId = decodeURIComponent(rawUserId);
 
   try {
     const sql = postgres(DB_URL!);
