@@ -222,6 +222,11 @@ async def setup_hook():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT ''")
                 except Exception as e:
                     pass
+
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT")
+                except Exception as e:
+                    pass
                     
                 await conn.execute(
                     """
