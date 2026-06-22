@@ -1362,7 +1362,7 @@ async def process_top_artists(user, input_period=None):
 
     lastfm_data = {}
     reg_datetime = None
-    if username:
+    if username and d_source != 'imported_only':
         # Fetch user profile to get registration date for deduplication
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
@@ -1387,7 +1387,7 @@ async def process_top_artists(user, input_period=None):
     sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_artists: return None, None, "No artist data found."
 
-    view = TopItemsPaginator(user, sorted_artists, disp_p, username, 'ta')
+    view = TopItemsPaginator(user, sorted_artists, disp_p, username if d_source != 'imported_only' else None, 'ta')
     embed = view.generate_embed()
     return embed, view, None
 async def process_top_tracks(user, input_period=None):
@@ -1399,7 +1399,7 @@ async def process_top_tracks(user, input_period=None):
 
     lastfm_tracks = {}  # (track, artist) -> plays
     reg_datetime = None
-    if username:
+    if username and d_source != 'imported_only':
         # Fetch user profile to get registration date for deduplication
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
@@ -1427,7 +1427,7 @@ async def process_top_tracks(user, input_period=None):
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return None, None, "No track data found."
 
-    view = TopItemsPaginator(user, sorted_tracks, disp_p, username, 'tt')
+    view = TopItemsPaginator(user, sorted_tracks, disp_p, username if d_source != 'imported_only' else None, 'tt')
     embed = view.generate_embed()
     return embed, view, None
 
@@ -1562,14 +1562,14 @@ async def process_artist_tracks(user, artist_name):
     d_source = await get_user_data_source(user.id)
 
     if not artist_name:
-        if not username: return None, None, "Link account or provide an artist name."
+        if not username or d_source == 'imported_only': return None, None, "Link account or provide an artist name."
         np_data = await fetch_now_playing(username, 1)
         try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
         except: return None, None, "You aren't playing anything right now and didn't provide an artist!"
 
     lastfm_tracks = {}
     reg_datetime = None
-    if username:
+    if username and d_source != 'imported_only':
         user_info = await fetch_user_profile(username)
         if user_info and 'user' in user_info:
             reg_datetime = datetime.fromtimestamp(int(user_info['user']['registered']['unixtime']), tz=timezone.utc)
@@ -1613,7 +1613,8 @@ async def process_recent(user):
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
-    if username:
+    d_source = await get_user_data_source(user.id)
+    if username and d_source != 'imported_only':
         data = await fetch_now_playing(username, 10)
         if data:
             lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
@@ -1635,9 +1636,10 @@ async def process_recent(user):
 async def process_judge(user):
     username = await get_lastfm_username(user.id)
     
+    d_source = await get_user_data_source(user.id)
     # 1. Gather Top 14 Artists
     artists_dict = {}
-    if username:
+    if username and d_source != 'imported_only':
         data = await fetch_top_artists(username, 'overall', 50)
         if data and 'topartists' in data:
             for a in data['topartists']['artist']:
@@ -1766,22 +1768,27 @@ async def process_profile(user):
             lastfm_plays = int(info['playcount'])
             
             # Smart De-duplication of duplicate plays:
-            # We only count imported database plays that occurred BEFORE their Last.fm registration time.
-            # All plays after registration are already scrobbled and counted in lastfm_plays!
-            reg_unixtime = int(info['registered']['unixtime'])
-            reg_datetime = datetime.fromtimestamp(reg_unixtime, tz=timezone.utc)
-            local_unique = await get_local_plays_before(user.id, reg_datetime)
+            if d_source == 'imported_only':
+                total = local_total
+                embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
+            else:
+                # We only count imported database plays that occurred BEFORE their Last.fm registration time.
+                # All plays after registration are already scrobbled and counted in lastfm_plays!
+                reg_unixtime = int(info['registered']['unixtime'])
+                reg_datetime = datetime.fromtimestamp(reg_unixtime, tz=timezone.utc)
+                local_unique = await get_local_plays_before(user.id, reg_datetime)
+                
+                total = lastfm_plays + local_unique
+                embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
+                if local_total > 0:
+                    embed.add_field(name="📦 Imported Plays (Unique)", value=f"**{local_unique:,}**", inline=True)
+                    embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             
-            total = lastfm_plays + local_unique
-            embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
-            if local_total > 0:
-                embed.add_field(name="📦 Imported Plays (Unique)", value=f"**{local_unique:,}**", inline=True)
-                embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             country = info.get('country', 'Not Set')
             embed.add_field(name="🌍 Country", value=country if country and country != "None" else "Not set", inline=True)
             if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
             
-            if local_total > 0:
+            if local_total > 0 and d_source != 'imported_only':
                 overlap = local_total - local_unique
                 embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles during Last.fm overlap.")
     elif local_total > 0:
