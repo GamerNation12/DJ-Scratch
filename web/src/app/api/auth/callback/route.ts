@@ -52,7 +52,14 @@ export async function GET(request: Request) {
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)
-      VALUES (${userData.id}, ${userData.global_name || userData.username}, 'Website Login', 'Logged in via Discord OAuth')
+      VALUES (${userData.id}, ${username}, 'Website Login', 'User logged into dashboard')
+    `;
+
+    // Also link their discord username to their settings if it doesn't exist yet
+    await sql`
+      INSERT INTO user_settings (user_id, discord_username) 
+      VALUES (${userData.id}, ${username})
+      ON CONFLICT (user_id) DO UPDATE SET discord_username = EXCLUDED.discord_username
     `;
     await sql`
       DELETE FROM website_logs 

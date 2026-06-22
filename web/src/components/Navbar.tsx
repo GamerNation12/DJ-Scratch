@@ -94,7 +94,7 @@ export default function Navbar() {
               <Link 
                 href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  pathname !== "/" && !pathname.startsWith("/u/")
+                  pathname !== "/"
                     ? "bg-white/10 text-white"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
@@ -184,7 +184,7 @@ export default function Navbar() {
             <Link 
               href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                pathname !== "/" && !pathname.startsWith("/u/")
+                pathname !== "/"
                   ? "bg-white/10 text-white" 
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}

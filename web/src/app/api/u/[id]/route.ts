@@ -15,9 +15,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     
     // Fetch user settings and Last.fm username
     const rows = await sql`
-      SELECT user_id, lastfm_username, private_mode, data_source 
+      SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
       FROM user_settings 
-      WHERE lastfm_username ILIKE ${userId}
+      WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
     `;
 
     if (rows.length === 0) {

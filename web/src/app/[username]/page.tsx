@@ -5,23 +5,24 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
+import Link from "next/link";
 
-export default function Dashboard({ params }: { params: { username: string } }) {
+export default function CombinedProfileDashboard({ params }: { params: { username: string } }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  // Format the username correctly (e.g. for GamerNation12)
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
+  const isOwner = status === "authenticated" && displayUsername && displayUsername === params.username;
 
-  useEffect(() => {
-    if (status === "authenticated" && displayUsername && displayUsername !== params.username) {
-      router.push(`/${displayUsername}`);
-    }
-  }, [status, router, displayUsername, params.username]);
-  
-  const [activeTab, setActiveTab] = useState<"settings" | "suggestions">("settings");
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions">("profile");
 
-  // Settings State
+  // --- Public Profile State ---
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // --- Dashboard Settings State ---
   const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
   const [privateMode, setPrivateMode] = useState<boolean>(false);
@@ -29,7 +30,6 @@ export default function Dashboard({ params }: { params: { username: string } }) 
   const [timezone, setTimezone] = useState<string>("UTC");
   const [showTrackPlaycount, setShowTrackPlaycount] = useState<boolean>(false);
   
-  // Unsaved Changes State
   const [unsavedFmMode, setUnsavedFmMode] = useState<"compact" | "full" | "stats">("full");
   const [unsavedShowFeatures, setUnsavedShowFeatures] = useState<boolean>(false);
   const [unsavedPrivateMode, setUnsavedPrivateMode] = useState<boolean>(false);
@@ -40,22 +40,33 @@ export default function Dashboard({ params }: { params: { username: string } }) 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // Suggestions State
+  // --- Suggestions & Stats ---
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [newSuggestionTitle, setNewSuggestionTitle] = useState("");
   const [newSuggestionDesc, setNewSuggestionDesc] = useState("");
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
-  // User Stats State
   const [userStats, setUserStats] = useState<any>(null);
   const [userStatsLoading, setUserStatsLoading] = useState(true);
-
-  // Bot Status State
   const [botStatus, setBotStatus] = useState<string | null>(null);
 
+  // Fetch Public Profile Data
   useEffect(() => {
-    if (session) {
+    setProfileLoading(true);
+    fetchApi(`/api/u/${params.username}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) setProfileError(data.error);
+        else setProfile(data);
+      })
+      .catch(() => setProfileError("Failed to load profile."))
+      .finally(() => setProfileLoading(false));
+  }, [params.username]);
+
+  // Fetch Dashboard Data (only if owner)
+  useEffect(() => {
+    if (isOwner) {
       fetchApi("/api/settings")
         .then((res) => res.json())
         .then((data) => {
@@ -87,7 +98,7 @@ export default function Dashboard({ params }: { params: { username: string } }) 
         })
         .catch(console.error);
     }
-  }, [session]);
+  }, [isOwner]);
 
   const fetchSuggestions = async () => {
     setSuggestionsLoading(true);
@@ -235,7 +246,7 @@ export default function Dashboard({ params }: { params: { username: string } }) 
     }
   };
 
-  if (status === "loading") {
+  if (profileLoading || status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -243,19 +254,17 @@ export default function Dashboard({ params }: { params: { username: string } }) 
     );
   }
 
-  if (status === "unauthenticated") {
+  // If the profile does not exist or is private, and the user is NOT the owner
+  if (profileError && !isOwner) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center p-4">
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-3xl flex flex-col items-center text-center max-w-md shadow-2xl">
-          <div className="w-16 h-16 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(99,102,241,0.3)]">🔒</div>
-          <h1 className="text-3xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">Access Denied</h1>
-          <p className="text-zinc-400 mb-8 font-medium">Please log in to view and manage your dashboard settings.</p>
-          <button 
-            onClick={() => { window.location.href = '/api/auth/login'; }}
-            className="w-full justify-center px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] flex items-center gap-2"
-          >
-            Login with Discord
-          </button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4">
+        <div className="bg-zinc-900/50 border border-white/10 p-8 rounded-3xl max-w-md text-center shadow-2xl">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2">Profile Unavailable</h2>
+          <p className="text-zinc-400 text-sm mb-6">{profileError}</p>
+          <Link href="/" className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-bold transition-all inline-block">
+            Go Home
+          </Link>
         </div>
       </div>
     );
@@ -269,123 +278,170 @@ export default function Dashboard({ params }: { params: { username: string } }) 
       
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 relative z-10 max-w-7xl animate-fade-in-up">
         
-        {/* HERO BANNER */}
-        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8">
+        {/* HERO BANNER (Modified to handle both owner view and public view) */}
+        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
-          <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-            <div className="flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
-                <img 
-                  src={session?.user?.image || "/logo.png"} 
-                  alt="Avatar" 
-                  className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10"
-                />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
-                  Welcome back, <span className="text-indigo-400">{displayUsername}</span>
-                </h1>
-                <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
-                {botStatus && (
-                  <p className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/20 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                    Bot is currently listening to: <strong className="text-white">{botStatus}</strong>
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-4">
-                  <p className="text-indigo-400 text-xs sm:text-sm font-semibold uppercase tracking-widest">Discord Connected</p>
-                  <button 
-                    onClick={() => {
-                      if (!userStats || !userStats.hasLastfm || !userStats.lastfm?.username) {
-                        toast.error("Please link a Last.fm account in the settings below to enable your public profile!");
-                        return;
-                      }
-                      navigator.clipboard.writeText(`${window.location.origin}/u/${userStats.lastfm.username}`);
-                      toast.success("Profile link copied to clipboard!");
-                    }}
-                    className="text-[10px] sm:text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1"
-                  >
-                    🔗 Share Profile
-                  </button>
-                </div>
-              </div>
+          
+          <div className="relative flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
+              <img 
+                src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png"} 
+                alt="Avatar" 
+                className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10"
+              />
             </div>
+            <div className="flex flex-col justify-center h-full">
+              {isOwner ? (
+                <>
+                  <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
+                    Welcome back, <span className="text-indigo-400">{displayUsername}</span>
+                  </h1>
+                  <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-2">{profile?.users?.[0]?.name || params.username}</h1>
+                  <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest">The Goats DJ Profile</p>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Right Side Stats/Widgets */}
+          {isOwner ? (
             <div className="w-full md:w-auto md:min-w-[300px]">
               <NowPlayingWidget />
             </div>
-          </div>
-        </div>
-
-        {/* AT A GLANCE STATS (Only show if linked) */}
-        {!userStatsLoading && userStats && (userStats.hasLastfm || userStats.hasSpotify || userStats.hasSpotifyRemote) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-            {userStats.hasSpotifyRemote && (
-              <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">
-                <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-green-400 transition-colors">Spotify Remote</div>
-                <div className="text-xl font-extrabold text-white flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
-                  Linked
-                </div>
+          ) : (
+            profile?.stats?.playcount > 0 && (
+              <div className="bg-zinc-900/50 border border-white/10 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
+                 <div className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Scrobbles</div>
+                 <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+                   {profile.stats.playcount.toLocaleString()}
+                 </div>
               </div>
-            )}
-            {userStats.hasSpotify && (
-              <>
-                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">
-                  <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-green-400 transition-colors">Spotify Streams</div>
-                  <div className="text-2xl md:text-3xl font-extrabold text-white">{userStats.spotify.playcount.toLocaleString()}</div>
-                </div>
-                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-green-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(34,197,94,0.1)] group">
-                  <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-green-400 transition-colors">Spotify Top Artist</div>
-                  <div className="text-xl font-bold text-white truncate" title={userStats.spotify.topArtist}>{userStats.spotify.topArtist}</div>
-                  <div className="text-xs text-zinc-400 mt-1">{userStats.spotify.topArtistPlays.toLocaleString()} plays</div>
-                </div>
-              </>
-            )}
-            {userStats.hasLastfm && (
-              <>
-                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-red-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(239,68,68,0.1)] group">
-                  <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-red-400 transition-colors">Last.fm Scrobbles</div>
-                  <div className="text-2xl md:text-3xl font-extrabold text-white">{userStats.lastfm.playcount.toLocaleString()}</div>
-                </div>
-                <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/5 hover:border-red-500/30 rounded-2xl p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(239,68,68,0.1)] group">
-                  <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mb-2 group-hover:text-red-400 transition-colors">Last.fm Top Artist</div>
-                  <div className="text-xl font-bold text-white truncate" title={userStats.lastfm.topArtist}>{userStats.lastfm.topArtist}</div>
-                  <div className="text-xs text-zinc-400 mt-1">{userStats.lastfm.topArtistPlays.toLocaleString()} plays</div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {!userStatsLoading && !userStats && (
-          <div className="mb-12 text-center p-8 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-white/5 border-dashed">
-            Account not linked. Use the bot on Discord to link your account.
-          </div>
-        )}
-
-        {/* TAB SWITCHER */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
-            <button 
-              onClick={() => setActiveTab("settings")}
-              className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-            >
-              ⚙️ Preferences
-            </button>
-            <button 
-              onClick={() => setActiveTab("suggestions")}
-              className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-            >
-              💡 Feedback & Ideas
-            </button>
-          </div>
+            )
+          )}
         </div>
 
-        {/* TAB CONTENT */}
-        {activeTab === "settings" && (
+        {/* TAB SWITCHER (Only visible to owner) */}
+        {isOwner && (
+          <div className="flex items-center justify-center mb-8">
+            <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+              <button 
+                onClick={() => setActiveTab("profile")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-300 shadow-lg border border-indigo-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>🌍</span> Public Profile
+              </button>
+              <button 
+                onClick={() => setActiveTab("settings")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>⚙️</span> Preferences
+              </button>
+              <button 
+                onClick={() => setActiveTab("suggestions")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>💡</span> Feedback & Ideas
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* --- PROFILE TAB --- */}
+        {(!isOwner || activeTab === "profile") && profile && !profileError && (
           <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
-            
+            {/* Top Artists Grid */}
+            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-xl font-bold flex items-center gap-2">⭐ Top Artists</h3>
+                 <p className="text-zinc-400 text-sm mt-1">Their most listened to artists of all time.</p>
+               </div>
+               <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 {profile.stats?.topArtists?.length > 0 ? profile.stats.topArtists.map((artist: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={artist.url} 
+                     target="_blank"
+                     rel="noreferrer"
+                     className="bg-zinc-900/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                   >
+                     <div className="w-16 h-16 rounded-full bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                        {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
+                          <img src={artist.image} alt={artist.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">🎤</div>
+                        )}
+                     </div>
+                     <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{artist.name}</div>
+                     <div className="text-xs text-zinc-500 font-medium mt-1">{parseInt(artist.playcount).toLocaleString()} plays</div>
+                   </a>
+                 )) : (
+                   <div className="col-span-2 text-center py-8 text-zinc-500">No top artists found.</div>
+                 )}
+               </div>
+            </div>
+
+            {/* Recent Tracks List */}
+            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-xl font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
+                 <p className="text-zinc-400 text-sm mt-1">What they've been listening to lately.</p>
+               </div>
+               <div className="divide-y divide-white/5">
+                 {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={track.url}
+                     target="_blank"
+                     rel="noreferrer"
+                     className="flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                   >
+                     <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
+                       {track.image ? (
+                         <img src={track.image} alt="Album Art" className="w-full h-full object-cover" />
+                       ) : (
+                         <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
+                       )}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
+                         {track.name}
+                         {track.nowPlaying && (
+                           <span className="shrink-0 flex items-center gap-1 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-green-500/20">
+                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                             Playing
+                           </span>
+                         )}
+                       </div>
+                       <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
+                     </div>
+                     {!track.nowPlaying && track.date && (
+                       <div className="text-[10px] text-zinc-500 whitespace-nowrap shrink-0">
+                         {new Date(parseInt(track.date) * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                       </div>
+                     )}
+                   </a>
+                 )) : (
+                   <div className="text-center py-8 text-zinc-500">No recent tracks found.</div>
+                 )}
+               </div>
+            </div>
+          </div>
+        )}
+
+        {isOwner && activeTab === "profile" && profileError && (
+          <div className="text-center p-8 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-white/5 border-dashed">
+            {profileError}
+          </div>
+        )}
+
+        {/* --- SETTINGS TAB --- */}
+        {isOwner && activeTab === "settings" && (
+          <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
             {/* LEFT COLUMN */}
             <div className="space-y-8">
               {/* Display Layout Card */}
@@ -515,7 +571,7 @@ export default function Dashboard({ params }: { params: { username: string } }) 
                         <span className="text-[10px] uppercase font-bold bg-amber-500/10 text-amber-500 px-2.5 py-0.5 rounded-full border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]">Privacy</span>
                       </div>
                       <div className="text-sm text-zinc-400">
-                        Hide your Last.fm username and profile link from bot embeds. Others will only see your Discord name.
+                        Hide your Last.fm username and profile link from bot embeds and disable public profile.
                       </div>
                     </div>
                     <div className="shrink-0 pt-1 sm:pt-0">
@@ -528,7 +584,8 @@ export default function Dashboard({ params }: { params: { username: string } }) 
           </div>
         )}
 
-        {activeTab === "suggestions" && (
+        {/* --- SUGGESTIONS TAB --- */}
+        {isOwner && activeTab === "suggestions" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
             {/* Submit Suggestion Card */}
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
@@ -610,37 +667,39 @@ export default function Dashboard({ params }: { params: { username: string } }) 
         )}
       </main>
 
-      {/* Floating Save Pill */}
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 transition-all duration-500 z-50 ${hasUnsavedChanges ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
-        <div className="bg-zinc-900/95 backdrop-blur-3xl border border-indigo-500/40 p-3 pr-4 rounded-full shadow-[0_10px_50px_rgba(99,102,241,0.3)] flex items-center gap-6">
-          <div className="flex items-center gap-3 pl-4">
-            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
-            <div className="text-indigo-100 text-sm font-bold tracking-wide">UNSAVED CHANGES</div>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => {
-                setUnsavedFmMode(fmMode);
-                setUnsavedShowFeatures(showFeatures);
-                setUnsavedPrivateMode(privateMode);
-                setUnsavedDataSource(dataSource);
-                setUnsavedTimezone(timezone);
-                setUnsavedShowTrackPlaycount(showTrackPlaycount);
-              }}
-              className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-            >
-              DISCARD
-            </button>
-            <button 
-              onClick={saveSettings}
-              disabled={savingSettings}
-              className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-full transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.6)] disabled:opacity-50 disabled:shadow-none"
-            >
-              {savingSettings ? "SAVING..." : "SAVE"}
-            </button>
+      {/* Floating Save Pill (Only for owner when settings change) */}
+      {isOwner && (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 transition-all duration-500 z-50 ${hasUnsavedChanges ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+          <div className="bg-zinc-900/95 backdrop-blur-3xl border border-indigo-500/40 p-3 pr-4 rounded-full shadow-[0_10px_50px_rgba(99,102,241,0.3)] flex items-center gap-6">
+            <div className="flex items-center gap-3 pl-4">
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
+              <div className="text-indigo-100 text-sm font-bold tracking-wide">UNSAVED CHANGES</div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  setUnsavedFmMode(fmMode);
+                  setUnsavedShowFeatures(showFeatures);
+                  setUnsavedPrivateMode(privateMode);
+                  setUnsavedDataSource(dataSource);
+                  setUnsavedTimezone(timezone);
+                  setUnsavedShowTrackPlaycount(showTrackPlaycount);
+                }}
+                className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+              >
+                DISCARD
+              </button>
+              <button 
+                onClick={saveSettings}
+                disabled={savingSettings}
+                className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-full transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.6)] disabled:opacity-50 disabled:shadow-none"
+              >
+                {savingSettings ? "SAVING..." : "SAVE"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
