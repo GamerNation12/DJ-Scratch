@@ -1,6 +1,14 @@
-import urllib.request, json, urllib.parse
-url = f"https://itunes.apple.com/search?term={urllib.parse.quote('DJ Snake Let Me Love You')}&entity=song&limit=1"
-try:
-    print(json.dumps(json.loads(urllib.request.urlopen(url).read()), indent=2))
-except Exception as e:
-    print(e)
+import asyncio
+import aiohttp
+from src.utils.api import fetch_top_tracks, fetch_user_profile
+
+async def main():
+    username = "GamerNation13"
+    user_info = await fetch_user_profile(username)
+    print("User info:", user_info)
+    
+    lastfm_data = await fetch_top_tracks(username, 'overall', 10)
+    for t in lastfm_data['toptracks']['track'][:5]:
+        print(t['name'], t['artist']['name'], t['playcount'])
+
+asyncio.run(main())
