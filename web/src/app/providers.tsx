@@ -32,12 +32,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const handleAuth = async () => {
       // Check hash for token
       if (typeof window !== "undefined") {
-        const hash = window.location.hash;
-        if (hash.includes("token=")) {
-          const newToken = hash.split("token=")[1].split("&")[0];
-          localStorage.setItem("discord_jwt", newToken);
-          window.history.replaceState(null, "", window.location.pathname);
-        }
+        // Hash processing moved to /logging-in page
 
         const storedToken = localStorage.getItem("discord_jwt");
         if (storedToken) {
