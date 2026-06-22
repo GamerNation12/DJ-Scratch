@@ -14,9 +14,7 @@ export default function Dashboard({ params }: { params: { username: string } }) 
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/");
-    } else if (status === "authenticated" && displayUsername && displayUsername !== params.username) {
+    if (status === "authenticated" && displayUsername && displayUsername !== params.username) {
       router.push(`/${displayUsername}`);
     }
   }, [status, router, displayUsername, params.username]);
@@ -239,8 +237,26 @@ export default function Dashboard({ params }: { params: { username: string } }) 
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-3xl flex flex-col items-center text-center max-w-md shadow-2xl">
+          <div className="w-16 h-16 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_30px_rgba(99,102,241,0.3)]">🔒</div>
+          <h1 className="text-3xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">Access Denied</h1>
+          <p className="text-zinc-400 mb-8 font-medium">Please log in to view and manage your dashboard settings.</p>
+          <button 
+            onClick={() => { window.location.href = '/api/auth/login'; }}
+            className="w-full justify-center px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] flex items-center gap-2"
+          >
+            Login with Discord
+          </button>
+        </div>
       </div>
     );
   }
