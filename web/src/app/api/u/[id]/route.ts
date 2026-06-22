@@ -14,11 +14,38 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const sql = postgres(DB_URL!);
     
     // Fetch user settings and Last.fm username
-    const rows = await sql`
-      SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
-      FROM user_settings 
-      WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
-    `;
+    let rows;
+    try {
+      rows = await sql`
+        SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
+        FROM user_settings 
+        WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
+      `;
+    } catch (e: any) {
+      if (e.message?.includes('column "discord_username" does not exist') || e.code === '42703') {
+        await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS discord_username TEXT`;
+        
+        // Backfill discord_username from website_logs for users who have logged in before
+        await sql`
+          UPDATE user_settings 
+          SET discord_username = (
+            SELECT username FROM website_logs 
+            WHERE website_logs.user_id = user_settings.user_id 
+            AND website_logs.action = 'Website Login'
+            ORDER BY timestamp DESC LIMIT 1
+          ) 
+          WHERE discord_username IS NULL
+        `;
+
+        rows = await sql`
+          SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
+          FROM user_settings 
+          WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
+        `;
+      } else {
+        throw e;
+      }
+    }
 
     if (rows.length === 0) {
       return NextResponse.json({ error: "User not found or has not set up the bot." }, { status: 404 });
