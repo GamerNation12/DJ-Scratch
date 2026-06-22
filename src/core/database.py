@@ -59,6 +59,10 @@ async def init_db():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN last_update_seen TEXT DEFAULT ''")
                 except Exception:
                     pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_refresh_token TEXT")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
@@ -373,3 +377,23 @@ async def get_global_update_message():
             print(f"Error fetching global update message: {e}")
         from src.core.config import CURRENT_UPDATE_MESSAGE
         return CURRENT_UPDATE_MESSAGE
+
+async def get_user_spotify_refresh_token(user_id):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT spotify_refresh_token FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['spotify_refresh_token'] if row else None
+    except Exception:
+        return None
+
+async def set_user_spotify_refresh_token(user_id, token):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, spotify_refresh_token) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET spotify_refresh_token = $2
+            """, str(user_id), token)
+    except Exception as e:
+        print(f"Error setting spotify_refresh_token: {e}")
