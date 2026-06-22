@@ -1126,15 +1126,18 @@ class SettingsView(discord.ui.View):
 
 async def apply_features(session, artist, song, s_artists=None):
     import re
+    print(f"[DEBUG apply_features events.py] Called with artist: '{artist}', song: '{song}'")
     m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
+        print(f"[DEBUG apply_features events.py] Extracted from original song -> features: '{features}', new song: '{song}'")
         return f"{artist}, {features}", song
         
     if s_artists and len(s_artists) > 1:
         features = [a for a in s_artists if a.lower() not in artist.lower()]
         if features:
+            print(f"[DEBUG apply_features events.py] Using s_artists -> features: '{', '.join(features)}'")
             return f"{artist}, {', '.join(features)}", song
     
     try:
@@ -1145,16 +1148,27 @@ async def apply_features(session, artist, song, s_artists=None):
                 if data.get('resultCount', 0) > 0:
                     it_artist = data['results'][0].get('artistName', '')
                     it_track = data['results'][0].get('trackName', '')
+                    print(f"[DEBUG apply_features events.py] iTunes returned it_artist: '{it_artist}', it_track: '{it_track}'")
                     
                     m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
                     if m2:
                         features = m2.group(1).strip()
+                        print(f"[DEBUG apply_features events.py] Extracted from it_track -> features: '{features}'")
                         return f"{artist}, {features}", song
-                    elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower()):
+                    elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
+                        print(f"[DEBUG apply_features events.py] Using it_artist: '{it_artist}' because it contains multiple artists")
                         return it_artist, song
-    except Exception:
+                    else:
+                        print(f"[DEBUG apply_features events.py] No feature condition met for it_artist: '{it_artist}' vs original: '{artist}'")
+                else:
+                    print(f"[DEBUG apply_features events.py] iTunes resultCount was 0.")
+            else:
+                print(f"[DEBUG apply_features events.py] iTunes API returned status {r.status}")
+    except Exception as e:
+        print(f"[DEBUG apply_features events.py] Exception: {e}")
         pass
         
+    print(f"[DEBUG apply_features events.py] Returning original artist: '{artist}', song: '{song}'")
     return artist, song
 
 # --- CORE LOGIC ---
