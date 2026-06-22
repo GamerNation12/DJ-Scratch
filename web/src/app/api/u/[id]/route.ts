@@ -4,6 +4,49 @@ import postgres from "postgres";
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+
+export const revalidate = 60; // Cache for 60 seconds
+
+async function getSpotifyToken() {
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) return null;
+  const credentials = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials',
+      next: { revalidate: 3500 } // Cache token for nearly 1 hour
+    });
+    const data = await res.json();
+    return data.access_token;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getSpotifyArtistImage(artistName: string, token: string) {
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      next: { revalidate: 86400 } // Cache artist image for 24 hours
+    });
+    const data = await res.json();
+    if (data.artists?.items?.length > 0) {
+      const artist = data.artists.items[0];
+      if (artist.images?.length > 0) {
+        return artist.images[0].url;
+      }
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return null;
+}
 
 export const revalidate = 60; // Cache for 60 seconds
 
@@ -110,11 +153,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
 
       if (!artistData.error && artistData.topartists?.artist) {
-        lastfmData.topArtists = artistData.topartists.artist.map((a: any) => ({
-          name: a.name,
-          playcount: a.playcount,
-          url: a.url,
-          image: a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null
+        // Prepare Spotify Token for image fetching
+        const spotifyToken = await getSpotifyToken();
+        
+        lastfmData.topArtists = await Promise.all(artistData.topartists.artist.map(async (a: any) => {
+          let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
+          
+          // Last.fm's default generic star image hash
+          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+            imageUrl = null;
+          }
+
+          // Fetch from Spotify if Last.fm image is generic or missing
+          if (!imageUrl && spotifyToken) {
+            imageUrl = await getSpotifyArtistImage(a.name, spotifyToken);
+          }
+
+          return {
+            name: a.name,
+            playcount: a.playcount,
+            url: a.url,
+            image: imageUrl
+          };
         }));
       }
 
