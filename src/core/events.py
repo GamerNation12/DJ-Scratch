@@ -1737,18 +1737,38 @@ async def process_recent(user):
     d_source = await get_user_data_source(user.id)
     if username and d_source != 'imported_only':
         data = await fetch_now_playing(username, 10)
-        if data:
-            lines = [f"{'🎶' if i == 0 and t.get('@attr', {}).get('nowplaying') == 'true' else f'` {i+1}. `'} **{t['name']}** by {t['artist']['#text']}" for i, t in enumerate(data['recenttracks']['track'][:10])]
+        if data and 'recenttracks' in data and 'track' in data['recenttracks'] and data['recenttracks']['track']:
+            lines = []
+            for i, t in enumerate(data['recenttracks']['track'][:10]):
+                is_np = i == 0 and t.get('@attr', {}).get('nowplaying') == 'true'
+                prefix = "🎶" if is_np else f"` {i+1}. `"
+                track_name = t.get('name', 'Unknown Track')
+                artist_name = t.get('artist', {}).get('#text', 'Unknown Artist')
+                track_url = t.get('url', '')
+                
+                track_formatted = f"[{track_name}]({track_url})" if track_url else track_name
+                lines.append(f"{prefix} **{track_formatted}** — *{artist_name}*")
+                
             embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks", icon_url=user.display_avatar.url)
-            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            # Use album art for thumbnail if available
+            first_track = data['recenttracks']['track'][0]
+            thumbnail_url = user.display_avatar.url
+            if 'image' in first_track and len(first_track['image']) > 0:
+                # get the largest image
+                img_url = first_track['image'][-1].get('#text')
+                if img_url:
+                    thumbnail_url = img_url
+                    
+            embed.set_thumbnail(url=thumbnail_url)
             embed.set_footer(text=f"Scrobbling as {username}")
             return embed, None
     # Fallback to local DB
     if d_source != 'lastfm_only':
         local = await get_local_recent_tracks(user.id, 10)
         if local:
-            lines = [f"` {i+1}. ` **{t}** by {a}" for i, (t, a, _) in enumerate(local)]
+            lines = [f"` {i+1}. ` **{t}** — *{a}*" for i, (t, a, _) in enumerate(local)]
             embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
             embed.set_thumbnail(url=user.display_avatar.url)
