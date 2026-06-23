@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/jwt';
+import postgres from 'postgres';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -47,8 +48,7 @@ export async function GET(request: Request) {
 
   // Log the login
   try {
-    const postgres = require('postgres');
-    const sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+    const sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)

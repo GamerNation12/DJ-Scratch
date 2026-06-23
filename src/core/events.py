@@ -671,13 +671,34 @@ async def import_worker():
     while True:
         user, temp_filepath, is_zip, response_target = await import_queue.get()
         print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {format_name(user)} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
+        
+        try:
+            log_channel = bot.get_channel(1517288950522187947)
+            if log_channel:
+                await log_channel.send(f"📥 **{format_name(user)}** (`{user.id}`) data is currently importing. Items left in queue: **{import_queue.qsize()}**")
+        except Exception as e:
+            pass
+
         try:
             await process_discord_import_in_background(user, temp_filepath, is_zip, response_target)
         except Exception as e:
             print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {format_name(user)}: {e}{Log.RESET}")
+            try:
+                log_channel = bot.get_channel(1517288950522187947)
+                if log_channel:
+                    await log_channel.send(f"❌ Error importing data for **{format_name(user)}** (`{user.id}`): {e}")
+            except Exception:
+                pass
         finally:
             import_queue.task_done()
             print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {format_name(user)}.{Log.RESET}")
+            
+            try:
+                log_channel = bot.get_channel(1517288950522187947)
+                if log_channel:
+                    await log_channel.send(f"✅ Finished import task for **{format_name(user)}** (`{user.id}`).")
+            except Exception:
+                pass
 
 
 
