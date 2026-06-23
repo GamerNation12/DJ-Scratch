@@ -900,16 +900,21 @@ class FMDetailsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        from src.utils.api import fetch_deezer_artist_image
+        deezer_img = await fetch_deezer_artist_image(self.bot_instance.session, self.artist)
+        preview_url = deezer_img if deezer_img else self.img
+
         preview_embed = discord.Embed(
             title="Bot Avatar Preview", 
-            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
+            description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.format_name(user), icon_url=self.img)
-        preview_embed.set_image(url=self.img)
+        preview_embed.set_author(name=self.bot_instance.format_name(self.user), icon_url=preview_url)
+        preview_embed.set_image(url=preview_url)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
-        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=self.original_msg, original_user=self.user)
+        await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
     def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full"):
@@ -994,16 +999,21 @@ class FMActionsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        from src.utils.api import fetch_deezer_artist_image
+        deezer_img = await fetch_deezer_artist_image(self.bot_instance.session, self.artist)
+        preview_url = deezer_img if deezer_img else self.img
+
         preview_embed = discord.Embed(
             title="Bot Avatar Preview", 
-            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
+            description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.format_name(user), icon_url=self.img)
-        preview_embed.set_image(url=self.img)
+        preview_embed.set_author(name=self.bot_instance.format_name(self.user), icon_url=preview_url)
+        preview_embed.set_image(url=preview_url)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
-        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=interaction.message, original_user=self.user)
+        await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
 
 async def update_bot_avatar_and_status(bot_instance, artist, img):
     try:
@@ -1457,10 +1467,10 @@ class TopItemsPaginator(discord.ui.View):
 
         if self.cmd_type == 'tt':
             lines = [f"{start + idx + 1}. {a} - {t} - {c:,} plays" for idx, ((t, a), c) in enumerate(page_items)]
-            title = f"{self.format_name(user)}'s Top Tracks ({self.disp_p})"
+            title = f"{format_name(self.user)}'s Top Tracks ({self.disp_p})"
         else:
             lines = [f"{start + idx + 1}. {name} - {count:,} plays" for idx, (name, count) in enumerate(page_items)]
-            title = f"{self.format_name(user)}'s Top Artists ({self.disp_p})"
+            title = f"{format_name(self.user)}'s Top Artists ({self.disp_p})"
             
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
         embed.set_author(name=title, icon_url=self.user.display_avatar.url)
@@ -1539,7 +1549,7 @@ class ArtistTracksPaginator(discord.ui.View):
         embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
         embed.set_author(name=f"Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
         
-        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{self.format_name(user)} has {self.total_plays:,} total artist plays"
+        footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{format_name(self.user)} has {self.total_plays:,} total artist plays"
         embed.set_footer(text=footer_text)
         return embed
 

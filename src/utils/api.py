@@ -72,3 +72,17 @@ async def fetch_user_artist_tracks_lastfm(u, artist):
     # Sort by user playcount descending
     user_tracks.sort(key=lambda x: x[1], reverse=True)
     return user_tracks
+
+async def fetch_deezer_artist_image(session, artist_name):
+    url = f"https://api.deezer.com/search/artist?q={urllib.parse.quote(artist_name)}"
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data and 'data' in data and len(data['data']) > 0:
+                    artist = data['data'][0]
+                    return artist.get('picture_xl') or artist.get('picture_big') or artist.get('picture')
+    except Exception as e:
+        import logging
+        logging.error(f"Deezer fetch error: {e}")
+    return None
