@@ -910,7 +910,7 @@ class FMDetailsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.format_name(self.user), icon_url=preview_url)
+        preview_embed.set_author(name=format_name(self.user), icon_url=preview_url)
         preview_embed.set_image(url=preview_url)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=self.original_msg, original_user=self.user)
@@ -1009,7 +1009,7 @@ class FMActionsView(discord.ui.View):
             description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=self.bot_instance.format_name(self.user), icon_url=preview_url)
+        preview_embed.set_author(name=format_name(self.user), icon_url=preview_url)
         preview_embed.set_image(url=preview_url)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=interaction.message, original_user=self.user)
@@ -1160,7 +1160,7 @@ async def apply_features(session, artist, song, s_artists=None):
         url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=1"
         async with session.get(url) as r:
             if r.status == 200:
-                data = await r.json()
+                data = await r.json(content_type=None)
                 if data.get('resultCount', 0) > 0:
                     it_artist = data['results'][0].get('artistName', '')
                     it_track = data['results'][0].get('trackName', '')
