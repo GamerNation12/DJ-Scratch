@@ -900,21 +900,16 @@ class FMDetailsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        from src.utils.api import fetch_deezer_artist_image
-        deezer_img = await fetch_deezer_artist_image(self.bot_instance.session, self.artist)
-        preview_url = deezer_img if deezer_img else self.img
-
         preview_embed = discord.Embed(
             title="Bot Avatar Preview", 
-            description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
+            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=format_name(self.user), icon_url=preview_url)
-        preview_embed.set_image(url=preview_url)
+        preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
+        preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=self.original_msg, original_user=self.user)
-        await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
+        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
     def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full"):
@@ -999,21 +994,16 @@ class FMActionsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        from src.utils.api import fetch_deezer_artist_image
-        deezer_img = await fetch_deezer_artist_image(self.bot_instance.session, self.artist)
-        preview_url = deezer_img if deezer_img else self.img
-
         preview_embed = discord.Embed(
             title="Bot Avatar Preview", 
-            description=f"This is how the bot will look if you apply the avatar for **{self.artist}**.", 
+            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
-        preview_embed.set_author(name=format_name(self.user), icon_url=preview_url)
-        preview_embed.set_image(url=preview_url)
+        preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
+        preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, preview_url, original_msg=interaction.message, original_user=self.user)
-        await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
+        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 async def update_bot_avatar_and_status(bot_instance, artist, img):
     try:
@@ -1237,8 +1227,8 @@ async def process_fm(ctx_int, user, mode="full"):
 
         if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
             try:
-                from src.utils.api import fetch_deezer_artist_image
-                deezer_img = await fetch_deezer_artist_image(session, artist)
+                from src.utils.api import fetch_deezer_track_image
+                deezer_img = await fetch_deezer_track_image(session, song, artist)
                 if deezer_img:
                     img = deezer_img
             except Exception as e:

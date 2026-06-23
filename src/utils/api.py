@@ -86,3 +86,18 @@ async def fetch_deezer_artist_image(session, artist_name):
         import logging
         logging.error(f"Deezer fetch error: {e}")
     return None
+
+async def fetch_deezer_track_image(session, track_name, artist_name):
+    url = f"https://api.deezer.com/search/track?q={urllib.parse.quote(track_name + ' ' + artist_name)}"
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data and 'data' in data and len(data['data']) > 0:
+                    track = data['data'][0]
+                    album = track.get('album', {})
+                    return album.get('cover_xl') or album.get('cover_big') or album.get('cover')
+    except Exception as e:
+        import logging
+        logging.error(f"Deezer track fetch error: {e}")
+    return None
