@@ -2322,8 +2322,10 @@ async def update_notif_prefix(ctx):
             if CACHED_GLOBAL_UPDATE_MESSAGE is None:
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
+            
+            embed = discord.Embed(description=msg, color=0x10b981)
             view = DismissUpdateView(ctx.author.id)
-            await ctx.send(f"<@{ctx.author.id}>\n{msg}", view=view, delete_after=60.0)
+            await ctx.send(f"<@{ctx.author.id}>", embed=embed, view=view, delete_after=60.0)
         except Exception:
             pass
     await check_update_notification(ctx.author.id, send_msg)
@@ -2337,7 +2339,9 @@ async def update_notif_slash(interaction, command):
             if CACHED_GLOBAL_UPDATE_MESSAGE is None:
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
-            await interaction.followup.send(msg, ephemeral=True)
+            
+            embed = discord.Embed(description=msg, color=0x10b981)
+            await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception:
             pass
     await check_update_notification(interaction.user.id, send_msg)
