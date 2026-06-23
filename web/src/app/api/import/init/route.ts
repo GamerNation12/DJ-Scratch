@@ -27,9 +27,12 @@ export async function POST(req: Request) {
     const sql = postgres(process.env.DATABASE_URL || "");
     const jobId = uuidv4();
 
+    const userId = String((decoded as any).id);
+    const fileNameStr = String(filename);
+
     await sql`
       INSERT INTO import_jobs (id, user_id, filename, total_chunks, status)
-      VALUES (${jobId}, ${decoded.id}, ${filename}, ${totalChunks}, 'uploading')
+      VALUES (${jobId}, ${userId}, ${fileNameStr}, ${totalChunks}, 'uploading')
     `;
 
     return NextResponse.json({ success: true, jobId });

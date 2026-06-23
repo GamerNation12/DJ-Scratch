@@ -32,8 +32,9 @@ export async function POST(req: Request) {
 
     const sql = postgres(process.env.DATABASE_URL || "");
 
+    const userId = String((decoded as any).id);
     const [job] = await sql`SELECT user_id FROM import_jobs WHERE id = ${jobId}`;
-    if (!job || job.user_id !== decoded.id) {
+    if (!job || job.user_id !== userId) {
       return NextResponse.json({ error: "Job not found or unauthorized" }, { status: 404 });
     }
 
