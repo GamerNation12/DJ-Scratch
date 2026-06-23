@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
-import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = cookies();
-    const token = (await cookieStore).get("auth_token")?.value;
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    const token = authHeader?.split(" ")[1];
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
