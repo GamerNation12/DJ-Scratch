@@ -102,6 +102,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [dataSource, setDataSource] = useState<"combined" | "spotify" | "lastfm">("combined");
   const [timezone, setTimezone] = useState<string>("UTC");
   const [showTrackPlaycount, setShowTrackPlaycount] = useState<boolean>(false);
+  const [displayName, setDisplayName] = useState<string>("");
   
   const [unsavedFmMode, setUnsavedFmMode] = useState<"compact" | "full" | "stats">("full");
   const [unsavedShowFeatures, setUnsavedShowFeatures] = useState<boolean>(false);
@@ -109,6 +110,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [unsavedDataSource, setUnsavedDataSource] = useState<"combined" | "spotify" | "lastfm">("combined");
   const [unsavedTimezone, setUnsavedTimezone] = useState<string>("UTC");
   const [unsavedShowTrackPlaycount, setUnsavedShowTrackPlaycount] = useState<boolean>(false);
+  const [unsavedDisplayName, setUnsavedDisplayName] = useState<string>("");
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -150,6 +152,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             if (data.dataSource) { setDataSource(data.dataSource); setUnsavedDataSource(data.dataSource); }
             if (data.timezone) { setTimezone(data.timezone); setUnsavedTimezone(data.timezone); }
             if (data.showTrackPlaycount !== undefined) { setShowTrackPlaycount(data.showTrackPlaycount); setUnsavedShowTrackPlaycount(data.showTrackPlaycount); }
+            if (data.displayName !== undefined) { setDisplayName(data.displayName); setUnsavedDisplayName(data.displayName); }
           }
         })
         .catch(console.error);
@@ -195,13 +198,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       unsavedPrivateMode !== privateMode ||
       unsavedDataSource !== dataSource ||
       unsavedTimezone !== timezone ||
-      unsavedShowTrackPlaycount !== showTrackPlaycount
+      unsavedShowTrackPlaycount !== showTrackPlaycount ||
+      unsavedDisplayName !== displayName
     ) {
       setHasUnsavedChanges(true);
     } else {
       setHasUnsavedChanges(false);
     }
-  }, [unsavedFmMode, unsavedShowFeatures, unsavedPrivateMode, unsavedDataSource, unsavedTimezone, unsavedShowTrackPlaycount, fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount]);
+  }, [unsavedFmMode, unsavedShowFeatures, unsavedPrivateMode, unsavedDataSource, unsavedTimezone, unsavedShowTrackPlaycount, unsavedDisplayName, fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName]);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -215,7 +219,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           privateMode: unsavedPrivateMode,
           dataSource: unsavedDataSource,
           timezone: unsavedTimezone,
-          showTrackPlaycount: unsavedShowTrackPlaycount
+          showTrackPlaycount: unsavedShowTrackPlaycount,
+          displayName: unsavedDisplayName
         }),
       });
       if (res.ok) {
@@ -226,6 +231,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         if (data.dataSource) setDataSource(data.dataSource);
         if (data.timezone) setTimezone(data.timezone);
         if (data.showTrackPlaycount !== undefined) setShowTrackPlaycount(data.showTrackPlaycount);
+        if (data.displayName !== undefined) setDisplayName(data.displayName);
         setHasUnsavedChanges(false);
         toast.success("Settings saved successfully!");
       }
@@ -682,6 +688,25 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
             {/* RIGHT COLUMN */}
             <div className="space-y-8">
+              {/* Profile Details Card */}
+              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Profile Details</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Customize how you appear on the dashboard.</p>
+                </div>
+                <div className="p-8">
+                  <label className="block text-lg font-semibold text-white mb-2">Custom Display Name</label>
+                  <p className="text-sm text-zinc-400 mb-4">Overrides your Discord/Last.fm username on your public profile URL and page.</p>
+                  <input
+                    type="text"
+                    placeholder={usernameParam}
+                    value={unsavedDisplayName}
+                    onChange={(e) => setUnsavedDisplayName(e.target.value)}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+
               {/* Feature Toggles Card */}
               <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
@@ -906,6 +931,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                   setUnsavedDataSource(dataSource);
                   setUnsavedTimezone(timezone);
                   setUnsavedShowTrackPlaycount(showTrackPlaycount);
+                  setUnsavedDisplayName(displayName);
                 }}
                 className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >

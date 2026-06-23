@@ -165,12 +165,20 @@ export default function Navbar() {
                 >
                   Invite
                 </a>
-                <button
-                  onClick={() => { window.location.href = '/api/auth/login'; }}
-                  className="px-4 py-1.5 text-sm font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-lg shadow-lg shadow-white/10 transition-all"
-                >
-                  Sign In
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { window.location.href = '/api/auth/login'; }}
+                    className="px-4 py-1.5 text-sm font-medium text-white bg-[#5865F2] hover:bg-[#4752C4] rounded-lg shadow-lg shadow-[#5865F2]/20 transition-all"
+                  >
+                    Discord
+                  </button>
+                  <button
+                    onClick={() => { window.location.href = '/api/auth/lastfm/login'; }}
+                    className="px-4 py-1.5 text-sm font-medium text-white bg-[#D51007] hover:bg-[#B00C05] rounded-lg shadow-lg shadow-[#D51007]/20 transition-all hidden sm:block"
+                  >
+                    Last.fm
+                  </button>
+                </div>
               </div>
             )}
           </div>

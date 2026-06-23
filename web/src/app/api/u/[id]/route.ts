@@ -69,9 +69,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let rows;
     try {
       rows = await sql`
-        SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
+        SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
         FROM user_settings 
-        WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
+        WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId} OR display_name ILIKE ${userId}
       `;
     } catch (e: any) {
       if (e.message?.includes('column "discord_username" does not exist') || e.code === '42703') {
@@ -90,9 +90,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         `;
 
         rows = await sql`
-          SELECT user_id, lastfm_username, private_mode, data_source, discord_username 
+          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
           FROM user_settings 
-          WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId}
+          WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId} OR display_name ILIKE ${userId}
         `;
       } else {
         throw e;
@@ -107,6 +107,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     if (publicRows.length === 0) {
       return NextResponse.json({ error: "This profile is private." }, { status: 403 });
+    }
+
+    if (publicRows[0].is_banned) {
+      return NextResponse.json({ error: `This user is banned. Reason: ${publicRows[0].ban_reason || 'No reason provided'}` }, { status: 403 });
     }
 
     // Since they share the same lastfm_username, we can just use the first one's lastfm_username
@@ -138,6 +142,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
       discordUsers.push(discordUser);
     }));
+
+    // Override the name with display_name if set
+    if (publicRows[0].display_name) {
+      discordUsers[0].name = publicRows[0].display_name;
+    }
 
     // Fetch Last.fm Data
     let lastfmData = {

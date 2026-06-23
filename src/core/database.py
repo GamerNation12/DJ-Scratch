@@ -60,6 +60,22 @@ async def init_db():
                 except Exception:
                     pass
                 try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN display_name TEXT")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN is_banned BOOLEAN DEFAULT FALSE")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN ban_reason TEXT")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN ban_expires_at TIMESTAMP")
+                except Exception:
+                    pass
+                try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass

@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   try {
     const row = await sql`
-      SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount 
+      SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name 
       FROM user_settings 
       WHERE user_id = ${userId}
     `;
@@ -26,8 +26,9 @@ export async function GET(req: Request) {
     const dataSource = row[0]?.data_source || "combined";
     const timezone = row[0]?.timezone || "UTC";
     const showTrackPlaycount = row[0]?.show_track_playcount || false;
+    const displayName = row[0]?.display_name || "";
     
-    return NextResponse.json({ fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount });
+    return NextResponse.json({ fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName });
   } catch (error) {
     console.error("Error fetching settings:", error);
     return NextResponse.json({ fmMode: "full", showFeatures: false, privateMode: false, dataSource: "combined", timezone: "UTC", showTrackPlaycount: false });
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const { fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount } = await req.json();
+    const { fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName } = await req.json();
     
     let currentFmMode = "full";
     let currentShowFeatures = false;
@@ -55,9 +56,10 @@ export async function POST(req: Request) {
     let currentDataSource = "combined";
     let currentTimezone = "UTC";
     let currentShowTrackPlaycount = false;
+    let currentDisplayName = "";
 
     // Fetch current settings to handle partial updates
-    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount FROM user_settings WHERE user_id = ${userId}`;
+    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name FROM user_settings WHERE user_id = ${userId}`;
     if (row.length > 0) {
       currentFmMode = row[0].fm_mode;
       currentShowFeatures = row[0].show_features || false;
@@ -65,6 +67,7 @@ export async function POST(req: Request) {
       currentDataSource = row[0].data_source || "combined";
       currentTimezone = row[0].timezone || "UTC";
       currentShowTrackPlaycount = row[0].show_track_playcount || false;
+      currentDisplayName = row[0].display_name || "";
     }
 
     const newFmMode = fmMode !== undefined ? fmMode : currentFmMode;
@@ -73,6 +76,7 @@ export async function POST(req: Request) {
     const newDataSource = dataSource !== undefined ? dataSource : currentDataSource;
     const newTimezone = timezone !== undefined ? timezone : currentTimezone;
     const newShowTrackPlaycount = showTrackPlaycount !== undefined ? showTrackPlaycount : currentShowTrackPlaycount;
+    const newDisplayName = displayName !== undefined ? (displayName.trim() || null) : currentDisplayName;
 
     if (newFmMode !== "compact" && newFmMode !== "full" && newFmMode !== "stats") {
       return NextResponse.json({ error: "Invalid layout mode" }, { status: 400 });
@@ -83,15 +87,16 @@ export async function POST(req: Request) {
     }
 
     await sql`
-      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount)
-      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount})
+      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name)
+      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount}, ${newDisplayName})
       ON CONFLICT (user_id) DO UPDATE SET 
         fm_mode = EXCLUDED.fm_mode, 
         show_features = EXCLUDED.show_features, 
         private_mode = EXCLUDED.private_mode,
         data_source = EXCLUDED.data_source,
         timezone = EXCLUDED.timezone,
-        show_track_playcount = EXCLUDED.show_track_playcount
+        show_track_playcount = EXCLUDED.show_track_playcount,
+        display_name = EXCLUDED.display_name
     `;
 
     // Log the change
@@ -101,7 +106,8 @@ export async function POST(req: Request) {
     if (newPrivateMode !== currentPrivateMode) changedItems.push(`Private Mode: ${newPrivateMode}`);
     if (newDataSource !== currentDataSource) changedItems.push(`Data Source: ${newDataSource}`);
     if (newTimezone !== currentTimezone) changedItems.push(`Timezone: ${newTimezone}`);
-    if (newShowTrackPlaycount !== currentShowTrackPlaycount) changedItems.push(`Show Playcount: ${newShowTrackPlaycount}`);
+    if (newShowTrackPlaycount !== currentShowTrackPlaycount) changedItems.push(`Show Track Playcount: ${newShowTrackPlaycount}`);
+    if (newDisplayName !== currentDisplayName) changedItems.push(`Display Name: ${newDisplayName || 'cleared'}`);
     
     if (changedItems.length > 0) {
       await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;

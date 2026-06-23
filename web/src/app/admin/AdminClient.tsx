@@ -201,7 +201,43 @@ export default function AdminClient() {
 
   useEffect(() => {
     if (activeTab === "suggestions") fetchSuggestions();
+    if (activeTab === "users") fetchUsersList();
   }, [activeTab]);
+
+  // User Management State
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  
+  const fetchUsersList = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetchApi("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.users) setUsersList(data.users);
+      }
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleUserAction = async (userId: string, actionType: string, payload: any = {}) => {
+    try {
+      const res = await fetchApi("/api/admin/users/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, actionType, payload })
+      });
+      if (res.ok) {
+        toast.success("User action successful");
+        fetchUsersList();
+      } else {
+        toast.error("User action failed");
+      }
+    } catch (e) {
+      toast.error("Error executing user action");
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -333,6 +369,12 @@ export default function AdminClient() {
               Feedback & Ideas
             </button>
             {(role === 'owner' || role === 'admin') && (
+              <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                Users
+              </button>
+            )}
+            {(role === 'owner' || role === 'admin') && (
               <button onClick={() => setActiveTab('system')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'system' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 System Tools
@@ -346,6 +388,7 @@ export default function AdminClient() {
       <div className="md:hidden w-full overflow-x-auto flex gap-2 p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md sticky top-14 z-20 styled-scrollbar">
         <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'overview' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Overview</button>
         {role === 'owner' && <button onClick={() => setActiveTab('access')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'access' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Access</button>}
+        {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('users')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'users' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Users</button>}
         <button onClick={() => setActiveTab('suggestions')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'suggestions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Feedback</button>
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('system')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'system' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>System Tools</button>}
       </div>
@@ -483,7 +526,79 @@ export default function AdminClient() {
             </div>
           </div>
         )}
-
+        {activeTab === 'users' && (role === 'owner' || role === 'admin') && (
+          <div className="space-y-6 animate-fade-in-up">
+            <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-lg">
+              <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">User Management</h2>
+                  <p className="text-zinc-400 text-sm mt-1">View users, moderate accounts, and enforce bans.</p>
+                </div>
+              </div>
+              <div className="divide-y divide-white/5 overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-black/20">
+                      <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Discord User</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Display Name</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Last.fm Username</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-center">Status</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {loadingUsers ? (
+                      <tr><td colSpan={5} className="p-8 text-center text-zinc-500">Loading users...</td></tr>
+                    ) : usersList.length === 0 ? (
+                      <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No users found.</td></tr>
+                    ) : (
+                      usersList.map((u) => (
+                        <tr key={u.user_id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="p-4">
+                            <div className="font-mono text-sm text-zinc-300">{u.discord_username || "Unknown"}</div>
+                            <div className="text-xs text-zinc-600">{u.user_id}</div>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm font-medium text-white">{u.display_name || "-"}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm text-zinc-400">{u.lastfm_username || "-"}</span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {u.is_banned ? (
+                              <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold uppercase" title={u.ban_reason}>Banned</span>
+                            ) : (
+                              <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold uppercase">Active</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center justify-end gap-2">
+                              {u.is_banned ? (
+                                <button onClick={() => handleUserAction(u.user_id, 'UNBAN')} className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold transition-colors">Unban</button>
+                              ) : (
+                                <button onClick={() => {
+                                  const reason = prompt("Enter ban reason:");
+                                  if (reason !== null) handleUserAction(u.user_id, 'BAN', { reason });
+                                }} className="px-3 py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition-colors">Ban</button>
+                              )}
+                              <button onClick={() => {
+                                const name = prompt("Enter new display name (leave empty to clear):", u.display_name || "");
+                                if (name !== null) handleUserAction(u.user_id, 'EDIT_NAME', { displayName: name || null });
+                              }} className="px-3 py-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-bold transition-colors">Edit Name</button>
+                              <button onClick={() => {
+                                if (confirm("Are you sure you want to reset this user's profile?")) handleUserAction(u.user_id, 'RESET');
+                              }} className="px-3 py-1.5 rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold transition-colors">Reset</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
         {activeTab === 'suggestions' && (
           <div className="space-y-6 animate-fade-in-up">
             <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-lg">

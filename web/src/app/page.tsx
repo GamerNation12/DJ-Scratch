@@ -77,12 +77,20 @@ export default function Home() {
                 Go to Dashboard
               </Link>
             ) : (
-              <button 
-                onClick={() => { window.location.href = '/api/auth/login'; }}
-                className="w-full sm:w-auto justify-center px-8 py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:bg-zinc-800 text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2"
-              >
-                Login to Dashboard
-              </button>
+              <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                <button 
+                  onClick={() => { window.location.href = '/api/auth/login'; }}
+                  className="w-full sm:w-auto justify-center px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#5865F2]/20"
+                >
+                  Login with Discord
+                </button>
+                <button 
+                  onClick={() => { window.location.href = '/api/auth/lastfm/login'; }}
+                  className="w-full sm:w-auto justify-center px-8 py-4 bg-[#D51007] hover:bg-[#B00C05] text-white font-semibold rounded-xl text-sm md:text-base transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#D51007]/20"
+                >
+                  Login with Last.fm
+                </button>
+              </div>
             )}
           </div>
           

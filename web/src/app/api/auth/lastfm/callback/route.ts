@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
 import crypto from "crypto";
+import { signToken } from '@/lib/jwt';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
-  const discordId = searchParams.get("discord_id");
+  const discordId = searchParams.get("discord_id"); // Optional for web login
 
-  if (!token || !discordId) {
+  if (!token) {
     return NextResponse.json(
-      { success: false, error: "Missing token or discord_id parameter." }, 
+      { success: false, error: "Missing token parameter." }, 
       { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
     );
   }
@@ -45,9 +46,56 @@ export async function GET(req: Request) {
     }
 
     const lastfmUsername = data.session.name;
-
-    // Save to Postgres
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    // Web Login Flow
+    if (!discordId) {
+      const { rows } = await pool.query(`SELECT user_id, discord_username FROM user_settings WHERE lastfm_username ILIKE $1`, [lastfmUsername]);
+      
+      if (rows.length === 0) {
+        await pool.end();
+        return NextResponse.redirect(new URL('/?error=NoAccountLinked', req.url));
+      }
+
+      const userId = rows[0].user_id;
+      let username = rows[0].discord_username || lastfmUsername;
+      let avatarUrl = "";
+
+      // Try to fetch discord info using bot token
+      if (process.env.DISCORD_TOKEN) {
+        try {
+          const dRes = await fetch(`https://discord.com/api/v10/users/${userId}`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+          });
+          if (dRes.ok) {
+            const dData = await dRes.json();
+            username = dData.global_name || dData.username;
+            if (dData.avatar) {
+              avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${dData.avatar}.png`;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch discord user during last.fm login:", e);
+        }
+      }
+
+      const jwt = await signToken({
+        id: userId,
+        name: username,
+        image: avatarUrl,
+      });
+
+      await pool.query(`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      await pool.query(
+        `INSERT INTO website_logs (user_id, username, action, details) VALUES ($1, $2, $3, $4)`,
+        [userId, username, 'Website Login', 'User logged in via Last.fm']
+      );
+      await pool.end();
+
+      return NextResponse.redirect(new URL(`/logging-in#token=${jwt}`, req.url));
+    }
+
+    // Account Linking Flow
     await pool.query(
       `INSERT INTO user_settings (user_id, lastfm_username) 
        VALUES ($1, $2) 
