@@ -405,3 +405,13 @@ async def set_user_spotify_refresh_token(user_id, token):
             """, str(user_id), token)
     except Exception as e:
         print(f"Error setting spotify_refresh_token: {e}")
+
+async def unlink_user(user_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(user_id))
+            return True
+    except Exception as e:
+        print(f"Error unlinking user {user_id}: {e}")
+        return False

@@ -95,7 +95,7 @@ class LastFmCog(commands.Cog):
                                 description=f"Current track: **{song}** by **{artist}**", 
                                 color=LASTFM_COLOR
                             )
-                            preview_embed.set_author(name=self.bot.format_name(user), icon_url=img)
+                            preview_embed.set_author(name=format_name(user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user)
@@ -347,7 +347,7 @@ class LastFmCog(commands.Cog):
                                 description=f"Current track: **{song}** by **{artist}**", 
                                 color=LASTFM_COLOR
                             )
-                            preview_embed.set_author(name=self.bot.format_name(user), icon_url=img)
+                            preview_embed.set_author(name=format_name(user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)

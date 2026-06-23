@@ -2104,7 +2104,7 @@ class PurgeConfirmView(discord.ui.View):
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_commands.Choice[str]):
-    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {interaction.format_name(user)}{Log.RESET}")
+    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {format_name(interaction.user)}{Log.RESET}")
     if not db_pool:
         await interaction.response.send_message("❌ Database is currently offline.", ephemeral=True)
         return
