@@ -63,6 +63,25 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
   );
 }
 
+const tagColors: Record<string, { bg: string, text: string, name: string }> = {
+  feat: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', name: '✨ New Feature' },
+  fix: { bg: 'bg-red-500/20', text: 'text-red-400', name: '🐛 Bug Fix' },
+  chore: { bg: 'bg-zinc-500/20', text: 'text-zinc-400', name: '🔧 Chore' },
+  refactor: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', name: '♻️ Refactor' },
+  docs: { bg: 'bg-blue-500/20', text: 'text-blue-400', name: '📚 Docs' },
+};
+
+function getCommitInfo(message: string) {
+  const match = message.match(/^(feat|fix|fixed bug|chore|docs|refactor|style|test)(\(.*?\))?:/i);
+  if (match) {
+    const type = match[1].toLowerCase();
+    const typeClean = type === 'fixed bug' ? 'fix' : type;
+    const body = message.slice(match[0].length).trim();
+    return { type: typeClean, body };
+  }
+  return { type: null, body: message };
+}
+
 function PushGlobalUpdateCard() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -71,28 +90,47 @@ function PushGlobalUpdateCard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [commits, setCommits] = useState<any[]>([]);
 
-  useEffect(() => {
+  const [selectedShas, setSelectedShas] = useState<string[]>([]);
+
+  const fetchCommits = () => {
     fetch("https://api.github.com/repos/GamerNation12/The-Goats-Dj/commits")
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setCommits(data.slice(0, 10)); })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchCommits();
+    const interval = setInterval(fetchCommits, 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleCommitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const options = Array.from(e.target.selectedOptions);
-    const shas = options.map(o => o.value);
-    if (shas.length > 0) {
-      const latestSha = shas[0].substring(0, 7);
-      setVersion(`v-${latestSha}`);
-      const combinedMessages = shas.map(sha => {
-        const commit = commits.find(c => c.sha === sha);
-        return commit ? `- ${commit.commit.message.split('\n')[0]}` : "";
-      }).join('\n');
-      setContent(`🎉 **The Goats DJ Update \`v-${latestSha}\`** 🎉\n\n${combinedMessages}\n\n*(You can disable these update notifications in /settings)*`);
-    } else {
-      setContent("");
-      setVersion("");
-    }
+  const toggleCommit = (sha: string) => {
+    setSelectedShas(prev => {
+      const newShas = prev.includes(sha) ? prev.filter(s => s !== sha) : [...prev, sha];
+      
+      if (newShas.length > 0) {
+        // Find selected commits in order of appearance in commits array
+        const selectedCommits = commits.filter(c => newShas.includes(c.sha));
+        if (selectedCommits.length > 0) {
+          const topCommitSha = selectedCommits[0].sha.substring(0, 7);
+          setVersion(`v-${topCommitSha}`);
+          const combinedMessages = selectedCommits.map(c => {
+            const msgLine = c.commit.message.split('\n')[0];
+            const info = getCommitInfo(msgLine);
+            if (info.type && tagColors[info.type]) {
+              return `- ${tagColors[info.type].name}: ${info.body}`;
+            }
+            return `- ${msgLine}`;
+          }).join('\n');
+          setContent(`🎉 **The Goats DJ Update \`v-${topCommitSha}\`** 🎉\n\n${combinedMessages}\n\n*(You can disable these update notifications in /settings)*`);
+        }
+      } else {
+        setContent("");
+        setVersion("");
+      }
+      return newShas;
+    });
   };
 
   const handleEnhanceWithAI = async () => {
@@ -147,11 +185,29 @@ function PushGlobalUpdateCard() {
         <h3 className="text-white font-bold text-lg">Push Global Update</h3>
       </div>
       <div className="space-y-4">
-        <select multiple onChange={handleCommitSelect} className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-sm text-zinc-300 h-24">
-          {commits.map(c => (
-            <option key={c.sha} value={c.sha}>{c.sha.substring(0,7)}: {c.commit.message.split('\n')[0]}</option>
-          ))}
-        </select>
+        <div className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1">
+          {commits.map(c => {
+            const info = getCommitInfo(c.commit.message.split('\n')[0]);
+            const isSelected = selectedShas.includes(c.sha);
+            const tag = info.type && tagColors[info.type] ? tagColors[info.type] : null;
+            
+            return (
+              <div 
+                key={c.sha} 
+                onClick={() => toggleCommit(c.sha)}
+                className={`p-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${isSelected ? 'bg-indigo-500/20 border border-indigo-500/30' : 'hover:bg-white/5 border border-transparent'}`}
+              >
+                <span className="text-zinc-500 font-mono text-xs">{c.sha.substring(0,7)}</span>
+                {tag && (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tag.bg} ${tag.text}`}>
+                    {tag.name.replace(/[^a-zA-Z ]/g, '').trim()}
+                  </span>
+                )}
+                <span className="text-zinc-300 text-sm truncate flex-1">{info.body}</span>
+              </div>
+            );
+          })}
+        </div>
         <div className="flex gap-2">
           <input type="text" value={version} onChange={e => setVersion(e.target.value)} placeholder="Version (e.g. v2.1.0)" className="w-1/3 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
           <button onClick={handleEnhanceWithAI} disabled={aiLoading || !content} className="w-2/3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm font-bold flex justify-center items-center gap-2 transition-colors disabled:opacity-50">
