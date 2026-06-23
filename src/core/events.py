@@ -1235,6 +1235,15 @@ async def process_fm(ctx_int, user, mode="full"):
         except Exception as e:
             print(f"Spotify fetch error: {e}")
 
+        if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+            try:
+                from src.utils.api import fetch_deezer_artist_image
+                deezer_img = await fetch_deezer_artist_image(session, artist)
+                if deezer_img:
+                    img = deezer_img
+            except Exception as e:
+                print(f"Deezer fallback error: {e}")
+
         show_features = await get_user_show_features(user.id)
         if show_features:
             artist, song = await apply_features(session, artist, song, s_artists)
