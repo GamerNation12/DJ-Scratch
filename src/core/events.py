@@ -700,6 +700,52 @@ async def import_worker():
             except Exception:
                 pass
 
+async def web_import_worker():
+    import tempfile
+    import os
+    import asyncio
+    from .database import db_pool
+    
+    while True:
+        try:
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    records = await conn.fetch("SELECT * FROM import_jobs WHERE status = 'ready' ORDER BY created_at ASC")
+                    for record in records:
+                        job_id = record['id']
+                        user_id_str = record['user_id']
+                        filename = record['filename']
+                        
+                        await conn.execute("UPDATE import_jobs SET status = 'processing' WHERE id = $1", job_id)
+                        
+                        user = bot.get_user(int(user_id_str))
+                        if user:
+                            try:
+                                await user.send(f"📥 Your web dashboard upload `{filename}` has been received! You've been added to the import queue.")
+                            except: pass
+                        
+                        temp_dir = tempfile.gettempdir()
+                        temp_filepath = os.path.join(temp_dir, f"web_import_{job_id}_{filename}")
+                        
+                        chunks = await conn.fetch("SELECT data FROM import_chunks WHERE job_id = $1 ORDER BY chunk_index ASC", job_id)
+                        with open(temp_filepath, 'wb') as f:
+                            for chunk in chunks:
+                                f.write(chunk['data'])
+                        
+                        await conn.execute("DELETE FROM import_chunks WHERE job_id = $1", job_id)
+                        await conn.execute("UPDATE import_jobs SET status = 'completed' WHERE id = $1", job_id)
+                        
+                        is_zip = filename.lower().endswith(".zip")
+                        if user:
+                            await import_queue.put((user, temp_filepath, is_zip, None))
+                        else:
+                            os.remove(temp_filepath)
+                            
+        except Exception as e:
+            print(f"Error in web_import_worker: {e}")
+            
+        await asyncio.sleep(10)
+
 
 
 @bot.event
@@ -728,6 +774,7 @@ async def on_ready():
             print(f"{Log.RED}>>> Failed to load bot status from DB: {e}{Log.RESET}")
 
     bot.loop.create_task(import_worker())
+    bot.loop.create_task(web_import_worker())
     
 
 

@@ -17,7 +17,70 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const isOwner = status === "authenticated" && displayUsername && displayUsername === usernameParam;
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import">("profile");
+
+  // --- Import State ---
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<"idle" | "uploading" | "complete" | "error">("idle");
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+
+  const handleImportUpload = async () => {
+    if (!importFile) return;
+    setImportStatus("uploading");
+    setImportProgress(0);
+    setImportError(null);
+
+    const totalChunks = Math.ceil(importFile.size / CHUNK_SIZE);
+    
+    try {
+      const initRes = await fetchApi("/api/import/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: importFile.name, totalChunks })
+      });
+      const initData = await initRes.json();
+      if (!initRes.ok) throw new Error(initData.error || "Failed to initialize upload");
+      
+      const jobId = initData.jobId;
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, importFile.size);
+        const chunk = importFile.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("jobId", jobId);
+        formData.append("chunkIndex", i.toString());
+        formData.append("chunk", chunk);
+
+        const chunkRes = await fetchApi("/api/import/chunk", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!chunkRes.ok) throw new Error("Failed to upload chunk " + i);
+
+        setImportProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
+
+      const finRes = await fetchApi("/api/import/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId })
+      });
+
+      if (!finRes.ok) throw new Error("Failed to finalize upload");
+
+      setImportStatus("complete");
+    } catch (err: any) {
+      console.error(err);
+      setImportError(err.message);
+      setImportStatus("error");
+    }
+  };
 
   // --- Public Profile State ---
   const [profile, setProfile] = useState<any>(null);
@@ -348,6 +411,12 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
               >
                 <span>💡</span> Feedback & Ideas
+              </button>
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'import' ? 'bg-amber-500/20 text-amber-300 shadow-lg border border-amber-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>📥</span> Import
               </button>
             </div>
           </div>
@@ -735,6 +804,78 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        )}
+        {/* --- IMPORT TAB --- */}
+        {isOwner && activeTab === "import" && (
+          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in-up">
+            <h2 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
+              <span className="text-amber-400">📥</span> Import Data
+            </h2>
+            <p className="text-zinc-400 mb-8 max-w-2xl">
+              Upload your Spotify Extended Streaming History or Apple Music Play Activity here. The data will be chunked and securely processed by the bot in the background.
+            </p>
+            
+            <div className="space-y-6">
+              <div className="p-6 bg-zinc-900 border border-white/5 rounded-2xl">
+                <input 
+                  type="file" 
+                  accept=".zip,.json,.csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setImportFile(file);
+                  }}
+                  className="block w-full text-sm text-zinc-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-amber-500/20 file:text-amber-300 hover:file:bg-amber-500/30 transition-colors"
+                />
+                {importFile && (
+                  <p className="mt-4 text-sm text-zinc-300">
+                    Selected file: <span className="font-bold text-white">{importFile.name}</span> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                
+                <div className="mt-6">
+                  <button
+                    onClick={handleImportUpload}
+                    disabled={!importFile || importStatus === "uploading" || importStatus === "complete"}
+                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${!importFile || importStatus === "uploading" || importStatus === "complete" ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]"}`}
+                  >
+                    {importStatus === "uploading" ? "Uploading..." : "Start Import"}
+                  </button>
+                </div>
+              </div>
+
+              {importStatus === "uploading" && (
+                <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl animate-pulse">
+                  <p className="text-amber-300 font-bold mb-2 flex justify-between">
+                    <span>⏳ Uploading... Please keep this tab open.</span>
+                    <span>{importProgress}%</span>
+                  </p>
+                  <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden">
+                    <div className="bg-amber-500 h-3 rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div>
+                  </div>
+                </div>
+              )}
+
+              {importStatus === "complete" && (
+                <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-4 animate-fade-in-up">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">✅</div>
+                  <div>
+                    <h3 className="text-green-400 font-bold text-lg mb-1">Upload Complete!</h3>
+                    <p className="text-green-300/80 text-sm">You can now safely close this website. The Discord bot is downloading and processing your data in the background and will DM you when it's finished.</p>
+                  </div>
+                </div>
+              )}
+
+              {importStatus === "error" && (
+                <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">❌</div>
+                  <div>
+                    <h3 className="text-red-400 font-bold text-lg mb-1">Upload Failed</h3>
+                    <p className="text-red-300/80 text-sm">{importError}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
