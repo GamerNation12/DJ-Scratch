@@ -2322,8 +2322,14 @@ async def update_notif_prefix(ctx):
             if CACHED_GLOBAL_UPDATE_MESSAGE is None:
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
+            version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
-            embed = discord.Embed(description=msg, color=0x10b981)
+            embed = discord.Embed(
+                title=f"🎉 The Goats DJ Update `{version}`",
+                description=msg, 
+                color=0x10b981
+            )
+            embed.set_footer(text="You can disable these update notifications in /settings")
             view = DismissUpdateView(ctx.author.id)
             await ctx.send(f"<@{ctx.author.id}>", embed=embed, view=view, delete_after=60.0)
         except Exception:
@@ -2339,8 +2345,14 @@ async def update_notif_slash(interaction, command):
             if CACHED_GLOBAL_UPDATE_MESSAGE is None:
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
+            version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
-            embed = discord.Embed(description=msg, color=0x10b981)
+            embed = discord.Embed(
+                title=f"🎉 The Goats DJ Update `{version}`",
+                description=msg, 
+                color=0x10b981
+            )
+            embed.set_footer(text="You can disable these update notifications in /settings")
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception:
             pass

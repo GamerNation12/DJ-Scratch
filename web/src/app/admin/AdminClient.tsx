@@ -123,7 +123,7 @@ function PushGlobalUpdateCard() {
             }
             return `- ${msgLine}`;
           }).join('\n');
-          setContent(`🎉 **The Goats DJ Update \`v-${topCommitSha}\`** 🎉\n\n${combinedMessages}\n\n*(You can disable these update notifications in /settings)*`);
+          setContent(combinedMessages);
         }
       } else {
         setContent("");
@@ -144,7 +144,7 @@ function PushGlobalUpdateCard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setContent(`🎉 **The Goats DJ Update \`${version}\`** 🎉\n\n${data.result}`);
+        setContent(data.result);
       } else {
         toast.error("AI Error");
       }
