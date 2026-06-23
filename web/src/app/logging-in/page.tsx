@@ -15,7 +15,21 @@ export default function LoggingIn() {
       // Decode the token to find the username to redirect to
       try {
         const payload = JSON.parse(atob(newToken.split(".")[1]));
-        router.replace(`/${payload.name}`);
+        const username = payload.name === "gamernation12" ? "GamerNation12" : payload.name;
+        
+        const redirect = localStorage.getItem("postLoginRedirect");
+        if (redirect) {
+          localStorage.removeItem("postLoginRedirect");
+          if (redirect === "/dashboard") {
+            router.replace(`/${username}`);
+          } else if (redirect === "/import") {
+            router.replace(`/${username}?tab=import`);
+          } else {
+            router.replace(redirect);
+          }
+        } else {
+          router.replace(`/${username}`);
+        }
       } catch (e) {
         router.replace("/");
       }

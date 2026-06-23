@@ -2,7 +2,7 @@
 import { fetchApi } from "@/lib/fetchApi";
 import { useSession } from "@/app/providers";
 import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 import Link from "next/link";
@@ -12,12 +12,20 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const usernameParam = resolvedParams.username;
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
   const isOwner = status === "authenticated" && displayUsername && displayUsername === usernameParam;
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import">("profile");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "import" || tab === "suggestions" || tab === "settings" || tab === "profile") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // --- Import State ---
   const [importFile, setImportFile] = useState<File | null>(null);
