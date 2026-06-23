@@ -860,6 +860,51 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
         try: await interaction.response.send_message("Whoops! Error notified.", ephemeral=True)
         except: pass
 
+@bot.tree.interaction_check
+async def check_if_banned(interaction: discord.Interaction) -> bool:
+    from .database import db_pool
+    if not db_pool: return True
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT is_banned, ban_reason FROM user_settings WHERE user_id=$1",
+                str(interaction.user.id)
+            )
+            if row and row.get('is_banned'):
+                reason = row.get('ban_reason') or "No reason provided."
+                try:
+                    await interaction.response.send_message(
+                        f"❌ **You are banned from using The Goats DJ.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*",
+                        ephemeral=True
+                    )
+                except:
+                    pass
+                return False
+    except Exception as e:
+        print(f"Error checking ban status: {e}")
+    return True
+
+@bot.check
+async def global_ban_check_prefix(ctx) -> bool:
+    from .database import db_pool
+    if not db_pool: return True
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT is_banned, ban_reason FROM user_settings WHERE user_id=$1",
+                str(ctx.author.id)
+            )
+            if row and row.get('is_banned'):
+                reason = row.get('ban_reason') or "No reason provided."
+                try:
+                    await ctx.send(f"❌ **You are banned from using The Goats DJ.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*")
+                except:
+                    pass
+                return False
+    except Exception as e:
+        print(f"Error checking ban status: {e}")
+    return True
+
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
