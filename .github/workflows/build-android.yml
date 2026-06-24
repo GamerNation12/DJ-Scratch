@@ -47,10 +47,10 @@ jobs:
         run: npx expo prebuild -p android --no-install
 
       - name: Build APK
-        run: |
-          cd android
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
-          ./gradlew assembleRelease
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m'"
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: cd android && ./gradlew assembleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
