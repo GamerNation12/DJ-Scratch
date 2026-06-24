@@ -21,15 +21,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'android-app/package-lock.json'
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate Android project
         run: npx expo prebuild -p android --no-install
