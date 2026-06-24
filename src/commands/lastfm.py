@@ -199,17 +199,18 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def fm_slash(self, interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
+        await interaction.response.defer()
         if mode is not None:
             m = mode.value
         else:
             m = await self.bot.get_user_fm_mode(interaction.user.id)
             if not m: m = "full"
-        await interaction.response.defer()
+        
         result, is_p = await self.bot.process_fm(interaction, interaction.user, mode=m)
         if result is None:
-            await interaction.followup.send(is_p)
+            await interaction.edit_original_response(content=is_p)
         elif isinstance(result, dict):
-            msg = await interaction.followup.send(wait=True, **result)
+            msg = await interaction.edit_original_response(**result)
             if is_p: await self.bot.add_custom_reactions(msg)
 
     @app_commands.command(name="topartists", description="View your top played artists")
@@ -225,9 +226,9 @@ class LastFmCog(commands.Cog):
         await interaction.response.defer()
         embed, view, err = await self.bot.process_top_artists(interaction.user, period.value if period else 'all')
         if embed:
-            await interaction.followup.send(embed=embed, view=view)
+            await interaction.edit_original_response(embed=embed, view=view)
         else:
-            await interaction.followup.send(err)
+            await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="toptracks", description="View your top played tracks")
     @app_commands.describe(period="The time frame to check")
@@ -242,9 +243,9 @@ class LastFmCog(commands.Cog):
         await interaction.response.defer()
         embed, view, err = await self.bot.process_top_tracks(interaction.user, period.value if period else 'all')
         if embed:
-            await interaction.followup.send(embed=embed, view=view)
+            await interaction.edit_original_response(embed=embed, view=view)
         else:
-            await interaction.followup.send(err)
+            await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="recent", description="View your recent listening history")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -252,7 +253,7 @@ class LastFmCog(commands.Cog):
     async def rt_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
         embed, err = await self.bot.process_recent(interaction.user)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="artisttracks", description="View your top played tracks for a specific artist")
     @app_commands.describe(artist="The artist to check (leave blank to use current playing artist)")
@@ -262,9 +263,9 @@ class LastFmCog(commands.Cog):
         await interaction.response.defer()
         embed, view, err = await self.bot.process_artist_tracks(interaction.user, artist)
         if err:
-            await interaction.followup.send(err)
+            await interaction.edit_original_response(content=err)
         else:
-            await interaction.followup.send(embed=embed, view=view)
+            await interaction.edit_original_response(embed=embed, view=view)
 
 
     @app_commands.command(name="profile", description="View your Last.fm stats")
@@ -273,7 +274,7 @@ class LastFmCog(commands.Cog):
     async def profile_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
         embed, err = await self.bot.process_profile(interaction.user)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="whoknows", description="See who in the server listens to an artist most")
     @app_commands.allowed_installs(guilds=True, users=False)
@@ -281,7 +282,7 @@ class LastFmCog(commands.Cog):
     async def wk_slash(self, interaction: discord.Interaction, artist: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_whoknows(interaction.guild, interaction.user, artist)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="suggest", description="Send a suggestion directly to the developer")
     @app_commands.describe(suggestion="Your idea or feedback for the bot")
@@ -303,7 +304,7 @@ class LastFmCog(commands.Cog):
     async def crowns_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
         embed, err = await self.bot.process_crowns(interaction.guild, interaction.user)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="judge", description="Let an AI judge your recent music taste")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -311,7 +312,7 @@ class LastFmCog(commands.Cog):
     async def judge_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
         embed, err = await self.bot.process_judge(interaction.user)
-        await interaction.followup.send(embed=embed) if embed else await interaction.followup.send(err)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
     # --- PREFIX COMMANDS ---
 
