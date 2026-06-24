@@ -48,9 +48,12 @@ jobs:
 
       - name: Build APK
         env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m'"
           NODE_OPTIONS: "--max-old-space-size=4096"
-        run: cd android && ./gradlew assembleRelease
+        run: |
+          cd android
+          echo "" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          ./gradlew assembleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
