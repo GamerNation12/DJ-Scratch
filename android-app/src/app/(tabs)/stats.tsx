@@ -1,63 +1,125 @@
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
-import { mockUserData } from '../../data/mockData';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { useRouter } from 'expo-router';
 
 export default function StatsScreen() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const token = await SecureStore.getItemAsync('discord_token');
+      if (!token) {
+        router.replace('/');
+        return;
+      }
+
+      try {
+        const response = await fetch('https://the-goats-dj.vercel.app/api/user-stats', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.status === 401) {
+          await SecureStore.deleteItemAsync('discord_token');
+          router.replace('/');
+          return;
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#5865F2" />
+        <Text style={{color: '#fff', marginTop: 10}}>Loading your stats...</Text>
+      </View>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{color: '#fff'}}>Failed to load stats.</Text>
+      </View>
+    );
+  }
+
+  const totalPlays = (stats.lastfm?.playcount || 0) + (stats.spotify?.playcount || 0);
+  const hasData = stats.hasLastfm || stats.hasSpotify;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header Profile Section */}
       <View style={styles.profileHeader}>
-        <Image source={{ uri: mockUserData.avatarUrl }} style={styles.avatar} />
+        <View style={styles.avatarPlaceholder}>
+          <FontAwesome5 name="user" size={30} color="#fff" />
+        </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.username}>{mockUserData.username}</Text>
+          <Text style={styles.username}>{stats.lastfm?.username || 'Your Stats'}</Text>
           <View style={styles.rankBadge}>
             <FontAwesome5 name="trophy" size={12} color="#FBBF24" />
-            <Text style={styles.rankText}>Global Rank #{mockUserData.globalRank}</Text>
+            <Text style={styles.rankText}>Global Stats</Text>
           </View>
         </View>
       </View>
 
-      {/* Summary Stats */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryValue}>{mockUserData.totalScrobbles.toLocaleString()}</Text>
-          <Text style={styles.summaryLabel}>Total Plays</Text>
-        </View>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryValue}>{mockUserData.topArtists.length}</Text>
-          <Text style={styles.summaryLabel}>Top Artists</Text>
-        </View>
-      </View>
-
-      {/* Top Artists Horizontal List */}
-      <Text style={styles.sectionTitle}>Your Top Artists</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.artistsScroll}>
-        {mockUserData.topArtists.map((artist, index) => (
-          <View key={artist.id} style={styles.artistCard}>
-            <View style={styles.rankCircle}>
-              <Text style={styles.rankCircleText}>{index + 1}</Text>
+      {hasData ? (
+        <>
+          {/* Summary Stats */}
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryValue}>{totalPlays.toLocaleString()}</Text>
+              <Text style={styles.summaryLabel}>Total Plays</Text>
             </View>
-            <Image source={{ uri: artist.imageUrl }} style={styles.artistImage} />
-            <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
-            <Text style={styles.artistPlays}>{artist.plays.toLocaleString()} plays</Text>
           </View>
-        ))}
-      </ScrollView>
 
-      {/* Recent Scrobbles Vertical List */}
-      <View style={styles.recentSection}>
-        <Text style={styles.sectionTitle}>Recently Played</Text>
-        {mockUserData.recentScrobbles.map((scrobble) => (
-          <View key={scrobble.id} style={styles.scrobbleRow}>
-            <Image source={{ uri: scrobble.imageUrl }} style={styles.scrobbleImage} />
-            <View style={styles.scrobbleInfo}>
-              <Text style={styles.scrobbleTrack} numberOfLines={1}>{scrobble.track}</Text>
-              <Text style={styles.scrobbleArtist}>{scrobble.artist}</Text>
+          {stats.hasLastfm && (
+            <View style={styles.recentSection}>
+              <Text style={styles.sectionTitle}>Last.fm Stats</Text>
+              <View style={styles.scrobbleRow}>
+                <View style={styles.scrobbleInfo}>
+                  <Text style={styles.scrobbleTrack}>Top Artist</Text>
+                  <Text style={styles.scrobbleArtist}>{stats.lastfm.topArtist} ({stats.lastfm.topArtistPlays} plays)</Text>
+                </View>
+              </View>
             </View>
-            <Text style={styles.scrobbleTime}>{scrobble.timestamp}</Text>
-          </View>
-        ))}
-      </View>
+          )}
+
+          {stats.hasSpotify && (
+            <View style={styles.recentSection}>
+              <Text style={styles.sectionTitle}>Spotify Stats</Text>
+              <View style={styles.scrobbleRow}>
+                <View style={styles.scrobbleInfo}>
+                  <Text style={styles.scrobbleTrack}>Top Artist</Text>
+                  <Text style={styles.scrobbleArtist}>{stats.spotify.topArtist} ({stats.spotify.topArtistPlays} plays)</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </>
+      ) : (
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryValue}>No Stats</Text>
+          <Text style={styles.summaryLabel}>Link your Spotify or Last.fm on the dashboard to see your stats here.</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -76,12 +138,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
-  avatar: {
+  avatarPlaceholder: {
     width: 70,
     height: 70,
     borderRadius: 35,
     borderWidth: 2,
     borderColor: '#5865F2',
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileInfo: {
     marginLeft: 15,
@@ -131,6 +196,7 @@ const styles = StyleSheet.create({
     color: '#aaa',
     fontSize: 12,
     marginTop: 4,
+    textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -139,49 +205,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
-  },
-  artistsScroll: {
-    marginBottom: 30,
-  },
-  artistCard: {
-    width: 130,
-    marginRight: 15,
-    alignItems: 'center',
-  },
-  rankCircle: {
-    position: 'absolute',
-    top: -5,
-    left: -5,
-    backgroundColor: '#5865F2',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  rankCircleText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  artistImage: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    marginBottom: 10,
-  },
-  artistName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  artistPlays: {
-    color: '#aaa',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 2,
   },
   recentSection: {
     marginBottom: 20,
@@ -194,14 +217,9 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  scrobbleImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-  },
   scrobbleInfo: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: 5,
   },
   scrobbleTrack: {
     color: '#fff',
@@ -212,9 +230,5 @@ const styles = StyleSheet.create({
     color: '#aaa',
     fontSize: 14,
     marginTop: 2,
-  },
-  scrobbleTime: {
-    color: '#555',
-    fontSize: 12,
   },
 });

@@ -1,12 +1,32 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { WebView } from 'react-native-webview';
+import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [showLogin, setShowLogin] = useState(false);
 
-  const handleLogin = () => {
-    // Navigate directly to tabs for now, later we'll add real Discord OAuth
-    router.replace('/(tabs)/stats');
+  useEffect(() => {
+    // Check if we already have a token
+    SecureStore.getItemAsync('discord_token').then(token => {
+      if (token) {
+        router.replace('/(tabs)/stats');
+      }
+    });
+  }, []);
+
+  const handleNavigationStateChange = async (navState: any) => {
+    if (navState.url.includes('#token=')) {
+      // Extract token from URL
+      const token = navState.url.split('#token=')[1];
+      if (token) {
+        await SecureStore.setItemAsync('discord_token', token);
+        setShowLogin(false);
+        router.replace('/(tabs)/stats');
+      }
+    }
   };
 
   return (
@@ -19,10 +39,24 @@ export default function LoginScreen() {
         <Text style={styles.title}>The Goats DJ</Text>
         <Text style={styles.subtitle}>Premium Last.fm & Spotify Stats</Text>
         
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <TouchableOpacity style={styles.button} onPress={() => setShowLogin(true)}>
           <Text style={styles.buttonText}>Login with Discord</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showLogin} animationType="slide">
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowLogin(false)} style={styles.closeButton}>
+            <Text style={styles.closeText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+        <WebView
+          source={{ uri: 'https://the-goats-dj.vercel.app/api/auth/login' }}
+          onNavigationStateChange={handleNavigationStateChange}
+          style={{ flex: 1 }}
+          incognito={true}
+        />
+      </Modal>
     </View>
   );
 }
@@ -73,4 +107,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  modalHeader: {
+    height: 50,
+    backgroundColor: '#111',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 15,
+  },
+  closeButton: {
+    padding: 10,
+  },
+  closeText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  }
 });
