@@ -72,5 +72,10 @@ export async function GET(request: Request) {
     console.error("Failed to log website login:", e);
   }
 
+  const state = searchParams.get('state');
+  if (state === 'mobile') {
+    return NextResponse.redirect(`thegoatsdj://auth?token=${jwt}`);
+  }
+
   return NextResponse.redirect(new URL(`/logging-in#token=${jwt}`, request.url));
 }

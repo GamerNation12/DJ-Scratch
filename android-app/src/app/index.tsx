@@ -1,12 +1,15 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { WebView } from 'react-native-webview';
+import { useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+
+// Required for expo-web-browser to work correctly
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     // Check if we already have a token
@@ -17,15 +20,21 @@ export default function LoginScreen() {
     });
   }, []);
 
-  const handleNavigationStateChange = async (navState: any) => {
-    if (navState.url.includes('#token=')) {
-      // Extract token from URL
-      const token = navState.url.split('#token=')[1];
-      if (token) {
-        await SecureStore.setItemAsync('discord_token', token);
-        setShowLogin(false);
-        router.replace('/(tabs)/stats');
+  const handleLogin = async () => {
+    const authUrl = 'https://the-goats-dj.vercel.app/api/auth/login?source=mobile';
+    const redirectUrl = 'thegoatsdj://auth';
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+      if (result.type === 'success' && result.url) {
+        const data = Linking.parse(result.url);
+        const token = data.queryParams?.token;
+        if (token && typeof token === 'string') {
+          await SecureStore.setItemAsync('discord_token', token);
+          router.replace('/(tabs)/stats');
+        }
       }
+    } catch (e) {
+      console.error("Auth error:", e);
     }
   };
 
@@ -33,30 +42,16 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <View style={styles.glassCard}>
         <Image 
-          source={{ uri: 'https://media.discordapp.net/attachments/1118335048560066601/1118335345793617930/goat.png' }} 
+          source={require('../../assets/images/icon.png')} 
           style={styles.logo} 
         />
         <Text style={styles.title}>The Goats DJ</Text>
         <Text style={styles.subtitle}>Premium Last.fm & Spotify Stats</Text>
         
-        <TouchableOpacity style={styles.button} onPress={() => setShowLogin(true)}>
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Login with Discord</Text>
         </TouchableOpacity>
       </View>
-
-      <Modal visible={showLogin} animationType="slide">
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setShowLogin(false)} style={styles.closeButton}>
-            <Text style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-        <WebView
-          source={{ uri: 'https://the-goats-dj.vercel.app/api/auth/login' }}
-          onNavigationStateChange={handleNavigationStateChange}
-          style={{ flex: 1 }}
-          incognito={true}
-        />
-      </Modal>
     </View>
   );
 }
@@ -103,22 +98,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalHeader: {
-    height: 50,
-    backgroundColor: '#111',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 15,
-  },
-  closeButton: {
-    padding: 10,
-  },
-  closeText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
