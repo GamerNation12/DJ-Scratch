@@ -360,6 +360,49 @@ class LastFmCog(commands.Cog):
             
         await ctx.send(content=status_msg)
 
+    @commands.command(name="cd2")
+    async def cd2_prefix(self, ctx):
+        cd = await self.bot.get_avatar_cooldown()
+        status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
+
+        from src.core.events import fetch_now_playing, get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        try:
+            username = await get_lastfm_username(ctx.author.id)
+            if username:
+                data = await fetch_now_playing(username)
+                if data and 'recenttracks' in data and data['recenttracks']['track']:
+                    # Get the most recent track, regardless of whether it's currently playing
+                    t = data['recenttracks']['track'][0]
+                    artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                    
+                    try:
+                        from src.core.spotify import get_spotify_track_info
+                        session = getattr(self.bot, 'session', None)
+                        if session:
+                            s_info = await get_spotify_track_info(session, artist, song)
+                            if s_info and s_info.get("image_url"):
+                                img = s_info.get("image_url")
+                    except Exception as e:
+                        print(f"Spotify fetch error in cd2_prefix: {e}")
+
+                    if img:
+                        preview_embed = discord.Embed(
+                            title="Bot Avatar Preview (Last Played)", 
+                            description=f"Last track: **{song}** by **{artist}**", 
+                            color=LASTFM_COLOR
+                        )
+                        preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
+                        preview_embed.set_image(url=img)
+                        
+                        view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)
+                        msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                        view.original_msg = msg
+                        return
+        except Exception as e:
+            pass
+            
+        await ctx.send(content=status_msg)
+
     @commands.command(name="login")
     async def login_prefix(self, ctx):
         from src.core.events import get_lastfm_username
