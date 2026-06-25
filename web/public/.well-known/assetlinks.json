@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.gamernation.the_goats_dj",
+    "sha256_cert_fingerprints": [
+      "A9:BA:A0:98:BC:5A:8D:31:55:0F:E2:62:B0:02:59:26:C0:15:46:57:FB:2B:14:77:2E:6B:44:F7:22:34:0B:DE"
+    ]
+  }
+}]
