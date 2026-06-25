@@ -6,6 +6,10 @@ on:
       - main
     paths-ignore:
       - 'web/**'
+      - 'android-app/**'
+      - '.github/**'
+      - '*.apk'
+      - '*.zip'
 
 jobs:
   deploy:
