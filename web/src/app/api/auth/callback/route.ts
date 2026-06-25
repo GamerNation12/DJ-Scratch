@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `thegoatsdj://auth?token=${jwt}`,
+        Location: `https://the-goats-dj.vercel.app/open?token=${jwt}`,
       },
     });
   }

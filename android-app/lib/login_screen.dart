@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       final result = await FlutterWebAuth2.authenticate(
         url: url,
-        callbackUrlScheme: 'thegoatsdj',
+        callbackUrlScheme: 'https',
       );
       final token = Uri.parse(result).queryParameters['token'];
 
