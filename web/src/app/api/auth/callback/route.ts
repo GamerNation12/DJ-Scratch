@@ -74,7 +74,31 @@ export async function GET(request: Request) {
 
   const state = searchParams.get('state');
   if (state === 'mobile') {
-    return NextResponse.redirect(`thegoatsdj://auth?token=${jwt}`);
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Redirecting...</title>
+          <script>
+            window.onload = function() {
+              window.location.href = "thegoatsdj://auth?token=${jwt}";
+            }
+          </script>
+          <style>
+            body { background: #111; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            a { color: #00f0ff; text-decoration: none; padding: 10px 20px; border: 1px solid #00f0ff; border-radius: 5px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <h2>Login Successful!</h2>
+          <p>Redirecting back to the app...</p>
+          <a href="thegoatsdj://auth?token=${jwt}">Click here if nothing happens</a>
+        </body>
+      </html>
+    `;
+    return new NextResponse(html, {
+      headers: { 'Content-Type': 'text/html' },
+    });
   }
 
   return NextResponse.redirect(new URL(`/logging-in#token=${jwt}`, request.url));
