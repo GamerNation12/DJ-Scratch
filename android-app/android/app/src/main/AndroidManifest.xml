@@ -38,7 +38,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="thegoatsdj" android:host="auth" />
-                <data android:scheme="https" android:host="the-goats-dj.vercel.app" android:path="/api/auth/callback" />
+                <data android:scheme="https" android:host="the-goats-dj.vercel.app" android:path="/open" />
             </intent-filter>
         </activity>
     </application>
