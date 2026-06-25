@@ -3,11 +3,12 @@ import { fetchApi } from '@/lib/fetchApi';
 
 import { useSession } from "@/app/providers";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 
 const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1509709265659760741&permissions=347200&scope=bot%20applications.commands";
 
-export default function Home() {
+export default function Home({ searchParams }: { searchParams: Promise<{ error?: string; details?: string }> }) {
+  const resolvedParams = use(searchParams);
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
@@ -46,6 +47,13 @@ export default function Home() {
       <main className="relative z-10 w-full flex-grow flex flex-col items-center">
         {/* Hero Section */}
         <section className="container mx-auto px-4 pt-32 pb-24 text-center flex flex-col items-center min-h-[85vh] justify-center">
+          {resolvedParams.error && (
+            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl mb-8 max-w-2xl backdrop-blur-md animate-fade-in-up">
+              <h2 className="text-xl font-bold mb-2">Login Failed ({resolvedParams.error})</h2>
+              <p className="text-sm opacity-80">{resolvedParams.details || "An unknown error occurred during the Discord OAuth process."}</p>
+            </div>
+          )}
+          
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-300 text-xs font-semibold mb-8 backdrop-blur-md animate-fade-in-up uppercase tracking-widest hover:bg-white/10 transition-colors">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             The Ultimate Music Bot
