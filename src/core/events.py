@@ -954,6 +954,16 @@ async def load_users():
         rows = await conn.fetch("SELECT user_id, lastfm_username FROM user_settings WHERE lastfm_username IS NOT NULL")
         return {r['user_id']: r['lastfm_username'] for r in rows}
 
+async def load_display_names():
+    global db_pool
+    if not db_pool: return {}
+    async with db_pool.acquire() as conn:
+        try:
+            rows = await conn.fetch("SELECT user_id, display_name FROM user_settings WHERE display_name IS NOT NULL")
+            return {r['user_id']: r['display_name'] for r in rows}
+        except Exception:
+            return {}
+
 async def save_user(uid, username):
     global db_pool
     if not db_pool:
@@ -1426,12 +1436,20 @@ async def process_fm(ctx_int, user, mode="full"):
             crown_task = None
             if guild:
                 users_db = await load_users()
+                display_names = await load_display_names()
                 linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
                 if linked:
                     async def fetch_crown():
                         tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
                         results = await asyncio.gather(*(t[2] for t in tasks))
-                        lb = [{"name": guild.get_member(int(tasks[i][0])).display_name if guild.get_member(int(tasks[i][0])) else tasks[i][1], "plays": pc} for i, pc in enumerate(results) if pc > 0]
+                        
+                        def get_name(uid, lname):
+                            custom_name = display_names.get(uid)
+                            if custom_name: return custom_name
+                            member = guild.get_member(int(uid))
+                            return member.display_name if member else lname
+                            
+                        lb = [{"name": get_name(tasks[i][0], tasks[i][1]), "plays": pc} for i, pc in enumerate(results) if pc > 0]
                         if not lb: return None
                         lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
                         return lb[0]
@@ -1945,6 +1963,7 @@ async def process_whoknows(guild, user, artist_name):
     session = getattr(bot_instance, 'session', None)
     if not guild: return None, "Must be used in a server."
     users_db = await load_users()
+    display_names = await load_display_names()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
     if not linked: return None, "No one in this server has linked their account."
     if not artist_name:
@@ -1959,8 +1978,14 @@ async def process_whoknows(guild, user, artist_name):
     results = await asyncio.gather(*(t[2] for t in tasks))
     for idx, pc in enumerate(results):
         if pc > 0:
-            m = guild.get_member(int(tasks[idx][0]))
-            lb.append({"name": format_name(m) if m else tasks[idx][1], "plays": pc})
+            uid = tasks[idx][0]
+            custom_name = display_names.get(uid)
+            if custom_name:
+                name = custom_name
+            else:
+                member = guild.get_member(int(uid))
+                name = member.display_name if member else tasks[idx][1]
+            lb.append({"name": name, "plays": pc})
 
     if not lb: return None, f"No one here listens to **{artist_name}**."
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)

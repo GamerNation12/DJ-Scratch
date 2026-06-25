@@ -13,7 +13,7 @@ export async function GET() {
     
     // Fetch all public users who have linked a Last.fm account
     const rows = await sql`
-      SELECT user_id, lastfm_username, discord_username 
+      SELECT user_id, lastfm_username, discord_username, display_name
       FROM user_settings 
       WHERE private_mode = FALSE 
       AND lastfm_username IS NOT NULL
@@ -29,7 +29,7 @@ export async function GET() {
     // Fetch Last.fm and Discord Data concurrently
     await Promise.all(rows.map(async (r) => {
       let playcount = 0;
-      let discordName = r.discord_username;
+      let discordName = r.display_name || r.discord_username;
       let discordAvatar = null;
 
       try {
@@ -50,7 +50,7 @@ export async function GET() {
 
         if (discordRes.ok) {
           const dData = await discordRes.json();
-          discordName = dData.global_name || dData.username || r.discord_username;
+          discordName = r.display_name || dData.global_name || dData.username || r.discord_username;
           if (dData.avatar) {
             discordAvatar = `https://cdn.discordapp.com/avatars/${r.user_id}/${dData.avatar}.png?size=256`;
           }
