@@ -61,21 +61,30 @@ class LastFmCog(commands.Cog):
         return msg
 
     @app_commands.command(name="cd", description="Check the bot's avatar cooldown and preview avatar")
+    @app_commands.describe(last_song="Fetch the last completed song instead of the currently playing song")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def cd_slash(self, interaction: discord.Interaction):
+    async def cd_slash(self, interaction: discord.Interaction, last_song: bool = False):
         await interaction.response.defer(ephemeral=True)
         cd = await self.bot.get_avatar_cooldown()
         status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
-
-        from src.core.events import fetch_now_playing, get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        from src.core.events import get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        from src.utils.api import api_get, LASTFM_API_KEY
         try:
             username = await get_lastfm_username(interaction.user.id)
             if username:
-                data = await fetch_now_playing(username)
+                url = f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
+                data = await api_get(url)
                 if data and 'recenttracks' in data and data['recenttracks']['track']:
-                    t = data['recenttracks']['track'][0]
+                    tracks = data['recenttracks']['track']
+                    t = tracks[0]
                     is_p = t.get('@attr', {}).get('nowplaying') == 'true'
+                    
+                    if last_song:
+                        if is_p and len(tracks) > 1:
+                            t = tracks[1]
+                        is_p = True 
+                    
                     if is_p:
                         artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
                         
@@ -90,16 +99,18 @@ class LastFmCog(commands.Cog):
                             print(f"Spotify fetch error in cd_slash: {e}")
 
                         if img:
+                            title = "Bot Avatar Preview (Last Played)" if last_song else "Bot Avatar Preview"
+                            desc = f"Last track: **{song}** by **{artist}**" if last_song else f"Current track: **{song}** by **{artist}**"
                             preview_embed = discord.Embed(
-                                title="Bot Avatar Preview", 
-                                description=f"Current track: **{song}** by **{artist}**", 
+                                title=title, 
+                                description=desc, 
                                 color=LASTFM_COLOR
                             )
                             preview_embed.set_author(name=format_name(interaction.user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user)
-                            msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True)
+                            msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True, wait=True)
                             view.original_msg = msg
                             return
         except Exception as e:
