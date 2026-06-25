@@ -21,7 +21,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithDiscord() async {
     setState(() => _isLoading = true);
     try {
-      final url = 'https://the-goats-dj.vercel.app/api/auth/login?source=mobile';
+      final clientId = '1509709265659760741';
+      final redirectUri = Uri.encodeComponent('https://the-goats-dj.vercel.app/api/auth/callback');
+      final scope = Uri.encodeComponent('identify guilds email');
+      final url = 'https://discord.com/oauth2/authorize?client_id=$clientId&redirect_uri=$redirectUri&response_type=code&scope=$scope&state=mobile';
+      
       final result = await FlutterWebAuth2.authenticate(
         url: url,
         callbackUrlScheme: 'thegoatsdj',
