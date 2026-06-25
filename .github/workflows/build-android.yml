@@ -37,6 +37,10 @@ jobs:
         working-directory: ./android-app
         run: flutter pub get
 
+      - name: Generate perfectly fitting App Icons
+        working-directory: ./android-app
+        run: flutter pub run flutter_launcher_icons
+
       - name: Build APK
         working-directory: ./android-app
         run: flutter build apk --release
