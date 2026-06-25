@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'login_screen.dart';
-import 'stats_screen.dart';
+import 'main_screen.dart';
 
 void main() {
   runApp(const TheGoatsDJApp());
@@ -52,7 +52,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
     if (mounted) {
       if (token != null && token.isNotEmpty) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const StatsScreen()),
+          MaterialPageRoute(builder: (_) => const MainScreen()),
         );
       } else {
         Navigator.of(context).pushReplacement(
