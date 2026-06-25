@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       // Direct user to the backend Discord OAuth route
       // The backend should handle the OAuth flow and redirect back to:
       // thegoatsdj://auth?token=JWT_TOKEN_HERE
-      final url = 'https://the-goats-dj.vercel.app/api/auth/discord?source=mobile';
+      final url = 'https://the-goats-dj.vercel.app/api/auth/login?source=mobile';
 
       final result = await FlutterWebAuth2.authenticate(
         url: url,
