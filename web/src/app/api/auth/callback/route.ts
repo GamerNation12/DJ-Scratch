@@ -27,9 +27,11 @@ export async function GET(request: Request) {
   });
 
   const tokenData = await tokenResponse.json();
+  console.log("Discord Token Exchange Result:", tokenData);
 
   if (!tokenData.access_token) {
-    return NextResponse.redirect(new URL('/?error=TokenFailed', request.url));
+    const errorMsg = encodeURIComponent(tokenData.error_description || tokenData.error || 'Unknown_Discord_Error');
+    return NextResponse.redirect(new URL(`/?error=TokenFailed&details=${errorMsg}`, request.url));
   }
 
   const userResponse = await fetch('https://discord.com/api/users/@me', {
