@@ -15,7 +15,8 @@ export default function DashboardRedirect() {
     }
 
     try {
-      const decoded = JSON.parse(atob(token.split('.')[1]));
+      const base64Str = token.split('.')[1].replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = JSON.parse(atob(base64Str));
       if (decoded && decoded.name) {
         const username = decoded.name === "gamernation12" ? "GamerNation12" : decoded.name;
         router.replace(`/${username}`);

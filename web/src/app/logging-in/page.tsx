@@ -14,7 +14,8 @@ export default function LoggingIn() {
       
       // Decode the token to find the username to redirect to
       try {
-        const payload = JSON.parse(atob(newToken.split(".")[1]));
+        const base64Str = newToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(base64Str));
         const username = payload.name === "gamernation12" ? "GamerNation12" : payload.name;
         
         const redirect = localStorage.getItem("postLoginRedirect");

@@ -39,7 +39,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           setToken(storedToken);
           // Decode token payload (JWT is base64Url encoded)
           try {
-            const payload = JSON.parse(atob(storedToken.split(".")[1]));
+            const base64Str = storedToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+            const payload = JSON.parse(atob(base64Str));
             setSession({ user: payload });
             setStatus("authenticated");
           } catch (e) {
