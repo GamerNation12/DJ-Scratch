@@ -46,13 +46,18 @@ export async function GET(request: Request) {
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });
 
+  const state = searchParams.get('state');
+  const isMobile = state === 'mobile';
+  const actionName = isMobile ? 'Mobile App Login' : 'Website Login';
+  const actionDetails = isMobile ? 'User logged into the mobile app' : 'User logged into dashboard';
+
   // Log the login
   try {
     const sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)
-      VALUES (${userData.id}, ${username}, 'Website Login', 'User logged into dashboard')
+      VALUES (${userData.id}, ${username}, ${actionName}, ${actionDetails})
     `;
 
     // Also link their discord username to their settings if it doesn't exist yet
@@ -72,8 +77,7 @@ export async function GET(request: Request) {
     console.error("Failed to log website login:", e);
   }
 
-  const state = searchParams.get('state');
-  if (state === 'mobile') {
+  if (isMobile) {
     const rawUrl = `thegoatsdj://auth?token=${jwt}`;
     const intentUrl = `intent://auth?token=${jwt}#Intent;scheme=thegoatsdj;package=com.gamernation.the_goats_dj;end`;
     
