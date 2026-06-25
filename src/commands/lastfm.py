@@ -365,14 +365,22 @@ class LastFmCog(commands.Cog):
         cd = await self.bot.get_avatar_cooldown()
         status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
 
-        from src.core.events import fetch_now_playing, get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        from src.core.events import get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
+        from src.utils.api import api_get, LASTFM_API_KEY
         try:
             username = await get_lastfm_username(ctx.author.id)
             if username:
-                data = await fetch_now_playing(username)
+                # Fetch limit=2 to ensure we get the last completed song even if one is currently playing
+                url = f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
+                data = await api_get(url)
                 if data and 'recenttracks' in data and data['recenttracks']['track']:
-                    # Get the most recent track, regardless of whether it's currently playing
-                    t = data['recenttracks']['track'][0]
+                    tracks = data['recenttracks']['track']
+                    # Default to the first track
+                    t = tracks[0]
+                    # If the first track is currently playing and there is a second track, use the second track (last completed)
+                    if t.get('@attr', {}).get('nowplaying') == 'true' and len(tracks) > 1:
+                        t = tracks[1]
+                        
                     artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
                     
                     try:
