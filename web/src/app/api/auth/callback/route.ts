@@ -78,11 +78,31 @@ export async function GET(request: Request) {
   }
 
   if (isMobile) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `thegoatsdj://auth?token=${jwt}`,
-      },
+    const appUrl = `thegoatsdj://auth?token=${jwt}`;
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Login Successful</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { background-color: #09090b; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+          a { background-color: #5865F2; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+        </style>
+        <script>
+          window.onload = function() {
+            window.location.href = "${appUrl}";
+          }
+        </script>
+      </head>
+      <body>
+        <h2>Login Successful!</h2>
+        <p>Returning you to the app...</p>
+        <a href="${appUrl}">Click here if nothing happens</a>
+      </body>
+      </html>
+    `, {
+      headers: { 'Content-Type': 'text/html' }
     });
   }
 
