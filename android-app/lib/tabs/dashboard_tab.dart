@@ -2,21 +2,19 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:glassmorphism/glassmorphism.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'login_screen.dart';
 
-class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key});
+class DashboardTab extends StatefulWidget {
+  const DashboardTab({super.key});
 
   @override
-  State<StatsScreen> createState() => _StatsScreenState();
+  State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _DashboardTabState extends State<DashboardTab> {
   final storage = const FlutterSecureStorage();
   bool _isLoading = true;
   String _error = '';
@@ -32,366 +30,236 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _fetchData() async {
     try {
       final token = await storage.read(key: 'token');
-      if (token == null || token.isEmpty) {
-        _logout();
-        return;
-      }
+      if (token == null) return;
 
-      final statsFuture = http.get(
-        Uri.parse('https://the-goats-dj.vercel.app/api/user-stats'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      // Just a mock parsing of JWT to get user info locally without an extra request
-      // We know JWT has id, name, email, image
       final parts = token.split('.');
       if (parts.length == 3) {
         final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
-        _user = jsonDecode(payload);
+        if (mounted) setState(() => _user = jsonDecode(payload));
       }
 
-      final response = await statsFuture;
+      final response = await http.get(
+        Uri.parse('https://the-goats-dj.vercel.app/api/mobile/stats'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          setState(() {
-            _stats = data['stats'];
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _stats = data['stats'];
+              _isLoading = false;
+            });
+          }
         } else {
-          setState(() {
-            _error = data['error'] ?? 'Failed to load stats';
-            _isLoading = false;
-          });
+          if (mounted) setState(() { _error = data['error'] ?? 'Failed to load stats'; _isLoading = false; });
         }
-      } else if (response.statusCode == 401) {
-        _logout();
       } else {
-        setState(() {
-          _error = 'Server error: ${response.statusCode}';
-          _isLoading = false;
-        });
+        if (mounted) setState(() { _error = 'Server error: ${response.statusCode}'; _isLoading = false; });
       }
     } catch (e) {
-      setState(() {
-        _error = 'Connection error. Please try again.';
-        _isLoading = false;
-      });
+      if (mounted) setState(() { _error = 'Connection error.'; _isLoading = false; });
     }
   }
 
-  void _logout() async {
-    await storage.delete(key: 'token');
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      );
-    }
+  Widget _buildTopItem(dynamic item, int index) {
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 140,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              image: item['image'] != null
+                  ? DecorationImage(image: CachedNetworkImageProvider(item['image']), fit: BoxFit.cover)
+                  : null,
+              color: const Color(0xFF1E293B),
+            ),
+            child: item['image'] == null ? const Center(child: Icon(LucideIcons.music, color: Colors.white54)) : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item['name'] ?? 'Unknown',
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (item['artist'] != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item['artist'],
+                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white54),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  '${item['playcount'] ?? 0} plays',
+                  style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF0AB5CD), fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    ).animate().fade(delay: (index * 100).ms).slideX(begin: 0.1);
   }
 
-  Widget _buildStatCard(String title, String value, String subtitle, IconData icon, Color color, int index) {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 140,
-      borderRadius: 24,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 1,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          color.withOpacity(0.15),
-          color.withOpacity(0.02),
-        ],
+  Widget _buildRecentTrack(dynamic track, int index) {
+    final isPlaying = track['nowPlaying'] == true;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isPlaying ? const Color(0xFF0AB5CD).withOpacity(0.1) : Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isPlaying ? const Color(0xFF0AB5CD).withOpacity(0.5) : Colors.white.withOpacity(0.05)),
       ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          color.withOpacity(0.5),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Row(
-          children: [
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              image: track['image'] != null
+                  ? DecorationImage(image: CachedNetworkImageProvider(track['image']), fit: BoxFit.cover)
+                  : null,
+              color: const Color(0xFF1E293B),
+            ),
+            child: track['image'] == null ? const Icon(LucideIcons.music, color: Colors.white54) : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  track['name'] ?? 'Unknown',
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  track['artist'] ?? 'Unknown Artist',
+                  style: GoogleFonts.inter(fontSize: 13, color: Colors.white54),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (isPlaying)
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withOpacity(0.3), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.2),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.white60,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    value,
-                    style: GoogleFonts.outfit(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: color.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFF0AB5CD), borderRadius: BorderRadius.circular(20)),
+              child: const Text('Playing', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+            ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(begin: 0.5, end: 1.0)
+        ],
       ),
-    ).animate().fade(delay: (200 + (index * 100)).ms).slideX(begin: 0.1, curve: Curves.easeOutBack);
+    ).animate().fade(delay: (index * 50).ms).slideX(begin: 0.1);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF030712),
-      body: Stack(
-        children: [
-          // Dynamic Background
-          Positioned(
-            top: 50,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF0AB5CD).withOpacity(0.1),
-              ),
-            ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-             .scale(begin: const Offset(1, 1), end: const Offset(1.5, 1.5), duration: 8.seconds, curve: Curves.easeInOut),
-          ),
-          
-          SafeArea(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF0AB5CD)),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF0AB5CD)))
+            : _error.isNotEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 48),
+                        const SizedBox(height: 16),
+                        Text(_error, style: const TextStyle(color: Colors.white)),
+                        const SizedBox(height: 24),
+                        ElevatedButton(onPressed: _fetchData, child: const Text('Retry'))
+                      ],
+                    ),
                   )
-                : _error.isNotEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                : RefreshIndicator(
+                    onRefresh: _fetchData,
+                    color: const Color(0xFF0AB5CD),
+                    backgroundColor: const Color(0xFF1E293B),
+                    child: ListView(
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        // Header
+                        Row(
                           children: [
-                            const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 48),
-                            const SizedBox(height: 16),
-                            Text(
-                              _error,
-                              style: GoogleFonts.inter(color: Colors.white, fontSize: 16),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: _fetchData,
-                              icon: const Icon(LucideIcons.refreshCw, size: 16),
-                              label: const Text('Retry'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0AB5CD),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: _logout,
-                              child: const Text('Logout', style: TextStyle(color: Colors.white54)),
-                            ),
-                          ],
-                        ),
-                      ).animate().fade()
-                    : RefreshIndicator(
-                        onRefresh: _fetchData,
-                        color: const Color(0xFF0AB5CD),
-                        backgroundColor: const Color(0xFF1E293B),
-                        child: ListView(
-                          padding: const EdgeInsets.all(24.0),
-                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                          children: [
-                            // Header Row
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            if (_user != null && _user!['image'] != null)
+                              CircleAvatar(backgroundImage: CachedNetworkImageProvider(_user!['image']), radius: 24),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    if (_user != null && _user!['image'] != null)
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: const Color(0xFF0AB5CD).withOpacity(0.5), width: 2),
-                                          image: DecorationImage(
-                                            image: CachedNetworkImageProvider(_user!['image']),
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                    const SizedBox(width: 16),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Welcome back,',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 13,
-                                            color: Colors.white54,
-                                          ),
-                                        ),
-                                        Text(
-                                          _user?['name'] ?? 'DJ',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ).animate().fade().slideX(begin: -0.1),
-                                
-                                IconButton(
-                                  icon: const Icon(LucideIcons.logOut, color: Colors.white54),
-                                  onPressed: _logout,
-                                  tooltip: 'Logout',
-                                ).animate().fade(),
+                                Text('Welcome back,', style: GoogleFonts.inter(fontSize: 13, color: Colors.white54)),
+                                Text(_user?['name'] ?? 'DJ', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
                               ],
                             ),
-                            const SizedBox(height: 40),
-                            
-                            Text(
-                              'Dashboard',
-                              style: GoogleFonts.outfit(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.5,
-                              ),
-                            ).animate().fade(delay: 100.ms).slideY(begin: 0.1),
-                            
-                            const SizedBox(height: 8),
-                            
-                            Text(
-                              'Your combined listening activity across all platforms.',
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                color: Colors.white54,
-                                height: 1.5,
-                              ),
-                            ).animate().fade(delay: 150.ms).slideY(begin: 0.1),
-                            
-                            const SizedBox(height: 32),
-                            
-                            if (_stats != null && _stats!['hasLastfm'] == true)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16.0),
-                                child: _buildStatCard(
-                                  'Last.fm Scrobbler',
-                                  _stats!['lastfm']['playcount'].toString(),
-                                  'Top: ${_stats!['lastfm']['topArtist']} (${_stats!['lastfm']['topArtistPlays']})',
-                                  LucideIcons.radio,
-                                  const Color(0xFFE31B23), // Last.fm Red
-                                  1,
-                                ),
-                              ),
-                              
-                            if (_stats != null && _stats!['hasSpotify'] == true)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16.0),
-                                child: _buildStatCard(
-                                  'Spotify Tracker',
-                                  _stats!['spotify']['playcount'].toString(),
-                                  'Top: ${_stats!['spotify']['topArtist']} (${_stats!['spotify']['topArtistPlays']})',
-                                  LucideIcons.music,
-                                  const Color(0xFF1DB954), // Spotify Green
-                                  2,
-                                ),
-                              ),
-                              
-                            if (_stats == null || (_stats!['hasLastfm'] == false && _stats!['hasSpotify'] == false))
-                              GlassmorphicContainer(
-                                width: double.infinity,
-                                height: 200,
-                                borderRadius: 24,
-                                blur: 20,
-                                alignment: Alignment.center,
-                                border: 1,
-                                linearGradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.01)],
-                                ),
-                                borderGradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Colors.white.withOpacity(0.1), Colors.transparent],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(32.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(LucideIcons.activity, color: Colors.white.withOpacity(0.2), size: 48),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'No stats linked yet.\nConnect Last.fm or Spotify using the Discord Bot.',
-                                        textAlign: TextAlign.center,
-                                        style: GoogleFonts.inter(color: Colors.white54, height: 1.5, fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ).animate().fade(delay: 200.ms).slideY(begin: 0.1),
                           ],
-                        ),
-                      ),
-          ),
-        ],
+                        ).animate().fade().slideX(begin: -0.1),
+                        const SizedBox(height: 32),
+
+                        // Now Playing & Recent
+                        Text('Recent Tracks', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const SizedBox(height: 16),
+                        if (_stats!['recentTracks'] != null)
+                          ...(_stats!['recentTracks'] as List).take(5).toList().asMap().entries.map(
+                                (entry) => _buildRecentTrack(entry.value, entry.key),
+                              ),
+                        
+                        const SizedBox(height: 32),
+
+                        // Top Artists
+                        Text('Top Artists', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const SizedBox(height: 16),
+                        if (_stats!['topArtists'] != null)
+                          SizedBox(
+                            height: 230,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: (_stats!['topArtists'] as List).length,
+                              itemBuilder: (context, index) => _buildTopItem(_stats!['topArtists'][index], index),
+                            ),
+                          ),
+
+                        const SizedBox(height: 32),
+
+                        // Top Tracks
+                        Text('Top Tracks', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const SizedBox(height: 16),
+                        if (_stats!['topTracks'] != null)
+                          SizedBox(
+                            height: 230,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: (_stats!['topTracks'] as List).length,
+                              itemBuilder: (context, index) => _buildTopItem(_stats!['topTracks'][index], index),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
       ),
     );
   }
