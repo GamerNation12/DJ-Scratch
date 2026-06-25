@@ -74,6 +74,9 @@ export async function GET(request: Request) {
 
   const state = searchParams.get('state');
   if (state === 'mobile') {
+    const rawUrl = `thegoatsdj://auth?token=${jwt}`;
+    const intentUrl = `intent://auth?token=${jwt}#Intent;scheme=thegoatsdj;package=com.gamernation.the_goats_dj;end`;
+    
     const html = `
       <html>
         <head>
@@ -81,7 +84,9 @@ export async function GET(request: Request) {
           <title>Redirecting...</title>
           <script>
             window.onload = function() {
-              window.location.href = "thegoatsdj://auth?token=${jwt}";
+              // Try intent URL first for Android, fallback to raw custom scheme for iOS
+              var isAndroid = /android/i.test(navigator.userAgent || navigator.vendor || window.opera);
+              window.location.href = isAndroid ? "${intentUrl}" : "${rawUrl}";
             }
           </script>
           <style>
@@ -92,7 +97,7 @@ export async function GET(request: Request) {
         <body>
           <h2>Login Successful!</h2>
           <p>Redirecting back to the app...</p>
-          <a href="thegoatsdj://auth?token=${jwt}">Click here if nothing happens</a>
+          <a href="#" onclick="var isAndroid = /android/i.test(navigator.userAgent || navigator.vendor || window.opera); window.location.href = isAndroid ? '${intentUrl}' : '${rawUrl}'; return false;">Click here if nothing happens</a>
         </body>
       </html>
     `;
