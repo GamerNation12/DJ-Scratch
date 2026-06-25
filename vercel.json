@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "git diff HEAD^ HEAD --quiet web/",
+  "ignoreCommand": "git log -1 --name-only | grep -q '^web/' && exit 1 || exit 0",
   "headers": [
     {
       "source": "/api/(.*)",
