@@ -12,7 +12,9 @@ export async function GET(request: Request) {
 
   const clientId = process.env.DISCORD_CLIENT_ID!;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
-  const redirectUri = `${'https://the-goats-dj.vercel.app'}/api/auth/callback`;
+  const { host } = new URL(request.url);
+  const baseUrl = host.includes('localhost') ? `http://${host}` : `https://${host}`;
+  const redirectUri = `${baseUrl}/api/auth/callback`;
 
   const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
@@ -88,19 +90,24 @@ export async function GET(request: Request) {
         <title>Login Successful</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          body { background-color: #09090b; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-          a { background-color: #5865F2; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+          body { background-color: #09090b; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+          a { background-color: #5865F2; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 24px; box-shadow: 0 4px 15px rgba(88,101,242,0.4); }
+          .spinner { width: 40px; height: 40px; border: 4px solid rgba(88,101,242,0.3); border-top-color: #5865F2; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
         </style>
         <script>
           window.onload = function() {
-            window.location.href = "${appUrl}";
+            setTimeout(function() {
+              window.location.replace("${appUrl}");
+            }, 500);
           }
         </script>
       </head>
       <body>
+        <div class="spinner"></div>
         <h2>Login Successful!</h2>
-        <p>Returning you to the app...</p>
-        <a href="${appUrl}">Click here if nothing happens</a>
+        <p style="color: #a1a1aa; max-width: 80%;">You should be automatically redirected back to the app in a few seconds.</p>
+        <a href="${appUrl}">Open App Manually</a>
       </body>
       </html>
     `, {
