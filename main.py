@@ -35,5 +35,14 @@ async def on_ready_monitor():
 
 load_dotenv()
 if __name__ == "__main__":
+    print("Cleaning up old temp files...")
+    for f in os.listdir('.'):
+        if f.startswith('temp_import_') or f.startswith('web_import_'):
+            try:
+                os.remove(f)
+                print(f"Deleted old temp file: {f}")
+            except Exception as e:
+                print(f"Failed to delete {f}: {e}")
+                
     print("Starting the Goats DJ Bot...")
     bot.run(os.getenv("DISCORD_TOKEN"))
