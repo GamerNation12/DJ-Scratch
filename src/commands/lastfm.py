@@ -23,7 +23,7 @@ async def get_target_user(ctx, arg_string: str = None):
 
     if ctx.message.mentions:
         for m in ctx.message.mentions:
-            if not m.bot:
+            if not m.bot or m.id == ctx.bot.user.id:
                 target_user = m
                 break
 
