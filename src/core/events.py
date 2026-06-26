@@ -983,6 +983,9 @@ async def save_user(uid, username):
     print(f"{Log.GREEN}>>> Saved Last.fm user to Postgres: {username} ({uid}){Log.RESET}")
 
 async def get_lastfm_username(uid):
+    if bot and bot.user and str(uid) == str(bot.user.id):
+        return "TheGoatsDj"
+        
     global db_pool
     if not db_pool: return None
     async with db_pool.acquire() as conn:
