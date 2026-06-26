@@ -1,0 +1,9 @@
+node_modules/
+web/
+android-app/
+.git/
+.github/
+__pycache__/
+*.pyc
+.env
+diff.txt
