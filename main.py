@@ -44,5 +44,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Failed to delete {f}: {e}")
                 
+    import logging
+    logging.getLogger().handlers.clear()
     print("Starting the Goats DJ Bot...")
-    bot.run(os.getenv("DISCORD_TOKEN"))
+    bot.run(os.getenv("DISCORD_TOKEN"), log_level=logging.WARNING)
