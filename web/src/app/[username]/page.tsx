@@ -515,7 +515,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                      </div>
                      {!track.nowPlaying && track.date && (
                        <div className="text-[10px] text-zinc-500 whitespace-nowrap shrink-0">
-                         {new Date(parseInt(track.date) * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                         {new Date(parseInt(track.date) * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                        </div>
                      )}
                    </a>
