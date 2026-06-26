@@ -1,8 +1,6 @@
 import discord
 from datetime import datetime
 
-from src.core.database import format_name
-
 
 class Theme:
     # Colors

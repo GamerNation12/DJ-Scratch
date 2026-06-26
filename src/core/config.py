@@ -35,8 +35,6 @@ CURRENT_UPDATE_MESSAGE = """🎉 **The Goats DJ Update `v1.2.0`** 🎉
 
 from src.core.theme import Theme
 
-from src.core.database import format_name
-
 LASTFM_COLOR = Theme.PRIMARY
 
 PERIOD_MAP = {
