@@ -1037,7 +1037,7 @@ class FMDetailsView(discord.ui.View):
         preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user, track=self.song)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
@@ -1131,7 +1131,7 @@ class FMActionsView(discord.ui.View):
         preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
         preview_embed.set_image(url=self.img)
         
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user)
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user, track=self.song)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 async def update_bot_avatar_and_status(bot_instance, artist, img):
@@ -1160,19 +1160,25 @@ async def update_bot_avatar_and_status(bot_instance, artist, img):
     return False, 0
 
 class ApplyAvatarView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None):
+    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None):
         super().__init__(timeout=180)
         self.bot_instance = bot_instance
         self.artist = artist
         self.img = img
         self.original_msg = original_msg
         self.original_user = original_user
+        self.track = track
         
     @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img)
         if changed:
+            if self.track:
+                from src.utils.api import scrobble_bot_track
+                import asyncio
+                asyncio.create_task(scrobble_bot_track(self.artist, self.track))
+            
             debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
             await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
             self.stop()

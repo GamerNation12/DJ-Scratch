@@ -105,7 +105,7 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=format_name(interaction.user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user, track=song)
                             msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True, wait=True)
                             view.original_msg = msg
                             return
@@ -358,7 +358,7 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song)
                             msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
                             view.original_msg = msg
                             return
@@ -409,7 +409,7 @@ class LastFmCog(commands.Cog):
                         preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
                         preview_embed.set_image(url=img)
                         
-                        view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author)
+                        view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song)
                         msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
                         view.original_msg = msg
                         return

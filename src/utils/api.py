@@ -93,3 +93,46 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
     except Exception as e:
         logging.error(f"Deezer track fetch error: {e}")
     return None
+
+async def scrobble_bot_track(artist, track):
+    import os
+    BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY")
+    if not BOT_LASTFM_SESSION_KEY or not LASTFM_API_SECRET:
+        return False
+        
+    import hashlib
+    import time
+    timestamp = str(int(time.time()))
+    params = {
+        'api_key': LASTFM_API_KEY,
+        'artist': artist,
+        'method': 'track.scrobble',
+        'sk': BOT_LASTFM_SESSION_KEY,
+        'timestamp': timestamp,
+        'track': track
+    }
+    
+    sig_string = ""
+    for k in sorted(params.keys()):
+        sig_string += f"{k}{params[k]}"
+    sig_string += LASTFM_API_SECRET
+    
+    api_sig = hashlib.md5(sig_string.encode('utf-8')).hexdigest()
+    params['api_sig'] = api_sig
+    params['format'] = 'json'
+
+    from ..core.events import bot
+    import aiohttp
+    import logging
+    try:
+        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=params) as r:
+            if r.status == 200:
+                data = await r.json()
+                if 'scrobbles' in data:
+                    logging.info(f"Successfully scrobbled {track} by {artist} to bot profile.")
+                    return True
+            else:
+                logging.error(f"Bot scrobble failed with status {r.status}: {await r.text()}")
+    except Exception as e:
+        logging.error(f"Bot scrobble request failed: {e}")
+    return False
