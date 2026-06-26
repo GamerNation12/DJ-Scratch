@@ -8,7 +8,6 @@ from src.core.database import format_name
 async def api_get(url):
     from ..core.events import bot
     import aiohttp
-    import logging
     try:
         async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
             try:
@@ -78,7 +77,6 @@ async def fetch_deezer_artist_image(session, artist_name):
                     artist = data['data'][0]
                     return artist.get('picture_xl') or artist.get('picture_big') or artist.get('picture')
     except Exception as e:
-        import logging
         logging.error(f"Deezer fetch error: {e}")
     return None
 
@@ -93,6 +91,5 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
                     album = track.get('album', {})
                     return album.get('cover_xl') or album.get('cover_big') or album.get('cover')
     except Exception as e:
-        import logging
         logging.error(f"Deezer track fetch error: {e}")
     return None

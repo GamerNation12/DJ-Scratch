@@ -3,8 +3,6 @@ import aiohttp
 import urllib.parse
 
 from src.core.database import format_name
-import logging
-log = logging.getLogger("discord.bot")
 
 
 async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
@@ -25,6 +23,6 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
                 lyrics = data.get("syncedLyrics") or data.get("plainLyrics")
                 return lyrics
     except Exception as e:
-        log.info(f"{Log.RED}Failed to fetch lyrics: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to fetch lyrics: {e}{Log.RESET}")
         
     return None

@@ -31,11 +31,9 @@ async def memory_monitor():
 async def on_ready_monitor():
     if not memory_monitor.is_running():
         memory_monitor.start()
-        log.info(f"\033[92mMemory monitor started.\033[0m")
+        print(f"\033[92mMemory monitor started.\033[0m")
 
 load_dotenv()
 if __name__ == "__main__":
-    import logging
-    log = logging.getLogger("discord.bot")
-    log.info("Starting the Goats DJ Bot...")
+    print("Starting the Goats DJ Bot...")
     bot.run(os.getenv("DISCORD_TOKEN"))

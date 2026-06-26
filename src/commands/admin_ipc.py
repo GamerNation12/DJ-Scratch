@@ -6,8 +6,6 @@ import sys
 from ..core.events import Log
 
 from src.core.database import format_name
-import logging
-log = logging.getLogger("discord.bot")
 
 
 IPC_CHANNEL_ID = 1517288950522187947
@@ -32,25 +30,25 @@ class AdminIPC(commands.Cog):
             return
             
         action_payload = message.content[9:].strip()
-        log.info(f"{Log.CYAN}[WEBSITE] Received action via Discord: {action_payload}{Log.RESET}")
+        print(f"{Log.CYAN}>>> [WEBSITE] Received action via Discord: {action_payload}{Log.RESET}")
         
         if action_payload == "RESTART_BOT":
             await message.add_reaction("✅")
-            log.info(f"{Log.CYAN}[WEBSITE] Restarting bot...{Log.RESET}")
+            print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot...{Log.RESET}")
             os.execv(sys.executable, ['python'] + sys.argv)
             
         elif action_payload == "SYNC_COMMANDS":
             try:
                 synced = await self.bot.tree.sync()
-                log.info(f"Synced {len(synced)} commands via WEBSITE!")
+                print(f"Synced {len(synced)} commands via WEBSITE!")
                 await message.add_reaction("✅")
             except Exception as e:
-                log.info(f"Sync failed: {e}")
+                print(f"Sync failed: {e}")
                 await message.add_reaction("❌")
                 
         elif action_payload == "CLEAR_DUPLICATES":
             await message.add_reaction("✅")
-            log.info(f"{Log.CYAN}[WEBSITE] Cleared duplicates (dummy).{Log.RESET}")
+            print(f"{Log.CYAN}>>> [WEBSITE] Cleared duplicates (dummy).{Log.RESET}")
             
         elif action_payload.startswith("SET_GLOBAL_UPDATE|"):
             parts = action_payload.split("|", 2)
@@ -61,7 +59,7 @@ class AdminIPC(commands.Cog):
                 import src.core.events as events_module
                 events_module.CACHED_GLOBAL_UPDATE_VERSION = version
                 events_module.CACHED_GLOBAL_UPDATE_MESSAGE = msg_content
-                log.info(f"{Log.CYAN}[WEBSITE] Global update cache updated to {version}{Log.RESET}")
+                print(f"{Log.CYAN}>>> [WEBSITE] Global update cache updated to {version}{Log.RESET}")
                 await message.add_reaction("✅")
             else:
                 await message.add_reaction("❌")
@@ -94,7 +92,7 @@ class AdminIPC(commands.Cog):
                     json.dumps(bot_stats)
                 )
         except Exception as e:
-            log.info(f"[IPC] Stats push error: {e}")
+            print(f"[IPC] Stats push error: {e}")
 
     @push_stats.before_loop
     async def before_push_stats(self):
@@ -132,7 +130,7 @@ class AdminIPC(commands.Cog):
                     await log_to_channel("website-log", embed)
                     
         except Exception as e:
-            log.info(f"[IPC] Website logs poll error: {e}")
+            print(f"[IPC] Website logs poll error: {e}")
 
     @poll_website_logs.before_loop
     async def before_poll_website_logs(self):

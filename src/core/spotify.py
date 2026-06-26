@@ -37,7 +37,7 @@ async def get_spotify_token(session: aiohttp.ClientSession):
                 _token_expiry = time.time() + resp_data.get("expires_in", 3600) - 60
                 return _access_token
     except Exception as e:
-        log.info(f"{Log.RED}Failed to get Spotify token: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to get Spotify token: {e}{Log.RESET}")
         
     return None
 
@@ -77,15 +77,13 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                         "artists": [a.get("name") for a in track.get("artists", [])]
                     }
     except Exception as e:
-        log.info(f"{Log.RED}Failed to fetch Spotify track: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to fetch Spotify track: {e}{Log.RESET}")
         
     return None
 
 from src.core.database import get_user_spotify_refresh_token
 
 from src.core.database import format_name
-import logging
-log = logging.getLogger("discord.bot")
 
 
 async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id: str):
@@ -114,7 +112,7 @@ async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id:
                 resp_data = await resp.json()
                 return resp_data.get("access_token")
     except Exception as e:
-        log.info(f"{Log.RED}Failed to refresh Spotify user token: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to refresh Spotify user token: {e}{Log.RESET}")
         
     return None
 
@@ -204,5 +202,5 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
                         "spotify_url": track.get("external_urls", {}).get("spotify")
                     }
     except Exception as e:
-        log.info(f"{Log.RED}Failed to search Spotify track: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to search Spotify track: {e}{Log.RESET}")
     return None

@@ -4,8 +4,6 @@ from discord.ext import commands
 from discord import app_commands
 
 from src.core.database import format_name
-import logging
-log = logging.getLogger("discord.bot")
 
 
 async def get_target_user(ctx, arg_string: str = None):
@@ -94,7 +92,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            log.info(f"{Log.RED}Spotify fetch error in cd_slash: {e}{Log.RESET}")
+                            print(f"{Log.RED}>>> Spotify fetch error in cd_slash: {e}{Log.RESET}")
 
                         if img:
                             title = "Bot Avatar Preview (Last Played)" if last_song else "Bot Avatar Preview"
@@ -349,7 +347,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            log.info(f"{Log.RED}Spotify fetch error in cd_prefix: {e}{Log.RESET}")
+                            print(f"{Log.RED}>>> Spotify fetch error in cd_prefix: {e}{Log.RESET}")
 
                         if img:
                             preview_embed = discord.Embed(
@@ -400,7 +398,7 @@ class LastFmCog(commands.Cog):
                             if s_info and s_info.get("image_url"):
                                 img = s_info.get("image_url")
                     except Exception as e:
-                        log.info(f"{Log.RED}Spotify fetch error in cd2_prefix: {e}{Log.RESET}")
+                        print(f"{Log.RED}>>> Spotify fetch error in cd2_prefix: {e}{Log.RESET}")
 
                     if img:
                         preview_embed = discord.Embed(

@@ -5,8 +5,6 @@ import os
 import textwrap
 
 from src.core.database import format_name
-import logging
-log = logging.getLogger("discord.bot")
 
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "Inconsolata.ttf")
@@ -107,6 +105,6 @@ def process_profile_images(image_bytes):
             
             return avatar_bytes_out
     except Exception as e:
-        log.info(f"{Log.RED}Error processing profile images: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Error processing profile images: {e}{Log.RESET}")
         return image_bytes
 
