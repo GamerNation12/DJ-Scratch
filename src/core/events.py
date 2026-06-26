@@ -155,9 +155,9 @@ async def setup_hook():
                 db_url = db_url.replace(":5432", ":6543")
             db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=3, statement_cache_size=0)
             
-            # Pass the pool to the database module
             import src.core.database as db_module
             db_module.db_pool = db_pool
+            await db_module.init_name_cache()
             
             print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
             async with db_pool.acquire() as conn:
