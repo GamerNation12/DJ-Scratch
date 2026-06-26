@@ -5,6 +5,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
+import TrackModal from "@/components/TrackModal";
 import Link from "next/link";
 
 export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
@@ -16,6 +17,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
   const isOwner = status === "authenticated" && displayUsername && displayUsername === usernameParam;
+
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import">("profile");
@@ -487,12 +490,10 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                </div>
                <div className="divide-y divide-white/5">
                  {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
-                   <a 
+                   <button 
                      key={i} 
-                     href={track.url}
-                     target="_blank"
-                     rel="noreferrer"
-                     className="flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                     onClick={() => setSelectedTrack(track)}
+                     className="w-full text-left flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
@@ -518,7 +519,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                          {new Date(parseInt(track.date) * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                        </div>
                      )}
-                   </a>
+                   </button>
                  )) : (
                    <div className="text-center py-8 text-zinc-500">No recent tracks found.</div>
                  )}
@@ -565,12 +566,10 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                </div>
                <div className="divide-y divide-white/5">
                  {profile.stats?.topTracks?.length > 0 ? profile.stats.topTracks.map((track: any, i: number) => (
-                   <a 
+                   <button 
                      key={i} 
-                     href={track.url}
-                     target="_blank"
-                     rel="noreferrer"
-                     className="flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                     onClick={() => setSelectedTrack(track)}
+                     className="w-full text-left flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
@@ -589,7 +588,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                        {parseInt(track.playcount).toLocaleString()}
                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest ml-1 font-normal">plays</span>
                      </div>
-                   </a>
+                   </button>
                  )) : (
                    <div className="text-center py-8 text-zinc-500">No top tracks found.</div>
                  )}
@@ -957,6 +956,15 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           </div>
         </div>
       )}
+      {/* Track Info Modal */}
+      <TrackModal
+        isOpen={!!selectedTrack}
+        onClose={() => setSelectedTrack(null)}
+        trackName={selectedTrack?.name}
+        artistName={selectedTrack?.artist}
+        username={profile?.lastfm_username || usernameParam}
+        fallbackImage={selectedTrack?.image}
+      />
     </div>
   );
 }
