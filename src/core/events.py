@@ -1929,8 +1929,8 @@ async def process_profile(user):
         data = await fetch_user_profile(username)
         if data:
             info = data['user']
-            embed.title = f"{info['name']}'s Last.fm Profile"
-            embed.url = info['url']
+            embed.title = f"{info['name']}'s Goats DJ Profile"
+            embed.url = f"https://the-goats-dj.vercel.app/{username}"
             lastfm_plays = int(info['playcount'])
             
             # Smart De-duplication of duplicate plays:

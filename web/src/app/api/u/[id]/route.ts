@@ -278,6 +278,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json({
       success: true,
+      lastfm_username: lastfm_username,
       users: discordUsers,
       stats: lastfmData,
       _debug: debugLogs
