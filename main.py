@@ -31,7 +31,7 @@ async def memory_monitor():
 async def on_ready_monitor():
     if not memory_monitor.is_running():
         memory_monitor.start()
-        print("Memory monitor started.")
+        log.info(f"\033[92mMemory monitor started.\033[0m")
 
 load_dotenv()
 if __name__ == "__main__":

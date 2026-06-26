@@ -1,3 +1,4 @@
+from src.core.config import Log
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -93,7 +94,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            log.error(f"Spotify fetch error in cd_slash: {e}")
+                            log.info(f"{Log.RED}Spotify fetch error in cd_slash: {e}{Log.RESET}")
 
                         if img:
                             title = "Bot Avatar Preview (Last Played)" if last_song else "Bot Avatar Preview"
@@ -348,7 +349,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            log.error(f"Spotify fetch error in cd_prefix: {e}")
+                            log.info(f"{Log.RED}Spotify fetch error in cd_prefix: {e}{Log.RESET}")
 
                         if img:
                             preview_embed = discord.Embed(
@@ -399,7 +400,7 @@ class LastFmCog(commands.Cog):
                             if s_info and s_info.get("image_url"):
                                 img = s_info.get("image_url")
                     except Exception as e:
-                        log.error(f"Spotify fetch error in cd2_prefix: {e}")
+                        log.info(f"{Log.RED}Spotify fetch error in cd2_prefix: {e}{Log.RESET}")
 
                     if img:
                         preview_embed = discord.Embed(

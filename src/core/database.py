@@ -1,3 +1,4 @@
+from src.core.config import Log
 import json
 import os
 import asyncpg
@@ -28,7 +29,7 @@ async def init_name_cache():
             display_name_cache.clear()
             display_name_cache.update(new_cache)
     except Exception as e:
-        log.error(f"Error updating name cache: {e}")
+        log.info(f"{Log.RED}Error updating name cache: {e}{Log.RESET}")
         
     if name_cache_task is None:
         import asyncio
@@ -58,7 +59,7 @@ async def init_db():
                 max_size=3,
                 max_inactive_connection_lifetime=30.0
             )
-            log.info(f"Database pool created successfully")
+            log.info(f"{Log.GREEN}Database pool created successfully{Log.RESET}")
             async with db_pool.acquire() as conn:
                 await conn.execute('''
                     CREATE TABLE IF NOT EXISTS user_settings (
@@ -121,9 +122,9 @@ async def init_db():
                 except Exception:
                     pass
         except Exception as e:
-            log.info(f"Failed to connect to DB: {e}")
+            log.info(f"{Log.RED}Failed to connect to DB: {e}{Log.RESET}")
     else:
-        log.info(f"No DATABASE_URL or POSTGRES_URL set — DB disabled")
+        log.info(f"{Log.RED}No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
     
     await init_name_cache()
 
@@ -147,7 +148,7 @@ async def set_user_fm_mode(user_id, mode):
                 ON CONFLICT (user_id) DO UPDATE SET fm_mode = $2
             """, str(user_id), mode)
     except Exception as e:
-        log.error(f"Error setting fm_mode: {e}")
+        log.info(f"{Log.RED}Error setting fm_mode: {e}{Log.RESET}")
 
 async def get_user_show_features(user_id):
     if not db_pool: return False
@@ -167,7 +168,7 @@ async def set_user_show_features(user_id, show_features: bool):
                 ON CONFLICT (user_id) DO UPDATE SET show_features = $2
             """, str(user_id), show_features)
     except Exception as e:
-        log.error(f"Error setting show_features: {e}")
+        log.info(f"{Log.RED}Error setting show_features: {e}{Log.RESET}")
 
 async def get_user_show_track_playcount(user_id):
     if not db_pool: return True
@@ -187,7 +188,7 @@ async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
                 ON CONFLICT (user_id) DO UPDATE SET show_track_playcount = $2
             """, str(user_id), show_track_playcount)
     except Exception as e:
-        log.error(f"Error setting show_track_playcount: {e}")
+        log.info(f"{Log.RED}Error setting show_track_playcount: {e}{Log.RESET}")
 
 async def get_user_data_source(user_id):
     if not db_pool: return 'combined'
@@ -207,7 +208,7 @@ async def set_user_data_source(user_id, source):
                 ON CONFLICT (user_id) DO UPDATE SET data_source = $2
             """, str(user_id), source)
     except Exception as e:
-        log.error(f"Error setting data_source: {e}")
+        log.info(f"{Log.RED}Error setting data_source: {e}{Log.RESET}")
 
 async def get_user_timezone(user_id):
     if not db_pool: return 'UTC'
@@ -246,7 +247,7 @@ async def set_user_update_notifs(uid, enabled: bool):
                 str(uid), enabled
             )
         except Exception as e:
-            log.error(f"Failed to set_user_update_notifs: {e}")
+            log.info(f"{Log.RED}Failed to set_user_update_notifs: {e}{Log.RESET}")
 
 async def get_user_last_update_seen(uid):
     if not db_pool: return ''
@@ -276,7 +277,7 @@ async def set_user_last_update_seen(uid, version: str):
                 str(uid), version
             )
         except Exception as e:
-            log.error(f"Failed to set_user_last_update_seen: {e}")
+            log.info(f"{Log.RED}Failed to set_user_last_update_seen: {e}{Log.RESET}")
 
 async def set_user_timezone(user_id, tz):
     if not db_pool: return
@@ -287,7 +288,7 @@ async def set_user_timezone(user_id, tz):
                 ON CONFLICT (user_id) DO UPDATE SET timezone = $2
             """, str(user_id), tz)
     except Exception as e:
-        log.error(f"Error setting timezone: {e}")
+        log.info(f"{Log.RED}Error setting timezone: {e}{Log.RESET}")
 
 async def get_local_total_plays(user_id):
     if not db_pool: return 0
@@ -305,7 +306,7 @@ async def db_fetch(query, *args):
         async with db_pool.acquire() as conn:
             return await conn.fetch(query, *args)
     except Exception as e:
-        log.info(f"DB error: {e}")
+        log.info(f"{Log.RED}DB error: {e}{Log.RESET}")
         return []
 async def get_local_top_artists(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
@@ -419,7 +420,7 @@ async def get_global_update_version():
             if row and row['value']:
                 return row['value']
         except Exception as e:
-            log.error(f"Error fetching global update version: {e}")
+            log.info(f"{Log.RED}Error fetching global update version: {e}{Log.RESET}")
         from src.core.config import CURRENT_UPDATE_VERSION
         return CURRENT_UPDATE_VERSION
 
@@ -433,7 +434,7 @@ async def get_global_update_message():
             if row and row['value']:
                 return row['value']
         except Exception as e:
-            log.error(f"Error fetching global update message: {e}")
+            log.info(f"{Log.RED}Error fetching global update message: {e}{Log.RESET}")
         from src.core.config import CURRENT_UPDATE_MESSAGE
         return CURRENT_UPDATE_MESSAGE
 
@@ -455,7 +456,7 @@ async def set_user_spotify_refresh_token(user_id, token):
                 ON CONFLICT (user_id) DO UPDATE SET spotify_refresh_token = $2
             """, str(user_id), token)
     except Exception as e:
-        log.error(f"Error setting spotify_refresh_token: {e}")
+        log.info(f"{Log.RED}Error setting spotify_refresh_token: {e}{Log.RESET}")
 
 async def unlink_user(user_id):
     if not db_pool: return False
@@ -464,5 +465,5 @@ async def unlink_user(user_id):
             await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(user_id))
             return True
     except Exception as e:
-        log.error(f"Error unlinking user {user_id}: {e}")
+        log.info(f"{Log.RED}Error unlinking user {user_id}: {e}{Log.RESET}")
         return False

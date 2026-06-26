@@ -1,3 +1,4 @@
+from src.core.config import Log
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io
 import os
@@ -106,6 +107,6 @@ def process_profile_images(image_bytes):
             
             return avatar_bytes_out
     except Exception as e:
-        log.error(f"Error processing profile images: {e}")
+        log.info(f"{Log.RED}Error processing profile images: {e}{Log.RESET}")
         return image_bytes
 

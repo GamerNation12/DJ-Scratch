@@ -32,11 +32,11 @@ class AdminIPC(commands.Cog):
             return
             
         action_payload = message.content[9:].strip()
-        log.info(f"[WEBSITE] Received action via Discord: {action_payload}")
+        log.info(f"{Log.CYAN}[WEBSITE] Received action via Discord: {action_payload}{Log.RESET}")
         
         if action_payload == "RESTART_BOT":
             await message.add_reaction("✅")
-            log.info(f"[WEBSITE] Restarting bot...")
+            log.info(f"{Log.CYAN}[WEBSITE] Restarting bot...{Log.RESET}")
             os.execv(sys.executable, ['python'] + sys.argv)
             
         elif action_payload == "SYNC_COMMANDS":
@@ -50,7 +50,7 @@ class AdminIPC(commands.Cog):
                 
         elif action_payload == "CLEAR_DUPLICATES":
             await message.add_reaction("✅")
-            log.info(f"[WEBSITE] Cleared duplicates (dummy).")
+            log.info(f"{Log.CYAN}[WEBSITE] Cleared duplicates (dummy).{Log.RESET}")
             
         elif action_payload.startswith("SET_GLOBAL_UPDATE|"):
             parts = action_payload.split("|", 2)
@@ -61,7 +61,7 @@ class AdminIPC(commands.Cog):
                 import src.core.events as events_module
                 events_module.CACHED_GLOBAL_UPDATE_VERSION = version
                 events_module.CACHED_GLOBAL_UPDATE_MESSAGE = msg_content
-                log.info(f"[WEBSITE] Global update cache updated to {version}")
+                log.info(f"{Log.CYAN}[WEBSITE] Global update cache updated to {version}{Log.RESET}")
                 await message.add_reaction("✅")
             else:
                 await message.add_reaction("❌")

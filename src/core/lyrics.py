@@ -1,3 +1,4 @@
+from src.core.config import Log
 import aiohttp
 import urllib.parse
 
@@ -24,6 +25,6 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
                 lyrics = data.get("syncedLyrics") or data.get("plainLyrics")
                 return lyrics
     except Exception as e:
-        log.error(f"Failed to fetch lyrics: {e}")
+        log.info(f"{Log.RED}Failed to fetch lyrics: {e}{Log.RESET}")
         
     return None

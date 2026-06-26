@@ -1,3 +1,4 @@
+from src.core.config import Log
 import discord
 from discord.ext import commands
 import aiohttp
@@ -34,7 +35,7 @@ class GoatsBot(commands.Bot):
         if db_conn_string:
             try:
                 self.db_pool = await asyncpg.create_pool(db_conn_string)
-                log.info(f"Connected to Postgres DB")
+                log.info(f"{Log.GREEN}Connected to Postgres DB{Log.RESET}")
                 async with self.db_pool.acquire() as conn:
                     await conn.execute('''
                         CREATE TABLE IF NOT EXISTS user_settings (
@@ -45,16 +46,16 @@ class GoatsBot(commands.Bot):
                         )
                     ''')
             except Exception as e:
-                log.info(f"Failed to connect to DB: {e}")
+                log.info(f"{Log.RED}Failed to connect to DB: {e}{Log.RESET}")
         
         # Load extensions
         cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
-                log.info(f"Loaded {cog}")
+                log.info(f"{Log.GREEN}Loaded {cog}{Log.RESET}")
             except Exception as e:
-                log.info(f"Failed to load {cog}: {e}")
+                log.info(f"{Log.RED}Failed to load {cog}: {e}{Log.RESET}")
 
     async def close(self):
         if self.session:
