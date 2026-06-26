@@ -12,6 +12,19 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
     setLoading(true);
     setStatus("idle");
     try {
+      if (actionType === "RENEW_HOST_SERVER") {
+        // Open the FPS panel in a small popup window
+        window.open(
+          "https://panel.fps.ms/server/5be081c1-6d0b-4d6e-87d8-c51a5cfb652f",
+          "RenewServer",
+          "width=800,height=600,left=200,top=200"
+        );
+        setStatus("success");
+        setTimeout(() => setStatus("idle"), 3000);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetchApi("/api/admin/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -751,6 +764,13 @@ export default function AdminClient() {
                 actionType="RESTART_BOT"
                 colorClass="red"
                 icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              />
+              <AdminActionCard 
+                title="Renew Host Server"
+                description="Add 24 hours to your free bot hosting."
+                actionType="RENEW_HOST_SERVER"
+                colorClass="pink"
+                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
               />
             </div>
           </div>

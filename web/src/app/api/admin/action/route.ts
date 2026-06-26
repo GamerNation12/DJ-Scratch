@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { actionType, payload } = body;
 
-    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES", "SEND_MESSAGE", "SET_GLOBAL_UPDATE"].includes(actionType)) {
+    if (!actionType || !["SYNC_COMMANDS", "RESTART_BOT", "CLEAR_DUPLICATES", "SEND_MESSAGE", "SET_GLOBAL_UPDATE", "RENEW_HOST_SERVER"].includes(actionType)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
@@ -71,6 +71,31 @@ export async function POST(req: Request) {
 
       if (!discordRes.ok) return NextResponse.json({ error: "Failed to send message to Discord" }, { status: discordRes.status });
       return NextResponse.json({ success: true, message: "Message sent directly via Discord API!" });
+    }
+
+    if (actionType === "RENEW_HOST_SERVER") {
+      const url = process.env.HOST_RENEW_URL;
+      const cookie = process.env.HOST_RENEW_COOKIE;
+      
+      if (!url || !cookie) {
+        return NextResponse.json({ 
+          error: "Missing HOST_RENEW_URL or HOST_RENEW_COOKIE in .env.local" 
+        }, { status: 400 });
+      }
+
+      const renewRes = await fetch(url, {
+        method: "POST", // Adjust to GET if required by the host
+        headers: {
+          "Cookie": cookie,
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+      });
+      
+      if (!renewRes.ok) {
+         return NextResponse.json({ error: "Hosting API rejected the renewal." }, { status: renewRes.status });
+      }
+      
+      return NextResponse.json({ success: true, message: "Server successfully renewed!" });
     }
 
     // For other actions, just send an IPC message to Discord
