@@ -4,10 +4,8 @@ from discord import app_commands
 import aiohttp
 import os
 
-from src.core.spotify import (
-
 from src.core.database import format_name
-
+from src.core.spotify import (
     spotify_play_track, spotify_pause_playback, spotify_skip_to_next, 
     spotify_skip_to_previous, spotify_add_to_queue, spotify_like_track, 
     spotify_unlike_track, search_spotify_track, get_user_spotify_access_token
