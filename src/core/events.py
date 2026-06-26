@@ -1920,7 +1920,16 @@ async def process_profile(user):
     d_source = await get_user_data_source(user.id)
 
     if not username and local_total == 0:
-        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+
+    class ProfileLinksView(discord.ui.View):
+        def __init__(self, username, lastfm_url):
+            super().__init__(timeout=None)
+            self.add_item(discord.ui.Button(label="Goats DJ Profile", style=discord.ButtonStyle.link, url=f"https://the-goats-dj.vercel.app/{username}"))
+            if lastfm_url:
+                self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=lastfm_url))
+
+    view = None
 
     embed = discord.Embed(color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{format_name(user)}'s Profile", icon_url=user.display_avatar.url)
@@ -1932,6 +1941,7 @@ async def process_profile(user):
             embed.title = f"{info['name']}'s Goats DJ Profile"
             embed.url = f"https://the-goats-dj.vercel.app/{username}"
             lastfm_plays = int(info['playcount'])
+            view = ProfileLinksView(username, info['url'])
             
             # Smart De-duplication of duplicate plays:
             if d_source == 'imported_only':
@@ -1959,7 +1969,7 @@ async def process_profile(user):
         embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
         embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/setfm`", inline=True)
 
-    return embed, None
+    return embed, view, None
 async def process_whoknows(guild, user, artist_name):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)

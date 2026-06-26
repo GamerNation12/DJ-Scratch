@@ -280,8 +280,14 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def profile_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        embed, err = await self.bot.process_profile(interaction.user)
-        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
+        embed, view, err = await self.bot.process_profile(interaction.user)
+        if embed:
+            if view:
+                await interaction.edit_original_response(embed=embed, view=view)
+            else:
+                await interaction.edit_original_response(embed=embed)
+        else:
+            await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="whoknows", description="See who in the server listens to an artist most")
     @app_commands.allowed_installs(guilds=True, users=False)
@@ -519,8 +525,14 @@ class LastFmCog(commands.Cog):
     async def s_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
-            embed, err = await self.bot.process_profile(target_user)
-            await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+            embed, view, err = await self.bot.process_profile(target_user)
+            if embed:
+                if view:
+                    await self._reply_and_delete(ctx, embed=embed, view=view)
+                else:
+                    await self._reply_and_delete(ctx, embed=embed)
+            else:
+                await self._reply_and_delete(ctx, err)
 
     @commands.command(name="wk", aliases=["whoknows"])
     async def wk_prefix(self, ctx, *, args: str = None):
