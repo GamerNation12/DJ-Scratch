@@ -5,7 +5,7 @@ import textwrap
 
 from src.core.database import format_name
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "Inconsolata.ttf")

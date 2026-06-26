@@ -1298,7 +1298,7 @@ from datetime import datetime, timedelta
 
 from src.core.database import format_name
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 
 

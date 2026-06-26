@@ -7,7 +7,7 @@ from ..core.events import Log
 
 from src.core.database import format_name
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 
 IPC_CHANNEL_ID = 1517288950522187947

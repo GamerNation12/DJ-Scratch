@@ -4,7 +4,7 @@ from discord import app_commands
 
 from src.core.database import format_name
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 
 async def get_target_user(ctx, arg_string: str = None):

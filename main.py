@@ -35,6 +35,6 @@ async def on_ready_monitor():
 load_dotenv()
 if __name__ == "__main__":
     import logging
-    log = logging.getLogger("goats")
+    log = logging.getLogger("discord.bot")
     log.info("Starting the Goats DJ Bot...")
     bot.run(os.getenv("DISCORD_TOKEN"))

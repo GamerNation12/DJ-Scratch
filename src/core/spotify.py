@@ -84,7 +84,7 @@ from src.core.database import get_user_spotify_refresh_token
 
 from src.core.database import format_name
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 
 async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id: str):

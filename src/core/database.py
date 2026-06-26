@@ -4,7 +4,7 @@ import asyncpg
 from datetime import datetime, timedelta
 from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
 import logging
-log = logging.getLogger("goats")
+log = logging.getLogger("discord.bot")
 
 display_name_cache = {}
 name_cache_task = None
