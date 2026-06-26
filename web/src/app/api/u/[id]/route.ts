@@ -210,15 +210,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       if (!recentData.error && recentData.recenttracks?.track) {
         // Last.fm can return a single object or array
         const tracks = Array.isArray(recentData.recenttracks.track) ? recentData.recenttracks.track : [recentData.recenttracks.track];
-        lastfmData.recentTracks = tracks.map((t: any) => ({
-          name: t.name,
-          artist: t.artist?.["#text"] || t.artist?.name,
-          album: t.album?.["#text"],
-          url: t.url,
-          image: t.image?.find((i: any) => i.size === "large")?.["#text"] || null,
-          nowPlaying: t["@attr"]?.nowplaying === "true",
-          date: t.date?.uts || null
-        }));
+        lastfmData.recentTracks = [];
+        
+        for (const t of tracks) {
+          let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
+          
+          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+            imageUrl = null;
+          }
+
+          if (!imageUrl) {
+            const imgRes = await getDeezerTrackImage(t.name, t.artist?.["#text"] || t.artist?.name || "");
+            if (imgRes?.error) {
+               debugLogs.push({ track: t.name, error: imgRes.error });
+            }
+            imageUrl = imgRes?.url || null;
+          }
+
+          lastfmData.recentTracks.push({
+            name: t.name,
+            artist: t.artist?.["#text"] || t.artist?.name,
+            album: t.album?.["#text"],
+            url: t.url,
+            image: imageUrl,
+            nowPlaying: t["@attr"]?.nowplaying === "true",
+            date: t.date?.uts || null
+          });
+        }
       }
 
       if (!tracksData.error && tracksData.toptracks?.track) {
@@ -259,6 +277,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           
           if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
             imageUrl = null;
+          }
+
+          if (!imageUrl) {
+            const imgRes = await getDeezerTrackImage(a.name, a.artist?.name || "");
+            if (imgRes?.error) {
+              debugLogs.push({ album: a.name, error: imgRes.error });
+            }
+            imageUrl = imgRes?.url || null;
           }
 
           lastfmData.topAlbums.push({
