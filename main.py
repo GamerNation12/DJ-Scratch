@@ -3,7 +3,8 @@ import sys
 import psutil
 from discord.ext import tasks
 
-os.system("pip install PyNaCl")
+os.system(f"{sys.executable} -m pip install --upgrade pip")
+os.system(f"{sys.executable} -m pip install PyNaCl")
 from src.core.events import bot
 from dotenv import load_dotenv
 

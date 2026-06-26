@@ -750,15 +750,20 @@ async def web_import_worker():
 
 @bot.event
 async def on_ready():
-    log.info(f"========================================================================")
-    log.info(f"  _____ _             ____             _          ____     _ \n |_   _| |__   ___   / ___| ___   __ _| |_ ___   |  _ \   | |\n   | | | '_ \ / _ \ | |  _ / _ \ / _` | __/ __|  | | | |  | |\n   | | | | | |  __/ | |_| | (_) | (_| | |_\__ \  | |_| |  | |\n   |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |\n                                                        |__/ ")
-    log.info(f"========================================================================")
-    log.info(f"✓ ONLINE AS: {bot.user}")
+    print(r"""
+========================================================================
+  _____ _             ____             _          ____     _ 
+ |_   _| |__   ___   / ___| ___   __ _| |_ ___   |  _ \   | |
+   | | | '_ \ / _ \ | |  _ / _ \ / _` | __/ __|  | | | |  | |
+   | | | | | |  __/ | |_| | (_) | (_| | |_\__ \  | |_| |  | |
+   |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |
+                                                        |__/ 
+========================================================================""")
+    log.info(f"ONLINE AS: {bot.user}")
     total_servers = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
-    log.info(f"✓ CONNECTED TO: {total_servers} servers | {total_members} members")
-    log.info(f"! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.")
-    log.info(f"========================================================================")
+    log.info(f"CONNECTED TO: {total_servers} servers | {total_members} members")
+    log.info("NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.")
     
 
 
