@@ -3,6 +3,8 @@ from discord.ext import commands
 from discord import app_commands
 
 from src.core.database import format_name
+import logging
+log = logging.getLogger("goats")
 
 
 async def get_target_user(ctx, arg_string: str = None):
@@ -91,7 +93,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            print(f"Spotify fetch error in cd_slash: {e}")
+                            log.error(f"Spotify fetch error in cd_slash: {e}")
 
                         if img:
                             title = "Bot Avatar Preview (Last Played)" if last_song else "Bot Avatar Preview"
@@ -346,7 +348,7 @@ class LastFmCog(commands.Cog):
                                 if s_info and s_info.get("image_url"):
                                     img = s_info.get("image_url")
                         except Exception as e:
-                            print(f"Spotify fetch error in cd_prefix: {e}")
+                            log.error(f"Spotify fetch error in cd_prefix: {e}")
 
                         if img:
                             preview_embed = discord.Embed(
@@ -397,7 +399,7 @@ class LastFmCog(commands.Cog):
                             if s_info and s_info.get("image_url"):
                                 img = s_info.get("image_url")
                     except Exception as e:
-                        print(f"Spotify fetch error in cd2_prefix: {e}")
+                        log.error(f"Spotify fetch error in cd2_prefix: {e}")
 
                     if img:
                         preview_embed = discord.Embed(

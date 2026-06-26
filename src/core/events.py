@@ -116,7 +116,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                     notify_embed.add_field(name="Developer Reply", value=feedback_text, inline=False)
                 notify_embed.set_footer(text="The Goats DJ Feedback System")
                 await suggester.send(embed=notify_embed)
-                print(f"{Log.GREEN}>>> Notified user about suggestion: {self.action_status}{Log.RESET}")
+                log.info(f"Notified user about suggestion: {self.action_status}")
             except:
                 pass
         try:
@@ -159,7 +159,7 @@ async def setup_hook():
             db_module.db_pool = db_pool
             await db_module.init_name_cache()
             
-            print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
+            log.info(f"Connected to Postgres DB")
             async with db_pool.acquire() as conn:
                 await conn.execute(
                     """
@@ -276,17 +276,17 @@ async def setup_hook():
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
                 except Exception as e:
-                    print(f"Failed to add lastfm_username column: {e}")
+                    log.error(f"Failed to add lastfm_username column: {e}")
                     
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'")
                 except Exception as e:
-                    print(f"Failed to add timezone column: {e}")
+                    log.error(f"Failed to add timezone column: {e}")
 
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception as e:
-                    print(f"Failed to add show_track_playcount column: {e}")
+                    log.error(f"Failed to add show_track_playcount column: {e}")
 
                 # One-time migration
                 if os.path.exists("lastfm_users.json"):
@@ -299,11 +299,11 @@ async def setup_hook():
                                 str(uid), uname
                             )
                         os.rename("lastfm_users.json", "lastfm_users.json.bak")
-                        print(f"{Log.GREEN}>>> Migrated lastfm_users.json to Postgres!{Log.RESET}")
+                        log.info(f"Migrated lastfm_users.json to Postgres!")
                     except Exception as e:
-                        print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
+                        log.info(f"Failed to migrate JSON: {e}")
 
-                print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+                log.info(f"Ensured user_settings table exists")
             bot.get_avatar_cooldown = get_avatar_cooldown
             bot.get_user_fm_mode = get_user_fm_mode
             bot.process_fm = process_fm
@@ -327,13 +327,13 @@ async def setup_hook():
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
-                    print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
+                    log.info(f"Loaded {cog}")
                 except Exception as e:
-                    print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
+                    log.info(f"Failed to load {cog}: {e}")
         except Exception as e:
-            print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
+            log.info(f"Failed to connect to DB: {e}")
     else:
-        print(f"{Log.YELLOW}>>> No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
+        log.info(f"No DATABASE_URL or POSTGRES_URL set — DB disabled")
 bot.setup_hook = setup_hook
 
 db_pool = None
@@ -500,9 +500,9 @@ async def insert_tracks_in_db(valid_tracks):
                     chunk
                 )
                 inserted_count += len(chunk)
-                print(f"{Log.CYAN}    >>> [IMPORT PROGRESS] Inserted chunk... ({inserted_count} valid non-overlapping tracks so far){Log.RESET}")
+                log.info(f"    [IMPORT PROGRESS] Inserted chunk... ({inserted_count} valid non-overlapping tracks so far)")
         except Exception as e:
-            print(f"Error inserting database chunk: {e}")
+            log.error(f"Error inserting database chunk: {e}")
     return inserted_count
 async def process_discord_import_in_background(user, temp_filepath, is_zip, response_target):
     import zipfile
@@ -524,7 +524,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                     str(user.id), format_name(user)
                 )
         except Exception as e:
-            print(f"Error ensuring imported_user: {e}")
+            log.error(f"Error ensuring imported_user: {e}")
 
 
 
@@ -589,7 +589,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                                         if parsed:
                                             all_valid_tracks.append(parsed)
                             except Exception as e:
-                                print(f"Error processing {filename} inside zip: {e}")
+                                log.error(f"Error processing {filename} inside zip: {e}")
 
         processed_count = await insert_tracks_in_db(all_valid_tracks)
         all_valid_tracks.clear()
@@ -614,7 +614,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         await user.send(embed=embed)
 
     except Exception as e:
-        print(f"Error in background import process: {e}")
+        log.error(f"Error in background import process: {e}")
         try:
             os.remove(temp_filepath)
         except: pass
@@ -636,7 +636,7 @@ async def handle_discord_import(user, attachment, response_target):
         
         await response_target(f"✅ File received successfully! You are currently position **#{queue_pos}** in the import queue. The bot will process your history in the background and DM you when finished.")
     except Exception as e:
-        print(f"Error in handle_discord_import saving file: {e}")
+        log.error(f"Error in handle_discord_import saving file: {e}")
         await response_target("❌ An error occurred while receiving your file.")
 async def handle_discord_import_link(user, link, response_target):
     try:
@@ -663,14 +663,14 @@ async def handle_discord_import_link(user, link, response_target):
         await response_target(f"✅ Link downloaded successfully! You are currently position **#{queue_pos}** in the import queue. The bot will DM you when finished.")
         
     except Exception as e:
-        print(f"Error in handle_discord_import_link: {e}")
+        log.error(f"Error in handle_discord_import_link: {e}")
         await response_target("❌ An error occurred while downloading or processing the link.")
 import_queue = asyncio.Queue()
 
 async def import_worker():
     while True:
         user, temp_filepath, is_zip, response_target = await import_queue.get()
-        print(f"{Log.CYAN}>>> [IMPORT QUEUE] Starting import for {format_name(user)} ({user.id}). Items left in queue: {import_queue.qsize()}{Log.RESET}")
+        log.info(f"[IMPORT QUEUE] Starting import for {format_name(user)} ({user.id}). Items left in queue: {import_queue.qsize()}")
         
         try:
             log_channel = bot.get_channel(1517288950522187947)
@@ -682,7 +682,7 @@ async def import_worker():
         try:
             await process_discord_import_in_background(user, temp_filepath, is_zip, response_target)
         except Exception as e:
-            print(f"{Log.RED}>>> [IMPORT QUEUE] Error processing import for {format_name(user)}: {e}{Log.RESET}")
+            log.info(f"[IMPORT QUEUE] Error processing import for {format_name(user)}: {e}")
             try:
                 log_channel = bot.get_channel(1517288950522187947)
                 if log_channel:
@@ -691,7 +691,7 @@ async def import_worker():
                 pass
         finally:
             import_queue.task_done()
-            print(f"{Log.GREEN}>>> [IMPORT QUEUE] Finished import task for {format_name(user)}.{Log.RESET}")
+            log.info(f"[IMPORT QUEUE] Finished import task for {format_name(user)}.")
             
             try:
                 log_channel = bot.get_channel(1517288950522187947)
@@ -742,7 +742,7 @@ async def web_import_worker():
                             os.remove(temp_filepath)
                             
         except Exception as e:
-            print(f"Error in web_import_worker: {e}")
+            log.error(f"Error in web_import_worker: {e}")
             
         await asyncio.sleep(10)
 
@@ -750,15 +750,15 @@ async def web_import_worker():
 
 @bot.event
 async def on_ready():
-    print(f"{Log.CYAN}========================================================================{Log.RESET}")
-    print(f"{Log.CYAN}  _____ _             ____             _          ____     _ \n |_   _| |__   ___   / ___| ___   __ _| |_ ___   |  _ \   | |\n   | | | '_ \ / _ \ | |  _ / _ \ / _` | __/ __|  | | | |  | |\n   | | | | | |  __/ | |_| | (_) | (_| | |_\__ \  | |_| |  | |\n   |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |\n                                                        |__/ {Log.RESET}")
-    print(f"{Log.CYAN}========================================================================{Log.RESET}")
-    print(f"{Log.GREEN}✓ ONLINE AS: {bot.user}{Log.RESET}")
+    log.info(f"========================================================================")
+    log.info(f"  _____ _             ____             _          ____     _ \n |_   _| |__   ___   / ___| ___   __ _| |_ ___   |  _ \   | |\n   | | | '_ \ / _ \ | |  _ / _ \ / _` | __/ __|  | | | |  | |\n   | | | | | |  __/ | |_| | (_) | (_| | |_\__ \  | |_| |  | |\n   |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |\n                                                        |__/ ")
+    log.info(f"========================================================================")
+    log.info(f"✓ ONLINE AS: {bot.user}")
     total_servers = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
-    print(f"{Log.GREEN}✓ CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
-    print(f"{Log.YELLOW}! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.{Log.RESET}")
-    print(f"{Log.CYAN}========================================================================{Log.RESET}")
+    log.info(f"✓ CONNECTED TO: {total_servers} servers | {total_members} members")
+    log.info(f"! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.")
+    log.info(f"========================================================================")
     
 
 
@@ -769,9 +769,9 @@ async def on_ready():
                 row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
                 if row and row['value']:
                     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
-                    print(f"{Log.GREEN}>>> Restored bot status to: {row['value']}{Log.RESET}")
+                    log.info(f"Restored bot status to: {row['value']}")
         except Exception as e:
-            print(f"{Log.RED}>>> Failed to load bot status from DB: {e}{Log.RESET}")
+            log.info(f"Failed to load bot status from DB: {e}")
 
     bot.loop.create_task(import_worker())
     bot.loop.create_task(web_import_worker())
@@ -780,7 +780,7 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
-    print(f"{Log.GREEN}>>> JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members{Log.RESET}")
+    log.info(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
     try:
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(
@@ -790,11 +790,11 @@ async def on_guild_join(guild):
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await owner.send(embed=embed)
-    except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild join: {e}{Log.RESET}")
+    except Exception as e: log.info(f"Failed to notify owner of guild join: {e}")
 
 @bot.event
 async def on_guild_remove(guild):
-    print(f"{Log.RED}>>> LEFT GUILD: {guild.name} ({guild.id}){Log.RESET}")
+    log.info(f"LEFT GUILD: {guild.name} ({guild.id})")
     try:
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(
@@ -804,7 +804,7 @@ async def on_guild_remove(guild):
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await owner.send(embed=embed)
-    except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
+    except Exception as e: log.info(f"Failed to notify owner of guild leave: {e}")
 
 # --- HELPER: LOG TO CHANNEL ---
 async def log_to_channel(channel_name: str, embed: discord.Embed):
@@ -823,11 +823,11 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
                 await channel.send(embed=embed)
                 return
     except Exception as e:
-        print(f"Failed to log to {channel_name}: {e}")
+        log.error(f"Failed to log to {channel_name}: {e}")
 
 # --- HELPER: ERROR DM ---
 async def notify_owner(ctx, err):
-    print(f"{Log.RED}>>> ERROR in {ctx}: {err}{Log.RESET}")
+    log.info(f"ERROR in {ctx}: {err}")
     try:
         await bot.wait_until_ready()
         owner = await bot.fetch_user(OWNER_ID)
@@ -838,12 +838,12 @@ async def notify_owner(ctx, err):
         embed.timestamp = datetime.now()
         await owner.send(embed=embed)
         await log_to_channel("errors", embed)
-    except Exception as e: print(f"{Log.RED}>>> FAILED to notify owner: {e}{Log.RESET}")
+    except Exception as e: log.info(f"FAILED to notify owner: {e}")
 
 @bot.event
 async def on_command(ctx):
     location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
-    print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
+    log.info(f"[PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}")
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -881,7 +881,7 @@ async def check_if_banned(interaction: discord.Interaction) -> bool:
                     pass
                 return False
     except Exception as e:
-        print(f"Error checking ban status: {e}")
+        log.error(f"Error checking ban status: {e}")
     return True
 
 @bot.check
@@ -902,13 +902,13 @@ async def global_ban_check_prefix(ctx) -> bool:
                     pass
                 return False
     except Exception as e:
-        print(f"Error checking ban status: {e}")
+        log.error(f"Error checking ban status: {e}")
     return True
 
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
-    print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
+    log.info(f"[SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}")
     global db_pool
     if not db_pool: return
     try:
@@ -922,7 +922,7 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
                 command.name
             )
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to track command usage: {e}{Log.RESET}")
+        log.info(f"Failed to track command usage: {e}")
 
 # --- HELPER: AVATAR COOLDOWN ---
 async def get_avatar_cooldown():
@@ -967,14 +967,14 @@ async def load_display_names():
 async def save_user(uid, username):
     global db_pool
     if not db_pool:
-        print(f"{Log.RED}>>> No database connection available to save user!{Log.RESET}")
+        log.info(f"No database connection available to save user!")
         return
     async with db_pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
             str(uid), username
         )
-    print(f"{Log.CYAN}>>> Saved Last.fm user to Postgres: {username} ({uid}){Log.RESET}")
+    log.info(f"Saved Last.fm user to Postgres: {username} ({uid})")
 
 async def get_lastfm_username(uid):
     global db_pool
@@ -1150,7 +1150,7 @@ async def update_bot_avatar_and_status(bot_instance, artist, img):
                         await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
                 return True, 300
     except Exception as e:
-        print(f"Error updating bot avatar: {e}")
+        log.error(f"Error updating bot avatar: {e}")
     return False, 0
 
 class ApplyAvatarView(discord.ui.View):
@@ -1255,18 +1255,15 @@ class SettingsView(discord.ui.View):
 
 async def apply_features(session, artist, song, s_artists=None):
     import re
-    print(f"[DEBUG apply_features events.py] Called with artist: '{artist}', song: '{song}'")
     m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
-        print(f"[DEBUG apply_features events.py] Extracted from original song -> features: '{features}', new song: '{song}'")
         return f"{artist}, {features}", song
         
     if s_artists and len(s_artists) > 1:
         features = [a for a in s_artists if a.lower() not in artist.lower()]
         if features:
-            print(f"[DEBUG apply_features events.py] Using s_artists -> features: '{', '.join(features)}'")
             return f"{artist}, {', '.join(features)}", song
     
     try:
@@ -1277,27 +1274,22 @@ async def apply_features(session, artist, song, s_artists=None):
                 if data.get('resultCount', 0) > 0:
                     it_artist = data['results'][0].get('artistName', '')
                     it_track = data['results'][0].get('trackName', '')
-                    print(f"[DEBUG apply_features events.py] iTunes returned it_artist: '{it_artist}', it_track: '{it_track}'")
                     
                     m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
                     if m2:
                         features = m2.group(1).strip()
-                        print(f"[DEBUG apply_features events.py] Extracted from it_track -> features: '{features}'")
                         return f"{artist}, {features}", song
                     elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
-                        print(f"[DEBUG apply_features events.py] Using it_artist: '{it_artist}' because it contains multiple artists")
                         return it_artist, song
                     else:
-                        print(f"[DEBUG apply_features events.py] No feature condition met for it_artist: '{it_artist}' vs original: '{artist}'")
+                        pass
                 else:
-                    print(f"[DEBUG apply_features events.py] iTunes resultCount was 0.")
+                    pass
             else:
-                print(f"[DEBUG apply_features events.py] iTunes API returned status {r.status}")
+                pass
     except Exception as e:
-        print(f"[DEBUG apply_features events.py] Exception: {e}")
         pass
         
-    print(f"[DEBUG apply_features events.py] Returning original artist: '{artist}', song: '{song}'")
     return artist, song
 
 # --- CORE LOGIC ---
@@ -1305,6 +1297,8 @@ import discord
 from datetime import datetime, timedelta
 
 from src.core.database import format_name
+import logging
+log = logging.getLogger("goats")
 
 
 
@@ -1341,7 +1335,7 @@ async def process_fm(ctx_int, user, mode="full"):
                     img = s_img
                 s_artists = s_info.get("artists")
         except Exception as e:
-            print(f"Spotify fetch error: {e}")
+            log.error(f"Spotify fetch error: {e}")
 
         if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
             try:
@@ -1500,7 +1494,7 @@ async def process_fm(ctx_int, user, mode="full"):
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
-        print(f"{Log.RED}>>> parsing error: {e}{Log.RESET}")
+        log.info(f"parsing error: {e}")
         return None, "Error formatting track."
 async def process_top_artists(user, input_period=None):
     username = await get_lastfm_username(user.id)
@@ -2008,7 +2002,7 @@ async def process_suggestion(ctx_int, user, suggestion_text):
                         str(user.id), str(format_name(user)), title, description
                     )
             else:
-                print(f"{Log.YELLOW}>>> DB pool not found or wrong type, skipping DB insert.{Log.RESET}")
+                log.info(f"DB pool not found or wrong type, skipping DB insert.")
 
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(title="💡 New Bot Suggestion", description=suggestion_text, color=discord.Color.gold(), timestamp=datetime.now())
@@ -2016,13 +2010,13 @@ async def process_suggestion(ctx_int, user, suggestion_text):
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
         embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
         await owner.send(embed=embed, view=SuggestionView())
-        print(f"{Log.GREEN}>>> New suggestion forwarded to owner & DB.{Log.RESET}")
+        log.info(f"New suggestion forwarded to owner & DB.")
         
         confirm = discord.Embed(description="✅ Suggestion saved to your Dashboard & sent directly to the developer!", color=discord.Color.green())
         if isinstance(ctx_int, discord.Interaction): await ctx_int.response.send_message(embed=confirm, ephemeral=True)
         else: await ctx_int.send(embed=confirm)
     except Exception as e:
-        print(f"{Log.RED}>>> Suggestion error: {e}{Log.RESET}")
+        log.info(f"Suggestion error: {e}")
 async def process_crowns(guild, user):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
@@ -2211,7 +2205,7 @@ class PurgeConfirmView(discord.ui.View):
                     await conn.execute("DELETE FROM listens WHERE user_id=$1", str(self.user.id))
                     await conn.execute("DELETE FROM imported_users WHERE id=$1", str(self.user.id))
             except Exception as e:
-                print(f"Error purging user data from DB: {e}")
+                log.error(f"Error purging user data from DB: {e}")
         
         unlinked = False
         if db_pool:
@@ -2222,7 +2216,7 @@ class PurgeConfirmView(discord.ui.View):
                         unlinked = True
                         await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(self.user.id))
             except Exception as e:
-                print(f"Error clearing Last.fm DB link: {e}")
+                log.error(f"Error clearing Last.fm DB link: {e}")
 
         embed = discord.Embed(
             title="🗑️ Data Successfully Deleted",
@@ -2257,7 +2251,7 @@ class PurgeConfirmView(discord.ui.View):
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_commands.Choice[str]):
-    print(f"{Log.MAGENTA}>>> [/setcustomfm] Triggered by {format_name(interaction.user)}{Log.RESET}")
+    log.info(f"[/setcustomfm] Triggered by {format_name(interaction.user)}")
     if not db_pool:
         await interaction.response.send_message("❌ Database is currently offline.", ephemeral=True)
         return

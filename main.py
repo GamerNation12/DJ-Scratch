@@ -34,5 +34,7 @@ async def on_ready_monitor():
 
 load_dotenv()
 if __name__ == "__main__":
-    print("Starting the Goats DJ Bot...")
+    import logging
+    log = logging.getLogger("goats")
+    log.info("Starting the Goats DJ Bot...")
     bot.run(os.getenv("DISCORD_TOKEN"))

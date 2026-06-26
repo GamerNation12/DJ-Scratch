@@ -4,6 +4,8 @@ import os
 import textwrap
 
 from src.core.database import format_name
+import logging
+log = logging.getLogger("goats")
 
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "Inconsolata.ttf")
@@ -104,6 +106,6 @@ def process_profile_images(image_bytes):
             
             return avatar_bytes_out
     except Exception as e:
-        print(f"Error processing profile images: {e}")
+        log.error(f"Error processing profile images: {e}")
         return image_bytes
 

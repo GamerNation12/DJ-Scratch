@@ -2,6 +2,8 @@ import aiohttp
 import urllib.parse
 
 from src.core.database import format_name
+import logging
+log = logging.getLogger("goats")
 
 
 async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
@@ -22,6 +24,6 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
                 lyrics = data.get("syncedLyrics") or data.get("plainLyrics")
                 return lyrics
     except Exception as e:
-        print(f"Failed to fetch lyrics: {e}")
+        log.error(f"Failed to fetch lyrics: {e}")
         
     return None
