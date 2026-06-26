@@ -4,14 +4,45 @@ import asyncpg
 from datetime import datetime, timedelta
 from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
 
+display_name_cache = {}
+name_cache_task = None
+
+async def _poll_name_cache():
+    import asyncio
+    while True:
+        await asyncio.sleep(60)
+        await init_name_cache()
+
+async def init_name_cache():
+    global name_cache_task
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, display_name FROM user_settings WHERE display_name IS NOT NULL")
+            new_cache = {}
+            for row in rows:
+                if row['display_name']:
+                    new_cache[str(row['user_id'])] = row['display_name']
+            display_name_cache.clear()
+            display_name_cache.update(new_cache)
+    except Exception as e:
+        print(f"Error updating name cache: {e}")
+        
+    if name_cache_task is None:
+        import asyncio
+        name_cache_task = asyncio.create_task(_poll_name_cache())
+
 def format_name(user):
     if not user: return "Unknown"
+    
+    uid = getattr(user, 'id', None)
+    if uid and str(uid) in display_name_cache:
+        return display_name_cache[str(uid)]
+        
     name = getattr(user, 'name', str(user))
     if name == "gamernation12":
         return "GamerNation12"
     return name
-
-
 db_pool = None
 
 async def init_db():
@@ -91,6 +122,8 @@ async def init_db():
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
         print(f"{Log.YELLOW}>>> No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
+    
+    await init_name_cache()
 
 
 

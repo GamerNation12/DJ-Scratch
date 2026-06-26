@@ -2,12 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
 
 async def get_target_user(ctx, arg_string: str = None):

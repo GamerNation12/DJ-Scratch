@@ -5,12 +5,7 @@ import os
 import sys
 from ..core.events import Log
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
 
 IPC_CHANNEL_ID = 1517288950522187947

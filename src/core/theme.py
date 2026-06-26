@@ -1,12 +1,7 @@
 import discord
 from datetime import datetime
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
 
 class Theme:

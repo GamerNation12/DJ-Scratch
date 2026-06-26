@@ -4,12 +4,7 @@ from discord import app_commands
 from src.core.database import set_user_fm_mode, set_user_show_features, set_user_data_source, get_user_fm_mode, get_user_show_features, get_user_data_source, get_user_timezone, set_user_timezone, get_user_show_track_playcount, set_user_show_track_playcount, get_user_update_notifs, set_user_update_notifs
 from src.core.config import LASTFM_COLOR
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
 
 

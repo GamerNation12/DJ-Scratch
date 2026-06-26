@@ -2,12 +2,7 @@ import aiohttp
 import urllib.parse
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
 
 async def api_get(url):

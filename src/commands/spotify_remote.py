@@ -6,12 +6,7 @@ import os
 
 from src.core.spotify import (
 
-def format_name(user):
-    if not user: return "Unknown"
-    name = getattr(user, 'name', str(user))
-    if name == "gamernation12":
-        return "GamerNation12"
-    return name
+from src.core.database import format_name
 
     spotify_play_track, spotify_pause_playback, spotify_skip_to_next, 
     spotify_skip_to_previous, spotify_add_to_queue, spotify_like_track, 
