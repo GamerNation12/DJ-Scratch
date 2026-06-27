@@ -17,15 +17,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Goats DJ Dashboard",
-  description: "Manage your profile and settings",
+  title: "The Goats DJ | Your Ultimate Music Stats Bot",
+  description: "Track, share, and analyze your music listening habits with The Goats DJ. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
   openGraph: {
-    title: "The Goats DJ Dashboard",
-    description: "Manage your profile and settings",
+    title: "The Goats DJ | Your Ultimate Music Stats Bot",
+    description: "Track, share, and analyze your music listening habits with The Goats DJ. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
+    url: "https://the-goats-dj.vercel.app",
+    siteName: "The Goats DJ",
+    images: [
+      {
+        url: "https://the-goats-dj.vercel.app/logo.png",
+        width: 800,
+        height: 800,
+        alt: "The Goats DJ Logo",
+      }
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Goats DJ | Your Ultimate Music Stats Bot",
+    description: "Track, share, and analyze your music listening habits with The Goats DJ. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
+    images: ["https://the-goats-dj.vercel.app/logo.png"],
   },
   icons: {
     icon: "/api/icon?v=2",
-  }
+  },
 };
 
 export default function RootLayout({
