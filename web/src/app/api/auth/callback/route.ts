@@ -44,21 +44,19 @@ export async function GET(request: Request) {
 
   const username = userData.username === "gamernation12" ? "GamerNation12" : userData.username;
 
-  let lastfmUsername = null;
   let displayName = null;
   let sql;
   try {
     sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
-    const userSettings = await sql`SELECT lastfm_username, display_name FROM user_settings WHERE user_id = ${userData.id}`;
+    const userSettings = await sql`SELECT display_name FROM user_settings WHERE user_id = ${userData.id}`;
     if (userSettings.length > 0) {
-      lastfmUsername = userSettings[0].lastfm_username;
       displayName = userSettings[0].display_name;
     }
   } catch (e) {
     console.error("Failed to fetch user settings:", e);
   }
 
-  const resolvedName = lastfmUsername || displayName || username;
+  const resolvedName = displayName || username;
 
   const jwt = await signToken({
     id: userData.id,

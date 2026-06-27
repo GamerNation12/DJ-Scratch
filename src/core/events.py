@@ -1925,7 +1925,8 @@ async def process_profile(user):
     class ProfileLinksView(discord.ui.View):
         def __init__(self, username, lastfm_url):
             super().__init__(timeout=None)
-            self.add_item(discord.ui.Button(label="Goats DJ Profile", style=discord.ButtonStyle.link, url=f"https://the-goats-dj.vercel.app/{username}"))
+            safe_name = urllib.parse.quote(format_name(user))
+            self.add_item(discord.ui.Button(label="Goats DJ Profile", style=discord.ButtonStyle.link, url=f"https://the-goats-dj.vercel.app/{safe_name}"))
             if lastfm_url:
                 self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=lastfm_url))
 
@@ -1939,7 +1940,8 @@ async def process_profile(user):
         if data:
             info = data['user']
             embed.title = f"{info['name']}'s Goats DJ Profile"
-            embed.url = f"https://the-goats-dj.vercel.app/{username}"
+            safe_name = urllib.parse.quote(format_name(user))
+            embed.url = f"https://the-goats-dj.vercel.app/{safe_name}"
             lastfm_plays = int(info['playcount'])
             view = ProfileLinksView(username, info['url'])
             
