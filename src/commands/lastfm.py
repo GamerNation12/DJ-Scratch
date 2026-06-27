@@ -481,7 +481,7 @@ class LastFmCog(commands.Cog):
                 msg = await self._reply_and_delete(ctx, **result)
                 if is_p: await self.bot.add_custom_reactions(msg)
 
-    @commands.command(name="ta", aliases=["topartists", "topa", "tart", "tar"])
+    @commands.command(name="ta", aliases=["topartists", "topa", "tart"])
     async def ta_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, period = await get_target_user(ctx, args)
