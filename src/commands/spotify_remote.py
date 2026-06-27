@@ -94,7 +94,7 @@ class SpotifyRemote(commands.Cog):
                 else:
                     await ctx.send(f"Failed to queue: {res}")
 
-    @commands.command(aliases=['rc', 'r'])
+    @commands.command(aliases=['rc'])
     async def remote(self, ctx):
         view = SpotifyRemoteView(ctx.author.id)
         embed = discord.Embed(title="Spotify Remote", description="Control your playback.", color=0x1DB954)

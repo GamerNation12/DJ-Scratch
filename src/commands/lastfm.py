@@ -503,7 +503,7 @@ class LastFmCog(commands.Cog):
             else:
                 await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="rt", aliases=["recent", "recents", "rtracks"])
+    @commands.command(name="rt", aliases=["recent", "recents", "rtracks", "r"])
     async def rt_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
