@@ -12,7 +12,7 @@ class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="pixel")
+    @commands.command(name="pixel", aliases=["px"])
     async def pixel_prefix(self, ctx):
         from ..core.events import get_lastfm_username
         from ..utils.api import fetch_top_albums
@@ -70,7 +70,7 @@ class GamesCog(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send(f"⏰ Time's up! It was **{album_name}** by **{artist_name}**.")
 
-    @commands.command(name="jumble")
+    @commands.command(name="jumble", aliases=["jb", "jm"])
     async def jumble_prefix(self, ctx):
         from ..core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)

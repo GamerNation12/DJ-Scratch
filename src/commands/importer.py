@@ -19,7 +19,7 @@ class ImporterCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         await self.bot.handle_discord_import(interaction.user, file, interaction.followup.send)
 
-    @commands.command(name="import")
+    @commands.command(name="import", aliases=["imp", "i"])
     async def import_prefix(self, ctx):
         async with ctx.typing():
             if not ctx.message.attachments:
@@ -41,7 +41,7 @@ class ImporterCog(commands.Cog):
             view=view, ephemeral=True
         )
 
-    @commands.command(name="deletedata", aliases=["purgedata", "resetdata"])
+    @commands.command(name="deletedata", aliases=["purgedata", "resetdata", "dd", "pd"])
     async def delete_data_prefix(self, ctx):
         view = self.bot.PurgeConfirmView(ctx.author)
         await ctx.send(

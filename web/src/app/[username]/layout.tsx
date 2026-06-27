@@ -1,0 +1,24 @@
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const resolvedParams = await params;
+  // Decode the URI component in case the username has spaces or special characters
+  const username = decodeURIComponent(resolvedParams.username);
+  
+  return {
+    title: `${username}'s Profile | The Goats DJ`,
+    description: `Check out ${username}'s music profile, top artists, and recent tracks on The Goats DJ.`,
+    openGraph: {
+      title: `${username}'s Profile | The Goats DJ`,
+      description: `Check out ${username}'s music profile, top artists, and recent tracks on The Goats DJ.`,
+    },
+  };
+}
+
+export default function ProfileLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
+}

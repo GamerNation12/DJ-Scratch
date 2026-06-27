@@ -102,7 +102,7 @@ class InfoCog(commands.Cog):
         await interaction.response.defer(ephemeral=False)
         await self.send_updates(interaction)
 
-    @commands.command(name="updates", aliases=["changelog", "news"])
+    @commands.command(name="updates", aliases=["changelog", "news", "up", "u"])
     async def updates_prefix(self, ctx):
         await self.send_updates(ctx)
 

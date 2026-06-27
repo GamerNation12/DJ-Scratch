@@ -166,7 +166,7 @@ class SettingsCog(commands.Cog):
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.followup.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view, ephemeral=True)
 
-    @commands.command(name="settings")
+    @commands.command(name="settings", aliases=["set", "se", "s"])
     async def settings_prefix(self, ctx):
         view = SettingsView()
         embed = await get_settings_embed(ctx.author.id, ctx.author)

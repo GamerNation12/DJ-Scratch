@@ -121,7 +121,7 @@ class LastFmCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         await self.toggle_privacy(interaction.user, interaction.followup.send)
 
-    @commands.command(name="privacy")
+    @commands.command(name="privacy", aliases=["pr", "priv"])
     async def privacy_prefix(self, ctx):
         await self.toggle_privacy(ctx.author, ctx.reply)
 
@@ -373,7 +373,7 @@ class LastFmCog(commands.Cog):
             
         await ctx.send(content=status_msg)
 
-    @commands.command(name="cd2")
+    @commands.command(name="cd2", aliases=["c2"])
     async def cd2_prefix(self, ctx):
         cd = await self.bot.get_avatar_cooldown()
         status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
@@ -424,7 +424,7 @@ class LastFmCog(commands.Cog):
             
         await ctx.send(content=status_msg)
 
-    @commands.command(name="login")
+    @commands.command(name="login", aliases=["log", "li"])
     async def login_prefix(self, ctx):
         from src.core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)
@@ -452,7 +452,7 @@ class LastFmCog(commands.Cog):
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
         await msg.edit(view=view)
 
-    @commands.command(name="logout")
+    @commands.command(name="logout", aliases=["lo"])
     async def logout_prefix(self, ctx):
         from src.core.database import unlink_user
         await unlink_user(ctx.author.id)
@@ -463,7 +463,7 @@ class LastFmCog(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3"])
+    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n"])
     async def fm_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
@@ -481,7 +481,7 @@ class LastFmCog(commands.Cog):
                 msg = await self._reply_and_delete(ctx, **result)
                 if is_p: await self.bot.add_custom_reactions(msg)
 
-    @commands.command(name="ta", aliases=["topartists"])
+    @commands.command(name="ta", aliases=["topartists", "topa", "tart", "tar"])
     async def ta_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, period = await get_target_user(ctx, args)
@@ -492,7 +492,7 @@ class LastFmCog(commands.Cog):
             else:
                 await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="tt", aliases=["toptracks"])
+    @commands.command(name="tt", aliases=["toptracks", "topt", "ttr", "ttracks"])
     async def tt_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, period = await get_target_user(ctx, args)
@@ -503,14 +503,14 @@ class LastFmCog(commands.Cog):
             else:
                 await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="rt", aliases=["recent"])
+    @commands.command(name="rt", aliases=["recent", "recents", "rtracks"])
     async def rt_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
             embed, err = await self.bot.process_recent(target_user)
             await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="at", aliases=["artisttracks"])
+    @commands.command(name="at", aliases=["artisttracks", "art", "atracks"])
     async def at_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, artist = await get_target_user(ctx, args)
@@ -521,7 +521,7 @@ class LastFmCog(commands.Cog):
                 await self._reply_and_delete(ctx, embed=embed, view=view)
 
 
-    @commands.command(name="s", aliases=["profile"])
+    @commands.command(name="profile", aliases=["prof"])
     async def s_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
@@ -534,14 +534,14 @@ class LastFmCog(commands.Cog):
             else:
                 await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="wk", aliases=["whoknows"])
+    @commands.command(name="wk", aliases=["whoknows", "who", "w"])
     async def wk_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, artist = await get_target_user(ctx, args)
             embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
             await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="suggest", aliases=["suggestion"])
+    @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
         if not suggestion:
             embed = discord.Embed(
@@ -552,26 +552,26 @@ class LastFmCog(commands.Cog):
             return await ctx.send(embed=embed)
         await self.bot.process_suggestion(ctx, ctx.author, suggestion)
 
-    @commands.command(name="help")
+    @commands.command(name="help", aliases=["h"])
     async def help_prefix(self, ctx):
         embed, view = self.bot.get_help_embed(ctx.author)
         await ctx.send(embed=embed, view=view)
 
-    @commands.command(name="crowns")
+    @commands.command(name="crowns", aliases=["cr", "cw"])
     async def crowns_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
             embed, err = await self.bot.process_crowns(ctx.guild, target_user)
             await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="judge", aliases=["roast"])
+    @commands.command(name="judge", aliases=["roast", "jd", "j"])
     async def judge_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
             embed, err = await self.bot.process_judge(target_user)
             await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="receipt")
+    @commands.command(name="receipt", aliases=["rec", "re"])
     async def receipt_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, period = await get_target_user(ctx, args)

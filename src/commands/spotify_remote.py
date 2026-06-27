@@ -94,13 +94,13 @@ class SpotifyRemote(commands.Cog):
                 else:
                     await ctx.send(f"Failed to queue: {res}")
 
-    @commands.command(aliases=['rc'])
+    @commands.command(aliases=['rc', 'r'])
     async def remote(self, ctx):
         view = SpotifyRemoteView(ctx.author.id)
         embed = discord.Embed(title="Spotify Remote", description="Control your playback.", color=0x1DB954)
         await ctx.send(embed=embed, view=view)
 
-    @commands.command()
+    @commands.command(aliases=['p'])
     async def play(self, ctx, *, query: str = None):
         if not query:
             if ctx.message.reference:
@@ -119,7 +119,7 @@ class SpotifyRemote(commands.Cog):
                         
         await self._handle_track_command(ctx, query, "play")
 
-    @commands.command()
+    @commands.command(aliases=['q'])
     async def queue(self, ctx, *, query: str = None):
         if not query:
             if ctx.message.reference:
@@ -129,7 +129,7 @@ class SpotifyRemote(commands.Cog):
                 return await ctx.send("Please provide a track to queue.")
         await self._handle_track_command(ctx, query, "queue")
 
-    @commands.command()
+    @commands.command(aliases=['ps', 'pa'])
     async def pause(self, ctx):
         async with aiohttp.ClientSession() as session:
             res = await spotify_pause_playback(session, str(ctx.author.id))
@@ -138,7 +138,7 @@ class SpotifyRemote(commands.Cog):
             else:
                 await ctx.send(f"Failed: {res}")
 
-    @commands.command()
+    @commands.command(aliases=['sk', 'next'])
     async def skip(self, ctx):
         async with aiohttp.ClientSession() as session:
             res = await spotify_skip_to_next(session, str(ctx.author.id))
@@ -147,7 +147,7 @@ class SpotifyRemote(commands.Cog):
             else:
                 await ctx.send(f"Failed: {res}")
 
-    @commands.command()
+    @commands.command(aliases=['rl'])
     async def rclike(self, ctx, *, query: str = None):
         if not query:
             return await ctx.send("Please provide a track to like.")
@@ -160,7 +160,7 @@ class SpotifyRemote(commands.Cog):
             else:
                 await ctx.send(f"Failed: {res}")
 
-    @commands.command()
+    @commands.command(aliases=['ru'])
     async def rcunlike(self, ctx, *, query: str):
         async with aiohttp.ClientSession() as session:
             track = await search_spotify_track(session, query)

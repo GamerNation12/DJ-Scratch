@@ -21,7 +21,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
     async def cog_check(self, ctx):
         return ctx.author.id == OWNER_ID
 
-    @commands.command(name="sync")
+    @commands.command(name="sync", aliases=["sy"])
     async def sync_commands(self, ctx):
         msg = await ctx.send("Syncing slash commands globally... (This may take a moment)")
         try:
@@ -31,7 +31,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         except Exception as e:
             await msg.edit(content=f"❌ Sync failed: {e}")
 
-    @commands.command(name="stats", aliases=["guilds", "servers"])
+    @commands.command(name="stats", aliases=["guilds", "servers", "st"])
     async def stats_command(self, ctx):
         guilds = sorted(self.bot.guilds, key=lambda g: g.member_count or 0, reverse=True)
         total_servers = len(guilds)
@@ -55,7 +55,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         
         await ctx.send(embed=embed)
 
-    @commands.command(name="cleanduplicates")
+    @commands.command(name="cleanduplicates", aliases=["cdp", "cleand"])
     async def clean_duplicates_command(self, ctx):
         msg = await ctx.send("🧹 Scanning database for bugged duplicates (Account Data & overlapping timestamps)...")
         try:
@@ -82,7 +82,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         except Exception as e:
             await msg.edit(content=f"❌ Failed to clean duplicates: {e}")
 
-    @commands.command(name="testautorestart")
+    @commands.command(name="testautorestart", aliases=["tar"])
     async def test_auto_restart(self, ctx):
         await ctx.send("🔄 Simulating high RAM usage. Auto-restarting bot...")
         print(f"{Log.RED}>>> CRITICAL: System RAM usage is at 99.9%. Auto-restarting bot... (SIMULATION){Log.RESET}")
@@ -95,7 +95,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         await self.bot.close()
         os._exit(0)
 
-    @commands.command(name="wipedata")
+    @commands.command(name="wipedata", aliases=["wd", "wipe"])
     async def wipe_data(self, ctx):
         msg = await ctx.send("🧨 Wiping ALL imported data from the database. This cannot be undone...")
         try:
@@ -117,7 +117,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         except Exception as e:
             await msg.edit(content=f"❌ Failed to wipe data: {e}")
 
-    @commands.command(name="restart")
+    @commands.command(name="restart", aliases=["rs"])
     async def restart_bot(self, ctx):
         await ctx.send("🔄 Restarting bot...")
         print(f"{Log.RED}>>> Restart triggered by owner. Exiting process...{Log.RESET}")
@@ -131,7 +131,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         os._exit(0)
 
 
-    @commands.command(name="resetcd")
+    @commands.command(name="resetcd", aliases=["rcd"])
     async def resetcd(self, ctx):
         from src.core.database import db_pool
         from datetime import datetime, timedelta
