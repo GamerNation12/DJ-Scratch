@@ -43,9 +43,27 @@ export async function GET(request: Request) {
   const userData = await userResponse.json();
 
   const username = userData.username === "gamernation12" ? "GamerNation12" : userData.username;
+
+  let lastfmUsername = null;
+  let displayName = null;
+  let sql;
+  try {
+    sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
+    const userSettings = await sql`SELECT lastfm_username, display_name FROM user_settings WHERE user_id = ${userData.id}`;
+    if (userSettings.length > 0) {
+      lastfmUsername = userSettings[0].lastfm_username;
+      displayName = userSettings[0].display_name;
+    }
+  } catch (e) {
+    console.error("Failed to fetch user settings:", e);
+  }
+
+  const resolvedName = lastfmUsername || displayName || username;
+
   const jwt = await signToken({
     id: userData.id,
-    name: username,
+    name: resolvedName,
+    discord_name: username,
     email: userData.email,
     image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
   });
@@ -57,7 +75,7 @@ export async function GET(request: Request) {
 
   // Log the login
   try {
-    const sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
+    if (!sql) sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)
