@@ -275,7 +275,7 @@ export default function AdminClient() {
 
   useEffect(() => {
     if (activeTab === "suggestions") fetchSuggestions();
-    if (activeTab === "users") fetchUsersList();
+    if (activeTab === "users" || activeTab === "permissions") fetchUsersList();
     if (activeTab === "permissions") fetchPermissionsList();
   }, [activeTab]);
 
@@ -678,20 +678,33 @@ export default function AdminClient() {
                 Grant Command Permission
               </h3>
               <div className="flex flex-col md:flex-row gap-4">
-                <input 
-                  type="text" 
+                <select 
                   value={permUserId} 
                   onChange={(e) => setPermUserId(e.target.value)}
-                  placeholder="Discord User ID" 
-                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                />
-                <input 
-                  type="text" 
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
+                >
+                  <option value="" disabled>Select User...</option>
+                  {usersList.map((u: any) => (
+                    <option key={u.user_id} value={u.user_id}>
+                      {u.discord_username ? `@${u.discord_username}` : u.display_name || 'Unknown'} ({u.user_id})
+                    </option>
+                  ))}
+                </select>
+
+                <select 
                   value={permCommand} 
                   onChange={(e) => setPermCommand(e.target.value)}
-                  placeholder="Command Name (e.g. restart)" 
-                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                />
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
+                >
+                  <option value="" disabled>Select Command...</option>
+                  <option value="restart">restart</option>
+                  <option value="sync">sync</option>
+                  <option value="stats">stats</option>
+                  <option value="cleanduplicates">cleanduplicates</option>
+                  <option value="testautorestart">testautorestart</option>
+                  <option value="wipedata">wipedata</option>
+                  <option value="resetcd">resetcd</option>
+                </select>
                 <button 
                   onClick={handleGrantPermission}
                   className="bg-indigo-500 hover:bg-indigo-600 shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] text-white px-8 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap"
