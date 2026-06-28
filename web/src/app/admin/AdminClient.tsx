@@ -276,7 +276,62 @@ export default function AdminClient() {
   useEffect(() => {
     if (activeTab === "suggestions") fetchSuggestions();
     if (activeTab === "users") fetchUsersList();
+    if (activeTab === "permissions") fetchPermissionsList();
   }, [activeTab]);
+
+  // Permissions State
+  const [permissionsList, setPermissionsList] = useState<any[]>([]);
+  const [permUserId, setPermUserId] = useState("");
+  const [permCommand, setPermCommand] = useState("restart");
+  const [loadingPerms, setLoadingPerms] = useState(false);
+  
+  const fetchPermissionsList = async () => {
+    setLoadingPerms(true);
+    try {
+      const res = await fetchApi("/api/admin/permissions");
+      if (res.ok) {
+        const data = await res.json();
+        setPermissionsList(data);
+      }
+    } finally {
+      setLoadingPerms(false);
+    }
+  };
+
+  const handleGrantPermission = async () => {
+    if (!permUserId || !permCommand) return;
+    try {
+      const res = await fetchApi("/api/admin/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: permUserId, commandName: permCommand })
+      });
+      if (res.ok) {
+        toast.success("Permission granted!");
+        fetchPermissionsList();
+        setPermUserId("");
+      } else toast.error("Failed to grant");
+    } catch {
+      toast.error("Error granting permission");
+    }
+  };
+
+  const handleRevokePermission = async (userId: string, commandName: string) => {
+    try {
+      const res = await fetchApi("/api/admin/permissions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, commandName })
+      });
+      if (res.ok) {
+        toast.success("Permission revoked!");
+        fetchPermissionsList();
+      } else toast.error("Failed to revoke");
+    } catch {
+      toast.error("Error revoking permission");
+    }
+  };
+
 
   // User Management State
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -446,6 +501,12 @@ export default function AdminClient() {
                 Access Control
               </button>
             )}
+            {role === 'owner' && (
+              <button onClick={() => setActiveTab('permissions')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'permissions' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                Permissions
+              </button>
+            )}
             <button onClick={() => setActiveTab('suggestions')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'suggestions' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
               Feedback & Ideas
@@ -470,6 +531,7 @@ export default function AdminClient() {
       <div className="md:hidden w-full overflow-x-auto flex gap-2 p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md sticky top-14 z-20 styled-scrollbar">
         <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'overview' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Overview</button>
         {role === 'owner' && <button onClick={() => setActiveTab('access')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'access' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Access</button>}
+        {role === 'owner' && <button onClick={() => setActiveTab('permissions')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'permissions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Permissions</button>}
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('users')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'users' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Users</button>}
         <button onClick={() => setActiveTab('suggestions')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'suggestions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Feedback</button>
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('system')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'system' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>System Tools</button>}
@@ -608,6 +670,89 @@ export default function AdminClient() {
             </div>
           </div>
         )}
+        {activeTab === 'permissions' && role === 'owner' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-lg">
+              <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                Grant Command Permission
+              </h3>
+              <div className="flex flex-col md:flex-row gap-4">
+                <input 
+                  type="text" 
+                  value={permUserId} 
+                  onChange={(e) => setPermUserId(e.target.value)}
+                  placeholder="Discord User ID" 
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                />
+                <input 
+                  type="text" 
+                  value={permCommand} 
+                  onChange={(e) => setPermCommand(e.target.value)}
+                  placeholder="Command Name (e.g. restart)" 
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                />
+                <button 
+                  onClick={handleGrantPermission}
+                  className="bg-indigo-500 hover:bg-indigo-600 shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] text-white px-8 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap"
+                >
+                  Grant Access
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-lg">
+              <div className="p-6 border-b border-white/5 bg-white/[0.02]">
+                <h3 className="text-white font-bold text-lg">Active Permissions</h3>
+                <p className="text-sm text-zinc-400 mt-1">Manage which users have access to specific restricted commands.</p>
+              </div>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 bg-black/20">
+                    <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider">User ID</th>
+                    <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider">Command</th>
+                    <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {loadingPerms ? (
+                    <tr><td colSpan={3} className="p-8 text-center text-zinc-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5 text-indigo-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                        Loading permissions...
+                      </div>
+                    </td></tr>
+                  ) : permissionsList.length === 0 ? (
+                    <tr><td colSpan={3} className="p-12 text-center text-zinc-500">
+                      <svg className="w-12 h-12 mx-auto mb-3 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      No command permissions granted yet.
+                    </td></tr>
+                  ) : (
+                    permissionsList.map((perm, idx) => (
+                      <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
+                        <td className="p-4 font-mono text-sm text-zinc-300">{perm.user_id}</td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center rounded-md bg-indigo-500/10 px-2.5 py-1 text-sm font-medium text-indigo-400 border border-indigo-500/20">
+                            .{perm.command_name}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button 
+                            onClick={() => handleRevokePermission(perm.user_id, perm.command_name)}
+                            className="opacity-0 group-hover:opacity-100 px-4 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(239,68,68,0)] hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'users' && (role === 'owner' || role === 'admin') && (
           <div className="space-y-6 animate-fade-in-up">
             <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-lg">

@@ -79,6 +79,14 @@ async def init_db():
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
+                await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS command_permissions (
+                        user_id TEXT,
+                        command_name TEXT,
+                        granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (user_id, command_name)
+                    )
+                ''')
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
                 except Exception:
@@ -187,6 +195,72 @@ async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
             """, str(user_id), show_track_playcount)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting show_track_playcount: {e}{Log.RESET}")
+
+async def fetch_user_avatar(user_id):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT avatar_url FROM imported_users WHERE user_id=$1", str(user_id))
+            if row: return row['avatar_url']
+            
+            row = await conn.fetchrow("SELECT avatar_url FROM profile_cache WHERE user_id=$1", str(user_id))
+            return row['avatar_url'] if row else None
+    except Exception:
+        return None
+
+# --- COMMAND PERMISSIONS ---
+
+async def has_command_permission(user_id: str, command_name: str) -> bool:
+    if not db_pool: return False
+    from src.core.config import OWNER_ID
+    if str(user_id) == str(OWNER_ID):
+        return True
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT 1 FROM command_permissions WHERE user_id=$1 AND command_name=$2",
+                str(user_id), command_name
+            )
+            return bool(row)
+    except Exception as e:
+        print(f"{Log.RED}>>> Error checking command permission: {e}{Log.RESET}")
+        return False
+
+async def get_all_command_permissions():
+    if not db_pool: return []
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, command_name, granted_at FROM command_permissions ORDER BY granted_at DESC")
+            return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"{Log.RED}>>> Error fetching command permissions: {e}{Log.RESET}")
+        return []
+
+async def add_command_permission(user_id: str, command_name: str):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO command_permissions (user_id, command_name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                str(user_id), command_name
+            )
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error adding command permission: {e}{Log.RESET}")
+        return False
+
+async def remove_command_permission(user_id: str, command_name: str):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM command_permissions WHERE user_id=$1 AND command_name=$2",
+                str(user_id), command_name
+            )
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error removing command permission: {e}{Log.RESET}")
+        return False
 
 async def get_user_data_source(user_id):
     if not db_pool: return 'combined'

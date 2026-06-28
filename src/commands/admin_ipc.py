@@ -63,6 +63,34 @@ class AdminIPC(commands.Cog):
                 await message.add_reaction("✅")
             else:
                 await message.add_reaction("❌")
+                
+        elif action_payload.startswith("PERMISSION_GRANT|"):
+            parts = action_payload.split("|", 2)
+            if len(parts) == 3:
+                user_id = int(parts[1])
+                command_name = parts[2]
+                try:
+                    user = await self.bot.fetch_user(user_id)
+                    if user:
+                        await user.send(f"✅ **Permission Granted!**\\nYou have been granted access to use the `.{command_name}` command by an administrator.")
+                        await message.add_reaction("✅")
+                except Exception as e:
+                    print(f"Failed to DM user {user_id} for permission grant: {e}")
+                    await message.add_reaction("⚠️")
+
+        elif action_payload.startswith("PERMISSION_REVOKE|"):
+            parts = action_payload.split("|", 2)
+            if len(parts) == 3:
+                user_id = int(parts[1])
+                command_name = parts[2]
+                try:
+                    user = await self.bot.fetch_user(user_id)
+                    if user:
+                        await user.send(f"❌ **Permission Revoked!**\\nYour access to use the `.{command_name}` command has been revoked.")
+                        await message.add_reaction("✅")
+                except Exception as e:
+                    print(f"Failed to DM user {user_id} for permission revoke: {e}")
+                    await message.add_reaction("⚠️")
 
     @tasks.loop(minutes=30)
     async def push_stats(self):

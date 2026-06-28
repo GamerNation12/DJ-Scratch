@@ -19,7 +19,8 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         self.bot = bot
 
     async def cog_check(self, ctx):
-        return ctx.author.id == OWNER_ID
+        from src.core.database import has_command_permission
+        return await has_command_permission(str(ctx.author.id), ctx.command.name)
 
     @commands.command(name="sync", aliases=["sy"])
     async def sync_commands(self, ctx):
@@ -119,12 +120,26 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
     @commands.command(name="restart", aliases=["rs"])
     async def restart_bot(self, ctx):
-        await ctx.send("🔄 Restarting bot...")
-        print(f"{Log.RED}>>> Restart triggered by owner. Exiting process...{Log.RESET}")
+        await ctx.send("🔄 Restarting bot in 5 seconds...")
+        print(f"{Log.RED}>>> Restart triggered by owner. Exiting process in 5 seconds...{Log.RESET}")
+        
+        # Change presence to warn users across servers
+        try:
+            await self.bot.change_presence(
+                status=discord.Status.do_not_disturb, 
+                activity=discord.Game(name="Restarting shortly...")
+            )
+        except Exception:
+            pass
+            
         try:
             await ctx.author.send("🔄 **Manual Restart Initiated**\\nThe bot is now restarting via the `.restart` command.")
-        except Exception as e:
+        except Exception:
             pass
+            
+        import asyncio
+        await asyncio.sleep(5)
+        
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
         await self.bot.close()
