@@ -304,6 +304,13 @@ class LastFmCog(commands.Cog):
     async def suggest_slash(self, interaction: discord.Interaction, suggestion: str):
         await self.bot.process_suggestion(interaction, interaction.user, suggestion)
 
+    @app_commands.command(name="bug", description="Report a bug directly to the developer")
+    @app_commands.describe(bug="Describe the bug you found in the bot")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def bug_slash(self, interaction: discord.Interaction, bug: str):
+        await self.bot.process_suggestion(interaction, interaction.user, bug, is_bug=True)
+
     @app_commands.command(name="help", description="View all available commands")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -551,6 +558,17 @@ class LastFmCog(commands.Cog):
             )
             return await ctx.send(embed=embed)
         await self.bot.process_suggestion(ctx, ctx.author, suggestion)
+
+    @commands.command(name="bug", aliases=["bugreport", "reportbug"])
+    async def bug_prefix(self, ctx, *, bug: str = None):
+        if not bug:
+            embed = discord.Embed(
+                title="❌ Missing Bug Report", 
+                description="Please describe the bug!\n\n**Usage:** `,bug <description>`",
+                color=discord.Color.red()
+            )
+            return await ctx.send(embed=embed)
+        await self.bot.process_suggestion(ctx, ctx.author, bug, is_bug=True)
 
     @commands.command(name="help", aliases=["h"])
     async def help_prefix(self, ctx):

@@ -71,12 +71,13 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
         required=False
     )
 
-    def __init__(self, action_status: str, action_color: discord.Color, action_emoji: str, db_status: str):
+    def __init__(self, action_status: str, action_color: discord.Color, action_emoji: str, db_status: str, is_bug: bool = False):
         super().__init__()
         self.action_status = action_status
         self.action_color = action_color
         self.action_emoji = action_emoji
         self.db_status = db_status
+        self.is_bug = is_bug
 
     async def on_submit(self, interaction: discord.Interaction):
         embed = interaction.message.embeds[0]
@@ -111,17 +112,20 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
         if suggester_id:
             try:
                 suggester = await interaction.client.fetch_user(suggester_id)
-                desc_lines = [f"Your suggestion has been marked as **{self.action_status.upper()}**.", f"", f"**Your Idea:**", embed.description]
-                notify_embed = discord.Embed(title=f"{self.action_emoji} Suggestion Update", description=chr(10).join(desc_lines), color=self.action_color)
+                item_type = "bug report" if self.is_bug else "suggestion"
+                desc_lines = [f"Your {item_type} has been marked as **{self.action_status.upper()}**.", f"", f"**Your Report:**" if self.is_bug else f"**Your Idea:**", embed.description]
+                title = f"{self.action_emoji} Bug Report Update" if self.is_bug else f"{self.action_emoji} Suggestion Update"
+                notify_embed = discord.Embed(title=title, description=chr(10).join(desc_lines), color=self.action_color)
                 if feedback_text:
                     notify_embed.add_field(name="Developer Reply", value=feedback_text, inline=False)
                 notify_embed.set_footer(text="The Goats DJ Feedback System")
                 await suggester.send(embed=notify_embed)
-                print(f"Notified user about suggestion: {self.action_status}")
+                print(f"Notified user about {item_type}: {self.action_status}")
             except:
                 pass
         try:
-            log_embed = discord.Embed(title="Suggestion Updated (Admin)", description=embed.description, color=self.action_color, timestamp=datetime.now())
+            log_title = "Bug Report Updated (Admin)" if self.is_bug else "Suggestion Updated (Admin)"
+            log_embed = discord.Embed(title=log_title, description=embed.description, color=self.action_color, timestamp=datetime.now())
             log_embed.add_field(name="Status", value=f"{self.action_emoji} **{self.action_status}**", inline=False)
             if feedback_text:
                 log_embed.add_field(name="Reply", value=feedback_text, inline=False)
@@ -145,9 +149,26 @@ class SuggestionView(discord.ui.View):
     async def released_btn(self, i: discord.Interaction, b: discord.ui.Button):
         await i.response.send_modal(SuggestionFeedbackModal("Update Released", discord.Color.blurple(), "🚀", "completed"))
 
+class BugReportView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Fixed", style=discord.ButtonStyle.success, custom_id="bug_fixed")
+    async def fixed_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Fixed", discord.Color.green(), "🛠️", "completed", is_bug=True))
+
+    @discord.ui.button(label="Not a Bug", style=discord.ButtonStyle.danger, custom_id="bug_not_a_bug")
+    async def not_a_bug_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Not a Bug", discord.Color.red(), "❌", "denied", is_bug=True))
+        
+    @discord.ui.button(label="Investigating", style=discord.ButtonStyle.primary, custom_id="bug_investigating")
+    async def investigating_btn(self, i: discord.Interaction, b: discord.ui.Button):
+        await i.response.send_modal(SuggestionFeedbackModal("Investigating", discord.Color.blurple(), "🔍", "approved", is_bug=True))
+
 async def setup_hook():
     bot.session = aiohttp.ClientSession()
     bot.add_view(SuggestionView())
+    bot.add_view(BugReportView())
     global db_pool
     db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
     if db_url:
@@ -2012,7 +2033,7 @@ async def process_whoknows(guild, user, artist_name):
     if lb[0]['name'] == format_name(user): footer_text = "👑 You hold the crown! • " + footer_text
     embed.set_footer(text=footer_text)
     return embed, None
-async def process_suggestion(ctx_int, user, suggestion_text):
+async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
         title = "Discord Command"
         description = suggestion_text
@@ -2030,18 +2051,25 @@ async def process_suggestion(ctx_int, user, suggestion_text):
                 print(f"DB pool not found or wrong type, skipping DB insert.")
 
         owner = await bot.fetch_user(OWNER_ID)
-        embed = discord.Embed(title="💡 New Bot Suggestion", description=suggestion_text, color=discord.Color.gold(), timestamp=datetime.now())
+        
+        embed_title = "🐛 New Bug Report" if is_bug else "💡 New Bot Suggestion"
+        embed_color = discord.Color.red() if is_bug else discord.Color.gold()
+        
+        embed = discord.Embed(title=embed_title, description=suggestion_text, color=embed_color, timestamp=datetime.now())
         embed.set_author(name=f"{format_name(user)} ({user.id})", icon_url=user.display_avatar.url)
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
         embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
-        await owner.send(embed=embed, view=SuggestionView())
-        print(f"{Log.GREEN}>>> New suggestion forwarded to owner & DB.{Log.RESET}")
+        view_to_send = BugReportView() if is_bug else SuggestionView()
+        await owner.send(embed=embed, view=view_to_send)
+        print(f"{Log.GREEN}>>> New {'bug report' if is_bug else 'suggestion'} forwarded to owner & DB.{Log.RESET}")
         
-        confirm = discord.Embed(description="✅ Suggestion saved to your Dashboard & sent directly to the developer!", color=discord.Color.green())
+        confirm_text = "✅ Bug report saved to your Dashboard & sent directly to the developer!" if is_bug else "✅ Suggestion saved to your Dashboard & sent directly to the developer!"
+        confirm = discord.Embed(description=confirm_text, color=discord.Color.green())
+        
         if isinstance(ctx_int, discord.Interaction): await ctx_int.response.send_message(embed=confirm, ephemeral=True)
         else: await ctx_int.send(embed=confirm)
     except Exception as e:
-        print(f"Suggestion error: {e}")
+        print(f"Suggestion/Bug report error: {e}")
 async def process_crowns(guild, user):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
