@@ -47,7 +47,7 @@ export default function Navbar() {
     }
   }, [session]);
 
-  const displayName = botMode ? "The Goats DJ" : session?.user?.name;
+  const displayName = botMode ? "DJ Scratch" : session?.user?.name;
   const displayImage = botMode ? "/logo.png" : session?.user?.image || "";
 
   return (
@@ -72,11 +72,11 @@ export default function Navbar() {
             <Link href="/" className="flex items-center gap-2 group">
               <img 
                 src="/logo.png" 
-                alt="The Goats DJ Logo" 
+                alt="DJ Scratch Logo" 
                 className="w-8 h-8 rounded-lg group-hover:scale-105 transition-transform"
               />
               <span className="text-lg font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent hidden sm:block">
-                The Goats DJ
+                DJ Scratch
               </span>
             </Link>
 

@@ -5,16 +5,16 @@ import 'login_screen.dart';
 import 'main_screen.dart';
 
 void main() {
-  runApp(const TheGoatsDJApp());
+  runApp(const DjScratchApp());
 }
 
-class TheGoatsDJApp extends StatelessWidget {
-  const TheGoatsDJApp({super.key});
+class DjScratchApp extends StatelessWidget {
+  const DjScratchApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'The Goats DJ',
+      title: 'DJ Scratch',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,

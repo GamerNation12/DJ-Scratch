@@ -98,7 +98,7 @@ export async function GET(request: Request) {
   }
 
   if (isMobile) {
-    const appUrl = `thegoatsdj://auth?token=${jwt}`;
+    const appUrl = `djscratch://auth?token=${jwt}`;
     return new Response(`
       <!DOCTYPE html>
       <html>

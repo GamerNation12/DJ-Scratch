@@ -71,7 +71,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                   }
                 ] : [],
                 footer: {
-                  text: "The Goats DJ Feedback System"
+                  text: "DJ Scratch Feedback System"
                 },
                 timestamp: new Date().toISOString()
               }]

@@ -31,7 +31,7 @@ class _AdminTabState extends State<AdminTab> {
       if (token == null) return;
 
       final res = await http.get(
-        Uri.parse('https://the-goats-dj.vercel.app/api/admin/stats'),
+        Uri.parse('https://dj-scratch.vercel.app/api/admin/stats'),
         headers: {'Authorization': 'Bearer $token'},
       );
 

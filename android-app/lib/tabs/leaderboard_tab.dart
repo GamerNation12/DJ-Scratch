@@ -26,7 +26,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
 
   Future<void> _fetchLeaderboard() async {
     try {
-      final res = await http.get(Uri.parse('https://the-goats-dj.vercel.app/api/leaderboard'));
+      final res = await http.get(Uri.parse('https://dj-scratch.vercel.app/api/leaderboard'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true) {

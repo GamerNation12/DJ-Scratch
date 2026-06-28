@@ -11,7 +11,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Information We Collect</h2>
           <p className="text-gray-300">
-            When you use The Goats DJ, we may collect the following information:
+            When you use DJ Scratch, we may collect the following information:
           </p>
           <ul className="list-disc list-inside text-gray-300 space-y-2 ml-4">
             <li>Your Discord User ID and Username</li>

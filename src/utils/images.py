@@ -29,7 +29,7 @@ def generate_receipt_image(username, period_str, tracks):
         font_title = font_header = font_item = font_artist = ImageFont.load_default()
         
     # Draw Header
-    draw.text((width/2, 40), "THE GOATS DJ", fill=(0,0,0), font=font_title, anchor="mm")
+    draw.text((width/2, 40), "DJ SCRATCH", fill=(0,0,0), font=font_title, anchor="mm")
     draw.text((width/2, 80), "RECEIPT OF SCROBBLES", fill=(0,0,0), font=font_header, anchor="mm")
     draw.text((width/2, 100), "-" * 38, fill=(0,0,0), font=font_header, anchor="mm")
     

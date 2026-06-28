@@ -39,7 +39,7 @@ class _DashboardTabState extends State<DashboardTab> {
       }
 
       final response = await http.get(
-        Uri.parse('https://the-goats-dj.vercel.app/api/mobile/stats'),
+        Uri.parse('https://dj-scratch.vercel.app/api/mobile/stats'),
         headers: {'Authorization': 'Bearer $token'},
       );
 

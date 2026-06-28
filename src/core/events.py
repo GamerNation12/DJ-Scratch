@@ -118,7 +118,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                 notify_embed = discord.Embed(title=title, description=chr(10).join(desc_lines), color=self.action_color)
                 if feedback_text:
                     notify_embed.add_field(name="Developer Reply", value=feedback_text, inline=False)
-                notify_embed.set_footer(text="The Goats DJ Feedback System")
+                notify_embed.set_footer(text="DJ Scratch Feedback System")
                 await suggester.send(embed=notify_embed)
                 print(f"Notified user about {item_type}: {self.action_status}")
             except:
@@ -901,7 +901,7 @@ async def check_if_banned(interaction: discord.Interaction) -> bool:
                 reason = row.get('ban_reason') or "No reason provided."
                 try:
                     await interaction.response.send_message(
-                        f"❌ **You are banned from using The Goats DJ.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*",
+                        f"❌ **You are banned from using DJ Scratch.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*",
                         ephemeral=True
                     )
                 except:
@@ -924,7 +924,7 @@ async def global_ban_check_prefix(ctx) -> bool:
             if row and row.get('is_banned'):
                 reason = row.get('ban_reason') or "No reason provided."
                 try:
-                    await ctx.send(f"❌ **You are banned from using The Goats DJ.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*")
+                    await ctx.send(f"❌ **You are banned from using DJ Scratch.**\n\n**Reason:** {reason}\n*If you believe this is a mistake, please contact GamerNation12.*")
                 except:
                     pass
                 return False
@@ -1005,7 +1005,7 @@ async def save_user(uid, username):
 
 async def get_lastfm_username(uid):
     if bot and bot.user and str(uid) == str(bot.user.id):
-        return "TheGoatsDj"
+        return "DjScratch"
         
     global db_pool
     if not db_pool: return None
@@ -1947,7 +1947,7 @@ async def process_profile(user):
         def __init__(self, username, lastfm_url):
             super().__init__(timeout=None)
             safe_name = urllib.parse.quote(format_name(user))
-            self.add_item(discord.ui.Button(label="Goats DJ Profile", style=discord.ButtonStyle.link, url=f"https://the-goats-dj.vercel.app/{safe_name}"))
+            self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=f"https://dj-scratch.vercel.app/{safe_name}"))
             if lastfm_url:
                 self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=lastfm_url))
 
@@ -1960,9 +1960,9 @@ async def process_profile(user):
         data = await fetch_user_profile(username)
         if data:
             info = data['user']
-            embed.title = f"{info['name']}'s Goats DJ Profile"
+            embed.title = f"{info['name']}'s DJ Scratch Profile"
             safe_name = urllib.parse.quote(format_name(user))
-            embed.url = f"https://the-goats-dj.vercel.app/{safe_name}"
+            embed.url = f"https://dj-scratch.vercel.app/{safe_name}"
             lastfm_plays = int(info['playcount'])
             view = ProfileLinksView(username, info['url'])
             
@@ -2184,9 +2184,9 @@ def get_help_embed(user):
     from src.core.theme import Theme
     is_owner = user.id == 759433582107426816
     embed = discord.Embed(
-        title="🤖 The Goats DJ | Command Center", 
+        title="🤖 DJ Scratch | Command Center", 
         color=Theme.PRIMARY, 
-        description="Welcome to **The Goats DJ**!\nSelect a category from the dropdown menu below to see available commands."
+        description="Welcome to **DJ Scratch**!\nSelect a category from the dropdown menu below to see available commands."
     )
     embed.set_thumbnail(url="https://i.imgur.com/your_logo_here.png") # Optional placeholder
     embed.set_author(name=format_name(user), icon_url=user.display_avatar.url)
@@ -2412,7 +2412,7 @@ async def update_notif_prefix(ctx):
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
             embed = discord.Embed(
-                title=f"🎉 The Goats DJ Update `{version}`",
+                title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 
                 color=0x10b981
             )
@@ -2435,7 +2435,7 @@ async def update_notif_slash(interaction, command):
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
             embed = discord.Embed(
-                title=f"🎉 The Goats DJ Update `{version}`",
+                title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 
                 color=0x10b981
             )

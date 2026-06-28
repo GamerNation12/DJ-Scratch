@@ -106,7 +106,7 @@ function PushGlobalUpdateCard() {
   const [selectedShas, setSelectedShas] = useState<string[]>([]);
 
   const fetchCommits = () => {
-    fetch("https://api.github.com/repos/GamerNation12/The-Goats-Dj/commits")
+    fetch("https://api.github.com/repos/GamerNation12/DJ-Scratch/commits")
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setCommits(data.slice(0, 10)); })
       .catch(console.error);

@@ -4,14 +4,14 @@ from datetime import datetime
 
 class Theme:
     # Colors
-    PRIMARY = 0x0AB5CD  # The Goats DJ Cyan/Teal
+    PRIMARY = 0x0AB5CD  # DJ Scratch Cyan/Teal
     SUCCESS = 0x2ecc71
     ERROR = 0xe74c3c
     WARNING = 0xf1c40f
     LASTFM = 0xba0000
 
     # Formatting
-    FOOTER_TEXT = "The Goats DJ | By GamerNation12"
+    FOOTER_TEXT = "DJ Scratch | By GamerNation12"
     
     @classmethod
     def get_embed(cls, title=None, description=None, color=None, include_timestamp=True, **kwargs):

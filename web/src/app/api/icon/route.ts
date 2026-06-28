@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     if (!DB_URL) {
       console.error("No database URL provided");
-      return NextResponse.redirect(new URL('/vercel.svg', 'https://the-goats-dj.vercel.app'));
+      return NextResponse.redirect(new URL('/vercel.svg', 'https://dj-scratch.vercel.app'));
     }
     const sql = postgres(DB_URL);
     const rows = await sql`SELECT value FROM global_settings WHERE key = 'current_avatar'`;
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   }
   
   // Fallback to Vercel default icon if nothing in DB
-  const fallbackRes = await fetch(new URL('/vercel.svg', 'https://the-goats-dj.vercel.app'));
+  const fallbackRes = await fetch(new URL('/vercel.svg', 'https://dj-scratch.vercel.app'));
   const fallbackBuffer = await fallbackRes.arrayBuffer();
   return new NextResponse(fallbackBuffer, {
     headers: { 'Content-Type': 'image/svg+xml' }

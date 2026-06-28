@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | The Goats DJ",
-  description: "Privacy policy and data handling for The Goats DJ.",
+  title: "Privacy Policy | DJ Scratch",
+  description: "Privacy policy and data handling for DJ Scratch.",
   openGraph: {
-    title: "Privacy Policy | The Goats DJ",
-    description: "Privacy policy and data handling for The Goats DJ.",
+    title: "Privacy Policy | DJ Scratch",
+    description: "Privacy policy and data handling for DJ Scratch.",
   }
 };
 

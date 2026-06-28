@@ -39,7 +39,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _checkForUpdates() async {
     try {
-      final res = await http.get(Uri.parse('https://raw.githubusercontent.com/GamerNation12/The-Goats-Dj/main/android-app/pubspec.yaml'));
+      final res = await http.get(Uri.parse('https://raw.githubusercontent.com/GamerNation12/DJ-Scratch/main/android-app/pubspec.yaml'));
       if (res.statusCode == 200) {
         final match = RegExp(r'version: \d+\.\d+\.\d+\+(\d+)').firstMatch(res.body);
         if (match != null) {
@@ -73,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
         content: Text(
-          'A new version of The Goats DJ is available! Please update to get the latest features and bug fixes.',
+          'A new version of DJ Scratch is available! Please update to get the latest features and bug fixes.',
           style: GoogleFonts.inter(color: Colors.white70),
         ),
         actions: [
@@ -88,7 +88,7 @@ class _MainScreenState extends State<MainScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
-              final url = Uri.parse('https://the-goats-dj.vercel.app/The-Goats-DJ.apk');
+              final url = Uri.parse('https://dj-scratch.vercel.app/DJ-Scratch.apk');
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               }
@@ -106,7 +106,7 @@ class _MainScreenState extends State<MainScreen> {
       final token = await storage.read(key: 'token');
       if (token != null) {
         final res = await http.get(
-          Uri.parse('https://the-goats-dj.vercel.app/api/admin/check'),
+          Uri.parse('https://dj-scratch.vercel.app/api/admin/check'),
           headers: {'Authorization': 'Bearer $token'},
         );
         if (res.statusCode == 200) {

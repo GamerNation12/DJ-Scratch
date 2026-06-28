@@ -6,11 +6,11 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   const username = decodeURIComponent(resolvedParams.username);
   
   return {
-    title: `${username}'s Profile | The Goats DJ`,
-    description: `Check out ${username}'s music profile, top artists, and recent tracks on The Goats DJ.`,
+    title: `${username}'s Profile | DJ Scratch`,
+    description: `Check out ${username}'s music profile, top artists, and recent tracks on DJ Scratch.`,
     openGraph: {
-      title: `${username}'s Profile | The Goats DJ`,
-      description: `Check out ${username}'s music profile, top artists, and recent tracks on The Goats DJ.`,
+      title: `${username}'s Profile | DJ Scratch`,
+      description: `Check out ${username}'s music profile, top artists, and recent tracks on DJ Scratch.`,
     },
   };
 }

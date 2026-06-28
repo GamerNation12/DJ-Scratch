@@ -46,5 +46,5 @@ if __name__ == "__main__":
                 
     import logging
     logging.getLogger().handlers.clear()
-    print("Starting the Goats DJ Bot...")
+    print("Starting DJ Scratch Bot...")
     bot.run(os.getenv("DISCORD_TOKEN"), log_level=logging.WARNING)

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Dashboard | The Goats DJ",
-  description: "Manage your integration, preferences, and account data for The Goats DJ.",
+  title: "Dashboard | DJ Scratch",
+  description: "Manage your integration, preferences, and account data for DJ Scratch.",
   openGraph: {
-    title: "Dashboard | The Goats DJ",
-    description: "Manage your integration, preferences, and account data for The Goats DJ.",
+    title: "Dashboard | DJ Scratch",
+    description: "Manage your integration, preferences, and account data for DJ Scratch.",
   },
 };
 

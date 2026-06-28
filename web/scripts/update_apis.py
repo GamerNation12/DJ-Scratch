@@ -1,7 +1,7 @@
 import os
 import re
 
-api_dir = r"c:\Users\minec\Documents\GitHub\The-Goats-Dj\web\src\app\api"
+api_dir = r"c:\Users\minec\Documents\GitHub\DJ-Scratch\web\src\app\api"
 
 for root, dirs, files in os.walk(api_dir):
     for file in files:

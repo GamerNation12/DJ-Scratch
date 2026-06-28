@@ -22,13 +22,13 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final clientId = '1509709265659760741';
-      final redirectUri = Uri.encodeComponent('https://the-goats-dj.vercel.app/api/auth/callback');
+      final redirectUri = Uri.encodeComponent('https://dj-scratch.vercel.app/api/auth/callback');
       final scope = Uri.encodeComponent('identify guilds email');
       final url = 'https://discord.com/oauth2/authorize?client_id=$clientId&redirect_uri=$redirectUri&response_type=code&scope=$scope&state=mobile';
       
       final result = await FlutterWebAuth2.authenticate(
         url: url,
-        callbackUrlScheme: 'thegoatsdj',
+        callbackUrlScheme: 'djscratch',
       );
       final token = Uri.parse(result).queryParameters['token'];
 
@@ -144,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 32),
                       
                       Text(
-                        'The Goats DJ',
+                        'DJ Scratch',
                         style: GoogleFonts.outfit(
                           fontSize: 40,
                           fontWeight: FontWeight.w800,

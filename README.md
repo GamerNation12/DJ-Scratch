@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://media.discordapp.net/attachments/1118335048560066601/1118335345793617930/goat.png" alt="The Goats DJ Logo" width="150" />
-  <h1>🐐 The Goats DJ</h1>
+  <img src="https://media.discordapp.net/attachments/1118335048560066601/1118335345793617930/goat.png" alt="DJ Scratch Logo" width="150" />
+  <h1>💿 DJ Scratch</h1>
   <p><em>The ultimate high-performance Discord music statistics bot for tracking Last.fm and Spotify listening habits with precision.</em></p>
 </div>
 
@@ -8,7 +8,7 @@
 
 ## ✨ About The Bot
 
-The Goats DJ is a heavily integrated Last.fm and Spotify statistics bot built with `discord.py` and a clean modular architecture. It connects directly to your music history to bring live stats, leaderboards, and personalized embeds right into your Discord server.
+DJ Scratch is a heavily integrated Last.fm and Spotify statistics bot built with `discord.py` and a clean modular architecture. It connects directly to your music history to bring live stats, leaderboards, and personalized embeds right into your Discord server.
 
 ### 🔥 Key Features
 * **Real-time Tracking**: Automatically updates the bot's status and profile picture to match the track you're currently listening to!
@@ -22,7 +22,7 @@ The Goats DJ is a heavily integrated Last.fm and Spotify statistics bot built wi
 
 ## 🚀 How to Host The Bot
 
-The Goats DJ is built on **Python 3.11+** and **Node.js** (for the web panel), and utilizes a **PostgreSQL Database** (Neon). 
+DJ Scratch is built on **Python 3.11+** and **Node.js** (for the web panel), and utilizes a **PostgreSQL Database** (Neon). 
 
 ### Prerequisites
 1. Python 3.11 or higher
@@ -34,8 +34,8 @@ The Goats DJ is built on **Python 3.11+** and **Node.js** (for the web panel), a
 ### Step 1: Clone the Repository
 Clone the repository to your VPS, dedicated server, or Pterodactyl hosting panel:
 ```bash
-git clone https://github.com/GamerNation12/The-Goats-Dj.git
-cd The-Goats-Dj
+git clone https://github.com/GamerNation12/DJ-Scratch.git
+cd DJ-Scratch
 ```
 
 ### Step 2: Configure Environment Variables
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 ```
 
 ### Step 4: Launch the Bot!
-The Goats DJ uses a highly optimized modular architecture. To start the bot, run the lightning-fast launcher:
+DJ Scratch uses a highly optimized modular architecture. To start the bot, run the lightning-fast launcher:
 ```bash
 python main.py
 ```

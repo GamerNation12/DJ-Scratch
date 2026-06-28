@@ -11,7 +11,7 @@ export default function TermsOfService() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Acceptance of Terms</h2>
           <p className="text-gray-300">
-            By inviting and using The Goats DJ Discord bot ("the Bot") in your server or accessing our dashboard, you agree to these Terms of Service. If you do not agree to these terms, please do not use the Bot.
+            By inviting and using DJ Scratch Discord bot ("the Bot") in your server or accessing our dashboard, you agree to these Terms of Service. If you do not agree to these terms, please do not use the Bot.
           </p>
         </section>
 

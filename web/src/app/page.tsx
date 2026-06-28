@@ -78,8 +78,8 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
             <a 
-              href="https://github.com/GamerNation12/The-Goats-Dj/raw/main/web/public/The-Goats-DJ.apk"
-              download="The-Goats-DJ.apk"
+              href="https://github.com/GamerNation12/DJ-Scratch/raw/main/web/public/DJ-Scratch.apk"
+              download="DJ-Scratch.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto justify-center px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl text-sm md:text-base hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(16,185,129,0.2)] flex items-center gap-2"

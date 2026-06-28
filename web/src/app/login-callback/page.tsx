@@ -23,7 +23,7 @@ function LoginCallbackInner() {
 
     const processLogin = async () => {
       try {
-        let url = `https://the-goats-dj.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
+        let url = `https://dj-scratch.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
         if (channelId) url += `&channel_id=${channelId}`;
         if (messageId) url += `&message_id=${messageId}`;
         const res = await fetch(url);

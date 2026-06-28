@@ -54,12 +54,12 @@ class InfoCog(commands.Cog):
         import aiohttp
         from datetime import timezone
         
-        embed = discord.Embed(title="🐐 The Goats DJ - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
+        embed = discord.Embed(title="💿 DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
         
         try:
             async with aiohttp.ClientSession() as session:
                 # Fetch recent commits from GitHub API
-                async with session.get("https://api.github.com/repos/GamerNation12/The-Goats-Dj/commits") as resp:
+                async with session.get("https://api.github.com/repos/GamerNation12/DJ-Scratch/commits") as resp:
                     if resp.status == 200:
                         commits = await resp.json()
                         # Show the 5 most recent commits

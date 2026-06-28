@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Admin Panel | The Goats DJ",
-  description: "Server administration panel for The Goats DJ.",
+  title: "Admin Panel | DJ Scratch",
+  description: "Server administration panel for DJ Scratch.",
   openGraph: {
-    title: "Admin Panel | The Goats DJ",
-    description: "Server administration panel for The Goats DJ.",
+    title: "Admin Panel | DJ Scratch",
+    description: "Server administration panel for DJ Scratch.",
   }
 };
 

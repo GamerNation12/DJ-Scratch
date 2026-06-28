@@ -1,4 +1,4 @@
-package com.gamernation.the_goats_dj
+package com.gamernation.dj_scratch
 
 import io.flutter.embedding.android.FlutterActivity
 

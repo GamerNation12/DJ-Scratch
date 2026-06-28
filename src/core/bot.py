@@ -8,7 +8,7 @@ from .config import POSTGRES_URL, DATABASE_URL, Log
 from src.core.database import format_name
 
 
-class GoatsBot(commands.Bot):
+class ScratchBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -62,4 +62,4 @@ class GoatsBot(commands.Bot):
             await self.db_pool.close()
         await super().close()
 
-bot = GoatsBot()
+bot = ScratchBot()

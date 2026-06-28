@@ -392,7 +392,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               ) : (
                 <>
                   <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
-                  <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-4">The Goats DJ Profile</p>
+                  <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-4">DJ Scratch Profile</p>
                   <a 
                     href={`https://www.last.fm/user/${profile?.lastfm_username || usernameParam}`} 
                     target="_blank" 

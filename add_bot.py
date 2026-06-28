@@ -20,7 +20,7 @@ async def main():
             SET lastfm_username = EXCLUDED.lastfm_username, 
                 discord_username = EXCLUDED.discord_username, 
                 display_name = EXCLUDED.display_name
-        """, bot_id, 'TheGoatsDj', 'The Goats DJ', 'The Goats DJ')
+        """, bot_id, 'DjScratch', 'DJ Scratch', 'DJ Scratch')
         print("Success! Bot is in the database.")
     except Exception as e:
         print("Failed to insert:", e)
