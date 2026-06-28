@@ -54,7 +54,7 @@ class InfoCog(commands.Cog):
         import aiohttp
         from datetime import timezone
         
-        embed = discord.Embed(title="💿 DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
+        embed = discord.Embed(title="<a:VinylRecord:1520654501365678190> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
         
         try:
             async with aiohttp.ClientSession() as session:

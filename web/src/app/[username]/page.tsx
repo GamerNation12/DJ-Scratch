@@ -537,7 +537,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             {/* Top Albums Grid */}
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-xl font-bold flex items-center gap-2">💿 Top Albums</h3>
+                 <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1520654501365678190.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /> Top Albums</h3>
                  <p className="text-zinc-400 text-sm mt-1">Their most listened to albums of all time.</p>
                </div>
                <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -553,7 +553,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         {album.image ? (
                           <img src={album.image} alt={album.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">💿</div>
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800"><img src="https://cdn.discordapp.com/emojis/1520654501365678190.gif" alt="VinylRecord" className="w-8 h-8 opacity-50" /></div>
                         )}
                      </div>
                      <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{album.name}</div>

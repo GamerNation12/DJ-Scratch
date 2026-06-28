@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://media.discordapp.net/attachments/1118335048560066601/1118335345793617930/goat.png" alt="DJ Scratch Logo" width="150" />
-  <h1>💿 DJ Scratch</h1>
+  <h1><img src="https://cdn.discordapp.com/emojis/1520654501365678190.gif" width="36" height="36" alt="VinylRecord" style="vertical-align: middle" /> DJ Scratch</h1>
   <p><em>The ultimate high-performance Discord music statistics bot for tracking Last.fm and Spotify listening habits with precision.</em></p>
 </div>
 
