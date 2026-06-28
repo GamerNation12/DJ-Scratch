@@ -2035,7 +2035,7 @@ async def process_whoknows(guild, user, artist_name):
     return embed, None
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
-        title = "Discord Command"
+        title = "Bug Report" if is_bug else "Bot Suggestion"
         description = suggestion_text
         
         global db_pool

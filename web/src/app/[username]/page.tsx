@@ -319,12 +319,20 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     );
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, title?: string) => {
+    const isBug = title?.toLowerCase().includes("bug");
     switch(status) {
-      case 'approved': return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Approved</span>;
-      case 'denied': return <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Denied</span>;
-      case 'completed': return <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Update Released</span>;
-      default: return <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Pending</span>;
+      case 'approved': 
+        if (isBug) return <span className="px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Investigating</span>;
+        return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Approved</span>;
+      case 'denied': 
+        if (isBug) return <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Not a Bug</span>;
+        return <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Denied</span>;
+      case 'completed': 
+        if (isBug) return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Fixed</span>;
+        return <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Update Released</span>;
+      default: 
+        return <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Pending</span>;
     }
   };
 
@@ -829,7 +837,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                           <h4 className="text-lg font-bold text-white">{s.title}</h4>
                           <p className="text-xs text-zinc-500 mt-1">{new Date(s.created_at).toLocaleString()}</p>
                         </div>
-                        <div className="shrink-0">{getStatusBadge(s.status)}</div>
+                        <div className="shrink-0">{getStatusBadge(s.status, s.title)}</div>
                       </div>
                       <p className="text-zinc-400 text-sm mb-5 leading-relaxed bg-zinc-900/30 p-5 rounded-2xl border border-white/5">
                         {s.description}
