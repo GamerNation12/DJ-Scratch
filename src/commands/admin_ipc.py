@@ -34,8 +34,23 @@ class AdminIPC(commands.Cog):
         
         if action_payload == "RESTART_BOT":
             await message.add_reaction("✅")
-            print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot...{Log.RESET}")
-            os.execv(sys.executable, ['python'] + sys.argv)
+            print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot (GitHub/Web request)...{Log.RESET}")
+            
+            try:
+                await self.bot.change_presence(
+                    status=discord.Status.do_not_disturb, 
+                    activity=discord.Game(name="Restarting shortly...")
+                )
+            except Exception:
+                pass
+                
+            import asyncio
+            await asyncio.sleep(5)
+            
+            if getattr(self.bot, 'session', None):
+                await self.bot.session.close()
+            await self.bot.close()
+            os._exit(0)
             
         elif action_payload == "SYNC_COMMANDS":
             try:

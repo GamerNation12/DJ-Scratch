@@ -1,5 +1,6 @@
 import aiohttp
 import urllib.parse
+import logging
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
 from src.core.database import format_name
@@ -123,7 +124,6 @@ async def scrobble_bot_track(artist, track):
 
     from ..core.events import bot
     import aiohttp
-    import logging
     try:
         async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=params) as r:
             if r.status == 200:
