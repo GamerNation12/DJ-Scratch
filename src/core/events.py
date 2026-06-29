@@ -518,14 +518,23 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
 
 
         all_valid_tracks = []
+        
+        async def flush_tracks():
+            nonlocal processed_count
+            if all_valid_tracks:
+                processed_count += await insert_tracks_in_db(all_valid_tracks)
+                all_valid_tracks.clear()
+                gc.collect()
         # Parse and process
         if not is_zip:
             if temp_filepath.lower().endswith(".csv"):
                 with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
                     for idx, parsed in enumerate(parse_apple_music_csv(f, user)):
-                        all_valid_tracks.append(parsed)
-                        if idx % 1000 == 0:
-                            await asyncio.sleep(0)
+                            all_valid_tracks.append(parsed)
+                            if len(all_valid_tracks) >= 25000:
+                                await flush_tracks()
+                            if idx % 1000 == 0:
+                                await asyncio.sleep(0)
             else:
                 # Process single JSON file from disk using our zero-RAM streaming parser
                 with open(temp_filepath, "rb") as f:
@@ -533,6 +542,8 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                         parsed = parse_single_spotify_track(user, track)
                         if parsed:
                             all_valid_tracks.append(parsed)
+                        if len(all_valid_tracks) >= 25000:
+                            await flush_tracks()
                         if idx % 1000 == 0:
                             await asyncio.sleep(0)
         else:
@@ -560,6 +571,8 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                                 text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
                                 for idx, parsed in enumerate(parse_apple_music_csv(text_stream, user)):
                                     all_valid_tracks.append(parsed)
+                                    if len(all_valid_tracks) >= 25000:
+                                        await flush_tracks()
                                     if idx % 1000 == 0:
                                         await asyncio.sleep(0)
                 elif any(name.endswith("Apple_Media_Services.zip") for name in z.namelist()):
@@ -572,6 +585,8 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                                         text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
                                         for idx, parsed in enumerate(parse_apple_music_csv(text_stream, user)):
                                             all_valid_tracks.append(parsed)
+                                            if len(all_valid_tracks) >= 25000:
+                                                await flush_tracks()
                                             if idx % 1000 == 0:
                                                 await asyncio.sleep(0)
                 else:
@@ -583,14 +598,14 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                                         parsed = parse_single_spotify_track(user, track)
                                         if parsed:
                                             all_valid_tracks.append(parsed)
+                                        if len(all_valid_tracks) >= 25000:
+                                            await flush_tracks()
                                         if idx % 1000 == 0:
                                             await asyncio.sleep(0)
                             except Exception as e:
                                 print(f"{Log.RED}>>> Error processing {filename} inside zip: {e}{Log.RESET}")
 
-        processed_count = await insert_tracks_in_db(all_valid_tracks)
-        all_valid_tracks.clear()
-        gc.collect()
+        await flush_tracks()
 
         # Delete temp file
         try:
