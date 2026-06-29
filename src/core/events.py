@@ -932,6 +932,56 @@ async def global_ban_check_prefix(ctx) -> bool:
         print(f"{Log.RED}>>> Error checking ban status: {e}{Log.RESET}")
     return True
 
+@bot.tree.interaction_check
+async def check_if_logged_in(interaction: discord.Interaction) -> bool:
+    if interaction.type != discord.InteractionType.application_command:
+        return True
+    
+    if interaction.user.id == OWNER_ID:
+        return True
+    
+    # Allow specific commands without login
+    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "privacy", "ping", "status", "updates"]
+    if interaction.command and interaction.command.name in allowed_commands:
+        return True
+        
+    username = await get_lastfm_username(interaction.user.id)
+    if not username:
+        embed = discord.Embed(
+            title="⚠️ Account Not Linked",
+            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `/login` to link your Last.fm account.",
+            color=discord.Color.red()
+        )
+        try:
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except:
+            pass
+        return False
+    return True
+
+@bot.check
+async def global_login_check_prefix(ctx) -> bool:
+    if ctx.author.id == OWNER_ID:
+        return True
+        
+    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "cd2", "privacy", "ping", "status", "updates", "sync"]
+    if ctx.command and ctx.command.name in allowed_commands:
+        return True
+        
+    username = await get_lastfm_username(ctx.author.id)
+    if not username:
+        embed = discord.Embed(
+            title="⚠️ Account Not Linked",
+            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `,login` to link your Last.fm account.",
+            color=discord.Color.red()
+        )
+        try:
+            await ctx.send(embed=embed)
+        except:
+            pass
+        return False
+    return True
+
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
