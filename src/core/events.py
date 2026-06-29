@@ -415,45 +415,12 @@ def parse_apple_music_csv(file_obj, user):
             continue
 
 def stream_parse_spotify_json(file_obj):
-    buffer = ""
-    brace_count = 0
-    in_string = False
-    escape = False
-
-    while True:
-        chunk = file_obj.read(65536)  # Read in small 64KB chunks to consume minimal RAM
-        if not chunk:
-            break
-        
-        for char in chunk:
-            buffer += char
-            
-            if escape:
-                escape = False
-                continue
-            
-            if char == '\\':
-                escape = True
-                continue
-                
-            if char == '"':
-                in_string = not in_string
-                continue
-                
-            if not in_string:
-                if char == '{':
-                    if brace_count == 0:
-                        buffer = "{"
-                    brace_count += 1
-                elif char == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        try:
-                            track = json.loads(buffer)
-                            yield track
-                        except:
-                            pass
-                        buffer = ""
+    import ijson
+    try:
+        for track in ijson.items(file_obj, 'item'):
+            yield track
+    except Exception as e:
+        print(f"Error parsing JSON stream: {e}")
 def parse_single_spotify_track(user, track):
     import re
     artist = track.get("master_metadata_album_artist_name")
@@ -555,15 +522,19 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         if not is_zip:
             if temp_filepath.lower().endswith(".csv"):
                 with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
-                    for parsed in parse_apple_music_csv(f, user):
+                    for idx, parsed in enumerate(parse_apple_music_csv(f, user)):
                         all_valid_tracks.append(parsed)
+                        if idx % 1000 == 0:
+                            await asyncio.sleep(0)
             else:
                 # Process single JSON file from disk using our zero-RAM streaming parser
-                with open(temp_filepath, "r", encoding="utf-8", errors="ignore") as f:
-                    for track in stream_parse_spotify_json(f):
+                with open(temp_filepath, "rb") as f:
+                    for idx, track in enumerate(stream_parse_spotify_json(f)):
                         parsed = parse_single_spotify_track(user, track)
                         if parsed:
                             all_valid_tracks.append(parsed)
+                        if idx % 1000 == 0:
+                            await asyncio.sleep(0)
         else:
             # Process ZIP file entry by entry from disk using our zero-RAM streaming parser
             with zipfile.ZipFile(temp_filepath) as z:
@@ -587,8 +558,10 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                         if filename.endswith("Apple Music Play Activity.csv"):
                             with z.open(filename) as f:
                                 text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
-                                for parsed in parse_apple_music_csv(text_stream, user):
+                                for idx, parsed in enumerate(parse_apple_music_csv(text_stream, user)):
                                     all_valid_tracks.append(parsed)
+                                    if idx % 1000 == 0:
+                                        await asyncio.sleep(0)
                 elif any(name.endswith("Apple_Media_Services.zip") for name in z.namelist()):
                     inner_zip_name = next(name for name in z.namelist() if name.endswith("Apple_Media_Services.zip"))
                     with z.open(inner_zip_name) as inner_f:
@@ -597,19 +570,21 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                                 if filename.endswith("Apple Music Play Activity.csv"):
                                     with inner_z.open(filename) as f:
                                         text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
-                                        for parsed in parse_apple_music_csv(text_stream, user):
+                                        for idx, parsed in enumerate(parse_apple_music_csv(text_stream, user)):
                                             all_valid_tracks.append(parsed)
+                                            if idx % 1000 == 0:
+                                                await asyncio.sleep(0)
                 else:
                     for filename in z.namelist():
                         if filename.endswith(".json") and any(x in filename for x in ["StreamingHistory", "endsong", "Streaming_History"]):
                             try:
                                 with z.open(filename) as f:
-                                    # Wrap binary stream in a TextIOWrapper so we can stream characters
-                                    text_stream = io.TextIOWrapper(f, encoding="utf-8", errors="ignore")
-                                    for track in stream_parse_spotify_json(text_stream):
+                                    for idx, track in enumerate(stream_parse_spotify_json(f)):
                                         parsed = parse_single_spotify_track(user, track)
                                         if parsed:
                                             all_valid_tracks.append(parsed)
+                                        if idx % 1000 == 0:
+                                            await asyncio.sleep(0)
                             except Exception as e:
                                 print(f"{Log.RED}>>> Error processing {filename} inside zip: {e}{Log.RESET}")
 
