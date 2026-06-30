@@ -1382,7 +1382,7 @@ async def process_fm(ctx_int, user, mode="full"):
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
-    if not username: return None, "Link Last.fm with `/setfm [username]`"
+    if not username: return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`"
     
     data = await fetch_now_playing(username, 2 if mode == 'stats' else 1)
     if isinstance(data, dict) and 'error' in data:
@@ -1589,7 +1589,7 @@ async def process_top_artists(user, input_period=None):
         local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_data:
-        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     combined = dict(lastfm_data)
     for artist, count in local_data.items():
@@ -1622,7 +1622,7 @@ async def process_top_tracks(user, input_period=None):
         local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_tracks:
-        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
@@ -1783,7 +1783,7 @@ async def process_artist_tracks(user, artist_name):
         local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=None)
 
     if not username and not local_tracks:
-        return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
@@ -1855,7 +1855,9 @@ async def process_recent(user):
             embed.set_thumbnail(url=user.display_avatar.url)
             embed.set_footer(text=f"Requested by {format_name(user)} • Using Imported Data", icon_url=user.display_avatar.url)
             return embed, None
-    return None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+    if not username:
+        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+    return None, f"No recent tracks found for **{user.name}**."
 
 
 async def process_judge(user):
@@ -1895,7 +1897,9 @@ async def process_judge(user):
     top_tracks = sorted(tracks_dict.items(), key=lambda x: x[1], reverse=True)[:16]
 
     if not top_artists and not top_tracks:
-        return None, "Link Last.fm with `/setfm [username]` or import history on the web portal to use the AI Judge."
+        if not username:
+            return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal to use the AI Judge."
+        return None, f"Not enough data to judge **{user.name}**."
 
     # Format the data exactly like fmbot
     artist_lines = [f"{a[:40]} - {c} plays" for a, c in top_artists]
@@ -1980,8 +1984,8 @@ async def process_profile(user):
 
     d_source = await get_user_data_source(user.id)
 
-    if not username and local_total == 0:
-        return None, None, "Link Last.fm with `/setfm [username]` or import history on the web portal."
+    if not username and d_source == 'lastfm_only':
+        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     class ProfileLinksView(discord.ui.View):
         def __init__(self, username, lastfm_url):
@@ -2030,7 +2034,7 @@ async def process_profile(user):
                 embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles using MAX deduplication.")
     elif local_total > 0:
         embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
-        embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/setfm`", inline=True)
+        embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/login`", inline=True)
 
     return embed, view, None
 async def process_whoknows(guild, user, artist_name):
@@ -2116,7 +2120,7 @@ async def process_crowns(guild, user):
 
     if not guild: return None, "Must be used in a server."
     username = await get_lastfm_username(user.id)
-    if not username: return None, "Link your account first with `/setfm [username]`"
+    if not username: return None, "Link your account first with `/login`"
     
     users_db = await load_users()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
@@ -2178,7 +2182,7 @@ class HelpDropdown(discord.ui.Select):
         
         if self.values[0] == "🎧 Last.fm Commands":
             embed.description = (
-                "`/setfm` (or `,setfm`) - Link your Last.fm username\n"
+                "`/login` - Link your Last.fm account\n"
                 "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
                 "`/topartists` (or `,ta`) - View your top played artists\n"
                 "`/toptracks` (or `,tt`) - View your top played tracks\n"
@@ -2380,7 +2384,7 @@ async def process_receipt(user, period='overall', limit=10):
     
     username = await get_lastfm_username(user.id)
     if not username:
-        return None, None, f"You have not linked your Last.fm account! Use `,setfm [username]` to link it."
+        return None, None, f"You have not linked your Last.fm account! Use `/login` to link it."
         
     data = await fetch_top_tracks(username, period, limit)
     if not data or 'toptracks' not in data or not data['toptracks']['track']:

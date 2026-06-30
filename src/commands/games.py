@@ -20,7 +20,7 @@ class GamesCog(commands.Cog):
 
         username = await get_lastfm_username(ctx.author.id)
         if not username:
-            await ctx.send("You need to link your Last.fm first using `,setfm [username]`!")
+            await ctx.send("You need to link your Last.fm first using `/login`!")
             return
 
         data = await fetch_top_albums(username, 'overall', 50)
@@ -75,7 +75,7 @@ class GamesCog(commands.Cog):
         from ..core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)
         if not username:
-            await ctx.send("You need to link your Last.fm first using `,setfm [username]`!")
+            await ctx.send("You need to link your Last.fm first using `/login`!")
             return
 
         # Fetch top artists
