@@ -1460,7 +1460,7 @@ async def process_fm(ctx_int, user, mode="full"):
             embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
-            footer_text = f"Scrobbling as {username}"
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'thegoatsdj' else username}"
             if cd > 0:
                 m, s = divmod(int(cd), 60)
                 footer_text += f" • Avatar CD: {m}m {s}s"
@@ -1540,7 +1540,8 @@ async def process_fm(ctx_int, user, mode="full"):
             if stats_line:
                 footer_parts.append(" • ".join(stats_line))
                 
-            embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {username}")
+            disp_u = 'DJ Scratch' if username.lower() == 'thegoatsdj' else username
+            embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
             view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="stats")
             result = {"embed": embed, "view": view}
@@ -1558,7 +1559,7 @@ async def process_fm(ctx_int, user, mode="full"):
         embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        footer_text = f"Scrobbling as {username}"
+        footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'thegoatsdj' else username}"
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • Avatar CD: {mins}m {secs}s"
@@ -1670,7 +1671,7 @@ class TopItemsPaginator(discord.ui.View):
         embed.set_thumbnail(url=self.user.display_avatar.url)
         
         footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_items)} items"
-        if self.username: footer_text += f"\nScrobbling as {self.username}"
+        if self.username: footer_text += f"\nScrobbling as {'DJ Scratch' if self.username.lower() == 'thegoatsdj' else self.username}"
         else: footer_text += "\nUsing Imported Data"
         embed.set_footer(text=footer_text)
         return embed
@@ -1843,7 +1844,7 @@ async def process_recent(user):
                     thumbnail_url = img_url
                     
             embed.set_thumbnail(url=thumbnail_url)
-            embed.set_footer(text=f"Scrobbling as {username}")
+            embed.set_footer(text=f"Scrobbling as {'DJ Scratch' if username.lower() == 'thegoatsdj' else username}")
             return embed, None
     # Fallback to local DB
     if d_source != 'lastfm_only':
