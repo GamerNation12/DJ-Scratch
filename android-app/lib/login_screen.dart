@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithDiscord() async {
     setState(() => _isLoading = true);
     try {
-      final clientId = '1509709265659760741';
+      final clientId = '1521582398188290049';
       final redirectUri = Uri.encodeComponent('https://dj-scratch.vercel.app/api/auth/callback');
       final scope = Uri.encodeComponent('identify guilds email');
       final url = 'https://discord.com/oauth2/authorize?client_id=$clientId&redirect_uri=$redirectUri&response_type=code&scope=$scope&state=mobile';
