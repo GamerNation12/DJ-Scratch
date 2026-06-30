@@ -24,10 +24,29 @@ async def api_get(url):
     except Exception as e:
         logging.error(f"API get failed: {e}")
         return None
-async def fetch_now_playing(u, l=1): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
-async def fetch_top_artists(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
-async def fetch_top_tracks(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
-async def fetch_top_albums(u, p='overall', l=10): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
+async def fetch_now_playing(u, l=1):
+    d = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
+    if d and 'recenttracks' in d and 'track' in d['recenttracks'] and isinstance(d['recenttracks']['track'], dict):
+        d['recenttracks']['track'] = [d['recenttracks']['track']]
+    return d
+
+async def fetch_top_artists(u, p='overall', l=10):
+    d = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
+    if d and 'topartists' in d and 'artist' in d['topartists'] and isinstance(d['topartists']['artist'], dict):
+        d['topartists']['artist'] = [d['topartists']['artist']]
+    return d
+
+async def fetch_top_tracks(u, p='overall', l=10):
+    d = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
+    if d and 'toptracks' in d and 'track' in d['toptracks'] and isinstance(d['toptracks']['track'], dict):
+        d['toptracks']['track'] = [d['toptracks']['track']]
+    return d
+
+async def fetch_top_albums(u, p='overall', l=10):
+    d = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
+    if d and 'topalbums' in d and 'album' in d['topalbums'] and isinstance(d['topalbums']['album'], dict):
+        d['topalbums']['album'] = [d['topalbums']['album']]
+    return d
 async def fetch_user_profile(u): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user={u}&api_key={LASTFM_API_KEY}&format=json")
 async def fetch_track_info(u, artist, track): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist={urllib.parse.quote(artist)}&track={urllib.parse.quote(track)}&username={u}&api_key={LASTFM_API_KEY}&format=json")
 async def fetch_artist_info(u, artist): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json")
