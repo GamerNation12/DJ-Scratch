@@ -27,7 +27,16 @@ intents = discord.Intents.default()
 intents.message_content = True  
 intents.presences = True  
 intents.members = True    
-bot = commands.Bot(command_prefix=",", intents=intents)
+
+class CustomTree(app_commands.CommandTree):
+    def __init__(self, client):
+        super().__init__(
+            client, 
+            allowed_installs=app_commands.AppInstallationType(guild=True, user=True), 
+            allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
+        )
+
+bot = commands.Bot(command_prefix=",", intents=intents, tree_cls=CustomTree)
 bot.remove_command('help')
 
 # === LAST.FM CONFIG ===
