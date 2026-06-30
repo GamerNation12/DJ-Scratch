@@ -37,12 +37,16 @@ def format_name(user):
     if not user: return "Unknown"
     
     uid = getattr(user, 'id', None)
-    if uid and str(uid) in display_name_cache:
-        return display_name_cache[str(uid)]
-        
     name = getattr(user, 'name', str(user))
+    
+    if uid and str(uid) in display_name_cache:
+        name = display_name_cache[str(uid)]
+        
     if name == "gamernation12":
         return "GamerNation12"
+    if "goats dj" in name.lower() or "thegoatsdj" in name.lower():
+        return "DJ Scratch"
+        
     return name
 db_pool = None
 
