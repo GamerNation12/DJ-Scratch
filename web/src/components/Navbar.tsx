@@ -93,6 +93,12 @@ export default function Navbar() {
               </Link>
               <Link 
                 href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
+                onClick={(e) => {
+                  if (!session) {
+                    e.preventDefault();
+                    window.location.href = "/api/auth/login";
+                  }
+                }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   pathname !== "/"
                     ? "bg-white/10 text-white"
@@ -201,6 +207,12 @@ export default function Navbar() {
             </Link>
             <Link 
               href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
+              onClick={(e) => {
+                if (!session) {
+                  e.preventDefault();
+                  window.location.href = "/api/auth/login";
+                }
+              }}
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname !== "/"
                   ? "bg-white/10 text-white" 
