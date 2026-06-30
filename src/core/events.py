@@ -1045,7 +1045,7 @@ async def save_user(uid, username):
 
 async def get_lastfm_username(uid):
     if bot and bot.user and str(uid) == str(bot.user.id):
-        return "DjScratch"
+        return "TheGoatsDj"
         
     global db_pool
     if not db_pool: return None
