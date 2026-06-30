@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid layout mode" }, { status: 400 });
     }
     
-    if (newDataSource !== "combined" && newDataSource !== "spotify" && newDataSource !== "lastfm") {
+    if (newDataSource !== "combined" && newDataSource !== "imported_only" && newDataSource !== "lastfm_only") {
        return NextResponse.json({ error: "Invalid data source" }, { status: 400 });
     }
 

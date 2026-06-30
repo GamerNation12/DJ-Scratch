@@ -102,7 +102,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
   const [privateMode, setPrivateMode] = useState<boolean>(false);
-  const [dataSource, setDataSource] = useState<"combined" | "spotify" | "lastfm">("combined");
+  const [dataSource, setDataSource] = useState<"combined" | "imported_only" | "lastfm_only">("combined");
   const [timezone, setTimezone] = useState<string>("UTC");
   const [showTrackPlaycount, setShowTrackPlaycount] = useState<boolean>(false);
   const [displayName, setDisplayName] = useState<string>("");
@@ -110,7 +110,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [unsavedFmMode, setUnsavedFmMode] = useState<"compact" | "full" | "stats">("full");
   const [unsavedShowFeatures, setUnsavedShowFeatures] = useState<boolean>(false);
   const [unsavedPrivateMode, setUnsavedPrivateMode] = useState<boolean>(false);
-  const [unsavedDataSource, setUnsavedDataSource] = useState<"combined" | "spotify" | "lastfm">("combined");
+  const [unsavedDataSource, setUnsavedDataSource] = useState<"combined" | "imported_only" | "lastfm_only">("combined");
   const [unsavedTimezone, setUnsavedTimezone] = useState<string>("UTC");
   const [unsavedShowTrackPlaycount, setUnsavedShowTrackPlaycount] = useState<boolean>(false);
   const [unsavedDisplayName, setUnsavedDisplayName] = useState<string>("");
@@ -671,8 +671,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                       onChange={(val) => setUnsavedDataSource(val as any)}
                       options={[
                         { value: "combined", label: "Combined" },
-                        { value: "lastfm", label: "Last.fm Only" },
-                        { value: "spotify", label: "Spotify Only" }
+                        { value: "lastfm_only", label: "Last.fm Only" },
+                        { value: "imported_only", label: "Imported Only" }
                       ]}
                     />
                   </div>
