@@ -263,20 +263,36 @@ function App() {
           </div>
           
           <div className="flex flex-col items-center gap-3 flex-1">
-            <div className="flex items-center gap-8">
-              <button className="text-zinc-400 hover:text-white transition-colors"><SkipBack size={22} fill="currentColor" /></button>
-              <button className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-[0_0_20px_rgba(255,255,255,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)]">
-                <Play size={20} className="ml-1" fill="currentColor" />
-              </button>
-              <button className="text-zinc-400 hover:text-white transition-colors"><SkipForward size={22} fill="currentColor" /></button>
-            </div>
-            <div className="flex items-center gap-3 w-full max-w-[450px] group">
-              <span className="text-[10px] text-zinc-500 font-medium font-mono">0:00</span>
-              <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden relative cursor-pointer">
-                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 to-purple-500 w-1/3 rounded-full group-hover:shadow-[0_0_10px_rgba(99,102,241,0.8)] transition-all"></div>
-              </div>
-              <span className="text-[10px] text-zinc-500 font-medium font-mono">0:00</span>
-            </div>
+            {stats?.recentTracks?.[0]?.nowPlaying ? (
+              <>
+                <div className="flex items-end gap-1 h-8 opacity-70">
+                  {[...Array(12)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="w-1.5 bg-indigo-400 rounded-t-sm"
+                      style={{ 
+                        animation: `pulse ${0.5 + Math.random()}s infinite alternate`,
+                        height: `${20 + Math.random() * 80}%`
+                      }}
+                    ></div>
+                  ))}
+                </div>
+                <div className="text-[10px] text-indigo-300 font-bold tracking-widest uppercase bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                  Live Scrobbling
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-end gap-1 h-8 opacity-20">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} className="w-1.5 h-1.5 bg-zinc-500 rounded-sm"></div>
+                  ))}
+                </div>
+                <div className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                  Playback Paused
+                </div>
+              </>
+            )}
           </div>
           
           <div className="w-72 flex justify-end">
