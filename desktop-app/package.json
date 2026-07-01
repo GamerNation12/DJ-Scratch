@@ -1,6 +1,6 @@
 {
   "name": "dj-scratch-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -14,11 +14,13 @@
   "build": {
     "appId": "com.djscratch.desktop",
     "productName": "DJ Scratch Desktop App",
-    "publish": [{
-      "provider": "github",
-      "owner": "GamerNation12",
-      "repo": "DJ-Scratch"
-    }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "GamerNation12",
+        "repo": "DJ-Scratch"
+      }
+    ],
     "files": [
       "build/**/*",
       "main.js",
