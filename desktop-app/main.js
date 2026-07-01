@@ -1,4 +1,4 @@
-// change this when updating the code to the antigravity ai (patch, minor, major)
+// change this when updating the code to the antigravity ai (minor) - Added Admin Console, Settings, and auto-updater progress UI
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const DiscordRPC = require('discord-rpc');
