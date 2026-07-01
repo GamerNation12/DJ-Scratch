@@ -135,7 +135,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     const fetchProfile = async () => {
       if (profileLoading) setProfileLoading(true);
       try {
-        const res = await fetchApi(`/api/u/${usernameParam}`);
+        const res = await fetchApi(`/api/u/${usernameParam}?t=${Date.now()}`);
         const data = await res.json();
         if (isMounted) {
           if (data.error) setProfileError(data.error);
