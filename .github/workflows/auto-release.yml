@@ -3,10 +3,15 @@ name: Automate GitHub Releases
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version tag (e.g. v1.0.0)'
+      bump:
+        description: 'Update Size'
         required: true
-        default: 'v1.0.0'
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   build-and-release:
@@ -15,11 +20,24 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Auto-Bump Version
+        id: version_bump
+        working-directory: desktop-app
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          npm version ${{ github.event.inputs.bump }} -m "chore: auto-bump version to %s"
+          $VERSION = node -p "require('./package.json').version"
+          echo "NEW_VERSION=v$VERSION" >> $env:GITHUB_OUTPUT
+          git push origin HEAD --follow-tags
 
       - name: Install Desktop App Dependencies
         working-directory: desktop-app
@@ -27,15 +45,13 @@ jobs:
 
       - name: Build Windows Executable
         working-directory: desktop-app
-        # electron-builder requires GH_TOKEN if publish is configured in package.json,
-        # but since we upload manually in the next step, we disable publishing here.
         run: npm run build:vite && npx electron-builder -w --publish never
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: DJ Scratch ${{ github.event.inputs.version }}
+          tag_name: ${{ steps.version_bump.outputs.NEW_VERSION }}
+          name: DJ Scratch ${{ steps.version_bump.outputs.NEW_VERSION }}
           draft: false
           prerelease: false
           files: |
