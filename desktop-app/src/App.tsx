@@ -14,6 +14,22 @@ function App() {
   // Data States
   const [stats, setStats] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Listen for updates from electron via preload.js
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.onUpdateAvailable((_event: any, info: any) => {
+        console.log('Update available', info);
+      });
+      (window as any).electronAPI.onUpdateProgress((_event: any, progress: number) => {
+        setUpdateProgress(Math.floor(progress));
+      });
+      (window as any).electronAPI.onUpdateDownloaded(() => {
+        setUpdateProgress(100);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -200,6 +216,31 @@ function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col relative z-10 pt-10">
+        
+        {/* Update Progress Banner */}
+        {updateProgress !== null && (
+          <div className="mx-10 mt-4 bg-indigo-500/20 border border-indigo-500/50 rounded-2xl p-4 flex flex-col gap-2 backdrop-blur-xl animate-fade-in shadow-2xl">
+            <div className="flex justify-between items-center text-sm font-bold text-indigo-200">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                Downloading Update...
+              </div>
+              <div>{updateProgress}%</div>
+            </div>
+            <div className="h-2 w-full bg-black/50 rounded-full overflow-hidden border border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+                style={{ width: `${updateProgress}%` }}
+              ></div>
+            </div>
+            {updateProgress === 100 && (
+              <div className="text-xs text-indigo-300 mt-1">
+                Update downloaded! The app will prompt you to restart shortly.
+              </div>
+            )}
+          </div>
+        )}
+
         <main className="flex-1 overflow-y-auto p-10 relative">
           {activeTab === 'dashboard' ? (
             <div className="animate-fade-in max-w-5xl mx-auto pb-20">

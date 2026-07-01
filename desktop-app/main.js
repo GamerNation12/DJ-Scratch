@@ -1,5 +1,6 @@
 // change this when updating the code to the antigravity ai (patch, minor, major)
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
 const DiscordRPC = require('discord-rpc');
 const serve = require('electron-serve');
 const electronServe = serve.default || serve;
@@ -24,7 +25,8 @@ function createWindow() {
     },
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     backgroundColor: '#09090b',
     autoHideMenuBar: true
@@ -79,8 +81,45 @@ app.whenReady().then(() => {
   
   // Setup Auto Updater
   const { autoUpdater } = require('electron-updater');
+  autoUpdater.logger = console;
+  
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available.', info);
+    if (mainWindow) mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available.', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.log('Error in auto-updater.', err);
+    if (mainWindow) mainWindow.webContents.send('update-error', err.message);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    console.log(log_message);
+    
+    // Send progress to renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('update-progress', progressObj.percent);
+      mainWindow.setProgressBar(progressObj.percent / 100);
+    }
+  });
   
   autoUpdater.on('update-downloaded', () => {
+    console.log('Update downloaded.');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded');
+      mainWindow.setProgressBar(-1);
+    }
     const { dialog } = require('electron');
     dialog.showMessageBox({
       type: 'info',
