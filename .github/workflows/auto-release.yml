@@ -89,6 +89,7 @@ jobs:
         working-directory: android-app
         run: |
           flutter pub get
+          flutter pub run flutter_launcher_icons
           flutter build apk --release
           cd build/app/outputs/flutter-apk/
           Rename-Item app-release.apk DJ-Scratch.apk
