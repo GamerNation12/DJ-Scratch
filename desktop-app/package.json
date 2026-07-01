@@ -24,6 +24,7 @@
     "files": [
       "build/**/*",
       "main.js",
+      "preload.js",
       "package.json"
     ],
     "directories": {
