@@ -1,3 +1,4 @@
+// change this when updating the code to the antigravity ai (patch, minor, major)
 const { app, BrowserWindow } = require('electron');
 const DiscordRPC = require('discord-rpc');
 const serve = require('electron-serve');
