@@ -185,7 +185,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
           
           // Last.fm's default generic star image hash
-          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
             imageUrl = null;
           }
 
@@ -215,7 +215,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         for (const t of tracks) {
           let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
           
-          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
             imageUrl = null;
           }
 
@@ -246,7 +246,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         for (const t of topTracksList) {
           let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
           
-          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
             imageUrl = null;
           }
 
@@ -275,7 +275,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         for (const a of topAlbums) {
           let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
           
-          if (imageUrl && imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
             imageUrl = null;
           }
 
