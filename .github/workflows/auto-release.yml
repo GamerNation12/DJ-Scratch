@@ -56,6 +56,8 @@ jobs:
           prerelease: false
           files: |
             desktop-app/dist2/*.exe
+            desktop-app/dist2/*.exe.blockmap
+            desktop-app/dist2/latest.yml
             web/public/DJ-Scratch.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
