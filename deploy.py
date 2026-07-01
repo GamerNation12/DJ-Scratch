@@ -20,13 +20,13 @@ def deploy():
         sftp = paramiko.SFTPClient.from_transport(transport)
         print("Connected! Syncing files...")
         
-        # Files/Folders to sync
+        # Files/Folders to sync from discord-bot
         sync_items = [
-            "src",
-            "cogs",
-            "main.py",
-            "requirements.txt",
-            ".env"
+            "discord-bot/src",
+            "discord-bot/cogs",
+            "discord-bot/main.py",
+            "discord-bot/requirements.txt",
+            ".env" # Keep .env in root for local testing
         ]
         
         def upload_dir(local_dir, remote_dir):
@@ -49,7 +49,8 @@ def deploy():
 
         for item in sync_items:
             local_path = item
-            remote_path = f"/{item}"
+            # Strip "discord-bot/" from the remote path so it uploads to the server root
+            remote_path = f"/{item.replace('discord-bot/', '')}"
             if os.path.isfile(local_path):
                 print(f"Uploading {local_path} -> {remote_path}")
                 sftp.put(local_path, remote_path)
