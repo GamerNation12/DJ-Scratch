@@ -12,10 +12,6 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
-  const [downloads, setDownloads] = useState<{ exe: string, apk: string }>({ 
-    exe: "https://github.com/GamerNation12/DJ-Scratch/releases/latest", 
-    apk: "https://github.com/GamerNation12/DJ-Scratch/releases/latest" 
-  });
 
   useEffect(() => {
     setMounted(true);
@@ -23,23 +19,6 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
     fetchApi("/api/public/stats")
       .then(res => res.json())
       .then(data => setStats(data))
-      .catch(console.error);
-      
-    // Fetch latest GitHub release downloads
-    fetch("https://api.github.com/repos/GamerNation12/DJ-Scratch/releases/latest")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.assets) {
-          const exeAsset = data.assets.find((a: any) => a.name.endsWith('.exe'));
-          const apkAsset = data.assets.find((a: any) => a.name.endsWith('.apk'));
-          if (exeAsset || apkAsset) {
-            setDownloads({
-              exe: exeAsset ? exeAsset.browser_download_url : "https://github.com/GamerNation12/DJ-Scratch/releases/latest",
-              apk: apkAsset ? apkAsset.browser_download_url : "https://github.com/GamerNation12/DJ-Scratch/releases/latest"
-            });
-          }
-        }
-      })
       .catch(console.error);
   }, []);
 
@@ -100,21 +79,13 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
             
-            <a 
-              href={downloads.exe}
-              className="w-full sm:w-auto justify-center px-8 py-4 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-xl text-sm md:text-base hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(99,102,241,0.2)] flex items-center gap-2"
-            >
-              <span>Download for Windows</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            </a>
-
-            <a 
-              href={downloads.apk}
+            <Link 
+              href="/download"
               className="w-full sm:w-auto justify-center px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl text-sm md:text-base hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(16,185,129,0.2)] flex items-center gap-2"
             >
-              <span>Download for Android</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            </a>
+              <span>Download Apps</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </Link>
 
             {session ? (
               <Link 
