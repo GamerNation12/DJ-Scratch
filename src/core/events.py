@@ -1114,7 +1114,7 @@ class FMDetailsView(discord.ui.View):
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full"):
+    def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full", track_data=None):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
@@ -1125,6 +1125,7 @@ class FMActionsView(discord.ui.View):
         self.is_p = is_p
         self.cd = cd
         self.current_mode = current_mode
+        self.track_data = track_data
         
         if current_mode == "compact":
             btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
@@ -1159,11 +1160,9 @@ class FMActionsView(discord.ui.View):
     async def go_down(self, interaction: discord.Interaction):
         await interaction.response.defer()
         new_mode = "full" if self.current_mode == "compact" else "stats"
-        result, _ = await process_fm(interaction, self.user, mode=new_mode)
+        result, _ = await process_fm(interaction, self.user, mode=new_mode, track_data=self.track_data)
         if result:
             content = result.get('content')
-            if content is None:
-                content = ""
             if not interaction.response.is_done():
                 await interaction.response.edit_message(content=content, embed=result.get('embed'), view=result.get('view'))
             else:
@@ -1172,11 +1171,9 @@ class FMActionsView(discord.ui.View):
     async def go_up(self, interaction: discord.Interaction):
         await interaction.response.defer()
         new_mode = "full" if self.current_mode == "stats" else "compact"
-        result, _ = await process_fm(interaction, self.user, mode=new_mode)
+        result, _ = await process_fm(interaction, self.user, mode=new_mode, track_data=self.track_data)
         if result:
             content = result.get('content')
-            if content is None:
-                content = ""
             if not interaction.response.is_done():
                 await interaction.response.edit_message(content=content, embed=result.get('embed'), view=result.get('view'))
             else:
@@ -1386,14 +1383,18 @@ from src.core.database import format_name
 
 
 
-async def process_fm(ctx_int, user, mode="full"):
+async def process_fm(ctx_int, user, mode="full", track_data=None):
     bot_instance = getattr(ctx_int, 'client', getattr(ctx_int, 'bot', bot))
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
     if not username: return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`"
     
-    data = await fetch_now_playing(username, 2 if mode == 'stats' else 1)
+    if track_data is not None:
+        data = track_data
+    else:
+        data = await fetch_now_playing(username, 2)
+
     if isinstance(data, dict) and 'error' in data:
         err_msg = data.get('message', 'Unknown error')
         return None, f"Last.fm API Error: {err_msg}"
@@ -1476,7 +1477,7 @@ async def process_fm(ctx_int, user, mode="full"):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="compact")
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="compact", track_data=data)
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1552,7 +1553,7 @@ async def process_fm(ctx_int, user, mode="full"):
             disp_u = 'DJ Scratch' if username.lower() == 'thegoatsdj' else username
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="stats")
+            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="stats", track_data=data)
             result = {"embed": embed, "view": view}
             return result, is_p
 
@@ -1574,7 +1575,7 @@ async def process_fm(ctx_int, user, mode="full"):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="full")
+        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="full", track_data=data)
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
