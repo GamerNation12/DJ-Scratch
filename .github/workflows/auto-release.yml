@@ -22,11 +22,11 @@ jobs:
           node-version: 18
 
       - name: Install Desktop App Dependencies
-        working-directory: ./desktop-app
+        working-directory: desktop-app
         run: npm install
 
       - name: Build Windows Executable
-        working-directory: ./desktop-app
+        working-directory: desktop-app
         # electron-builder requires GH_TOKEN if publish is configured in package.json,
         # but since we upload manually in the next step, we disable publishing here.
         run: npm run build:vite && npx electron-builder -w --publish never
