@@ -113,7 +113,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               itemBuilder: (context, index) {
                 final cmd = commandUsage[index];
                 return ListTile(
-                  title: Text('/${cmd['command_name']}', style: GoogleFonts.mono(color: Colors.indigoAccent, fontWeight: FontWeight.bold)),
+                  title: Text('/${cmd['command_name']}', style: GoogleFonts.robotoMono(color: Colors.indigoAccent, fontWeight: FontWeight.bold)),
                   trailing: Text('${cmd['usage_count']} uses', style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
                 );
               },

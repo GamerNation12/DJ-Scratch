@@ -135,14 +135,14 @@ class _AdminAccessTabState extends State<AdminAccessTab> {
         Text("Admins", style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
         ...admins.map((id) => ListTile(
-          title: Text(id, style: GoogleFonts.mono(color: Colors.white)),
+          title: Text(id, style: GoogleFonts.robotoMono(color: Colors.white)),
           trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _removeAccess(id)),
         )),
         const SizedBox(height: 24),
         Text("Moderators", style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
         ...moderators.map((id) => ListTile(
-          title: Text(id, style: GoogleFonts.mono(color: Colors.white)),
+          title: Text(id, style: GoogleFonts.robotoMono(color: Colors.white)),
           trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _removeAccess(id)),
         )),
       ],

@@ -125,7 +125,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(u['discord_username'] ?? 'Unknown', style: GoogleFonts.mono(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(u['discord_username'] ?? 'Unknown', style: GoogleFonts.robotoMono(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                         Text(u['user_id'], style: const TextStyle(fontSize: 10, color: Colors.white54)),
                       ],
                     ),

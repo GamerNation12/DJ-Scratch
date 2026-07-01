@@ -135,7 +135,7 @@ class _AdminPermissionsTabState extends State<AdminPermissionsTab> {
         Text("Active Permissions", style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
         ...permissions.map((p) => ListTile(
-          title: Text(p['user_id'], style: GoogleFonts.mono(color: Colors.white)),
+          title: Text(p['user_id'], style: GoogleFonts.robotoMono(color: Colors.white)),
           subtitle: Text('.${p['command_name']}', style: const TextStyle(color: Colors.indigoAccent, fontWeight: FontWeight.bold)),
           trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _revokePermission(p['user_id'], p['command_name'])),
         )),
