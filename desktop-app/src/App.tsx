@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink } from 'lucide-react';
+import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink, Shield } from 'lucide-react';
+import AdminClient from './AdminClient';
+import SettingsClient from './SettingsClient';
 
 const API_BASE = 'https://dj-scratch.vercel.app';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leaderboard'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leaderboard' | 'admin' | 'settings'>('dashboard');
   const [token, setToken] = useState<string | null>(localStorage.getItem('discord_jwt'));
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Data States
   const [stats, setStats] = useState<any>(null);
-  const [settings, setSettings] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
@@ -54,6 +56,15 @@ function App() {
       });
       const lbData = await lbRes.json();
       if (lbData.leaderboard) setLeaderboard(lbData.leaderboard);
+
+      // Check admin status
+      const roleRes = await fetch(`${API_BASE}/api/admin/check`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (roleRes.ok) {
+        const roleData = await roleRes.json();
+        setIsAdmin(roleData.role === 'admin' || roleData.role === 'owner');
+      }
       
     } catch (err) {
       console.error(err);
@@ -140,6 +151,32 @@ function App() {
             <Trophy size={18} />
             Leaderboard
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 font-semibold ${
+                activeTab === 'admin' 
+                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]' 
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Shield size={18} />
+              Admin
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 font-semibold ${
+              activeTab === 'settings' 
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]' 
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Settings size={18} />
+            Settings
+          </button>
         </nav>
         
         <div className="mt-auto border-t border-white/10 pt-5 px-2 flex items-center justify-between gap-3">
@@ -217,7 +254,7 @@ function App() {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'leaderboard' ? (
             <div className="animate-fade-in max-w-3xl mx-auto pb-20">
               <h1 className="text-5xl font-black mb-10 text-center tracking-tight">Global Leaderboard</h1>
               <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl p-4">
@@ -238,7 +275,15 @@ function App() {
                 ))}
               </div>
             </div>
-          )}
+          ) : activeTab === 'admin' ? (
+            <AdminClient token={token} />
+          ) : activeTab === 'settings' ? (
+            <SettingsClient onLogout={() => {
+              setToken(null);
+              setUser(null);
+              localStorage.removeItem('discord_jwt');
+            }} />
+          ) : null}
         </main>
 
         {/* Floating Music Controls Bar (Bottom) */}
