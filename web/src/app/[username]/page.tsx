@@ -149,7 +149,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     };
 
     fetchProfile();
-    const intervalId = setInterval(fetchProfile, 30000); // Poll every 30 seconds
+    const intervalId = setInterval(fetchProfile, 5000); // Poll every 5 seconds
 
     return () => {
       isMounted = false;
