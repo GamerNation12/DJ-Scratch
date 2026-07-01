@@ -30,7 +30,7 @@ function createWindow() {
   });
 
   // Open DevTools automatically so we can debug the blank screen
-  mainWindow.webContents.openDevTools();
+  // Developer tools are disabled for production
 
   loadURL(mainWindow);
 
