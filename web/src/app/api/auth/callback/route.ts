@@ -130,6 +130,11 @@ export async function GET(request: Request) {
       headers: { 'Content-Type': 'text/html' }
     });
   }
+  
+  if (state === 'desktop') {
+    // Redirect to the local server started by flutter_web_auth_2 on the user's PC
+    return NextResponse.redirect(`http://localhost:43210/auth?token=${jwt}`);
+  }
 
   return NextResponse.redirect(new URL(`/logging-in#token=${jwt}`, request.url));
 }
