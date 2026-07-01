@@ -470,7 +470,7 @@ class LastFmCog(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n"])
+    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n", "fn"])
     async def fm_prefix(self, ctx, *, args: str = None):
         async with ctx.typing():
             target_user, _ = await get_target_user(ctx, args)
