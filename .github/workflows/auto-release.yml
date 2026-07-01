@@ -28,15 +28,40 @@ jobs:
         with:
           node-version: 22
 
-      - name: Auto-Bump Version
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+
+      - name: Auto-Bump Versions
         id: version_bump
-        working-directory: desktop-app
         run: |
           git config --global user.name "GamerNation12"
           git config --global user.email "GamerNation12@users.noreply.github.com"
-          npm version ${{ github.event.inputs.bump }} -m "chore: auto-bump version to %s"
+          
+          cd desktop-app
+          npm version ${{ github.event.inputs.bump }} --no-git-tag-version
           $VERSION = node -p "require('./package.json').version"
-          echo "NEW_VERSION=v$VERSION" >> $env:GITHUB_OUTPUT
+          $TAG = "v$VERSION"
+          echo "NEW_VERSION=$TAG" >> $env:GITHUB_OUTPUT
+          cd ..
+          
+          cd android-app
+          $content = Get-Content pubspec.yaml -Raw
+          $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'version: \d+\.\d+\.\d+\+(\d+)', { param($m) "version: $VERSION+" + ([int]$m.Groups[1].Value + 1) })
+          Set-Content pubspec.yaml $content -NoNewline
+          cd ..
+          
+          git add desktop-app/package.json desktop-app/package-lock.json android-app/pubspec.yaml
+          git commit -m "chore: auto-bump version to $TAG"
+          git tag $TAG
           git push origin HEAD --follow-tags
 
       - name: Install Desktop App Dependencies
@@ -46,6 +71,14 @@ jobs:
       - name: Build Windows Executable
         working-directory: desktop-app
         run: npm run build:vite && npx electron-builder -w --publish never
+
+      - name: Build Android APK
+        working-directory: android-app
+        run: |
+          flutter pub get
+          flutter build apk --release
+          cd build/app/outputs/flutter-apk/
+          Rename-Item app-release.apk DJ-Scratch.apk
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -58,6 +91,6 @@ jobs:
             desktop-app/dist2/*.exe
             desktop-app/dist2/*.exe.blockmap
             desktop-app/dist2/latest.yml
-            web/public/DJ-Scratch.apk
+            android-app/build/app/outputs/flutter-apk/DJ-Scratch.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -88,7 +88,7 @@ class _MainScreenState extends State<MainScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
-              final url = Uri.parse('https://dj-scratch.vercel.app/DJ-Scratch.apk');
+              final url = Uri.parse('https://github.com/GamerNation12/DJ-Scratch/releases/latest/download/DJ-Scratch.apk');
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               }
