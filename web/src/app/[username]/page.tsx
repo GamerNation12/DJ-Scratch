@@ -131,15 +131,30 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   // Fetch Public Profile Data
   useEffect(() => {
-    setProfileLoading(true);
-    fetchApi(`/api/u/${usernameParam}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) setProfileError(data.error);
-        else setProfile(data);
-      })
-      .catch(() => setProfileError("Failed to load profile."))
-      .finally(() => setProfileLoading(false));
+    let isMounted = true;
+    const fetchProfile = async () => {
+      if (profileLoading) setProfileLoading(true);
+      try {
+        const res = await fetchApi(`/api/u/${usernameParam}`);
+        const data = await res.json();
+        if (isMounted) {
+          if (data.error) setProfileError(data.error);
+          else setProfile(data);
+        }
+      } catch (err) {
+        if (isMounted) setProfileError("Failed to load profile.");
+      } finally {
+        if (isMounted) setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
+    const intervalId = setInterval(fetchProfile, 30000); // Poll every 30 seconds
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, [usernameParam]);
 
   // Fetch Dashboard Data (only if owner)
