@@ -248,10 +248,10 @@ function App() {
                {stats?.recentTracks?.[0]?.image && <img src={stats.recentTracks[0].image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />}
             </div>
             <div className="min-w-0">
-              <div className="font-bold text-sm truncate flex items-center gap-2">
-                {stats?.recentTracks?.[0]?.name || 'Not Playing'}
+              <div className="font-bold text-sm flex items-center gap-2 overflow-hidden">
+                <span className="truncate">{stats?.recentTracks?.[0]?.name || 'Not Playing'}</span>
                 {stats?.recentTracks?.[0]?.nowPlaying && (
-                  <div className="flex items-end gap-[2px] h-3 ml-1" title="Playing Now">
+                  <div className="flex items-end gap-[2px] h-3 ml-1 shrink-0" title="Playing Now">
                     <div className="w-[3px] bg-indigo-400 rounded-t-sm animate-[pulse_1s_infinite]"></div>
                     <div className="w-[3px] bg-indigo-400 rounded-t-sm animate-[pulse_0.8s_infinite] h-full"></div>
                     <div className="w-[3px] bg-indigo-400 rounded-t-sm animate-[pulse_1.2s_infinite]"></div>
