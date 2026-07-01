@@ -1,0 +1,63 @@
+{
+  "name": "dj-scratch-desktop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"electron .\"",
+    "start": "electron .",
+    "build:vite": "vite build",
+    "build": "npm run build:vite && electron-builder -w",
+    "release": "npm run build:vite && electron-builder -w -p always",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "build": {
+    "appId": "com.djscratch.desktop",
+    "productName": "DJ Scratch Desktop App",
+    "publish": [{
+      "provider": "github",
+      "owner": "GamerNation12",
+      "repo": "DJ-Scratch"
+    }],
+    "files": [
+      "build/**/*",
+      "main.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist2"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.5.2",
+    "concurrently": "^10.0.3",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.2"
+  },
+  "dependencies": {
+    "discord-rpc": "^4.0.1",
+    "electron-serve": "^3.0.1",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^1.22.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}
