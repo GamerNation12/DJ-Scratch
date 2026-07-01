@@ -68,8 +68,18 @@ export async function GET(request: Request) {
 
   const state = searchParams.get('state');
   const isMobile = state === 'mobile';
-  const actionName = isMobile ? 'Mobile App Login' : 'Website Login';
-  const actionDetails = isMobile ? 'User logged into the mobile app' : 'User logged into dashboard';
+  const isDesktop = state === 'desktop';
+  
+  let actionName = 'Website Login';
+  let actionDetails = 'User logged into dashboard';
+  
+  if (isMobile) {
+    actionName = 'Mobile App Login';
+    actionDetails = 'User logged into the mobile app';
+  } else if (isDesktop) {
+    actionName = 'Desktop App Login';
+    actionDetails = 'User logged into the desktop app';
+  }
 
   // Log the login
   try {

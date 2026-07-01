@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 export async function GET(req: Request) {
   const { searchParams, protocol, host } = new URL(req.url);
   const source = searchParams.get('source');
+  const queryState = searchParams.get('state');
   let state = '';
-  if (source === 'mobile') state = '&state=mobile';
+  
+  if (source === 'mobile' || queryState === 'mobile') state = '&state=mobile';
+  if (source === 'desktop' || queryState === 'desktop') state = '&state=desktop';
 
   const clientId = process.env.DISCORD_CLIENT_ID;
   const baseUrl = host.includes('localhost') ? `http://${host}` : `https://${host}`;
