@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, ChevronLeft, Monitor, Smartphone, Github } from "lucide-react";
+
 
 export default function DownloadPage() {
   const [releases, setReleases] = useState<any[]>([]);
@@ -37,12 +37,12 @@ export default function DownloadPage() {
       
       <main className="relative z-10 w-full max-w-5xl mx-auto px-4 pt-24 pb-24">
         <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-12 font-medium">
-          <ChevronLeft size={20} /> Back to Home
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back to Home
         </Link>
         
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-6 shadow-[0_0_30px_rgba(99,102,241,0.15)]">
-            <Download size={36} strokeWidth={2.5} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
             Download DJ Scratch
@@ -98,7 +98,7 @@ export default function DownloadPage() {
                       </div>
                       
                       <div className="text-sm text-zinc-500 font-mono mb-6 flex items-center gap-2">
-                        <Github size={14} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
                         Published on {new Date(release.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </div>
 
@@ -119,7 +119,7 @@ export default function DownloadPage() {
                           className="flex items-center gap-4 bg-indigo-500 hover:bg-indigo-400 transition-colors p-4 rounded-2xl group/btn"
                         >
                           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                            <Monitor size={20} className="text-white" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                           </div>
                           <div>
                             <div className="font-bold text-white leading-tight">Windows</div>
@@ -129,7 +129,7 @@ export default function DownloadPage() {
                       ) : (
                         <div className="flex items-center gap-4 bg-zinc-800/50 p-4 rounded-2xl opacity-50 cursor-not-allowed border border-white/5">
                           <div className="w-10 h-10 bg-zinc-700 rounded-xl flex items-center justify-center shrink-0">
-                            <Monitor size={20} className="text-zinc-500" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                           </div>
                           <div>
                             <div className="font-bold text-zinc-400 leading-tight">Windows</div>
@@ -144,7 +144,7 @@ export default function DownloadPage() {
                           className="flex items-center gap-4 bg-emerald-500 hover:bg-emerald-400 transition-colors p-4 rounded-2xl group/btn"
                         >
                           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                            <Smartphone size={20} className="text-white" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
                           </div>
                           <div>
                             <div className="font-bold text-white leading-tight">Android</div>
@@ -154,7 +154,7 @@ export default function DownloadPage() {
                       ) : (
                         <div className="flex items-center gap-4 bg-zinc-800/50 p-4 rounded-2xl opacity-50 cursor-not-allowed border border-white/5">
                           <div className="w-10 h-10 bg-zinc-700 rounded-xl flex items-center justify-center shrink-0">
-                            <Smartphone size={20} className="text-zinc-500" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
                           </div>
                           <div>
                             <div className="font-bold text-zinc-400 leading-tight">Android</div>
