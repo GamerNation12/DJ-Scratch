@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { Send, User, MessageSquare } from "lucide-react";
@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 // Replace with your actual deployed socket server URL in production
 const SOCKET_URL = "http://localhost:3001";
 
-export default function MessagesPage() {
+function MessagesContent() {
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("u");
   
@@ -247,5 +247,13 @@ export default function MessagesPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#030712] flex items-center justify-center text-white">Loading...</div>}>
+      <MessagesContent />
+    </Suspense>
   );
 }
