@@ -48,6 +48,17 @@ async def authenticate(sid, user_id):
 @sio.event
 async def new_message(sid, msg_data):
     receiver_id = msg_data.get('receiver_id')
+    sender_id = msg_data.get('sender_id')
+    
+    # Log the DM to the console
+    try:
+        from src.core.events import bot
+        sender = await bot.fetch_user(int(sender_id))
+        receiver = await bot.fetch_user(int(receiver_id))
+        print(f"\033[94m>>> [WEBSITE DM] {sender.name} sent a message to {receiver.name}\033[0m")
+    except Exception as e:
+        print(f"\033[94m>>> [WEBSITE DM] User {sender_id} sent a message to {receiver_id}\033[0m")
+
     # Broadcast message to the receiver's connected sockets
     for s_id, u_id in user_sockets.items():
         if u_id == receiver_id:
