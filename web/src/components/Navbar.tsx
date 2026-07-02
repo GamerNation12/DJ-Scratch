@@ -117,6 +117,30 @@ export default function Navbar() {
               >
                 Leaderboard
               </Link>
+              {session && (
+                <>
+                  <Link
+                    href="/friends"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      pathname === "/friends"
+                        ? "bg-white/10 text-white"
+                        : "text-zinc-400 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Friends
+                  </Link>
+                  <Link
+                    href="/messages"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      pathname === "/messages"
+                        ? "bg-white/10 text-white"
+                        : "text-zinc-400 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Messages
+                  </Link>
+                </>
+              )}
               {isAdmin && (
                 <Link
                   href="/admin"
@@ -231,6 +255,30 @@ export default function Navbar() {
             >
               Leaderboard
             </Link>
+            {session && (
+              <>
+                <Link
+                  href="/friends"
+                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    pathname === "/friends"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Friends
+                </Link>
+                <Link
+                  href="/messages"
+                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    pathname === "/messages"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Messages
+                </Link>
+              </>
+            )}
             {isAdmin && (
               <Link
                 href="/admin"

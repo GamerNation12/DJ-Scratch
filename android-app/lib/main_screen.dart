@@ -10,6 +10,8 @@ import 'tabs/dashboard_tab.dart';
 import 'tabs/leaderboard_tab.dart';
 import 'tabs/admin_tab.dart';
 import 'tabs/settings_tab.dart';
+import 'tabs/friends_tab.dart';
+import 'tabs/messages_tab.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -136,6 +138,8 @@ class _MainScreenState extends State<MainScreen> {
     final tabs = [
       const DashboardTab(),
       const LeaderboardTab(),
+      const FriendsTab(),
+      const MessagesTab(),
       if (hasAdmin) const AdminTab(),
       const SettingsTab(),
     ];
@@ -165,6 +169,16 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(LucideIcons.trophy, color: Colors.white54),
               selectedIcon: Icon(LucideIcons.trophy, color: Color(0xFF0AB5CD)),
               label: 'Leaderboard',
+            ),
+            const NavigationDestination(
+              icon: Icon(LucideIcons.users, color: Colors.white54),
+              selectedIcon: Icon(LucideIcons.users, color: Color(0xFF0AB5CD)),
+              label: 'Friends',
+            ),
+            const NavigationDestination(
+              icon: Icon(LucideIcons.messageSquare, color: Colors.white54),
+              selectedIcon: Icon(LucideIcons.messageSquare, color: Color(0xFF0AB5CD)),
+              label: 'Messages',
             ),
             if (hasAdmin)
               const NavigationDestination(

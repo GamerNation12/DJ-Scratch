@@ -91,6 +91,24 @@ async def init_db():
                         PRIMARY KEY (user_id, command_name)
                     )
                 ''')
+                await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS friends (
+                        user_id VARCHAR(255),
+                        friend_id VARCHAR(255),
+                        status VARCHAR(50) DEFAULT 'pending',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (user_id, friend_id)
+                    )
+                ''')
+                await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS direct_messages (
+                        id SERIAL PRIMARY KEY,
+                        sender_id VARCHAR(255),
+                        receiver_id VARCHAR(255),
+                        content TEXT NOT NULL,
+                        sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
                 except Exception:
@@ -543,3 +561,90 @@ async def unlink_user(user_id):
     except Exception as e:
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")
         return False
+
+# --- FRIENDS & DMs ---
+
+async def get_user_by_name(username):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT id FROM imported_users WHERE LOWER(username) = LOWER($1)", str(username))
+            if row: return row['id']
+            # Fallback to display name
+            row = await conn.fetchrow("SELECT user_id FROM user_settings WHERE LOWER(display_name) = LOWER($1)", str(username))
+            if row: return row['user_id']
+            return None
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting user by name: {e}{Log.RESET}")
+        return None
+
+async def add_friend_request(user_id, friend_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            # Check if request already exists in opposite direction
+            existing = await conn.fetchrow("SELECT status FROM friends WHERE user_id=$1 AND friend_id=$2", str(friend_id), str(user_id))
+            if existing:
+                if existing['status'] == 'pending':
+                    # Accept it automatically if they requested each other
+                    await conn.execute("UPDATE friends SET status='accepted' WHERE user_id=$1 AND friend_id=$2", str(friend_id), str(user_id))
+                    await conn.execute("INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'", str(user_id), str(friend_id))
+                    return 'accepted'
+                return 'already_friends'
+            
+            await conn.execute("INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'pending') ON CONFLICT (user_id, friend_id) DO NOTHING", str(user_id), str(friend_id))
+            return 'pending'
+    except Exception as e:
+        print(f"{Log.RED}>>> Error adding friend request: {e}{Log.RESET}")
+        return False
+
+async def accept_friend_request(user_id, friend_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("UPDATE friends SET status='accepted' WHERE user_id=$1 AND friend_id=$2", str(friend_id), str(user_id))
+            await conn.execute("INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'", str(user_id), str(friend_id))
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error accepting friend request: {e}{Log.RESET}")
+        return False
+
+async def remove_friend(user_id, friend_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("DELETE FROM friends WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)", str(user_id), str(friend_id))
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error removing friend: {e}{Log.RESET}")
+        return False
+
+async def get_friends(user_id):
+    if not db_pool: return []
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT friend_id, status FROM friends WHERE user_id=$1", str(user_id))
+            
+            # Also get pending requests sent to this user
+            incoming_rows = await conn.fetch("SELECT user_id as friend_id, status FROM friends WHERE friend_id=$1 AND status='pending'", str(user_id))
+            
+            friends_list = []
+            for row in rows:
+                friends_list.append({'id': row['friend_id'], 'status': row['status'], 'direction': 'outgoing' if row['status'] == 'pending' else 'mutual'})
+            for row in incoming_rows:
+                friends_list.append({'id': row['friend_id'], 'status': row['status'], 'direction': 'incoming'})
+                
+            return friends_list
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting friends: {e}{Log.RESET}")
+        return []
+
+async def send_dm(sender_id, receiver_id, content):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("INSERT INTO direct_messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)", str(sender_id), str(receiver_id), content)
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error sending DM: {e}{Log.RESET}")
+        return False

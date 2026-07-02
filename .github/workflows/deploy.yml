@@ -7,6 +7,7 @@ on:
     paths-ignore:
       - 'web/**'
       - 'android-app/**'
+      - 'desktop-app/**'
       - '.github/**'
       - '*.apk'
       - '*.zip'

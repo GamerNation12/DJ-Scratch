@@ -6,3 +6,4 @@ ijson
 PyNaCl
 Pillow
 psutil
+python-socketio

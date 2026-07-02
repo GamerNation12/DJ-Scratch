@@ -29,6 +29,29 @@ export async function GET(req: Request) {
     await sql`CREATE INDEX IF NOT EXISTS idx_listens_artist_name ON listens(artist_name)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_listens_played_at ON listens(played_at DESC)`;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS friends (
+        user_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
+        friend_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, friend_id)
+      )
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        id SERIAL PRIMARY KEY,
+        sender_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
+        receiver_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    await sql`CREATE INDEX IF NOT EXISTS idx_dm_sender ON direct_messages(sender_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_dm_receiver ON direct_messages(receiver_id)`;
+
     return NextResponse.json({ message: "Database setup successful!" }, { status: 200 });
   } catch (error) {
     console.error("Failed to setup database:", error);

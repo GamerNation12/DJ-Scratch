@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink, Shield } from 'lucide-react';
+import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink, Shield, Users, MessageSquare } from 'lucide-react';
 import AdminClient from './AdminClient';
 import SettingsClient from './SettingsClient';
+import FriendsClient from './FriendsClient';
+import MessagesClient from './MessagesClient';
 
 const API_BASE = 'https://dj-scratch.vercel.app';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leaderboard' | 'admin' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leaderboard' | 'admin' | 'settings' | 'friends' | 'messages'>('dashboard');
   const [token, setToken] = useState<string | null>(localStorage.getItem('discord_jwt'));
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -168,6 +170,30 @@ function App() {
             Leaderboard
           </button>
 
+          <button
+            onClick={() => setActiveTab('friends')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 font-semibold ${
+              activeTab === 'friends' 
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]' 
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Users size={18} />
+            Friends
+          </button>
+
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 font-semibold ${
+              activeTab === 'messages' 
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]' 
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <MessageSquare size={18} />
+            Messages
+          </button>
+
           {isAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
@@ -324,6 +350,10 @@ function App() {
               setUser(null);
               localStorage.removeItem('discord_jwt');
             }} />
+          ) : activeTab === 'friends' ? (
+            <FriendsClient token={token} />
+          ) : activeTab === 'messages' ? (
+            <MessagesClient token={token} user={user} />
           ) : null}
         </main>
 
