@@ -90,6 +90,13 @@ export async function POST(
       ]
     ).catch(console.error);
 
+    // Fire off log to bot
+    fetch("http://mango.fps.ms:20544/log_dm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sender_id: myId, receiver_id: targetId })
+    }).catch(console.error);
+
     return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content } });
   } catch (err) {
     console.error(err);

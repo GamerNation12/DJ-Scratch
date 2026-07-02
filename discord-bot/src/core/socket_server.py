@@ -12,6 +12,24 @@ sio.attach(app)
 
 user_sockets = {}
 
+async def handle_log_dm(request):
+    try:
+        data = await request.json()
+        sender_id = data.get('sender_id')
+        receiver_id = data.get('receiver_id')
+        try:
+            from src.core.events import bot
+            sender = await bot.fetch_user(int(sender_id))
+            receiver = await bot.fetch_user(int(receiver_id))
+            print(f"\033[94m>>> [WEBSITE DM] {sender.name} sent a message to {receiver.name}\033[0m")
+        except Exception as e:
+            print(f"\033[94m>>> [WEBSITE DM] User {sender_id} sent a message to {receiver_id}\033[0m")
+        return web.json_response({'status': 'ok'})
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=400)
+
+app.router.add_post('/log_dm', handle_log_dm)
+
 class OutputInterceptor:
     def __init__(self, original_stream):
         self.original_stream = original_stream
