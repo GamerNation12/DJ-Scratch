@@ -53,7 +53,8 @@ export default function FriendsPage() {
         setTargetUsername("");
         fetchFriends();
       } else {
-        toast.error(data.error || "An error occurred");
+        console.error(data);
+        toast.error(data.details || data.error || "An error occurred");
       }
     } catch (err) {
       toast.error("Failed to perform action");

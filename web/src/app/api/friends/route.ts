@@ -97,8 +97,8 @@ export async function POST(req: Request) {
     }
     
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Error", details: err.message, stack: err.stack }, { status: 500 });
   }
 }
