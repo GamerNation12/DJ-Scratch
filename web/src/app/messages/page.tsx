@@ -7,7 +7,7 @@ import { Send, User, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Replace with your actual deployed socket server URL in production
-const SOCKET_URL = "http://localhost:3001";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
 function MessagesContent() {
   const searchParams = useSearchParams();
@@ -37,24 +37,29 @@ function MessagesContent() {
       const decoded = JSON.parse(atob(base64Str));
       setMyId(decoded.id);
       
-      const newSocket = io(SOCKET_URL);
-      newSocket.on("connect", () => {
-        newSocket.emit("authenticate", decoded.id);
+      let newSocket: Socket | null = null;
+    
+    if (activeChat && SOCKET_URL) {
+      const socket = io(SOCKET_URL);
+      socket.on("connect", () => {
+        socket.emit("authenticate", decoded.id);
       });
       
-      newSocket.on("receive_message", (data) => {
+      socket.on("receive_message", (data) => {
         setMessages(prev => {
           // Prevent duplicates if we already added it optimistically
           if (prev.some(m => m.id === data.id)) return prev;
           return [...prev, data];
         });
       });
-
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.disconnect();
-      };
+      
+      setSocket(socket);
+      newSocket = socket;
+    }
+    
+    return () => {
+      newSocket?.disconnect();
+    };
     } catch (e) {
       console.error(e);
     }

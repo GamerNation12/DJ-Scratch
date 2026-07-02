@@ -4,7 +4,7 @@ import io, { Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
 const API_BASE = 'https://dj-scratch.vercel.app';
-const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = ""; // process.env.NEXT_PUBLIC_SOCKET_URL if applicable
 
 export default function MessagesClient({ token, user }: { token: string | null, user: any }) {
   const [friends, setFriends] = useState<any[]>([]);
@@ -19,22 +19,26 @@ export default function MessagesClient({ token, user }: { token: string | null, 
   }, [messages]);
 
   useEffect(() => {
-    if (!token || !user) return;
-
-    const newSocket = io(SOCKET_URL);
-    newSocket.on('connect', () => {
-      newSocket.emit('authenticate', user.id);
-    });
-
-    newSocket.on('receive_message', (data) => {
-      setMessages(prev => {
-        if (prev.some(m => m.id === data.id)) return prev;
-        return [...prev, data];
+    let newSocket: any = null;
+    if (activeChat && SOCKET_URL) {
+      newSocket = io(SOCKET_URL);
+      newSocket.on('connect', () => {
+        newSocket.emit('authenticate', user.id);
       });
-    });
-
-    setSocket(newSocket);
-    return () => { newSocket.disconnect(); };
+      
+      newSocket.on('receive_message', (data: any) => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [...prev, data];
+        });
+      });
+      
+      setSocket(newSocket);
+    }
+    
+    return () => {
+      newSocket?.disconnect();
+    };
   }, [token, user]);
 
   useEffect(() => {
