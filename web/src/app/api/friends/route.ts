@@ -47,6 +47,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing action or target" }, { status: 400 });
   }
 
+  // Ensure current user is in imported_users to avoid FK constraint errors 
+  // (for users who logged in before the automatic sync was added)
+  try {
+    const usernameToUse = (user as any).discord_name || (user as any).name || "Unknown";
+    await sql`
+      INSERT INTO imported_users (id, username)
+      VALUES (${userId}, ${usernameToUse})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  } catch (e) {
+    console.error("Failed to ensure current user in imported_users:", e);
+  }
+
   try {
     let finalTargetId = targetId;
     if (targetUsername) {
