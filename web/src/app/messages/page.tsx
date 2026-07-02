@@ -179,10 +179,12 @@ function MessagesContent() {
       });
       const data = await res.json();
       
-      if (data.success && socket) {
+      if (data.success) {
         const msg = data.message;
         setMessages(prev => prev.map(m => m.id === tempId ? msg : m));
-        socket.emit("new_message", msg);
+        if (socket) {
+          socket.emit("new_message", msg);
+        }
       } else {
         const failedMsg = { ...optimisticMsg, isSending: false, failed: true };
         setMessages(prev => prev.map(m => m.id === tempId ? failedMsg : m));
