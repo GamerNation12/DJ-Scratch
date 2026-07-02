@@ -7,7 +7,7 @@ import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw } from "lucid
 import toast from "react-hot-toast";
 
 // Replace with your actual deployed socket server URL in production
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
 
 function MessagesContent() {
   const searchParams = useSearchParams();
