@@ -97,6 +97,12 @@ export async function GET(request: Request) {
       VALUES (${userData.id}, ${username})
       ON CONFLICT (user_id) DO UPDATE SET discord_username = EXCLUDED.discord_username
     `;
+    
+    await sql`
+      INSERT INTO imported_users (id, username)
+      VALUES (${userData.id}, ${username})
+      ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
+    `;
     await sql`
       DELETE FROM website_logs 
       WHERE id NOT IN (

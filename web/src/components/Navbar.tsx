@@ -91,22 +91,29 @@ export default function Navbar() {
               >
                 Home
               </Link>
-              <Link 
-                href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
-                onClick={(e) => {
-                  if (!session) {
-                    e.preventDefault();
-                    window.location.href = "/api/auth/login";
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  pathname !== "/"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-400 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                Dashboard
-              </Link>
+              {session ? (
+                <Link 
+                  href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    pathname !== "/"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <a 
+                  href="/api/auth/login"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    pathname !== "/"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  Dashboard
+                </a>
+              )}
               <Link
                 href="/leaderboard"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -229,22 +236,29 @@ export default function Navbar() {
             >
               Home
             </Link>
-            <Link 
-              href={session ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}` : "/api/auth/login"}
-              onClick={(e) => {
-                if (!session) {
-                  e.preventDefault();
-                  window.location.href = "/api/auth/login";
-                }
-              }}
-              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                pathname !== "/"
-                  ? "bg-white/10 text-white" 
-                  : "text-zinc-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              Dashboard
-            </Link>
+            {session ? (
+              <Link 
+                href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
+                className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  pathname !== "/"
+                    ? "bg-white/10 text-white" 
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <a 
+                href="/api/auth/login"
+                className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  pathname !== "/"
+                    ? "bg-white/10 text-white" 
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Dashboard
+              </a>
+            )}
             <Link
               href="/leaderboard"
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
