@@ -13,36 +13,33 @@ export default function AdminTerminal() {
 
     async function initTerminal() {
       try {
-        const res = await fetchApi("/api/admin/terminal");
-        if (!res.ok) throw new Error("Failed to fetch terminal token");
-        const data = await res.json();
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
+        const { io } = await import("socket.io-client");
         
         if (!active) return;
 
-        const ws = new WebSocket(data.socket);
-        wsRef.current = ws;
+        const socket = io(socketUrl, {
+          transports: ["websocket", "polling"],
+          reconnection: true
+        });
 
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ event: "auth", args: [data.token] }));
+        socket.on("connect", () => {
           setStatus("connected");
-        };
+          socket.emit("admin_auth", "dashboard-admin");
+        });
 
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.event === "console output") {
-              // msg.args contains the log line, which might have ansi color codes
-              // We'll strip basic ansi codes for now, or just render it raw
-              const rawText = msg.args.join(" ");
-              // Simple ansi strip regex
-              const text = rawText.replace(/\x1b\[[0-9;]*m/g, "");
-              setLogs((prev) => [...prev, text].slice(-500)); // keep last 500 lines
-            }
-          } catch (e) {}
-        };
+        socket.on("terminal_log", (data) => {
+          if (data && data.log) {
+            const text = data.log.replace(/\x1b\[[0-9;]*m/g, "");
+            setLogs((prev) => [...prev, text].slice(-500));
+          }
+        });
 
-        ws.onerror = () => setStatus("error");
-        ws.onclose = () => setStatus("disconnected");
+        socket.on("connect_error", () => setStatus("error"));
+        socket.on("disconnect", () => setStatus("disconnected"));
+
+        // @ts-ignore
+        wsRef.current = { close: () => socket.disconnect() };
       } catch (err) {
         if (active) setStatus("error");
       }
@@ -52,7 +49,7 @@ export default function AdminTerminal() {
 
     return () => {
       active = false;
-      if (wsRef.current) wsRef.current.close();
+      if (wsRef.current) (wsRef.current as any).close();
     };
   }, []);
 

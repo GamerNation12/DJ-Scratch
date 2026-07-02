@@ -3,15 +3,43 @@ import os
 from aiohttp import web
 from src.core.config import Log
 
+import sys
+import asyncio
+
 sio = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins='*')
 app = web.Application()
 sio.attach(app)
 
 user_sockets = {}
 
+class OutputInterceptor:
+    def __init__(self, original_stream):
+        self.original_stream = original_stream
+
+    def write(self, message):
+        self.original_stream.write(message)
+        if message.strip():
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    loop.create_task(sio.emit('terminal_log', {'log': message}, room='admins'))
+            except RuntimeError:
+                pass
+
+    def flush(self):
+        self.original_stream.flush()
+
+sys.stdout = OutputInterceptor(sys.stdout)
+sys.stderr = OutputInterceptor(sys.stderr)
+
 @sio.event
 async def connect(sid, environ):
     pass
+
+@sio.event
+async def admin_auth(sid, token):
+    # Very basic auth logic could go here; for now, we trust the admin dashboard connection
+    sio.enter_room(sid, 'admins')
 
 @sio.event
 async def authenticate(sid, user_id):
