@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Send, User } from "lucide-react";
+import { Send, User, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Replace with your actual deployed socket server URL in production

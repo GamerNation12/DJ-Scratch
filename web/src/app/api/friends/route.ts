@@ -1,6 +1,6 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { sql } from "@vercel/postgres";
+import { sql } from "@/lib/db";
 import { sendDiscordDM } from "@/lib/discord";
 
 async function getUser(req: Request) {

@@ -1,6 +1,6 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { sql } from "@vercel/postgres";
+import { sql } from "@/lib/db";
 import { sendDiscordDM } from "@/lib/discord";
 
 async function getUser(req: Request) {
@@ -11,10 +11,12 @@ async function getUser(req: Request) {
 
 export async function GET(
   req: Request,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   const user = await getUser(req);
-  if (!user || !(user as any).id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const params = await context.params;
   const myId = (user as any).id;
   const targetId = params.userId;
 
@@ -37,10 +39,12 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   const user = await getUser(req);
-  if (!user || !(user as any).id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const params = await context.params;
   const myId = (user as any).id;
   const targetId = params.userId;
 
