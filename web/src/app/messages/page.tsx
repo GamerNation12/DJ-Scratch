@@ -102,7 +102,13 @@ function MessagesContent() {
         });
         const data = await res.json();
         if (data.messages) {
-          setMessages(data.messages);
+          const failedKey = `failed_msgs_${activeChat.friend_id}`;
+          const savedFailed = localStorage.getItem(failedKey);
+          let failedMsgs = [];
+          if (savedFailed) {
+            try { failedMsgs = JSON.parse(savedFailed); } catch(e) {}
+          }
+          setMessages([...data.messages, ...failedMsgs]);
         }
       } catch (err) {
         console.error(err);
@@ -111,6 +117,29 @@ function MessagesContent() {
     
     fetchHistory();
   }, [activeChat]);
+
+  const removeFailedMessage = (id: any, friendId: string) => {
+    const failedKey = `failed_msgs_${friendId}`;
+    const saved = localStorage.getItem(failedKey);
+    if (saved) {
+      try {
+        let failedMsgs = JSON.parse(saved);
+        failedMsgs = failedMsgs.filter((m: any) => m.id !== id);
+        localStorage.setItem(failedKey, JSON.stringify(failedMsgs));
+      } catch(e) {}
+    }
+  };
+
+  const saveFailedMessage = (msg: any, friendId: string) => {
+    const failedKey = `failed_msgs_${friendId}`;
+    const saved = localStorage.getItem(failedKey);
+    let failedMsgs = [];
+    if (saved) {
+      try { failedMsgs = JSON.parse(saved); } catch(e) {}
+    }
+    failedMsgs.push(msg);
+    localStorage.setItem(failedKey, JSON.stringify(failedMsgs));
+  };
 
   const sendMessage = async (e?: React.FormEvent, retryContent?: string, retryId?: any) => {
     if (e) e.preventDefault();
@@ -121,6 +150,7 @@ function MessagesContent() {
 
     if (retryId) {
       setMessages(prev => prev.filter(m => m.id !== retryId));
+      removeFailedMessage(retryId, activeChat.friend_id);
     }
 
     const tempId = `temp-${Date.now()}`;
@@ -132,7 +162,8 @@ function MessagesContent() {
       receiver_id: activeChat.friend_id,
       content,
       sent_at: new Date().toISOString(),
-      isSending: true
+      isSending: true,
+      failed: false
     };
     
     setMessages(prev => [...prev, optimisticMsg]);
@@ -153,17 +184,24 @@ function MessagesContent() {
         setMessages(prev => prev.map(m => m.id === tempId ? msg : m));
         socket.emit("new_message", msg);
       } else {
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isSending: false, failed: true } : m));
+        const failedMsg = { ...optimisticMsg, isSending: false, failed: true };
+        setMessages(prev => prev.map(m => m.id === tempId ? failedMsg : m));
+        saveFailedMessage(failedMsg, activeChat.friend_id);
         toast.error("Failed to send message");
       }
     } catch (err) {
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isSending: false, failed: true } : m));
+      const failedMsg = { ...optimisticMsg, isSending: false, failed: true };
+      setMessages(prev => prev.map(m => m.id === tempId ? failedMsg : m));
+      saveFailedMessage(failedMsg, activeChat.friend_id);
       toast.error("Failed to send message");
     }
   };
 
   const deleteFailedMessage = (id: any) => {
     setMessages(prev => prev.filter(m => m.id !== id));
+    if (activeChat) {
+      removeFailedMessage(id, activeChat.friend_id);
+    }
   };
 
 
