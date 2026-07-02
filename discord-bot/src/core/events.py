@@ -2499,3 +2499,98 @@ async def update_notif_slash(interaction, command):
         except Exception:
             pass
     await check_update_notification(interaction.user.id, send_msg)
+
+class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
+    reply_content = discord.ui.TextInput(
+        label="Message",
+        style=discord.TextStyle.long,
+        placeholder="Type your message here...",
+        required=True
+    )
+
+    def __init__(self, target_id: str):
+        super().__init__()
+        self.target_id = target_id
+
+    async def on_submit(self, interaction: discord.Interaction):
+        sender_id = str(interaction.user.id)
+        content = self.reply_content.value
+        
+        pool = getattr(bot, 'db_pool', None)
+        if not pool:
+            await interaction.response.send_message("Database connection error.", ephemeral=True)
+            return
+
+        async with pool.acquire() as conn:
+            # Check if they are friends
+            is_friend = await conn.fetchval(
+                "SELECT status FROM friends WHERE user_id = $1 AND friend_id = $2 AND status = 'accepted'",
+                sender_id, self.target_id
+            )
+            if not is_friend:
+                await interaction.response.send_message("You must be friends to send messages.", ephemeral=True)
+                return
+
+            await conn.execute(
+                "INSERT INTO direct_messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)",
+                sender_id, self.target_id, content
+            )
+            
+            try:
+                target_user = await bot.fetch_user(int(self.target_id))
+                sender_name = await conn.fetchval("SELECT display_name FROM user_settings WHERE user_id = $1", sender_id)
+                if not sender_name:
+                    sender_name = interaction.user.name
+                    
+                view = discord.ui.View()
+                btn = discord.ui.Button(label="Reply via Discord", style=discord.ButtonStyle.primary, custom_id=f"reply_dm_{sender_id}")
+                view.add_item(btn)
+                
+                await target_user.send(f"New DM from **{sender_name}** on DJ Scratch:\n`{content}`\n*(Reply on the website/app or click below)*", view=view)
+                await interaction.response.send_message("Reply sent successfully!", ephemeral=True)
+            except Exception as e:
+                print(e)
+                await interaction.response.send_message("Reply saved, but failed to DM the user on Discord.", ephemeral=True)
+
+@bot.listen('on_interaction')
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.type == discord.InteractionType.component:
+        custom_id = interaction.data.get("custom_id", "")
+        
+        if custom_id.startswith("accept_friend_"):
+            sender_id = custom_id.replace("accept_friend_", "")
+            receiver_id = str(interaction.user.id)
+            
+            pool = getattr(bot, 'db_pool', None)
+            if not pool:
+                await interaction.response.send_message("Database connection error.", ephemeral=True)
+                return
+                
+            async with pool.acquire() as conn:
+                existing = await conn.fetchval(
+                    "SELECT status FROM friends WHERE user_id = $1 AND friend_id = $2",
+                    sender_id, receiver_id
+                )
+                if existing == 'pending':
+                    await conn.execute("UPDATE friends SET status='accepted' WHERE user_id=$1 AND friend_id=$2", sender_id, receiver_id)
+                    await conn.execute(
+                        "INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'",
+                        receiver_id, sender_id
+                    )
+                    
+                    try:
+                        await interaction.response.edit_message(content=f"✅ You accepted the friend request from <@{sender_id}>!", view=None)
+                    except:
+                        await interaction.response.send_message(f"✅ You accepted the friend request from <@{sender_id}>!", ephemeral=True)
+                        
+                    try:
+                        sender_user = await bot.fetch_user(int(sender_id))
+                        await sender_user.send(f"**{interaction.user.name}** accepted your friend request on DJ Scratch!")
+                    except:
+                        pass
+                else:
+                    await interaction.response.send_message("This friend request is no longer valid or already accepted.", ephemeral=True)
+                    
+        elif custom_id.startswith("reply_dm_"):
+            target_id = custom_id.replace("reply_dm_", "")
+            await interaction.response.send_modal(DirectMessageReplyModal(target_id=target_id))

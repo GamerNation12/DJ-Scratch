@@ -74,7 +74,20 @@ export async function POST(
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
-      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${content}\`\n*(Reply on the website/app)*`
+      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${content}\`\n*(Reply on the website/app or click below)*`,
+      [
+        {
+          type: 1, // ActionRow
+          components: [
+            {
+              type: 2, // Button
+              label: "Reply via Discord",
+              style: 1, // Primary/Blurple
+              custom_id: `reply_dm_${myId}`
+            }
+          ]
+        }
+      ]
     ).catch(console.error);
 
     return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content } });

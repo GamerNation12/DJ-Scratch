@@ -82,7 +82,23 @@ export async function POST(req: Request) {
       }
 
       await sql`INSERT INTO friends (user_id, friend_id, status) VALUES (${userId}, ${finalTargetId}, 'pending') ON CONFLICT (user_id, friend_id) DO NOTHING`;
-      await sendDiscordDM(finalTargetId, `**${(user as any).name}** sent you a friend request on DJ Scratch! Visit the app to accept it.`);
+      await sendDiscordDM(
+        finalTargetId, 
+        `**${(user as any).name}** sent you a friend request on DJ Scratch! Visit the app to accept it.`,
+        [
+          {
+            type: 1, // ActionRow
+            components: [
+              {
+                type: 2, // Button
+                label: "Accept Request",
+                style: 3, // Success/Green
+                custom_id: `accept_friend_${userId}`
+              }
+            ]
+          }
+        ]
+      );
       return NextResponse.json({ success: true, status: 'pending' });
     } 
     else if (action === "accept") {
