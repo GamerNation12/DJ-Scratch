@@ -11,15 +11,13 @@ export async function GET(req: Request) {
         dm.id, 
         dm.sender_id, 
         u1.username as sender_username,
-        u1.avatar_url as sender_avatar,
         dm.receiver_id,
         u2.username as receiver_username,
-        u2.avatar_url as receiver_avatar,
-        dm.created_at
+        dm.sent_at as created_at
       FROM direct_messages dm
       LEFT JOIN imported_users u1 ON dm.sender_id = u1.id
       LEFT JOIN imported_users u2 ON dm.receiver_id = u2.id
-      ORDER BY dm.created_at DESC
+      ORDER BY dm.sent_at DESC
       LIMIT 100
     `;
 
