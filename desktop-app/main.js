@@ -90,6 +90,14 @@ app.whenReady().then(() => {
   autoUpdater.on('update-available', (info) => {
     console.log('Update available.', info);
     if (mainWindow) mainWindow.webContents.send('update-available', info);
+    
+    const { dialog } = require('electron');
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Downloading',
+      message: 'A new version of DJ Scratch is available and is downloading in the background. We will notify you when it is ready to install.',
+      buttons: ['OK']
+    });
   });
 
   autoUpdater.on('update-not-available', (info) => {

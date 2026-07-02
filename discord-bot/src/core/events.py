@@ -2516,7 +2516,8 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
         sender_id = str(interaction.user.id)
         content = self.reply_content.value
         
-        pool = getattr(bot, 'db_pool', None)
+        global db_pool
+        pool = db_pool
         if not pool:
             await interaction.response.send_message("Database connection error.", ephemeral=True)
             return
@@ -2561,7 +2562,8 @@ async def on_interaction(interaction: discord.Interaction):
             sender_id = custom_id.replace("accept_friend_", "")
             receiver_id = str(interaction.user.id)
             
-            pool = getattr(bot, 'db_pool', None)
+            global db_pool
+            pool = db_pool
             if not pool:
                 await interaction.response.send_message("Database connection error.", ephemeral=True)
                 return
