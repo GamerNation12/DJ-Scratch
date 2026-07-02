@@ -124,6 +124,26 @@ export default function Navbar() {
               >
                 Leaderboard
               </Link>
+              <Link
+                href="/music"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/music"
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Music
+              </Link>
+              <Link
+                href="/stats"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/stats"
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Stats
+              </Link>
               {session && (
                 <>
                   <Link
@@ -268,6 +288,26 @@ export default function Navbar() {
               }`}
             >
               Leaderboard
+            </Link>
+            <Link
+              href="/music"
+              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname === "/music"
+                  ? "bg-white/10 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Music
+            </Link>
+            <Link
+              href="/stats"
+              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname === "/stats"
+                  ? "bg-white/10 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Stats
             </Link>
             {session && (
               <>

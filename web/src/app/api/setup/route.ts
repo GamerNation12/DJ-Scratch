@@ -45,9 +45,24 @@ export async function GET(req: Request) {
         sender_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
         receiver_id VARCHAR(255) REFERENCES imported_users(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
-        sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        read_at TIMESTAMP WITH TIME ZONE
       )
     `;
+
+    // Add read_at if it doesn't exist for existing tables
+    try {
+      await sql`ALTER TABLE direct_messages ADD COLUMN read_at TIMESTAMP WITH TIME ZONE`;
+    } catch(e) {
+      // Column might already exist, ignore
+    }
+
+    // Add reactions if it doesn't exist
+    try {
+      await sql`ALTER TABLE direct_messages ADD COLUMN reactions JSONB DEFAULT '[]'::jsonb`;
+    } catch(e) {
+      // Column might already exist, ignore
+    }
 
     await sql`CREATE INDEX IF NOT EXISTS idx_dm_sender ON direct_messages(sender_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_dm_receiver ON direct_messages(receiver_id)`;

@@ -22,7 +22,7 @@ export async function GET(
 
   try {
     const messages = await sql`
-      SELECT id, sender_id, receiver_id, content, sent_at
+      SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions
       FROM direct_messages
       WHERE (sender_id = ${myId} AND receiver_id = ${targetId})
          OR (sender_id = ${targetId} AND receiver_id = ${myId})
@@ -98,6 +98,32 @@ export async function POST(
     }).catch(console.error);
 
     return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content } });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  context: { params: Promise<{ userId: string }> }
+) {
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const params = await context.params;
+  const myId = (user as any).id;
+  const senderId = params.userId; // The person who sent the messages we are now reading
+
+  try {
+    await sql`
+      UPDATE direct_messages 
+      SET read_at = CURRENT_TIMESTAMP
+      WHERE sender_id = ${senderId} 
+        AND receiver_id = ${myId} 
+        AND read_at IS NULL
+    `;
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });

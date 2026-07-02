@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw } from "lucide-react";
+import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Replace with your actual deployed socket server URL in production
@@ -19,11 +19,13 @@ function MessagesContent() {
   const [input, setInput] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
+  const [customEmojis, setCustomEmojis] = useState<any[]>([]);
+  const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length]);
 
   useEffect(() => {
     const token = localStorage.getItem("discord_jwt");
@@ -88,7 +90,20 @@ function MessagesContent() {
         console.error(err);
       }
     };
+    
+    const fetchEmojis = async () => {
+      const token = localStorage.getItem("discord_jwt");
+      try {
+        const res = await fetch("/api/emojis", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.emojis) setCustomEmojis(data.emojis);
+      } catch(e) {}
+    };
+
     fetchFriends();
+    fetchEmojis();
   }, [initialUser]);
 
   useEffect(() => {
@@ -108,7 +123,20 @@ function MessagesContent() {
           if (savedFailed) {
             try { failedMsgs = JSON.parse(savedFailed); } catch(e) {}
           }
-          setMessages([...data.messages, ...failedMsgs]);
+          
+          setMessages(prev => {
+            const sendingMsgs = prev.filter(m => m.isSending);
+            return [...data.messages, ...failedMsgs, ...sendingMsgs];
+          });
+          
+          // Mark unread as read
+          const hasUnread = data.messages.some((m: any) => m.sender_id === activeChat.friend_id && !m.read_at);
+          if (hasUnread) {
+            fetch(`/api/messages/${activeChat.friend_id}`, {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(console.error);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -116,6 +144,8 @@ function MessagesContent() {
     };
     
     fetchHistory();
+    const interval = setInterval(fetchHistory, 3000);
+    return () => clearInterval(interval);
   }, [activeChat]);
 
   const removeFailedMessage = (id: any, friendId: string) => {
@@ -206,6 +236,32 @@ function MessagesContent() {
     }
   };
 
+  const handleReact = async (messageId: number, emoji: any) => {
+    setShowEmojiPickerFor(null);
+    const token = localStorage.getItem("discord_jwt");
+    try {
+      // Optimistic update
+      setMessages(prev => prev.map(m => {
+        if (m.id === messageId) {
+          const updatedReactions = m.reactions ? [...m.reactions, emoji] : [emoji];
+          return { ...m, reactions: updatedReactions };
+        }
+        return m;
+      }));
+
+      await fetch(`/api/messages/${activeChat.friend_id}/react`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ messageId, emoji })
+      });
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white pt-20 px-4 sm:px-6 lg:px-8 pb-10">
@@ -269,7 +325,7 @@ function MessagesContent() {
                     const isMe = m.sender_id === myId;
                     return (
                       <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        <div className={`max-w-[70%] px-4 py-2 rounded-2xl ${
+                        <div className={`max-w-[70%] px-4 py-2 rounded-2xl relative group ${
                           isMe 
                             ? m.failed
                               ? 'bg-red-500/10 text-red-200 border border-red-500/20 rounded-br-sm'
@@ -277,12 +333,57 @@ function MessagesContent() {
                             : 'bg-zinc-800 text-zinc-200 rounded-bl-sm border border-white/5'
                         } ${m.isSending ? 'opacity-70' : ''}`}>
                           <p className="break-words">{m.content}</p>
+                          
+                          {/* Reactions */}
+                          {m.reactions && m.reactions.length > 0 && (
+                            <div className={`flex flex-wrap gap-1 mt-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                              {m.reactions.map((r: any, idx: number) => (
+                                <div key={idx} className="bg-zinc-900/80 px-1 py-1 rounded-md flex items-center border border-white/10">
+                                  <img src={r.url} alt={r.name} className="w-4 h-4 object-contain" title={r.name} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
                           <div className={`flex items-center gap-1 mt-1 text-[10px] ${isMe ? m.failed ? 'text-red-400' : 'text-indigo-200' : 'text-zinc-500'}`}>
                             {m.failed && <AlertCircle className="w-3 h-3" />}
                             <span>
                               {m.failed ? "Failed to send" : new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
+                            {isMe && !m.failed && m.read_at && (
+                              <span className="ml-1 flex items-center text-indigo-300">
+                                ✓ Seen
+                              </span>
+                            )}
                           </div>
+
+                          {/* Hover Emoji Button */}
+                          {!m.isSending && !m.failed && (
+                            <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                              <button 
+                                onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === m.id ? null : m.id)}
+                                className="p-1.5 bg-zinc-800 rounded-full hover:bg-zinc-700 text-zinc-400 hover:text-white"
+                              >
+                                <Smile className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Emoji Picker */}
+                          {showEmojiPickerFor === m.id && (
+                            <div className={`absolute z-50 top-0 ${isMe ? 'right-full mr-2' : 'left-full ml-2'} w-64 max-h-48 overflow-y-auto bg-zinc-900 border border-white/10 rounded-xl p-2 shadow-2xl flex flex-wrap gap-2`}>
+                              {customEmojis.map((emoji) => (
+                                <button
+                                  key={emoji.id}
+                                  onClick={() => handleReact(m.id, emoji)}
+                                  className="w-8 h-8 rounded-lg hover:bg-zinc-800 flex items-center justify-center p-1 transition-colors"
+                                  title={emoji.name}
+                                >
+                                  <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {isMe && m.failed && (
                           <div className="flex gap-2 mt-1 mr-1">

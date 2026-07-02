@@ -28,7 +28,23 @@ async def handle_log_dm(request):
     except Exception as e:
         return web.json_response({'error': str(e)}, status=400)
 
+async def handle_get_emojis(request):
+    try:
+        from src.core.events import bot
+        # Collect emojis from all guilds the bot is in
+        emojis = []
+        for emoji in bot.emojis:
+            emojis.append({
+                'id': str(emoji.id),
+                'name': emoji.name,
+                'url': str(emoji.url)
+            })
+        return web.json_response({'emojis': emojis})
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=500)
+
 app.router.add_post('/log_dm', handle_log_dm)
+app.router.add_get('/emojis', handle_get_emojis)
 
 class OutputInterceptor:
     def __init__(self, original_stream):
