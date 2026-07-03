@@ -1,30 +1,24 @@
-import { verifyToken } from "@/lib/jwt";
-import postgres from "postgres";
 import { NextResponse } from "next/server";
+import { sql } from "@/lib/db";
 
-export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-  const token = authHeader?.split(" ")[1];
-  const user = token ? await verifyToken(token) : null;
-  const session = user ? { user } : null;
-
-  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || "NOT_SET";
-  const safeUrl = dbUrl !== "NOT_SET" ? dbUrl.split("@")[1] : "NOT_SET"; // hide credentials
-
+export async function GET() {
   try {
-    const sql = postgres(dbUrl);
-    await sql`SELECT 1`;
-    return NextResponse.json({
-      db: "connected",
-      host: safeUrl,
-      session: session ? { name: session.user?.name, id: (session.user as any)?.id } : null,
-    });
-  } catch (err) {
-    return NextResponse.json({
-      db: "failed",
-      error: String(err),
-      host: safeUrl,
-      session: session ? { name: session.user?.name, id: (session.user as any)?.id } : null,
-    }, { status: 500 });
+    const columns = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'direct_messages'
+    `;
+    
+    // Also try a test query
+    let error = null;
+    try {
+      await sql`SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions FROM direct_messages LIMIT 1`;
+    } catch(e: any) {
+      error = e.message;
+    }
+
+    return NextResponse.json({ columns, error });
+  } catch(e: any) {
+    return NextResponse.json({ error: e.message });
   }
 }
