@@ -3,20 +3,14 @@ import { sql } from "@/lib/db";
 
 export async function GET() {
   try {
-    const columns = await sql`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'direct_messages'
-    `;
-    
     let rows = [];
     try {
-      rows = await sql`SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions FROM direct_messages LIMIT 5`;
+      rows = await sql`SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions FROM direct_messages ORDER BY sent_at DESC LIMIT 5`;
     } catch(e: any) {
       return NextResponse.json({ error: e.message });
     }
 
-    return NextResponse.json({ columns, rows });
+    return NextResponse.json({ rows });
   } catch(e: any) {
     return NextResponse.json({ error: e.message });
   }
