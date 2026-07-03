@@ -472,81 +472,81 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n", "fn"])
     async def fm_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, _ = await get_target_user(ctx, args)
-            invoked = ctx.invoked_with
-            if invoked in ["fm1", "np1"]: m = "compact"
-            elif invoked in ["fm2", "np2"]: m = "full"
-            elif invoked in ["fm3", "np3"]: m = "stats"
-            else:
-                m = await self.bot.get_user_fm_mode(target_user.id)
-                if not m: m = "full"
-            result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
-            if result is None:
-                await self._reply_and_delete(ctx, is_p)
-            elif isinstance(result, dict):
-                msg = await self._reply_and_delete(ctx, **result)
-                if is_p: await self.bot.add_custom_reactions(msg)
+        await ctx.trigger_typing()
+        target_user, _ = await get_target_user(ctx, args)
+        invoked = ctx.invoked_with
+        if invoked in ["fm1", "np1"]: m = "compact"
+        elif invoked in ["fm2", "np2"]: m = "full"
+        elif invoked in ["fm3", "np3"]: m = "stats"
+        else:
+            m = await self.bot.get_user_fm_mode(target_user.id)
+            if not m: m = "full"
+        result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
+        if result is None:
+            await self._reply_and_delete(ctx, is_p)
+        elif isinstance(result, dict):
+            msg = await self._reply_and_delete(ctx, **result)
+            if is_p: await self.bot.add_custom_reactions(msg)
 
     @commands.command(name="ta", aliases=["topartists", "topa", "tart"])
     async def ta_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, period = await get_target_user(ctx, args)
-            if not period: period = 'all'
-            embed, view, err = await self.bot.process_top_artists(target_user, period)
-            if embed:
-                await self._reply_and_delete(ctx, embed=embed, view=view)
-            else:
-                await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'all'
+        embed, view, err = await self.bot.process_top_artists(target_user, period)
+        if embed:
+            await self._reply_and_delete(ctx, embed=embed, view=view)
+        else:
+            await self._reply_and_delete(ctx, err)
 
     @commands.command(name="tt", aliases=["toptracks", "topt", "ttr", "ttracks"])
     async def tt_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, period = await get_target_user(ctx, args)
-            if not period: period = 'all'
-            embed, view, err = await self.bot.process_top_tracks(target_user, period)
-            if embed:
-                await self._reply_and_delete(ctx, embed=embed, view=view)
-            else:
-                await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'all'
+        embed, view, err = await self.bot.process_top_tracks(target_user, period)
+        if embed:
+            await self._reply_and_delete(ctx, embed=embed, view=view)
+        else:
+            await self._reply_and_delete(ctx, err)
 
     @commands.command(name="rt", aliases=["recent", "recents", "rtracks", "r"])
     async def rt_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, _ = await get_target_user(ctx, args)
-            embed, err = await self.bot.process_recent(target_user)
-            await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_recent(target_user)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="at", aliases=["artisttracks", "art", "atracks"])
     async def at_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, artist = await get_target_user(ctx, args)
-            embed, view, err = await self.bot.process_artist_tracks(target_user, artist)
-            if err:
-                await self._reply_and_delete(ctx, err)
-            else:
-                await self._reply_and_delete(ctx, embed=embed, view=view)
+        await ctx.trigger_typing()
+        target_user, artist = await get_target_user(ctx, args)
+        embed, view, err = await self.bot.process_artist_tracks(target_user, artist)
+        if err:
+            await self._reply_and_delete(ctx, err)
+        else:
+            await self._reply_and_delete(ctx, embed=embed, view=view)
 
 
     @commands.command(name="profile", aliases=["prof"])
     async def s_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, _ = await get_target_user(ctx, args)
-            embed, view, err = await self.bot.process_profile(target_user)
-            if embed:
-                if view:
-                    await self._reply_and_delete(ctx, embed=embed, view=view)
-                else:
-                    await self._reply_and_delete(ctx, embed=embed)
+        await ctx.trigger_typing()
+        target_user, _ = await get_target_user(ctx, args)
+        embed, view, err = await self.bot.process_profile(target_user)
+        if embed:
+            if view:
+                await self._reply_and_delete(ctx, embed=embed, view=view)
             else:
-                await self._reply_and_delete(ctx, err)
+                await self._reply_and_delete(ctx, embed=embed)
+        else:
+            await self._reply_and_delete(ctx, err)
 
     @commands.command(name="wk", aliases=["whoknows", "who", "w"])
     async def wk_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, artist = await get_target_user(ctx, args)
-            embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
-            await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, artist = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
@@ -577,28 +577,28 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="crowns", aliases=["cr", "cw"])
     async def crowns_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, _ = await get_target_user(ctx, args)
-            embed, err = await self.bot.process_crowns(ctx.guild, target_user)
-            await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_crowns(ctx.guild, target_user)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="judge", aliases=["roast", "jd", "j"])
     async def judge_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, _ = await get_target_user(ctx, args)
-            embed, err = await self.bot.process_judge(target_user)
-            await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        await ctx.trigger_typing()
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_judge(target_user)
+        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="receipt", aliases=["rec", "re"])
     async def receipt_prefix(self, ctx, *, args: str = None):
-        async with ctx.typing():
-            target_user, period = await get_target_user(ctx, args)
-            if not period: period = 'overall'
-            # Map period aliases
-            period_map = {'7d': '7day', '1m': '1month', '3m': '3month', '6m': '6month', '12m': '12month', 'y': '12month', 'all': 'overall'}
-            p = period_map.get(period.lower(), period.lower())
+        await ctx.trigger_typing()
+        target_user, period = await get_target_user(ctx, args)
+        if not period: period = 'overall'
+        # Map period aliases
+        period_map = {'7d': '7day', '1m': '1month', '3m': '3month', '6m': '6month', '12m': '12month', 'y': '12month', 'all': 'overall'}
+        p = period_map.get(period.lower(), period.lower())
             
-            embed, file, err = await self.bot.process_receipt(target_user, p, 10)
+        embed, file, err = await self.bot.process_receipt(target_user, p, 10)
         if err:
             await self._reply_and_delete(ctx, err)
         else:

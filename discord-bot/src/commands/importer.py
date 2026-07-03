@@ -21,15 +21,15 @@ class ImporterCog(commands.Cog):
 
     @commands.command(name="import", aliases=["imp", "i"])
     async def import_prefix(self, ctx):
-        async with ctx.typing():
-            if not ctx.message.attachments:
-                await ctx.send("❌ Please attach your Spotify/Apple Music extended history .zip or .csv file to the message.")
-                return
-            attachment = ctx.message.attachments[0]
-            if not (attachment.filename.endswith('.zip') or attachment.filename.endswith('.csv')):
-                await ctx.send("❌ The attachment must be a .zip or .csv file.")
-                return
-            await self.bot.handle_discord_import(ctx.author, attachment, ctx.send)
+        await ctx.trigger_typing()
+        if not ctx.message.attachments:
+            await ctx.send("❌ Please attach your Spotify/Apple Music extended history .zip or .csv file to the message.")
+            return
+        attachment = ctx.message.attachments[0]
+        if not (attachment.filename.endswith('.zip') or attachment.filename.endswith('.csv')):
+            await ctx.send("❌ The attachment must be a .zip or .csv file.")
+            return
+        await self.bot.handle_discord_import(ctx.author, attachment, ctx.send)
 
     @app_commands.command(name="deletedata", description="Delete all your imported data from the database")
     @app_commands.allowed_installs(guilds=True, users=True)
