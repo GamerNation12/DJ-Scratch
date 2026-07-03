@@ -780,10 +780,11 @@ async def on_ready():
    |_| |_| |_|\___|  \____|\___/ \__,_|\__|___/  |____/  _/ |
                                                         |__/ 
 ========================================================================""")
-    print(f"{Log.GREEN}✓ ONLINE AS: {bot.user}{Log.RESET}")
+    print(f"{Log.GREEN}[OK] ONLINE AS: {bot.user}{Log.RESET}")
     total_servers = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
-    print(f"{Log.GREEN}✓ CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
+    print(f"{Log.GREEN}[OK] CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
+    print(f"{Log.GREEN}[OK] SYNCED COMMANDS: {len(bot.tree.get_commands())} global commands{Log.RESET}")
     print(f"{Log.YELLOW}! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.{Log.RESET}")
     
 
