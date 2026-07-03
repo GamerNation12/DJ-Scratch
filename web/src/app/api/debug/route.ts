@@ -9,15 +9,14 @@ export async function GET() {
       WHERE table_name = 'direct_messages'
     `;
     
-    // Also try a test query
-    let error = null;
+    let rows = [];
     try {
-      await sql`SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions FROM direct_messages LIMIT 1`;
+      rows = await sql`SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions FROM direct_messages LIMIT 5`;
     } catch(e: any) {
-      error = e.message;
+      return NextResponse.json({ error: e.message });
     }
 
-    return NextResponse.json({ columns, error });
+    return NextResponse.json({ columns, rows });
   } catch(e: any) {
     return NextResponse.json({ error: e.message });
   }
