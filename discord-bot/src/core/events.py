@@ -361,6 +361,10 @@ async def setup_hook():
                     print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
+            
+            from src.core.socket_server import start_socket_server
+            await start_socket_server()
+            
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
