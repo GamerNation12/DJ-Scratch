@@ -31,14 +31,21 @@ async def handle_log_dm(request):
 async def handle_get_emojis(request):
     try:
         from src.core.events import bot
-        # Collect emojis from all guilds the bot is in
         emojis = []
-        for emoji in bot.emojis:
+        
+        # Try to get emojis from the specific server first
+        target_guild_id = 1360772594122358834
+        guild = bot.get_guild(target_guild_id)
+        
+        source_emojis = guild.emojis if guild else bot.emojis
+        
+        for emoji in source_emojis:
             emojis.append({
                 'id': str(emoji.id),
                 'name': emoji.name,
                 'url': str(emoji.url)
             })
+            
         return web.json_response({'emojis': emojis})
     except Exception as e:
         return web.json_response({'error': str(e)}, status=500)

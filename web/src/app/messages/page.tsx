@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 // Replace with your actual deployed socket server URL in production
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
+const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
 function MessagesContent() {
   const searchParams = useSearchParams();
@@ -473,6 +474,23 @@ function MessagesContent() {
                       {customEmojis.length === 0 && (
                         <div className="text-sm text-zinc-500 text-center w-full py-4">No custom emojis found.</div>
                       )}
+                      
+                      <div className="w-full h-px bg-white/10 my-2" />
+                      <div className="text-xs font-semibold text-zinc-400 mb-2 w-full uppercase tracking-wider">Standard Emojis</div>
+                      
+                      {STANDARD_EMOJIS.map((emoji, idx) => (
+                        <button 
+                          key={`std-${idx}`} 
+                          type="button"
+                          onClick={() => {
+                            setInput(prev => prev + emoji);
+                            setShowChatEmojiPicker(false);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg p-1 transition-colors text-xl"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
