@@ -272,6 +272,7 @@ function MessagesContent() {
       });
     } catch(err) {
       console.error(err);
+    }
   };
 
   const renderMessageContent = (content: string) => {
