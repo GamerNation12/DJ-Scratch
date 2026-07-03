@@ -25,7 +25,7 @@ export async function GET(
 
   try {
     const messages = await sql`
-      SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions
+      SELECT id, sender_id, receiver_id, content, sent_at, read_at, reactions, is_bot
       FROM direct_messages
       WHERE (sender_id = ${myId} AND receiver_id = ${targetId})
          OR (sender_id = ${targetId} AND receiver_id = ${myId})
@@ -114,8 +114,8 @@ export async function POST(
           // That way it shows up in the same chat!
           const botMessageId = "msg_" + Date.now();
           await sql`
-            INSERT INTO direct_messages (id, sender_id, receiver_id, content, sent_at)
-            VALUES (${botMessageId}, ${myId}, ${targetId}, ${data.result}, NOW())
+            INSERT INTO direct_messages (id, sender_id, receiver_id, content, sent_at, is_bot)
+            VALUES (${botMessageId}, ${myId}, ${targetId}, ${data.result}, NOW(), TRUE)
           `;
           
           // Broadcast bot reply to the receiver
@@ -125,7 +125,7 @@ export async function POST(
             body: JSON.stringify({ 
               sender_id: myId, 
               receiver_id: targetId,
-              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString() }
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString(), is_bot: true }
             })
           }).catch(console.error);
 
@@ -136,7 +136,7 @@ export async function POST(
             body: JSON.stringify({ 
               sender_id: targetId, // Flip sender/receiver to emit to 'myId'
               receiver_id: myId,
-              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString() }
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString(), is_bot: true }
             })
           }).catch(console.error);
         }

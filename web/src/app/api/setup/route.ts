@@ -53,16 +53,17 @@ export async function GET(req: Request) {
     // Add read_at if it doesn't exist for existing tables
     try {
       await sql`ALTER TABLE direct_messages ADD COLUMN read_at TIMESTAMP WITH TIME ZONE`;
-    } catch(e) {
-      // Column might already exist, ignore
-    }
+    } catch(e) {}
 
     // Add reactions if it doesn't exist
     try {
       await sql`ALTER TABLE direct_messages ADD COLUMN reactions JSONB DEFAULT '[]'::jsonb`;
-    } catch(e) {
-      // Column might already exist, ignore
-    }
+    } catch(e) {}
+
+    // Add is_bot flag for bot responses in DM
+    try {
+      await sql`ALTER TABLE direct_messages ADD COLUMN is_bot BOOLEAN DEFAULT FALSE`;
+    } catch(e) {}
 
     await sql`CREATE INDEX IF NOT EXISTS idx_dm_sender ON direct_messages(sender_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_dm_receiver ON direct_messages(receiver_id)`;

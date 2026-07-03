@@ -73,21 +73,25 @@ async def handle_run_web_command(request):
                     e = r_dict["embed"]
                     title = e.author.name if e.author else "Now Playing"
                     desc = str(e.description).replace("\n\n", "\n")
-                    result_text = f"🤖 **{title}**\n{desc}"
+                    result_text = f"**{title}**\n{desc}"
                 elif isinstance(r_dict, dict) and "content" in r_dict:
-                    result_text = f"🤖 {r_dict['content']}"
+                    result_text = r_dict['content']
         elif cmd.startswith(",ta"):
             embed, _, err = await bot.process_top_artists(user, 'all')
-            if embed:
-                result_text = f"🤖 **{embed.title}**\n{embed.description}"
-            else:
-                result_text = f"🤖 {err}"
+            if err:
+                result_text = err
+            elif embed:
+                title = embed.author.name if embed.author else "Top Artists"
+                desc = str(embed.description).replace("\n\n", "\n")
+                result_text = f"**{title}**\n{desc}"
         elif cmd.startswith(",tt"):
             embed, _, err = await bot.process_top_tracks(user, 'all')
-            if embed:
-                result_text = f"🤖 **{embed.title}**\n{embed.description}"
-            else:
-                result_text = f"🤖 {err}"
+            if err:
+                result_text = err
+            elif embed:
+                title = embed.author.name if embed.author else "Top Tracks"
+                desc = str(embed.description).replace("\n\n", "\n")
+                result_text = f"**{title}**\n{desc}"
 
         return web.json_response({'result': result_text})
         

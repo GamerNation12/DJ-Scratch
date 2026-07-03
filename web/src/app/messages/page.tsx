@@ -380,15 +380,30 @@ function MessagesContent() {
                   </div>
                 ) : (
                   messages.map(m => {
-                    const isMe = m.sender_id === myId;
+                    const isMe = m.sender_id === myId && !m.is_bot;
+                    const isBot = m.is_bot;
+                    
                     return (
                       <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        <div className={`max-w-[70%] px-4 py-2 rounded-2xl relative group ${
+                        
+                        {isBot && (
+                          <div className="flex items-center gap-1.5 mb-1 ml-1 opacity-90">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                              <span className="text-[10px]">🤖</span>
+                            </div>
+                            <span className="text-xs font-semibold text-zinc-300">DJ Scratch</span>
+                            <span className="text-[9px] bg-indigo-500/80 text-white px-1 py-0.5 rounded uppercase tracking-wider font-bold">Bot</span>
+                          </div>
+                        )}
+
+                        <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2 rounded-2xl relative group ${
                           isMe 
                             ? m.failed
                               ? 'bg-red-500/10 text-red-200 border border-red-500/20 rounded-br-sm'
                               : 'bg-indigo-600 text-white rounded-br-sm shadow-lg shadow-indigo-600/20' 
-                            : 'bg-zinc-800 text-zinc-200 rounded-bl-sm border border-white/5'
+                            : isBot
+                              ? 'bg-[#2b2d31] text-zinc-100 rounded-bl-sm border border-white/5 shadow-md ml-6' // Discord-like gray
+                              : 'bg-zinc-800 text-zinc-200 rounded-bl-sm border border-white/5'
                         } ${m.isSending ? 'opacity-70' : ''}`}>
                           <p className="break-words leading-relaxed">{renderMessageContent(m.content)}</p>
                           
