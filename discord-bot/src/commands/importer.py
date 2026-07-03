@@ -21,7 +21,6 @@ class ImporterCog(commands.Cog):
 
     @commands.command(name="import", aliases=["imp", "i"])
     async def import_prefix(self, ctx):
-        await ctx.trigger_typing()
         if not ctx.message.attachments:
             await ctx.send("❌ Please attach your Spotify/Apple Music extended history .zip or .csv file to the message.")
             return

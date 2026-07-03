@@ -472,7 +472,6 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n", "fn"])
     async def fm_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, _ = await get_target_user(ctx, args)
         invoked = ctx.invoked_with
         if invoked in ["fm1", "np1"]: m = "compact"
@@ -490,7 +489,6 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="ta", aliases=["topartists", "topa", "tart"])
     async def ta_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, period = await get_target_user(ctx, args)
         if not period: period = 'all'
         embed, view, err = await self.bot.process_top_artists(target_user, period)
@@ -501,7 +499,6 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="tt", aliases=["toptracks", "topt", "ttr", "ttracks"])
     async def tt_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, period = await get_target_user(ctx, args)
         if not period: period = 'all'
         embed, view, err = await self.bot.process_top_tracks(target_user, period)
@@ -512,14 +509,12 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="rt", aliases=["recent", "recents", "rtracks", "r"])
     async def rt_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_recent(target_user)
         await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="at", aliases=["artisttracks", "art", "atracks"])
     async def at_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, artist = await get_target_user(ctx, args)
         embed, view, err = await self.bot.process_artist_tracks(target_user, artist)
         if err:
@@ -530,7 +525,6 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="profile", aliases=["prof"])
     async def s_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, _ = await get_target_user(ctx, args)
         embed, view, err = await self.bot.process_profile(target_user)
         if embed:
@@ -543,7 +537,6 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="wk", aliases=["whoknows", "who", "w"])
     async def wk_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, artist = await get_target_user(ctx, args)
         embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
         await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
@@ -577,21 +570,18 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="crowns", aliases=["cr", "cw"])
     async def crowns_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_crowns(ctx.guild, target_user)
         await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="judge", aliases=["roast", "jd", "j"])
     async def judge_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_judge(target_user)
         await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
 
     @commands.command(name="receipt", aliases=["rec", "re"])
     async def receipt_prefix(self, ctx, *, args: str = None):
-        await ctx.trigger_typing()
         target_user, period = await get_target_user(ctx, args)
         if not period: period = 'overall'
         # Map period aliases
