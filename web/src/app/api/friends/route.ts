@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { sendDiscordDM } from "@/lib/discord";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function getUser(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
   const token = authHeader?.split(" ")[1];

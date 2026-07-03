@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyToken } from "@/lib/jwt";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
   const token = authHeader?.split(" ")[1];
