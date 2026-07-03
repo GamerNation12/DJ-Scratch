@@ -100,6 +100,27 @@ export async function POST(
       body: JSON.stringify({ sender_id: myId, receiver_id: targetId })
     }).catch(console.error);
 
+    // If it's a command, execute it via the bot
+    if (content.startsWith(",")) {
+      fetch("http://mango.fps.ms:20544/run_web_command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sender_id: myId, command: content })
+      })
+      .then(res => res.json())
+      .then(async data => {
+        if (data.result) {
+          // Insert the bot's reply into the DB as if it was sent by the original user
+          // That way it shows up in the same chat!
+          await sql`
+            INSERT INTO direct_messages (sender_id, receiver_id, content)
+            VALUES (${myId}, ${targetId}, ${data.result})
+          `;
+        }
+      })
+      .catch(console.error);
+    }
+
     return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content } });
   } catch (err) {
     console.error(err);

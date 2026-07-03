@@ -43,8 +43,53 @@ async def handle_get_emojis(request):
     except Exception as e:
         return web.json_response({'error': str(e)}, status=500)
 
+async def handle_run_web_command(request):
+    try:
+        data = await request.json()
+        sender_id = data.get('sender_id')
+        command = data.get('command', '').strip()
+        
+        from src.core.events import bot, process_fm, process_top_artists, process_top_tracks
+        user = await bot.fetch_user(int(sender_id))
+        
+        if not user:
+            return web.json_response({'error': 'User not found'}, status=400)
+            
+        result_text = "Command not recognized or supported on web."
+        cmd = command.lower()
+        
+        if cmd.startswith(",fm") or cmd.startswith(",np"):
+            res = await process_fm(None, user, mode="full")
+            if isinstance(res, tuple) and len(res) == 2:
+                r_dict, is_p = res
+                if isinstance(r_dict, dict) and "embed" in r_dict:
+                    e = r_dict["embed"]
+                    title = e.author.name if e.author else "Now Playing"
+                    desc = str(e.description).replace("\n\n", "\n")
+                    result_text = f"🤖 **{title}**\n{desc}"
+                elif isinstance(r_dict, dict) and "content" in r_dict:
+                    result_text = f"🤖 {r_dict['content']}"
+        elif cmd.startswith(",ta"):
+            embed, _, err = await bot.process_top_artists(user, 'all')
+            if embed:
+                result_text = f"🤖 **{embed.title}**\n{embed.description}"
+            else:
+                result_text = f"🤖 {err}"
+        elif cmd.startswith(",tt"):
+            embed, _, err = await bot.process_top_tracks(user, 'all')
+            if embed:
+                result_text = f"🤖 **{embed.title}**\n{embed.description}"
+            else:
+                result_text = f"🤖 {err}"
+
+        return web.json_response({'result': result_text})
+        
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=500)
+
 app.router.add_post('/log_dm', handle_log_dm)
 app.router.add_get('/emojis', handle_get_emojis)
+app.router.add_post('/run_web_command', handle_run_web_command)
 
 class OutputInterceptor:
     def __init__(self, original_stream):

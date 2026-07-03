@@ -80,5 +80,33 @@ class SocialCog(commands.Cog):
         else:
             await interaction.followup.send("Failed to send message.")
 
+    @app_commands.command(name="reply", description="Send a direct message reply to a user on the app")
+    @app_commands.describe(user="The user to message", message="The message content")
+    async def reply_dm(self, interaction: discord.Interaction, user: discord.Member, message: str):
+        await interaction.response.defer(ephemeral=True)
+        sender_id = str(interaction.user.id)
+        receiver_id = str(user.id)
+        
+        # Check if they are friends
+        friends_list = await get_friends(sender_id)
+        is_friend = any(f['id'] == receiver_id and f['status'] == 'accepted' for f in friends_list)
+        
+        if not is_friend:
+            await interaction.followup.send("You can only send DMs to friends!")
+            return
+            
+        success = await send_dm(sender_id, receiver_id, message)
+        if success:
+            await interaction.followup.send(f"Reply sent to {user.display_name}!")
+            try:
+                view = discord.ui.View()
+                btn = discord.ui.Button(label="Reply via Discord", style=discord.ButtonStyle.primary, custom_id=f"reply_dm_{sender_id}")
+                view.add_item(btn)
+                await user.send(f"New DM from **{interaction.user.display_name}** on DJ Scratch:\n`{message}`\n*(Reply on the website/app or click below)*", view=view)
+            except:
+                pass
+        else:
+            await interaction.followup.send("Failed to send message.")
+
 async def setup(bot):
     await bot.add_cog(SocialCog(bot))

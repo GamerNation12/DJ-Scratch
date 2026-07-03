@@ -21,6 +21,7 @@ function MessagesContent() {
   const [myId, setMyId] = useState<string | null>(null);
   const [customEmojis, setCustomEmojis] = useState<any[]>([]);
   const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<number | null>(null);
+  const [showChatEmojiPicker, setShowChatEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,13 +78,25 @@ function MessagesContent() {
         const data = await res.json();
         if (data.friends) {
           const accepted = data.friends.filter((f: any) => f.status === 'accepted');
-          setFriends(accepted);
+          
+          const botFriend = {
+            friend_id: "BOT",
+            friend_username: "djscratch",
+            display_name: "DJ Scratch Bot",
+            status: "accepted",
+            direction: "outgoing"
+          };
+          
+          const allFriends = [botFriend, ...accepted];
+          setFriends(allFriends);
           
           if (initialUser) {
-            const target = accepted.find((f: any) => f.friend_id === initialUser);
+            const target = allFriends.find((f: any) => f.friend_id === initialUser);
             if (target) {
               setActiveChat(target);
             }
+          } else if (allFriends.length > 0 && !activeChat) {
+            setActiveChat(allFriends[0]);
           }
         }
       } catch (err) {
@@ -259,9 +272,43 @@ function MessagesContent() {
       });
     } catch(err) {
       console.error(err);
-    }
   };
 
+  const renderMessageContent = (content: string) => {
+    // Basic parser for <:name:id> or <a:name:id>
+    const regex = /<a?:([^:]+):(\d+)>/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+      const isAnimated = match[0].startsWith('<a:');
+      const emojiName = match[1];
+      const emojiId = match[2];
+      const ext = isAnimated ? 'gif' : 'png';
+      
+      parts.push(
+        <img 
+          key={match.index} 
+          src={`https://cdn.discordapp.com/emojis/${emojiId}.${ext}?size=48`} 
+          alt={emojiName} 
+          title={emojiName}
+          className="inline-block w-6 h-6 object-contain align-middle mx-0.5" 
+        />
+      );
+      
+      lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+    
+    return parts.length > 0 ? parts : content;
+  };
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white pt-20 px-4 sm:px-6 lg:px-8 pb-10">
@@ -332,7 +379,7 @@ function MessagesContent() {
                               : 'bg-indigo-600 text-white rounded-br-sm shadow-lg shadow-indigo-600/20' 
                             : 'bg-zinc-800 text-zinc-200 rounded-bl-sm border border-white/5'
                         } ${m.isSending ? 'opacity-70' : ''}`}>
-                          <p className="break-words">{m.content}</p>
+                          <p className="break-words leading-relaxed">{renderMessageContent(m.content)}</p>
                           
                           {/* Reactions */}
                           {m.reactions && m.reactions.length > 0 && (
@@ -403,8 +450,39 @@ function MessagesContent() {
               </div>
 
               {/* Input */}
-              <div className="p-4 bg-black/40 border-t border-white/5 absolute bottom-0 w-full backdrop-blur-md">
-                <form onSubmit={sendMessage} className="flex gap-2">
+              <div className="p-4 bg-black/40 border-t border-white/5 absolute bottom-0 w-full backdrop-blur-md relative">
+                {showChatEmojiPicker && (
+                  <div className="absolute bottom-full left-4 mb-2 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl p-3 w-72 max-h-64 flex flex-col z-50">
+                    <div className="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Custom Emojis</div>
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-wrap gap-2 pr-1">
+                      {customEmojis.map((emoji, idx) => (
+                        <button 
+                          key={idx} 
+                          type="button"
+                          onClick={() => {
+                            setInput(prev => prev + `<:${emoji.name}:${emoji.id}>`);
+                            setShowChatEmojiPicker(false);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg p-1 transition-colors"
+                          title={emoji.name}
+                        >
+                          <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain" />
+                        </button>
+                      ))}
+                      {customEmojis.length === 0 && (
+                        <div className="text-sm text-zinc-500 text-center w-full py-4">No custom emojis found.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <form onSubmit={sendMessage} className="flex gap-2 relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowChatEmojiPicker(!showChatEmojiPicker)}
+                    className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition-colors"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </button>
                   <input
                     type="text"
                     value={input}
