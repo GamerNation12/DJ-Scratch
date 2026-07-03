@@ -112,10 +112,33 @@ export async function POST(
         if (data.result) {
           // Insert the bot's reply into the DB as if it was sent by the original user
           // That way it shows up in the same chat!
+          const botMessageId = "msg_" + Date.now();
           await sql`
-            INSERT INTO direct_messages (sender_id, receiver_id, content)
-            VALUES (${myId}, ${targetId}, ${data.result})
+            INSERT INTO direct_messages (id, sender_id, receiver_id, content, sent_at)
+            VALUES (${botMessageId}, ${myId}, ${targetId}, ${data.result}, NOW())
           `;
+          
+          // Broadcast bot reply to the receiver
+          fetch("http://mango.fps.ms:20544/log_dm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              sender_id: myId, 
+              receiver_id: targetId,
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString() }
+            })
+          }).catch(console.error);
+
+          // Broadcast bot reply to the sender (so they see it instantly too)
+          fetch("http://mango.fps.ms:20544/log_dm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              sender_id: targetId, // Flip sender/receiver to emit to 'myId'
+              receiver_id: myId,
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString() }
+            })
+          }).catch(console.error);
         }
       })
       .catch(console.error);

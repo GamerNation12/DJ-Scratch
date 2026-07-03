@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile } from "lucide-react";
 import toast from "react-hot-toast";
+import ReactMarkdown from "react-markdown";
 
 // Replace with your actual deployed socket server URL in production
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
@@ -285,7 +286,11 @@ function MessagesContent() {
 
     while ((match = regex.exec(content)) !== null) {
       if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index));
+        parts.push(
+          <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 [&_a]:underline [&_strong]:font-bold [&_em]:italic">
+            <ReactMarkdown>{content.substring(lastIndex, match.index)}</ReactMarkdown>
+          </span>
+        );
       }
       const isAnimated = match[0].startsWith('<a:');
       const emojiName = match[1];
@@ -294,7 +299,7 @@ function MessagesContent() {
       
       parts.push(
         <img 
-          key={match.index} 
+          key={`emoji-${match.index}`} 
           src={`https://cdn.discordapp.com/emojis/${emojiId}.${ext}?size=48`} 
           alt={emojiName} 
           title={emojiName}
@@ -306,7 +311,11 @@ function MessagesContent() {
     }
     
     if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
+      parts.push(
+        <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 [&_a]:underline hover:[&_a]:text-indigo-300 [&_strong]:font-bold [&_em]:italic break-words">
+          <ReactMarkdown>{content.substring(lastIndex)}</ReactMarkdown>
+        </span>
+      );
     }
     
     return parts.length > 0 ? parts : content;

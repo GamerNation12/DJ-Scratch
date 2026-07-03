@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     // 1. Get refresh token from DB
     const res = await sql`SELECT spotify_refresh_token FROM user_settings WHERE user_id = ${myId}`;
     if (res.length === 0 || !res[0].spotify_refresh_token) {
-      return NextResponse.json({ error: "No Spotify account linked" }, { status: 404 });
+      return NextResponse.json({ is_playing: false, error: "not_linked" });
     }
     
     const refresh_token = res[0].spotify_refresh_token;
