@@ -112,11 +112,14 @@ export async function POST(
         if (data.result) {
           // Insert the bot's reply into the DB as if it was sent by the original user
           // That way it shows up in the same chat!
-          const botMessageId = "msg_" + Date.now();
-          await sql`
-            INSERT INTO direct_messages (id, sender_id, receiver_id, content, sent_at, is_bot)
-            VALUES (${botMessageId}, ${myId}, ${targetId}, ${data.result}, NOW(), TRUE)
+          const botRes = await sql`
+            INSERT INTO direct_messages (sender_id, receiver_id, content, sent_at, is_bot)
+            VALUES (${myId}, ${targetId}, ${data.result}, NOW(), TRUE)
+            RETURNING id, sent_at
           `;
+          
+          const botMessageId = botRes[0].id;
+          const botSentAt = botRes[0].sent_at;
           
           // Broadcast bot reply to the receiver
           fetch("http://mango.fps.ms:20544/log_dm", {
@@ -125,7 +128,7 @@ export async function POST(
             body: JSON.stringify({ 
               sender_id: myId, 
               receiver_id: targetId,
-              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString(), is_bot: true }
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: botSentAt, is_bot: true }
             })
           }).catch(console.error);
 
@@ -136,7 +139,7 @@ export async function POST(
             body: JSON.stringify({ 
               sender_id: targetId, // Flip sender/receiver to emit to 'myId'
               receiver_id: myId,
-              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: new Date().toISOString(), is_bot: true }
+              msg_data: { id: botMessageId, sender_id: myId, receiver_id: targetId, content: data.result, sent_at: botSentAt, is_bot: true }
             })
           }).catch(console.error);
         }

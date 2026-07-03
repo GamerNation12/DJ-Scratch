@@ -304,6 +304,7 @@ function MessagesContent() {
           alt={emojiName} 
           title={emojiName}
           className="inline-block w-6 h-6 object-contain align-middle mx-0.5" 
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       );
       
