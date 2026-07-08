@@ -38,7 +38,14 @@ export async function GET(req: Request) {
       })
     });
     
-    if (!tokenRes.ok) return NextResponse.json({ error: "Failed to refresh token" }, { status: 500 });
+    if (!tokenRes.ok) {
+      const errData = await tokenRes.json().catch(() => ({}));
+      if (errData.error === "invalid_grant") {
+        // Refresh token is invalid/revoked. Treat as not linked.
+        return NextResponse.json({ is_playing: false, error: "not_linked" });
+      }
+      return NextResponse.json({ error: `Failed to refresh token: ${errData.error || tokenRes.status}` }, { status: 500 });
+    }
     
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;

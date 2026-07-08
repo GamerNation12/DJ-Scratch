@@ -28,8 +28,8 @@ export default function MusicDashboard() {
       }
       if (data.error) throw new Error(data.error);
       setNowPlaying(data);
-    } catch(e) {
-      setError("Failed to fetch now playing data.");
+    } catch(e: any) {
+      setError(e.message || "Failed to fetch now playing data.");
     }
   };
 
