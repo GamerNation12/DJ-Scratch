@@ -22,6 +22,10 @@ export default function MusicDashboard() {
         return;
       }
       const data = await res.json();
+      if (data.error === "not_linked") {
+        setError("You have not linked your Spotify account. Go to Settings or type ,play in Discord to link it.");
+        return;
+      }
       if (data.error) throw new Error(data.error);
       setNowPlaying(data);
     } catch(e) {

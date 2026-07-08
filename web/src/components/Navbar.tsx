@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "@/app/providers";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { Users, MessageSquare } from "lucide-react";
 
 export default function Navbar() {
   const { data: session, logout } = useSession();
@@ -144,49 +145,48 @@ export default function Navbar() {
               >
                 Stats
               </Link>
-              {session && (
-                <>
-                  <Link
-                    href="/friends"
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      pathname === "/friends"
-                        ? "bg-white/10 text-white"
-                        : "text-zinc-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    Friends
-                  </Link>
-                  <Link
-                    href="/messages"
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      pathname === "/messages"
-                        ? "bg-white/10 text-white"
-                        : "text-zinc-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    Messages
-                  </Link>
-                </>
-              )}
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
-                    pathname === "/admin"
-                      ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                      : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                  Admin
-                </Link>
-              )}
             </div>
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-4">
             {session ? (
               <div className="flex items-center gap-2 sm:gap-4">
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
+                      pathname === "/admin"
+                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                        : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
+                    }`}
+                    title="Admin"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <span className="hidden lg:block text-xs font-medium">Admin</span>
+                  </Link>
+                )}
+                <Link
+                  href="/friends"
+                  className={`p-2 rounded-lg transition-all ${
+                    pathname === "/friends"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                  title="Friends"
+                >
+                  <Users className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/messages"
+                  className={`p-2 rounded-lg transition-all ${
+                    pathname === "/messages"
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-white/5"
+                  }`}
+                  title="Messages"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </Link>
                 <a 
                   href="https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands"
                   target="_blank" 
