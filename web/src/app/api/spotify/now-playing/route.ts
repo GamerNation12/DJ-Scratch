@@ -53,6 +53,10 @@ export async function GET(req: Request) {
     if (npRes.status === 204) {
       return NextResponse.json({ is_playing: false });
     }
+    if (!npRes.ok) {
+      const text = await npRes.text();
+      return NextResponse.json({ error: `Spotify API error: ${npRes.status} ${text}` }, { status: 500 });
+    }
     
     const npData = await npRes.json();
     
@@ -63,14 +67,14 @@ export async function GET(req: Request) {
     return NextResponse.json({
       is_playing: npData.is_playing,
       song: npData.item.name,
-      artist: npData.item.artists.map((a: any) => a.name).join(", "),
-      album_art: npData.item.album.images[0]?.url,
-      progress_ms: npData.progress_ms,
-      duration_ms: npData.item.duration_ms
+      artist: npData.item.artists ? npData.item.artists.map((a: any) => a.name).join(", ") : "Unknown Artist",
+      album_art: npData.item.album?.images?.[0]?.url || "",
+      progress_ms: npData.progress_ms || 0,
+      duration_ms: npData.item.duration_ms || 0
     });
     
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Internal Error", stack: err.stack }, { status: 500 });
   }
 }
