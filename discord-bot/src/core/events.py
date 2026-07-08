@@ -1435,11 +1435,13 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             except Exception as e:
                 print(f"Deezer fallback error: {e}")
 
+        raw_artist, raw_song = artist, song
+
         show_features = await get_user_show_features(user.id)
         if show_features:
             artist, song = await apply_features(session, artist, song, s_artists)
                 
-        track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(artist)}/_/{urllib.parse.quote(song)}")
+        track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         status = "Now Playing" if is_p else "Last Played"
         color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
@@ -1453,7 +1455,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         track_plays = -1
         t_info = None
         if show_playcount or mode == "stats":
-            t_info = await fetch_track_info(username, artist, song)
+            t_info = await fetch_track_info(username, raw_artist, raw_song)
             if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
                 track_plays = int(t_info['track']['userplaycount'])
 
@@ -1482,7 +1484,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="compact", track_data=data)
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data=data)
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -1508,7 +1510,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
             if img: embed.set_thumbnail(url=img)
             
-            a_info_task = asyncio.create_task(fetch_artist_info(username, artist))
+            a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist))
             
             guild = getattr(ctx_int, 'guild', None)
             crown_task = None
@@ -1518,7 +1520,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
                 if linked:
                     async def fetch_crown():
-                        tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
+                        tasks = [(uid, lname, fetch_artist_playcount(session, lname, raw_artist)) for uid, lname in linked.items()]
                         results = await asyncio.gather(*(t[2] for t in tasks))
                         
                         def get_name(uid, lname):
@@ -1558,7 +1560,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             disp_u = 'DJ Scratch' if username.lower() == 'thegoatsdj' else username
             embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
-            view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="stats", track_data=data)
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data=data)
             result = {"embed": embed, "view": view}
             return result, is_p
 
@@ -1580,7 +1582,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=song, current_mode="full", track_data=data)
+        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data=data)
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
