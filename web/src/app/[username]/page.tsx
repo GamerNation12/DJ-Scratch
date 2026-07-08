@@ -132,8 +132,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   // Fetch Public Profile Data
   useEffect(() => {
     let isMounted = true;
+    setProfileLoading(true);
+    
     const fetchProfile = async () => {
-      if (profileLoading) setProfileLoading(true);
       try {
         const res = await fetchApi(`/api/u/${usernameParam}?t=${Date.now()}`);
         const data = await res.json();
