@@ -139,8 +139,12 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         const res = await fetchApi(`/api/u/${usernameParam}?t=${Date.now()}`);
         const data = await res.json();
         if (isMounted) {
-          if (data.error) setProfileError(data.error);
-          else setProfile(data);
+          if (data.error) {
+            setProfileError(data.error);
+          } else {
+            setProfileError(null);
+            setProfile(data);
+          }
         }
       } catch (err) {
         if (isMounted) setProfileError("Failed to load profile.");
@@ -366,18 +370,21 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     let title = "Profile Unavailable";
     
     const errorLower = profileError.toLowerCase();
-    if (errorLower.includes("not found")) {
-      icon = "👻";
-      title = "User Not Found";
-    } else if (errorLower.includes("server error") || errorLower.includes("failed to load")) {
-      icon = "⚠️";
-      title = "Server Error";
-    } else if (errorLower.includes("private")) {
-      icon = "🔒";
-      title = "Private Profile";
-    }
+    
+    const isFatalError = errorLower.includes("private") || errorLower.includes("not found");
+    if (!profile || isFatalError) {
+      if (errorLower.includes("not found")) {
+        icon = "👻";
+        title = "User Not Found";
+      } else if (errorLower.includes("server error") || errorLower.includes("failed to load")) {
+        icon = "⚠️";
+        title = "Server Error";
+      } else if (errorLower.includes("private")) {
+        icon = "🔒";
+        title = "Private Profile";
+      }
 
-    return (
+      return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4 relative overflow-hidden">
         {/* Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
@@ -396,6 +403,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         </div>
       </div>
     );
+    }
   }
 
   return (
