@@ -11,17 +11,27 @@ export async function GET() {
   try {
     const sql = postgres(DB_URL!);
     
-    // Fetch all public users who have linked a Last.fm account
+    // Fetch all public users
     const rows = await sql`
-      SELECT user_id, lastfm_username, discord_username, display_name
+      SELECT user_id, lastfm_username, discord_username, display_name, data_source
       FROM user_settings 
       WHERE private_mode = FALSE 
-      AND lastfm_username IS NOT NULL
       AND discord_username IS NOT NULL
     `;
 
     if (rows.length === 0) {
       return NextResponse.json({ success: true, leaderboard: [] });
+    }
+
+    // Fetch all imported plays grouped by user
+    let importedPlaysMap = new Map<string, number>();
+    try {
+      const importedPlaysRes = await sql`SELECT user_id, COUNT(*) as count FROM listens GROUP BY user_id`;
+      for (const r of importedPlaysRes) {
+        importedPlaysMap.set(r.user_id, parseInt(r.count, 10));
+      }
+    } catch (e) {
+      console.error("Failed to fetch imported plays:", e);
     }
 
     const leaderboard: any[] = [];
@@ -31,21 +41,38 @@ export async function GET() {
       let playcount = 0;
       let discordName = r.display_name || r.discord_username;
       let discordAvatar = null;
+      const dataSource = r.data_source || 'combined';
+
+      const hasImported = importedPlaysMap.has(r.user_id);
+      if (!r.lastfm_username && !hasImported) return; // Skip users with zero data
 
       try {
-        const [lastfmRes, discordRes] = await Promise.all([
-          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${r.lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
+        const lastfmFetchUrl = (r.lastfm_username && dataSource !== 'imported_only') 
+          ? `http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${r.lastfm_username}&api_key=${LASTFM_API_KEY}&format=json` 
+          : null;
+
+        const promises: any[] = [
           fetch(`https://discord.com/api/v10/users/${r.user_id}`, {
             headers: { Authorization: `Bot ${DISCORD_TOKEN}` },
             next: { revalidate: 3600 } 
           })
-        ]);
+        ];
 
-        if (lastfmRes.ok) {
+        if (lastfmFetchUrl) {
+          promises.push(fetch(lastfmFetchUrl));
+        }
+
+        const [discordRes, lastfmRes] = await Promise.all(promises);
+
+        if (lastfmRes && lastfmRes.ok) {
           const lData = await lastfmRes.json();
           if (!lData.error && lData.user) {
-            playcount = parseInt(lData.user.playcount || "0", 10);
+            playcount += parseInt(lData.user.playcount || "0", 10);
           }
+        }
+
+        if (dataSource === 'imported_only' || dataSource === 'combined') {
+          playcount += (importedPlaysMap.get(r.user_id) || 0);
         }
 
         if (discordRes.ok) {
@@ -59,13 +86,15 @@ export async function GET() {
         console.error(`Failed to fetch data for user ${r.user_id}:`, e);
       }
 
-      leaderboard.push({
-        userId: r.user_id,
-        username: discordName,
-        avatar: discordAvatar,
-        lastfm_username: r.lastfm_username,
-        playcount: playcount
-      });
+      if (playcount > 0) {
+        leaderboard.push({
+          userId: r.user_id,
+          username: discordName,
+          avatar: discordAvatar,
+          lastfm_username: r.lastfm_username || "Local Import",
+          playcount: playcount
+        });
+      }
     }));
 
     // Sort by playcount descending

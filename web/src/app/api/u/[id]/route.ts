@@ -4,32 +4,23 @@ import postgres from "postgres";
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 export const revalidate = 60; // Cache for 60 seconds
-
-// Removed Spotify logic since it requires Premium now
 
 async function getDeezerArtistImage(artistName: string) {
   try {
     const res = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}`, {
       next: { revalidate: 86400 } // Cache artist image for 24 hours
     });
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`Deezer search error for ${artistName}:`, errorText);
-      return { url: null, error: `Search HTTP ${res.status}: ${errorText}` };
-    }
+    if (!res.ok) return { url: null, error: `Search HTTP ${res.status}` };
     const data = await res.json();
     if (data.data?.length > 0) {
       const artist = data.data[0];
       if (artist.picture_xl || artist.picture_big || artist.picture) {
         return { url: artist.picture_xl || artist.picture_big || artist.picture, error: null };
       }
-      return { url: null, error: "No images found for artist" };
     }
-    return { url: null, error: "Artist not found" };
+    return { url: null, error: "Not found" };
   } catch (e: any) {
     return { url: null, error: e.message || String(e) };
   }
@@ -40,10 +31,7 @@ async function getDeezerTrackImage(trackName: string, artistName: string) {
     const res = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(trackName + " " + artistName)}`, {
       next: { revalidate: 86400 } // Cache track image for 24 hours
     });
-    if (!res.ok) {
-      const errorText = await res.text();
-      return { url: null, error: `Search HTTP ${res.status}: ${errorText}` };
-    }
+    if (!res.ok) return { url: null, error: `Search HTTP ${res.status}` };
     const data = await res.json();
     if (data.data?.length > 0) {
       const track = data.data[0];
@@ -51,12 +39,11 @@ async function getDeezerTrackImage(trackName: string, artistName: string) {
         return { url: track.album?.cover_xl || track.album?.cover_big || track.album?.cover, error: null };
       }
     }
-    return { url: null, error: "No images found for track" };
+    return { url: null, error: "Not found" };
   } catch (e: any) {
     return { url: null, error: e.message || String(e) };
   }
 }
-
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawUserId } = await params;
@@ -65,7 +52,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const sql = postgres(DB_URL!);
     
-    // Fetch user settings and Last.fm username
     let rows;
     try {
       rows = await sql`
@@ -76,8 +62,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } catch (e: any) {
       if (e.message?.includes('column "discord_username" does not exist') || e.code === '42703') {
         await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS discord_username TEXT`;
-        
-        // Backfill discord_username from website_logs for users who have logged in before
         await sql`
           UPDATE user_settings 
           SET discord_username = (
@@ -88,7 +72,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           ) 
           WHERE discord_username IS NULL
         `;
-
         rows = await sql`
           SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
           FROM user_settings 
@@ -113,16 +96,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: `This user is banned. Reason: ${publicRows[0].ban_reason || 'No reason provided'}` }, { status: 403 });
     }
 
-    // Since they share the same lastfm_username, we can just use the first one's lastfm_username
     const lastfm_username = publicRows[0].lastfm_username;
+    const data_source = publicRows[0].data_source || 'combined';
+    const uId = publicRows[0].user_id;
 
-    if (!lastfm_username) {
-      return NextResponse.json({ error: "This user has not linked a Last.fm account." }, { status: 404 });
+    const listensCheck = await sql`SELECT 1 FROM listens WHERE user_id = ${uId} LIMIT 1`;
+    const hasImported = listensCheck.length > 0;
+
+    if (!lastfm_username && !hasImported) {
+      return NextResponse.json({ error: "This user has no data." }, { status: 404 });
     }
 
-    // Fetch Discord Info for ALL public users
+    // Fetch Discord Info
     let discordUsers: any[] = [];
-    
     await Promise.all(publicRows.map(async (r) => {
       let discordUser = { name: "Unknown User", avatar: null as string | null };
       try {
@@ -143,170 +129,169 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       discordUsers.push(discordUser);
     }));
 
-    // Override the name with display_name if set
     if (publicRows[0].display_name) {
       discordUsers[0].name = publicRows[0].display_name;
     }
 
-    // Fetch Last.fm Data
-    let lastfmData = {
-      playcount: 0,
-      topArtists: [] as any[],
-      recentTracks: [] as any[],
-      topTracks: [] as any[],
-      topAlbums: [] as any[]
-    };
+    let importedData = { playcount: 0, topArtists: [] as any[], recentTracks: [] as any[], topTracks: [] as any[] };
+    let lastfmData = { playcount: 0, topArtists: [] as any[], recentTracks: [] as any[], topTracks: [] as any[], topAlbums: [] as any[] };
     let debugLogs: any[] = [];
 
-    try {
-      const [infoRes, artistRes, recentRes, tracksRes, albumsRes] = await Promise.all([
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=12`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=10`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`)
-      ]);
+    // Fetch Imported Data
+    if (hasImported && data_source !== 'lastfm_only') {
+      try {
+        const [playcountRes, topArtistsRes, topTracksRes, recentTracksRes] = await Promise.all([
+          sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId}`,
+          sql`SELECT artist_name, COUNT(*) as playcount FROM listens WHERE user_id = ${uId} GROUP BY artist_name ORDER BY playcount DESC LIMIT 50`,
+          sql`SELECT track_name, artist_name, COUNT(*) as playcount FROM listens WHERE user_id = ${uId} GROUP BY track_name, artist_name ORDER BY playcount DESC LIMIT 50`,
+          sql`SELECT track_name, artist_name, played_at FROM listens WHERE user_id = ${uId} ORDER BY played_at DESC LIMIT 50`
+        ]);
 
-      const infoData = await infoRes.json();
-      const artistData = await artistRes.json();
-      const recentData = await recentRes.json();
-      const tracksData = await tracksRes.json();
-      const albumsData = await albumsRes.json();
-
-      if (!infoData.error) {
-        lastfmData.playcount = parseInt(infoData.user.playcount || "0", 10);
+        importedData.playcount = parseInt(playcountRes[0]?.count || "0", 10);
+        importedData.topArtists = topArtistsRes.map(row => ({ name: row.artist_name, playcount: parseInt(row.playcount, 10), url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}`, image: null }));
+        importedData.topTracks = topTracksRes.map(row => ({ name: row.track_name, artist: row.artist_name, playcount: parseInt(row.playcount, 10), url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}/_/${encodeURIComponent(row.track_name)}`, image: null }));
+        importedData.recentTracks = recentTracksRes.map(row => ({ name: row.track_name, artist: row.artist_name, album: null, url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}/_/${encodeURIComponent(row.track_name)}`, image: null, nowPlaying: false, date: Math.floor(new Date(row.played_at).getTime() / 1000).toString() }));
+      } catch (e) {
+        console.error("Imported plays fetch error:", e);
       }
+    }
 
-      if (!artistData.error && artistData.topartists?.artist) {
-        const artistsList = artistData.topartists.artist;
-        lastfmData.topArtists = [];
-        
-        for (const a of artistsList) {
-          let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
-          
-          // Last.fm's default generic star image hash
-          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
-            imageUrl = null;
+    // Fetch Lastfm Data
+    if (lastfm_username && data_source !== 'imported_only') {
+      try {
+        const [infoRes, artistRes, recentRes, tracksRes, albumsRes] = await Promise.all([
+          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
+          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=12`),
+          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=10`),
+          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`),
+          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`)
+        ]);
+
+        const infoData = await infoRes.json();
+        const artistData = await artistRes.json();
+        const recentData = await recentRes.json();
+        const tracksData = await tracksRes.json();
+        const albumsData = await albumsRes.json();
+
+        if (!infoData.error) lastfmData.playcount = parseInt(infoData.user.playcount || "0", 10);
+
+        if (!artistData.error && artistData.topartists?.artist) {
+          const artistsList = artistData.topartists.artist;
+          for (const a of artistsList) {
+            let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
+            if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) imageUrl = null;
+            lastfmData.topArtists.push({ name: a.name, playcount: parseInt(a.playcount, 10), url: a.url, image: imageUrl });
           }
+        }
 
-          // Fetch from Deezer sequentially
-          if (!imageUrl) {
-            const imgRes = await getDeezerArtistImage(a.name);
-            if (imgRes?.error) {
-              debugLogs.push({ artist: a.name, error: imgRes.error });
-            }
-            imageUrl = imgRes?.url || null;
+        if (!recentData.error && recentData.recenttracks?.track) {
+          const tracks = Array.isArray(recentData.recenttracks.track) ? recentData.recenttracks.track : [recentData.recenttracks.track];
+          for (const t of tracks) {
+            let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
+            if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) imageUrl = null;
+            lastfmData.recentTracks.push({ name: t.name, artist: t.artist?.["#text"] || t.artist?.name, album: t.album?.["#text"], url: t.url, image: imageUrl, nowPlaying: t["@attr"]?.nowplaying === "true", date: t.date?.uts || null });
           }
+        }
 
-          lastfmData.topArtists.push({
-            name: a.name,
-            playcount: a.playcount,
-            url: a.url,
-            image: imageUrl
-          });
+        if (!tracksData.error && tracksData.toptracks?.track) {
+          const topTracksList = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
+          for (const t of topTracksList) {
+            let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
+            if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) imageUrl = null;
+            lastfmData.topTracks.push({ name: t.name, artist: t.artist?.name, playcount: parseInt(t.playcount, 10), url: t.url, image: imageUrl });
+          }
+        }
+
+        if (!albumsData.error && albumsData.topalbums?.album) {
+          const topAlbums = Array.isArray(albumsData.topalbums.album) ? albumsData.topalbums.album : [albumsData.topalbums.album];
+          for (const a of topAlbums) {
+            let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
+            if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) imageUrl = null;
+            lastfmData.topAlbums.push({ name: a.name, artist: a.artist?.name, playcount: parseInt(a.playcount, 10), url: a.url, image: imageUrl });
+          }
+        }
+      } catch (e) {
+        console.error("Last.fm fetch error:", e);
+      }
+    }
+
+    let finalStats = { playcount: 0, topArtists: [] as any[], recentTracks: [] as any[], topTracks: [] as any[], topAlbums: [] as any[] };
+
+    if (data_source === 'imported_only') {
+      finalStats = { ...importedData, topAlbums: [] };
+    } else if (data_source === 'lastfm_only') {
+      finalStats = lastfmData;
+    } else {
+      finalStats.playcount = lastfmData.playcount + importedData.playcount;
+      finalStats.topAlbums = lastfmData.topAlbums;
+
+      let artistMap = new Map();
+      for (const a of lastfmData.topArtists) { artistMap.set(a.name.toLowerCase(), { ...a }); }
+      for (const a of importedData.topArtists) {
+        const key = a.name.toLowerCase();
+        if (artistMap.has(key)) {
+          artistMap.get(key).playcount += a.playcount;
+        } else {
+          artistMap.set(key, { ...a });
         }
       }
+      finalStats.topArtists = Array.from(artistMap.values()).sort((a, b) => b.playcount - a.playcount).slice(0, 12);
 
-      if (!recentData.error && recentData.recenttracks?.track) {
-        // Last.fm can return a single object or array
-        const tracks = Array.isArray(recentData.recenttracks.track) ? recentData.recenttracks.track : [recentData.recenttracks.track];
-        lastfmData.recentTracks = [];
-        
-        for (const t of tracks) {
-          let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
-          
-          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
-            imageUrl = null;
-          }
-
-          if (!imageUrl) {
-            const imgRes = await getDeezerTrackImage(t.name, t.artist?.["#text"] || t.artist?.name || "");
-            if (imgRes?.error) {
-               debugLogs.push({ track: t.name, error: imgRes.error });
-            }
-            imageUrl = imgRes?.url || null;
-          }
-
-          lastfmData.recentTracks.push({
-            name: t.name,
-            artist: t.artist?.["#text"] || t.artist?.name,
-            album: t.album?.["#text"],
-            url: t.url,
-            image: imageUrl,
-            nowPlaying: t["@attr"]?.nowplaying === "true",
-            date: t.date?.uts || null
-          });
+      let trackMap = new Map();
+      for (const t of lastfmData.topTracks) {
+        const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
+        trackMap.set(key, { ...t });
+      }
+      for (const t of importedData.topTracks) {
+        const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
+        if (trackMap.has(key)) {
+          trackMap.get(key).playcount += t.playcount;
+        } else {
+          trackMap.set(key, { ...t });
         }
       }
+      finalStats.topTracks = Array.from(trackMap.values()).sort((a, b) => b.playcount - a.playcount).slice(0, 5);
 
-      if (!tracksData.error && tracksData.toptracks?.track) {
-        const topTracksList = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
-        lastfmData.topTracks = [];
+      let combinedRecents = [...lastfmData.recentTracks, ...importedData.recentTracks];
+      combinedRecents.sort((a, b) => {
+        if (a.nowPlaying) return -1;
+        if (b.nowPlaying) return 1;
+        return parseInt(b.date || "0") - parseInt(a.date || "0");
+      });
+      finalStats.recentTracks = combinedRecents.slice(0, 10);
+    }
 
-        for (const t of topTracksList) {
-          let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
-          
-          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
-            imageUrl = null;
-          }
-
-          if (!imageUrl) {
-            const imgRes = await getDeezerTrackImage(t.name, t.artist?.name || "");
-            if (imgRes?.error) {
-              debugLogs.push({ track: t.name, error: imgRes.error });
-            }
-            imageUrl = imgRes?.url || null;
-          }
-
-          lastfmData.topTracks.push({
-            name: t.name,
-            artist: t.artist?.name,
-            playcount: t.playcount,
-            url: t.url,
-            image: imageUrl
-          });
-        }
+    // Fetch missing images
+    for (const a of finalStats.topArtists) {
+      if (!a.image) {
+        const imgRes = await getDeezerArtistImage(a.name);
+        a.image = imgRes?.url || null;
       }
-
-      if (!albumsData.error && albumsData.topalbums?.album) {
-        const topAlbums = Array.isArray(albumsData.topalbums.album) ? albumsData.topalbums.album : [albumsData.topalbums.album];
-        
-        lastfmData.topAlbums = [];
-        for (const a of topAlbums) {
-          let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
-          
-          if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
-            imageUrl = null;
-          }
-
-          if (!imageUrl) {
-            const imgRes = await getDeezerTrackImage(a.name, a.artist?.name || "");
-            if (imgRes?.error) {
-              debugLogs.push({ album: a.name, error: imgRes.error });
-            }
-            imageUrl = imgRes?.url || null;
-          }
-
-          lastfmData.topAlbums.push({
-            name: a.name,
-            artist: a.artist?.name,
-            playcount: a.playcount,
-            url: a.url,
-            image: imageUrl
-          });
-        }
+    }
+    for (const t of finalStats.recentTracks) {
+      if (!t.image) {
+        const imgRes = await getDeezerTrackImage(t.name, t.artist || "");
+        t.image = imgRes?.url || null;
       }
-
-    } catch (e) {
-      console.error("Last.fm fetch error:", e);
-      return NextResponse.json({ error: "Failed to fetch Last.fm data." }, { status: 500 });
+    }
+    for (const t of finalStats.topTracks) {
+      if (!t.image) {
+        const imgRes = await getDeezerTrackImage(t.name, t.artist || "");
+        t.image = imgRes?.url || null;
+      }
+    }
+    for (const a of finalStats.topAlbums) {
+      if (!a.image) {
+        const imgRes = await getDeezerTrackImage(a.name, a.artist || "");
+        a.image = imgRes?.url || null;
+      }
     }
 
     return NextResponse.json({
       success: true,
       lastfm_username: lastfm_username,
       users: discordUsers,
-      stats: lastfmData,
+      stats: finalStats,
       _debug: debugLogs
     });
 
