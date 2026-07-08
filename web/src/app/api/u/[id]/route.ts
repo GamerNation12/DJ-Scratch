@@ -222,7 +222,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } else if (data_source === 'lastfm_only') {
       finalStats = lastfmData;
     } else {
-      finalStats.playcount = lastfmData.playcount + importedData.playcount;
+      finalStats.playcount = Math.max(lastfmData.playcount, importedData.playcount);
       finalStats.topAlbums = lastfmData.topAlbums;
 
       let artistMap = new Map();

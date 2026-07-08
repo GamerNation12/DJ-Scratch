@@ -64,15 +64,22 @@ export async function GET() {
 
         const [discordRes, lastfmRes] = await Promise.all(promises);
 
+        let lastfmPlaycount = 0;
         if (lastfmRes && lastfmRes.ok) {
           const lData = await lastfmRes.json();
           if (!lData.error && lData.user) {
-            playcount += parseInt(lData.user.playcount || "0", 10);
+            lastfmPlaycount = parseInt(lData.user.playcount || "0", 10);
           }
         }
 
-        if (dataSource === 'imported_only' || dataSource === 'combined') {
-          playcount += (importedPlaysMap.get(r.user_id) || 0);
+        const importedCount = importedPlaysMap.get(r.user_id) || 0;
+
+        if (dataSource === 'imported_only') {
+          playcount = importedCount;
+        } else if (dataSource === 'lastfm_only') {
+          playcount = lastfmPlaycount;
+        } else {
+          playcount = Math.max(lastfmPlaycount, importedCount);
         }
 
         if (discordRes.ok) {
