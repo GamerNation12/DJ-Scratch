@@ -362,14 +362,36 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   // If the profile does not exist or is private, and the user is NOT the owner
   if (profileError && !isOwner) {
+    let icon = "🔒";
+    let title = "Profile Unavailable";
+    
+    const errorLower = profileError.toLowerCase();
+    if (errorLower.includes("not found")) {
+      icon = "👻";
+      title = "User Not Found";
+    } else if (errorLower.includes("server error") || errorLower.includes("failed to load")) {
+      icon = "⚠️";
+      title = "Server Error";
+    } else if (errorLower.includes("private")) {
+      icon = "🔒";
+      title = "Private Profile";
+    }
+
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4">
-        <div className="bg-zinc-900/50 border border-white/10 p-8 rounded-3xl max-w-md text-center shadow-2xl">
-          <div className="text-5xl mb-4">🔒</div>
-          <h2 className="text-xl font-bold mb-2">Profile Unavailable</h2>
-          <p className="text-zinc-400 text-sm mb-6">{profileError}</p>
-          <Link href="/" className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-bold transition-all inline-block">
-            Go Home
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4 relative overflow-hidden">
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] max-w-md w-full text-center shadow-2xl relative z-10 animate-fade-in-up">
+          <div className="text-7xl mb-6 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transform transition-transform hover:scale-110">{icon}</div>
+          <h2 className="text-3xl font-black mb-3 tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400">{title}</h2>
+          <p className="text-zinc-400 text-base mb-8 leading-relaxed font-medium">
+            {profileError === "Internal Server Error" 
+              ? "We hit a snag while trying to load this profile. Please try again later."
+              : profileError}
+          </p>
+          <Link href="/" className="px-8 py-3.5 bg-white text-black hover:bg-zinc-200 rounded-xl font-bold transition-all inline-block shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95">
+            Return Home
           </Link>
         </div>
       </div>
