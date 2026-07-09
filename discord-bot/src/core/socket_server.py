@@ -158,6 +158,11 @@ async def new_message(sid, msg_data):
 async def disconnect(sid):
     user_sockets.pop(sid, None)
 
+async def send_spicetify_command(user_id, command_data):
+    for s_id, u_id in user_sockets.items():
+        if str(u_id) == str(user_id):
+            await sio.emit('spicetify_cmd', command_data, to=s_id)
+
 async def start_socket_server():
     port = int(os.getenv("SOCKET_PORT", 3001))
     try:

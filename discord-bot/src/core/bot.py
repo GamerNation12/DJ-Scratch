@@ -48,7 +48,7 @@ class ScratchBot(commands.Bot):
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
         # Load extensions
-        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social']
+        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.local_remote']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
