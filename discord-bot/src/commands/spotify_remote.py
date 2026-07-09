@@ -10,6 +10,9 @@ from src.core.spotify import (
     spotify_skip_to_previous, spotify_add_to_queue, spotify_like_track, 
     spotify_unlike_track, search_spotify_track, get_user_spotify_access_token
 )
+from src.core.socket_server import send_spicetify_command
+
+OWNER_ID = 759433582107426816
 
 class SpotifyRemoteView(discord.ui.View):
     def __init__(self, user_id):
@@ -34,6 +37,10 @@ class SpotifyRemoteView(discord.ui.View):
     @discord.ui.button(emoji="⏮️", style=discord.ButtonStyle.secondary)
     async def previous(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_auth(interaction): return
+        if int(interaction.user.id) == OWNER_ID:
+            await send_spicetify_command(OWNER_ID, {"action": "previous"})
+            return await interaction.response.send_message("⏮️ Sent via Local Remote", ephemeral=True)
+            
         async with aiohttp.ClientSession() as session:
             res = await spotify_skip_to_previous(session, self.user_id)
             await self.handle_response(interaction, res)
@@ -41,6 +48,10 @@ class SpotifyRemoteView(discord.ui.View):
     @discord.ui.button(emoji="⏯️", style=discord.ButtonStyle.primary)
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_auth(interaction): return
+        if int(interaction.user.id) == OWNER_ID:
+            await send_spicetify_command(OWNER_ID, {"action": "toggle"})
+            return await interaction.response.send_message("⏯️ Sent Toggle via Local Remote", ephemeral=True)
+
         async with aiohttp.ClientSession() as session:
             res = await spotify_pause_playback(session, self.user_id)
             if res is not True:
@@ -50,6 +61,10 @@ class SpotifyRemoteView(discord.ui.View):
     @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary)
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.check_auth(interaction): return
+        if int(interaction.user.id) == OWNER_ID:
+            await send_spicetify_command(OWNER_ID, {"action": "next"})
+            return await interaction.response.send_message("⏭️ Sent via Local Remote", ephemeral=True)
+
         async with aiohttp.ClientSession() as session:
             res = await spotify_skip_to_next(session, self.user_id)
             await self.handle_response(interaction, res)
