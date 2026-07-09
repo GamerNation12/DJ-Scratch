@@ -67,7 +67,7 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Enable Update Notifs", description="Turn on update alerts", emoji="🔔", value="notifs_on"),
             discord.SelectOption(label="Disable Update Notifs", description="Turn off update alerts", emoji="🔕", value="notifs_off"),
         ]
-        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options, custom_id="settings_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0]
@@ -104,7 +104,7 @@ class TimezoneDropdown(discord.ui.Select):
             discord.SelectOption(label="Tokyo", description="Asia/Tokyo", value="Asia/Tokyo"),
             discord.SelectOption(label="Sydney", description="Australia/Sydney", value="Australia/Sydney"),
         ]
-        super().__init__(placeholder="Set your Timezone...", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Select your timezone...", min_values=1, max_values=1, options=options, custom_id="timezone_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         await set_user_timezone(interaction.user.id, self.values[0])

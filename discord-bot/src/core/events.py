@@ -178,6 +178,11 @@ async def setup_hook():
     bot.session = aiohttp.ClientSession()
     bot.add_view(SuggestionView())
     bot.add_view(BugReportView())
+    try:
+        from src.commands.settings import SettingsView
+        bot.add_view(SettingsView())
+    except Exception as e:
+        print("Failed to add SettingsView:", e)
     global db_pool
     db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
     if db_url:
@@ -1084,12 +1089,14 @@ class FMDetailsView(discord.ui.View):
             self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
             
         if song and artist:
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
+            custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             btn_lyrics.callback = self.show_lyrics
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0:
-            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
+            custom_prev = f"fm_preview:{artist[:80]}"
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             btn2.callback = self.preview_avatar
             self.add_item(btn2)
 
@@ -1132,20 +1139,21 @@ class FMActionsView(discord.ui.View):
         self.current_mode = current_mode
         self.track_data = track_data
         
+        user_id = str(user.id) if user else "None"
         if current_mode == "compact":
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
             btn_down.callback = self.go_down
             self.add_item(btn_down)
         elif current_mode == "full":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary)
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
             btn_up.callback = self.go_up
             self.add_item(btn_up)
             
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary)
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
             btn_down.callback = self.go_down
             self.add_item(btn_down)
         elif current_mode == "stats":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary)
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
             btn_up.callback = self.go_up
             self.add_item(btn_up)
             
@@ -1153,12 +1161,14 @@ class FMActionsView(discord.ui.View):
             self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
             
         if song and artist and current_mode != "compact":
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary)
+            custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             btn_lyrics.callback = self.show_lyrics
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
-            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary)
+            custom_prev = f"fm_preview:{artist[:80]}"
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             btn2.callback = self.preview_avatar
             self.add_item(btn2)
 
@@ -1318,7 +1328,7 @@ class SettingsDropdown(discord.ui.Select):
             discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
             discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
         ]
-        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options, custom_id="settings_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0]
@@ -2603,3 +2613,93 @@ async def on_interaction(interaction: discord.Interaction):
         elif custom_id.startswith("reply_dm_"):
             target_id = custom_id.replace("reply_dm_", "")
             await interaction.response.send_modal(DirectMessageReplyModal(target_id=target_id))
+            
+        elif custom_id.startswith("spotify_"):
+            parts = custom_id.split(":")
+            if len(parts) == 2:
+                action, owner_id = parts[0], parts[1]
+                if str(interaction.user.id) != owner_id:
+                    await interaction.response.send_message("This is not your remote!", ephemeral=True)
+                    return
+                
+                # Check for token or get it dynamically if needed - actually the api functions do it
+                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+                
+                async def handle_spotify_response(res):
+                    if res == "no_token":
+                        await interaction.response.send_message(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
+                    elif res is True:
+                        await interaction.response.send_message("Action successful!", ephemeral=True)
+                    else:
+                        await interaction.response.send_message(f"Failed: {res}", ephemeral=True)
+                
+                from src.core.spotify import spotify_skip_to_previous, spotify_pause_playback, spotify_play_track, spotify_skip_to_next
+                
+                async with aiohttp.ClientSession() as session:
+                    if action == "spotify_prev":
+                        res = await spotify_skip_to_previous(session, owner_id)
+                        await handle_spotify_response(res)
+                    elif action == "spotify_play":
+                        res = await spotify_pause_playback(session, owner_id)
+                        if res is not True:
+                            res = await spotify_play_track(session, owner_id)
+                        await handle_spotify_response(res)
+                    elif action == "spotify_next":
+                        res = await spotify_skip_to_next(session, owner_id)
+                        await handle_spotify_response(res)
+                        
+        elif custom_id.startswith("fm_up:") or custom_id.startswith("fm_down:"):
+            parts = custom_id.split(":")
+            if len(parts) >= 3:
+                action = parts[0]
+                user_id_str = parts[1]
+                current_mode = parts[2]
+                
+                try:
+                    target_user = await bot.fetch_user(int(user_id_str))
+                except:
+                    target_user = interaction.user
+                    
+                new_mode = "full"
+                if action == "fm_up":
+                    new_mode = "full" if current_mode == "stats" else "compact"
+                else:
+                    new_mode = "full" if current_mode == "compact" else "stats"
+                    
+                await interaction.response.defer()
+                result, _ = await process_fm(interaction, target_user, mode=new_mode, track_data=None)
+                if result:
+                    content = result.get('content')
+                    if not interaction.response.is_done():
+                        await interaction.response.edit_message(content=content, embed=result.get('embed'), view=result.get('view'))
+                    else:
+                        await interaction.edit_original_response(content=content, embed=result.get('embed'), view=result.get('view'))
+                        
+        elif custom_id.startswith("fm_lyrics:"):
+            parts = custom_id.split(":")
+            if len(parts) >= 3:
+                artist = parts[1]
+                song = ":".join(parts[2:])
+                
+                await interaction.response.defer(ephemeral=True)
+                from src.core.lyrics import fetch_lyrics
+                session = getattr(bot, 'session', None)
+                if not session:
+                    session = aiohttp.ClientSession()
+                    bot.session = session
+                lyrics = await fetch_lyrics(session, artist, song)
+                if lyrics:
+                    if len(lyrics) > 4096:
+                        lyrics = lyrics[:4093] + "..."
+                    embed = discord.Embed(title=f"Lyrics for {song} by {artist}", description=lyrics, color=LASTFM_COLOR)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
+                    
+        elif custom_id.startswith("fm_preview:"):
+            parts = custom_id.split(":")
+            if len(parts) >= 2:
+                artist = ":".join(parts[1:])
+                # Since we don't have the image URL in the ID due to length limits, we just show a generic message 
+                # or fetch it from DB
+                await interaction.response.send_message(f"Please re-run the `/fm` command to preview the avatar for **{artist}** (Bot restarted).", ephemeral=True)

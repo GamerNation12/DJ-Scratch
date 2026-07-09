@@ -15,6 +15,9 @@ class SpotifyRemoteView(discord.ui.View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
         self.user_id = str(user_id)
+        self.previous.custom_id = f"spotify_prev:{self.user_id}"
+        self.play_pause.custom_id = f"spotify_play:{self.user_id}"
+        self.next.custom_id = f"spotify_next:{self.user_id}"
         
     async def check_auth(self, interaction: discord.Interaction):
         if str(interaction.user.id) != self.user_id:
