@@ -26,9 +26,24 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
     async def sync_commands(self, ctx):
         msg = await ctx.send("Syncing slash commands globally... (This may take a moment)")
         try:
-            synced = await self.bot.tree.sync()
-            await msg.edit(content=f"✅ Synced {len(synced)} slash commands globally!")
-            print(f"{Log.GREEN}>>> Owner synced {len(synced)} slash commands.{Log.RESET}")
+            app_id = self.bot.application_id or (await self.bot.application_info()).id
+            
+            # Fetch existing global commands to find any protected Entry Points (type 4)
+            existing_cmds = await self.bot.http.get_global_commands(app_id)
+            entry_points = [cmd for cmd in existing_cmds if cmd.get('type') == 4]
+            
+            # Get the payload of our bot's current commands from the tree
+            local_cmds = self.bot.tree._get_all_commands(guild=None)
+            payload = [c.to_dict() for c in local_cmds]
+            
+            # Append the protected entry point commands to the payload
+            payload.extend(entry_points)
+            
+            # Bulk upsert the commands directly to the API
+            synced_data = await self.bot.http.bulk_upsert_global_commands(app_id, payload)
+            
+            await msg.edit(content=f"✅ Synced {len(synced_data)} slash commands globally (including {len(entry_points)} protected Entry Points)!")
+            print(f"{Log.GREEN}>>> Owner synced {len(synced_data)} slash commands.{Log.RESET}")
         except Exception as e:
             await msg.edit(content=f"❌ Sync failed: {e}")
 
