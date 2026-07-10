@@ -262,24 +262,28 @@ export default function ActivityDMUI() {
     
     setUploadingFile(true);
     const formData = new FormData();
-    formData.append('files[]', file);
+    formData.append('file', file);
     
     try {
-      // Using Uguu.se for external ephemeral hosting
-      const res = await fetch('https://uguu.se/upload.php', {
+      const token = localStorage.getItem("discord_jwt");
+      // Use our server-side proxy to upload to external host, bypassing CORS
+      const res = await fetch('/api/external-upload', {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
         body: formData
       });
       const data = await res.json();
       
-      if (data.success && data.files && data.files.length > 0) {
-        const fileUrl = data.files[0].url;
+      if (data.success && data.url) {
+        const fileUrl = data.url;
         // Send the file as a markdown message
         const isImage = file.type.startsWith('image/');
         const msgContent = isImage ? `![${file.name}](${fileUrl})` : `[📎 ${file.name}](${fileUrl})`;
         await sendMessage(undefined, msgContent);
       } else {
-        toast.error("Failed to upload file to Uguu.se");
+        toast.error("Failed to upload file");
       }
     } catch (err) {
       toast.error("Error uploading file");
