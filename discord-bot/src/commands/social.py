@@ -21,7 +21,12 @@ class SocialCog(commands.Cog):
             await interaction.followup.send("You cannot add yourself!")
             return
             
-        status = await add_friend_request(user_id, friend_id, friend_username=user.name, user_username=interaction.user.name)
+        status = await add_friend_request(
+            user_id, friend_id, 
+            friend_username=user.name, user_username=interaction.user.name,
+            friend_avatar=user.avatar.url if user.avatar else (user.default_avatar.url if user.default_avatar else None),
+            user_avatar=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
+        )
         if status == 'accepted':
             await interaction.followup.send(f"You are now friends with {user.display_name}!")
             try:
@@ -47,7 +52,12 @@ class SocialCog(commands.Cog):
         
         friend_id = str(user.id)
             
-        success = await accept_friend_request(user_id, friend_id, friend_username=user.name, user_username=interaction.user.name)
+        success = await accept_friend_request(
+            user_id, friend_id, 
+            friend_username=user.name, user_username=interaction.user.name,
+            friend_avatar=user.avatar.url if user.avatar else (user.default_avatar.url if user.default_avatar else None),
+            user_avatar=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
+        )
         if success:
             await interaction.followup.send(f"Accepted friend request from {user.display_name}!")
             try:

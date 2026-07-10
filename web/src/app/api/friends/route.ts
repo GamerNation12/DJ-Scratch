@@ -19,13 +19,13 @@ export async function GET(req: Request) {
 
   try {
     const friends = await sql`
-      SELECT f.friend_id, f.status, u.username as friend_username, s.display_name, 'outgoing' as direction
+      SELECT f.friend_id, f.status, u.username as friend_username, u.avatar_url, s.display_name, 'outgoing' as direction
       FROM friends f
       JOIN imported_users u ON f.friend_id = u.id
       LEFT JOIN user_settings s ON u.id = s.user_id
       WHERE f.user_id = ${userId}
       UNION
-      SELECT f.user_id as friend_id, f.status, u.username as friend_username, s.display_name, 'incoming' as direction
+      SELECT f.user_id as friend_id, f.status, u.username as friend_username, u.avatar_url, s.display_name, 'incoming' as direction
       FROM friends f
       JOIN imported_users u ON f.user_id = u.id
       LEFT JOIN user_settings s ON u.id = s.user_id

@@ -24,6 +24,20 @@ export async function POST(
       SET reactions = COALESCE(reactions, '[]'::jsonb) || ${JSON.stringify([emoji])}::jsonb
       WHERE id = ${messageId}
     `;
+    
+    // Broadcast reaction
+    const params = await context.params;
+    const targetId = params.userId;
+    
+    fetch("http://mango.fps.ms:20544/log_dm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        sender_id: myId, 
+        receiver_id: targetId,
+        msg_data: { type: 'new_reaction', messageId, emoji, receiver_id: targetId }
+      })
+    }).catch(console.error);
 
     return NextResponse.json({ success: true });
   } catch (err) {

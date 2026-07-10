@@ -58,6 +58,26 @@ export async function POST(
   }
 
   try {
+    // Auto Mod Filter
+    const badWords = ['fuck', 'shit', 'bitch', 'asshole', 'cunt', 'nigger', 'nigga', 'faggot', 'retard', 'whore', 'slut', 'dick', 'cock', 'pussy'];
+    let filteredContent = content;
+    let isCensored = false;
+    
+    // Check for extreme spam/scam links
+    const spamLinks = ['discord.gg/', 'steamcommunity.com-gift', 'free-nitro'];
+    if (spamLinks.some(link => content.toLowerCase().includes(link))) {
+      return NextResponse.json({ error: "AutoMod: Message blocked due to suspicious links." }, { status: 403 });
+    }
+
+    // Censor bad words
+    for (const word of badWords) {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      if (regex.test(filteredContent)) {
+        filteredContent = filteredContent.replace(regex, '*'.repeat(word.length));
+        isCensored = true;
+      }
+    }
+    
     // Optional: check if they are friends
     const isFriend = await sql`
       SELECT status FROM friends WHERE user_id = ${myId} AND friend_id = ${targetId} AND status = 'accepted'
@@ -68,7 +88,7 @@ export async function POST(
 
     const inserted = await sql`
       INSERT INTO direct_messages (sender_id, receiver_id, content)
-      VALUES (${myId}, ${targetId}, ${content})
+      VALUES (${myId}, ${targetId}, ${filteredContent})
       RETURNING id, sent_at
     `;
     
@@ -77,7 +97,7 @@ export async function POST(
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
-      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${content}\`\n*(Reply on the website/app or click below)*`,
+      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${filteredContent}\`\n*(Reply on the website/app or click below)*`,
       [
         {
           type: 1, // ActionRow
@@ -147,7 +167,7 @@ export async function POST(
       .catch(console.error);
     }
 
-    return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content } });
+    return NextResponse.json({ success: true, message: { id: message.id, sent_at: message.sent_at, sender_id: myId, receiver_id: targetId, content: filteredContent, isCensored } });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
@@ -173,6 +193,18 @@ export async function PATCH(
         AND receiver_id = ${myId} 
         AND read_at IS NULL
     `;
+    
+    // Broadcast messages_read event to the sender
+    fetch("http://mango.fps.ms:20544/log_dm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        sender_id: myId, 
+        receiver_id: senderId,
+        msg_data: { type: 'messages_read', receiver_id: senderId }
+      })
+    }).catch(console.error);
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

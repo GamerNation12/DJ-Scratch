@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X } from "lucide-react";
+import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X, Paperclip, Image, Film, File } from "lucide-react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 
@@ -24,6 +24,13 @@ export default function ActivityDMUI() {
   const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<number | null>(null);
   const [showChatEmojiPicker, setShowChatEmojiPicker] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifs, setGifs] = useState<any[]>([]);
+  const [gifSearch, setGifSearch] = useState("");
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   
   // Friend Management States
   const [pendingFriends, setPendingFriends] = useState({ incoming: [] as any[], outgoing: [] as any[] });
@@ -57,6 +64,28 @@ export default function ActivityDMUI() {
             if (prev.some(m => m.id === data.id)) return prev;
             return [...prev, data];
           });
+        });
+        
+        socket.on("new_reaction", (data) => {
+          setMessages(prev => prev.map(m => {
+            if (m.id === data.messageId) {
+              const updatedReactions = m.reactions ? [...m.reactions, data.emoji] : [data.emoji];
+              return { ...m, reactions: updatedReactions };
+            }
+            return m;
+          }));
+        });
+        
+        socket.on("typing_start", () => {
+          setIsTyping(true);
+        });
+        
+        socket.on("typing_stop", () => {
+          setIsTyping(false);
+        });
+        
+        socket.on("messages_read", () => {
+          setMessages(prev => prev.map(m => (!m.read_at ? { ...m, read_at: new Date().toISOString() } : m)));
         });
         
         setSocket(socket);
@@ -196,6 +225,64 @@ export default function ActivityDMUI() {
     localStorage.setItem(failedKey, JSON.stringify(failedMsgs));
   };
 
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    if (!socket || !activeChat) return;
+    
+    socket.emit("typing_start", { receiver_id: activeChat.friend_id });
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("typing_stop", { receiver_id: activeChat.friend_id });
+    }, 2000);
+  };
+
+  const searchGifs = async (query: string) => {
+    setGifSearch(query);
+    if (!query) {
+      setGifs([]);
+      return;
+    }
+    try {
+      const res = await fetch(`https://tenor.googleapis.com/v2/search?q=${query}&key=LIVDSRZULELA&client_key=dj_scratch&limit=20`);
+      const data = await res.json();
+      if (data.results) {
+        setGifs(data.results);
+      }
+    } catch (e) {}
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', file);
+    
+    try {
+      const res = await fetch('https://catbox.moe/user/api.php', {
+        method: 'POST',
+        body: formData
+      });
+      const url = await res.text();
+      if (url.startsWith('https://')) {
+        // Send the file as a markdown message
+        const isImage = file.type.startsWith('image/');
+        const msgContent = isImage ? `![${file.name}](${url})` : `[📎 ${file.name}](${url})`;
+        await sendMessage(undefined, msgContent);
+      } else {
+        toast.error("Failed to upload file");
+      }
+    } catch (err) {
+      toast.error("Error uploading file");
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const sendMessage = async (e?: React.FormEvent, retryContent?: string, retryId?: any) => {
     if (e) e.preventDefault();
     const content = retryContent || input.trim();
@@ -332,7 +419,10 @@ export default function ActivityDMUI() {
       if (match.index > lastIndex) {
         parts.push(
           <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
-            <ReactMarkdown>{content.substring(lastIndex, match.index)}</ReactMarkdown>
+            <ReactMarkdown components={{
+              img: ({node, ...props}) => <img {...props} className="max-w-xs max-h-64 rounded-xl object-contain mt-2 border border-white/10 shadow-lg" />,
+              a: ({node, ...props}) => <a {...props} className="text-indigo-400 hover:underline break-all" target="_blank" rel="noopener noreferrer" />
+            }}>{content.substring(lastIndex, match.index)}</ReactMarkdown>
           </span>
         );
       }
@@ -358,7 +448,10 @@ export default function ActivityDMUI() {
     if (lastIndex < content.length) {
       parts.push(
         <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
-          <ReactMarkdown>{content.substring(lastIndex)}</ReactMarkdown>
+          <ReactMarkdown components={{
+            img: ({node, ...props}) => <img {...props} className="max-w-xs max-h-64 rounded-xl object-contain mt-2 border border-white/10 shadow-lg" />,
+            a: ({node, ...props}) => <a {...props} className="text-indigo-400 hover:underline break-all" target="_blank" rel="noopener noreferrer" />
+          }}>{content.substring(lastIndex)}</ReactMarkdown>
         </span>
       );
     }
@@ -735,24 +828,59 @@ export default function ActivityDMUI() {
 
             {/* Input Area */}
             <div className="px-6 pb-6 pt-2 bg-transparent flex-shrink-0 relative z-20">
+              {isTyping && (
+                <div className="absolute -top-6 left-10 text-xs font-bold text-indigo-400 animate-pulse flex items-center gap-1.5 bg-zinc-900/80 px-3 py-1 rounded-full border border-indigo-500/20 shadow-lg backdrop-blur-md">
+                  <span className="flex space-x-1">
+                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </span>
+                  <span>{activeChat.display_name || activeChat.friend_username} is typing...</span>
+                </div>
+              )}
               <div className="relative max-w-4xl mx-auto">
                 <form 
                   onSubmit={sendMessage} 
                   className="bg-zinc-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl flex items-center p-2 shadow-2xl shadow-black/50 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all"
                 >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFile}
+                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all ml-1 disabled:opacity-50"
+                    title="Upload File"
+                  >
+                    {uploadingFile ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Paperclip className="w-6 h-6 hover:scale-110 transition-transform" />}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setShowChatEmojiPicker(!showChatEmojiPicker)}
-                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all ml-1"
+                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
                     title="Select Emoji"
                   >
                     <Smile className="w-6 h-6 hover:scale-110 transition-transform" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowGifPicker(!showGifPicker); if (!showGifPicker) searchGifs("excited"); }}
+                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
+                    title="Select GIF"
+                  >
+                    <Film className="w-6 h-6 hover:scale-110 transition-transform" />
                   </button>
                   
                   <input
                     type="text"
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={handleTyping}
                     placeholder={`Message @${activeChat.friend_username}...`}
                     className="flex-1 bg-transparent border-none text-white placeholder-zinc-500 focus:outline-none focus:ring-0 px-4 py-3 text-base"
                   />
@@ -812,6 +940,45 @@ export default function ActivityDMUI() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* GIF Picker Popup */}
+                {showGifPicker && (
+                  <div className="absolute bottom-[calc(100%+16px)] left-0 w-[340px] h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
+                    <div className="p-4 border-b border-white/5 flex flex-col gap-3 bg-white/[0.02]">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-white text-sm">Search Tenor GIFs</span>
+                        <button onClick={() => setShowGifPicker(false)} className="text-zinc-500 hover:text-white transition-colors bg-white/5 p-1 rounded-lg">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <input 
+                        type="text" 
+                        value={gifSearch}
+                        onChange={(e) => searchGifs(e.target.value)}
+                        placeholder="Search for GIFs..."
+                        className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 custom-scrollbar grid grid-cols-2 gap-2">
+                      {gifs.map((gif, idx) => (
+                        <button 
+                          key={idx} 
+                          type="button"
+                          onClick={() => {
+                            sendMessage(undefined, gif.url);
+                            setShowGifPicker(false);
+                          }}
+                          className="rounded-lg overflow-hidden border border-white/5 hover:border-indigo-500 transition-colors h-24 relative group"
+                        >
+                          <img src={gif.media_formats.gif.url} className="w-full h-full object-cover" alt="GIF" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold bg-indigo-500 px-2 py-1 rounded">Send</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}

@@ -17,6 +17,19 @@ async def handle_log_dm(request):
         data = await request.json()
         sender_id = data.get('sender_id')
         receiver_id = data.get('receiver_id')
+        msg_data = data.get('msg_data')
+        
+        # Broadcast message to the receiver's connected sockets if it's provided
+        if msg_data:
+            event_type = msg_data.get('type', 'receive_message')
+            for s_id, u_id in user_sockets.items():
+                if str(u_id) == str(receiver_id):
+                    try:
+                        import asyncio
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(sio.emit(event_type, msg_data, to=s_id))
+                    except:
+                        pass
         try:
             from src.core.events import bot
             sender = await bot.fetch_user(int(sender_id))
@@ -153,6 +166,34 @@ async def new_message(sid, msg_data):
     for s_id, u_id in user_sockets.items():
         if u_id == receiver_id:
             await sio.emit('receive_message', msg_data, to=s_id)
+
+@sio.event
+async def new_reaction(sid, reaction_data):
+    receiver_id = reaction_data.get('receiver_id')
+    for s_id, u_id in user_sockets.items():
+        if str(u_id) == str(receiver_id):
+            await sio.emit('new_reaction', reaction_data, to=s_id)
+
+@sio.event
+async def typing_start(sid, data):
+    receiver_id = data.get('receiver_id')
+    for s_id, u_id in user_sockets.items():
+        if str(u_id) == str(receiver_id):
+            await sio.emit('typing_start', data, to=s_id)
+
+@sio.event
+async def typing_stop(sid, data):
+    receiver_id = data.get('receiver_id')
+    for s_id, u_id in user_sockets.items():
+        if str(u_id) == str(receiver_id):
+            await sio.emit('typing_stop', data, to=s_id)
+
+@sio.event
+async def messages_read(sid, data):
+    receiver_id = data.get('receiver_id') # The person who sent the messages
+    for s_id, u_id in user_sockets.items():
+        if str(u_id) == str(receiver_id):
+            await sio.emit('messages_read', data, to=s_id)
 
 @sio.event
 async def disconnect(sid):
