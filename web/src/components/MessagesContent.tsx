@@ -11,7 +11,7 @@ import ReactMarkdown from "react-markdown";
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
 const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
-export default function MessagesContent({ isEmbedded = false }: { isEmbedded?: boolean }) {
+export default function MessagesContent() {
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("u");
   
@@ -33,9 +33,7 @@ export default function MessagesContent({ isEmbedded = false }: { isEmbedded?: b
   useEffect(() => {
     const token = localStorage.getItem("discord_jwt");
     if (!token) {
-      if (!isEmbedded) {
-        window.location.href = "/api/auth/login";
-      }
+      window.location.href = "/api/auth/login";
       return;
     }
 
@@ -70,7 +68,7 @@ export default function MessagesContent({ isEmbedded = false }: { isEmbedded?: b
     } catch (e) {
       console.error(e);
     }
-  }, [activeChat, isEmbedded]);
+  }, [activeChat]);
 
   useEffect(() => {
     const fetchFriends = async () => {
@@ -331,8 +329,8 @@ export default function MessagesContent({ isEmbedded = false }: { isEmbedded?: b
   };
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-white ${isEmbedded ? 'pt-4' : 'pt-20'} px-4 sm:px-6 lg:px-8 pb-10`}>
-      <div className={`max-w-6xl mx-auto flex bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl animate-fade-in-up ${isEmbedded ? 'h-[calc(100vh-2rem)]' : 'h-[calc(100vh-8rem)]'}`}>
+    <div className={`min-h-screen bg-[#09090b] text-white pt-20 px-4 sm:px-6 lg:px-8 pb-10`}>
+      <div className={`max-w-6xl mx-auto flex bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl animate-fade-in-up h-[calc(100vh-8rem)]`}>
         
         {/* Sidebar */}
         <div className="w-1/3 border-r border-white/5 flex flex-col bg-black/20">

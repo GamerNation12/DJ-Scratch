@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { DiscordSDK } from "@discord/embedded-app-sdk";
-import MessagesContent from "@/components/MessagesContent";
+import ActivityDMUI from "@/components/ActivityDMUI";
 
 export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -60,25 +60,25 @@ export default function ActivityDMPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white p-4">
+      <div className="w-screen h-screen bg-[#313338] flex flex-col items-center justify-center text-white p-4">
         <h2 className="text-xl font-bold text-red-500 mb-2">Authentication Failed</h2>
-        <p className="text-zinc-400">{error}</p>
+        <p className="text-[#dbdee1]">{error}</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white p-4">
-        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-zinc-400 font-medium">Authenticating with Discord...</p>
+      <div className="w-screen h-screen bg-[#313338] flex flex-col items-center justify-center text-white p-4">
+        <div className="w-10 h-10 border-4 border-[#5865F2] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-[#949ba4] font-medium">Authenticating with Discord...</p>
       </div>
     );
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#09090b] flex items-center justify-center text-white">Loading...</div>}>
-      <MessagesContent isEmbedded={true} />
+    <Suspense fallback={<div className="w-screen h-screen bg-[#313338] flex items-center justify-center text-white">Loading...</div>}>
+      <ActivityDMUI />
     </Suspense>
   );
 }
