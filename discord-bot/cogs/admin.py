@@ -34,7 +34,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             
             # Get the payload of our bot's current commands from the tree
             local_cmds = self.bot.tree._get_all_commands(guild=None)
-            payload = [c.to_dict() for c in local_cmds]
+            payload = [c.to_dict(self.bot.tree) for c in local_cmds]
             
             # Append the protected entry point commands to the payload
             payload.extend(entry_points)
