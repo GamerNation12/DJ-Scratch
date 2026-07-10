@@ -24,6 +24,11 @@ export default function ActivityDMUI() {
   const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<number | null>(null);
   const [showChatEmojiPicker, setShowChatEmojiPicker] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  
+  // Friend Management States
+  const [pendingFriends, setPendingFriends] = useState({ incoming: [] as any[], outgoing: [] as any[] });
+  const [friendInput, setFriendInput] = useState("");
+  const [friendReqStatus, setFriendReqStatus] = useState({ type: '', msg: '' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,6 +83,10 @@ export default function ActivityDMUI() {
         const data = await res.json();
         if (data.friends) {
           const accepted = data.friends.filter((f: any) => f.status === 'accepted');
+          const pIncoming = data.friends.filter((f: any) => f.status === 'pending' && f.direction === 'incoming');
+          const pOutgoing = data.friends.filter((f: any) => f.status === 'pending' && f.direction === 'outgoing');
+          
+          setPendingFriends({ incoming: pIncoming, outgoing: pOutgoing });
           
           const botFriend = {
             friend_id: "BOT",
@@ -96,7 +105,7 @@ export default function ActivityDMUI() {
             if (target) {
               setActiveChat(target);
             }
-          } else if (allFriends.length > 0 && !activeChat) {
+          } else if (allFriends.length > 0 && !activeChat && activeChat !== 'add_friend') {
             setActiveChat(allFriends[0]);
           }
         }
@@ -271,6 +280,48 @@ export default function ActivityDMUI() {
     } catch(err) {}
   };
 
+  const sendFriendRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!friendInput.trim()) return;
+    setFriendReqStatus({ type: 'loading', msg: 'Sending request...' });
+    const token = localStorage.getItem("discord_jwt");
+    
+    try {
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ username: friendInput.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFriendReqStatus({ type: 'success', msg: data.message || 'Friend request sent!' });
+        setFriendInput("");
+        // trigger a refetch of friends by changing some state or just let the user see it next time, but for now we can just leave it as success
+      } else {
+        setFriendReqStatus({ type: 'error', msg: data.error || 'Failed to send request.' });
+      }
+    } catch (err) {
+      setFriendReqStatus({ type: 'error', msg: 'Failed to send request.' });
+    }
+  };
+
+  const handleFriendAction = async (friendId: string, action: 'accept' | 'reject') => {
+    const token = localStorage.getItem("discord_jwt");
+    try {
+      const res = await fetch("/api/friends", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ friendId, action })
+      });
+      if (res.ok) {
+        setPendingFriends(prev => ({
+          ...prev,
+          incoming: prev.incoming.filter(f => f.friend_id !== friendId)
+        }));
+      }
+    } catch (err) {}
+  };
+
   const renderMessageContent = (content: string) => {
     const regex = /<a?:([^:]+):(\d+)>/g;
     const parts = [];
@@ -348,8 +399,30 @@ export default function ActivityDMUI() {
 
         {/* Sidebar Content */}
         <div className="flex-1 overflow-y-auto pt-4 px-3 custom-scrollbar">
+          <div className="mb-4">
+            <button
+              onClick={() => {
+                setActiveChat('add_friend');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl transition-all group relative overflow-hidden font-bold ${
+                activeChat === 'add_friend' 
+                  ? "bg-green-500/20 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.15)] border border-green-500/30" 
+                  : "bg-white/5 hover:bg-green-500/10 text-zinc-300 hover:text-green-400 border border-white/5 hover:border-green-500/20"
+              }`}
+            >
+              <User className="w-5 h-5" />
+              Friends
+              {pendingFriends.incoming.length > 0 && (
+                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                  {pendingFriends.incoming.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           <h2 className="px-3 py-1 text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
-            Messages
+            Direct Messages
           </h2>
           
           {friends.length === 0 ? (
@@ -409,7 +482,110 @@ export default function ActivityDMUI() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 z-10 relative">
         
-        {activeChat ? (
+        {activeChat === 'add_friend' ? (
+          <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-zinc-950/50 backdrop-blur-sm">
+            <div className="h-16 border-b border-white/5 flex items-center px-6 z-10 flex-shrink-0 bg-zinc-950/30 backdrop-blur-md">
+              <button className="md:hidden mr-4 text-zinc-400 hover:text-white p-2 bg-white/5 rounded-lg border border-white/5" onClick={() => setMobileSidebarOpen(true)}>
+                <Menu className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500/20 p-[2px] shadow-lg shadow-green-500/20 flex items-center justify-center">
+                  <User className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg leading-tight">Friends</h3>
+                  <p className="text-xs text-green-400 leading-tight">Add and manage friends</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-w-3xl w-full mx-auto p-6 flex flex-col gap-8">
+              
+              {/* Add Friend Section */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+                <h2 className="text-lg font-bold text-white mb-2">Add Friend</h2>
+                <p className="text-sm text-zinc-400 mb-4">You can add friends with their DJ Scratch username.</p>
+                <form onSubmit={sendFriendRequest} className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={friendInput}
+                    onChange={(e) => setFriendInput(e.target.value)}
+                    placeholder="Enter a username..."
+                    className="flex-1 bg-zinc-900/80 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all pr-32"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!friendInput.trim() || friendReqStatus.type === 'loading'}
+                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-bold px-4 rounded-lg transition-colors shadow-lg shadow-indigo-500/20 text-sm"
+                  >
+                    Send Request
+                  </button>
+                </form>
+                {friendReqStatus.msg && (
+                  <div className={`mt-3 text-sm font-medium ${friendReqStatus.type === 'success' ? 'text-green-400' : friendReqStatus.type === 'error' ? 'text-red-400' : 'text-zinc-400'}`}>
+                    {friendReqStatus.msg}
+                  </div>
+                )}
+              </div>
+
+              {/* Pending Requests */}
+              {(pendingFriends.incoming.length > 0 || pendingFriends.outgoing.length > 0) && (
+                <div className="flex flex-col gap-6">
+                  
+                  {pendingFriends.incoming.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-3">Incoming Requests ({pendingFriends.incoming.length})</h2>
+                      <div className="grid gap-3">
+                        {pendingFriends.incoming.map((f: any) => (
+                          <div key={f.friend_id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <img src={getAvatar(f)} className="w-10 h-10 rounded-full bg-zinc-900 border border-white/10" alt="" />
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white text-sm">{f.display_name || f.friend_username}</span>
+                                <span className="text-xs text-zinc-400">@{f.friend_username}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => handleFriendAction(f.friend_id, 'accept')} className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 p-2 rounded-lg transition-colors" title="Accept">
+                                <User className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleFriendAction(f.friend_id, 'reject')} className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 p-2 rounded-lg transition-colors" title="Reject">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {pendingFriends.outgoing.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-3">Outgoing Requests ({pendingFriends.outgoing.length})</h2>
+                      <div className="grid gap-3">
+                        {pendingFriends.outgoing.map((f: any) => (
+                          <div key={f.friend_id} className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl p-3 opacity-60">
+                            <div className="flex items-center gap-3">
+                              <img src={getAvatar(f)} className="w-10 h-10 rounded-full bg-zinc-900 border border-white/10" alt="" />
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white text-sm">{f.display_name || f.friend_username}</span>
+                                <span className="text-xs text-zinc-400">@{f.friend_username}</span>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-zinc-500 uppercase px-2">Pending</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+          </div>
+        ) : activeChat ? (
           <>
             {/* Chat Header */}
             <div className="h-16 border-b border-white/5 flex items-center px-6 z-10 flex-shrink-0 bg-zinc-950/30 backdrop-blur-md">

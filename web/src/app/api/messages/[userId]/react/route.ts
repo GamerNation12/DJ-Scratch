@@ -21,7 +21,7 @@ export async function POST(
     // Append the reaction to the reactions JSONB array
     await sql`
       UPDATE direct_messages 
-      SET reactions = reactions || ${JSON.stringify([emoji])}::jsonb
+      SET reactions = COALESCE(reactions, '[]'::jsonb) || ${JSON.stringify([emoji])}::jsonb
       WHERE id = ${messageId}
     `;
 
