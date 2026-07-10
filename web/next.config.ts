@@ -4,6 +4,22 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/activity/dm/_next/:path*",
+        destination: "/_next/:path*",
+      },
+      {
+        source: "/activity/dm/api/:path*",
+        destination: "/api/:path*",
+      },
+      {
+        source: "/activity/dm/logo.png",
+        destination: "/logo.png",
+      }
+    ];
+  },
   async headers() {
     return [
       {

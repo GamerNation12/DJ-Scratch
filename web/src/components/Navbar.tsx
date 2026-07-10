@@ -14,6 +14,8 @@ export default function Navbar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminRole, setAdminRole] = useState<string | null>(null);
 
+  if (pathname.startsWith('/activity')) return null;
+
   useEffect(() => {
     const handleStorage = () => {
       setBotMode(localStorage.getItem("botMode") === "true");

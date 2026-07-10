@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Footer() {
+  const pathname = usePathname();
+  if (pathname.startsWith('/activity')) return null;
+
   return (
     <footer className="border-t border-white/5 bg-zinc-950 py-12 relative z-10 w-full mt-auto">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
