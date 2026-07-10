@@ -21,7 +21,7 @@ class SocialCog(commands.Cog):
             await interaction.followup.send("You cannot add yourself!")
             return
             
-        status = await add_friend_request(user_id, friend_id)
+        status = await add_friend_request(user_id, friend_id, friend_username=user.name, user_username=interaction.user.name)
         if status == 'accepted':
             await interaction.followup.send(f"You are now friends with {user.display_name}!")
             try:
@@ -47,7 +47,7 @@ class SocialCog(commands.Cog):
         
         friend_id = str(user.id)
             
-        success = await accept_friend_request(user_id, friend_id)
+        success = await accept_friend_request(user_id, friend_id, friend_username=user.name, user_username=interaction.user.name)
         if success:
             await interaction.followup.send(f"Accepted friend request from {user.display_name}!")
             try:

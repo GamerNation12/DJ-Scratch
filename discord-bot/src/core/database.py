@@ -588,10 +588,16 @@ async def get_user_by_name(username):
         print(f"{Log.RED}>>> Error getting user by name: {e}{Log.RESET}")
         return None
 
-async def add_friend_request(user_id, friend_id):
+async def add_friend_request(user_id, friend_id, friend_username=None, user_username=None):
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
+            # Auto-insert into imported_users to satisfy FK constraints for users who haven't logged in
+            if friend_username:
+                await conn.execute("INSERT INTO imported_users (id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING", str(friend_id), str(friend_username))
+            if user_username:
+                await conn.execute("INSERT INTO imported_users (id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING", str(user_id), str(user_username))
+                
             # Check if request already exists in opposite direction
             existing = await conn.fetchrow("SELECT status FROM friends WHERE user_id=$1 AND friend_id=$2", str(friend_id), str(user_id))
             if existing:
@@ -608,10 +614,16 @@ async def add_friend_request(user_id, friend_id):
         print(f"{Log.RED}>>> Error adding friend request: {e}{Log.RESET}")
         return False
 
-async def accept_friend_request(user_id, friend_id):
+async def accept_friend_request(user_id, friend_id, friend_username=None, user_username=None):
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
+            # Auto-insert into imported_users to satisfy FK constraints for users who haven't logged in
+            if friend_username:
+                await conn.execute("INSERT INTO imported_users (id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING", str(friend_id), str(friend_username))
+            if user_username:
+                await conn.execute("INSERT INTO imported_users (id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING", str(user_id), str(user_username))
+                
             await conn.execute("UPDATE friends SET status='accepted' WHERE user_id=$1 AND friend_id=$2", str(friend_id), str(user_id))
             await conn.execute("INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'", str(user_id), str(friend_id))
             return True
