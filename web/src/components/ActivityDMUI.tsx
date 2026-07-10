@@ -244,10 +244,14 @@ export default function ActivityDMUI() {
       return;
     }
     try {
-      const res = await fetch(`https://tenor.googleapis.com/v2/search?q=${query}&key=LIVDSRZULELA&client_key=dj_scratch&limit=20`);
+      // Using Giphy's public beta API key
+      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&q=${query}&limit=20`);
       const data = await res.json();
-      if (data.results) {
-        setGifs(data.results);
+      if (data.data) {
+        setGifs(data.data.map((gif: any) => ({
+          url: gif.images.original.url,
+          preview_url: gif.images.fixed_height.url
+        })));
       }
     } catch (e) {}
   };
@@ -258,22 +262,26 @@ export default function ActivityDMUI() {
     
     setUploadingFile(true);
     const formData = new FormData();
-    formData.append('reqtype', 'fileupload');
     formData.append('fileToUpload', file);
     
     try {
-      const res = await fetch('https://catbox.moe/user/api.php', {
+      const token = localStorage.getItem("discord_jwt");
+      const res = await fetch('/api/upload', {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
         body: formData
       });
-      const url = await res.text();
-      if (url.startsWith('https://')) {
+      const data = await res.json();
+      
+      if (data.success && data.url) {
         // Send the file as a markdown message
         const isImage = file.type.startsWith('image/');
-        const msgContent = isImage ? `![${file.name}](${url})` : `[📎 ${file.name}](${url})`;
+        const msgContent = isImage ? `![${file.name}](${data.url})` : `[📎 ${file.name}](${data.url})`;
         await sendMessage(undefined, msgContent);
       } else {
-        toast.error("Failed to upload file");
+        toast.error(data.error || "Failed to upload file");
       }
     } catch (err) {
       toast.error("Error uploading file");
@@ -973,7 +981,7 @@ export default function ActivityDMUI() {
                           }}
                           className="rounded-lg overflow-hidden border border-white/5 hover:border-indigo-500 transition-colors h-24 relative group"
                         >
-                          <img src={gif.media_formats.gif.url} className="w-full h-full object-cover" alt="GIF" />
+                          <img src={gif.preview_url} className="w-full h-full object-cover" alt="GIF" />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <span className="text-white text-xs font-bold bg-indigo-500 px-2 py-1 rounded">Send</span>
                           </div>
