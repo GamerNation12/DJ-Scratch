@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "^2.5.0",
     "@vercel/postgres": "^0.10.0",
     "dotenv": "^17.4.2",
     "jose": "^6.2.3",
