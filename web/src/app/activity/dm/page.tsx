@@ -7,16 +7,16 @@ import ActivityDMUI from "@/components/ActivityDMUI";
 const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1521582398188290049";
 // Initialize outside React to ensure immediate handshake!
 const discordSdk = new DiscordSDK(CLIENT_ID);
+let isSetupStarted = false;
 
 export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Initializing SDK...");
-  const setupStarted = useRef(false);
 
   useEffect(() => {
-    if (setupStarted.current) return;
-    setupStarted.current = true;
+    if (isSetupStarted) return;
+    isSetupStarted = true;
 
     async function setupDiscordSdk() {
       try {
