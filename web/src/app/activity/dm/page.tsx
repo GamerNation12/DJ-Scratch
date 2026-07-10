@@ -20,14 +20,19 @@ export default function ActivityDMPage() {
         const clientIdRes = await fetch('/api/config/client-id');
         const { clientId } = await clientIdRes.json();
         
-        if (!clientId) {
+        const cleanClientId = String(clientId).trim();
+        
+        if (!cleanClientId) {
           throw new Error("Client ID not found in response");
         }
 
-        setStatus(`Setting up SDK (Client: ${clientId})...`);
-        const discordSdk = new DiscordSDK(clientId);
+        const urlParams = new URLSearchParams(window.location.search);
+        const frameId = urlParams.get('frame_id') || 'MISSING';
+
+        setStatus(`Setting up SDK (Client: ${cleanClientId}, Frame: ${frameId})...`);
+        const discordSdk = new DiscordSDK(cleanClientId);
         
-        setStatus(`Waiting for SDK ready event (Client: ${clientId})...`);
+        setStatus(`Waiting for SDK ready event (Client: ${cleanClientId}, Frame: ${frameId})...`);
         
         // Add a timeout so it doesn't hang forever
         const readyPromise = discordSdk.ready();
