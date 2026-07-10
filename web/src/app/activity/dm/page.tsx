@@ -7,7 +7,7 @@ import ActivityDMUI from "@/components/ActivityDMUI";
 const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1521582398188290049";
 // Initialize outside React to ensure immediate handshake!
 const discordSdk = new DiscordSDK(CLIENT_ID);
-let isSetupStarted = false;
+let setupPromise: Promise<string> | null = null;
 
 export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,55 +15,53 @@ export default function ActivityDMPage() {
   const [status, setStatus] = useState("Initializing SDK...");
 
   useEffect(() => {
-    if (isSetupStarted) return;
-    isSetupStarted = true;
-
     async function setupDiscordSdk() {
       try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const frameId = urlParams.get('frame_id') || 'MISSING';
-        
-        setStatus(`Waiting for SDK ready event (Client: ${CLIENT_ID}, Frame: ${frameId})...`);
-        
-        // Add a timeout so it doesn't hang forever
-        const readyPromise = discordSdk.ready();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout waiting for Discord SDK ready event. Client ID might be incorrect or Discord app is not responding.")), 15000)
-        );
-        
-        await Promise.race([readyPromise, timeoutPromise]);
+        if (!setupPromise) {
+          setupPromise = (async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const frameId = urlParams.get('frame_id') || 'MISSING';
+            
+            // Wait for SDK
+            const readyPromise = discordSdk.ready();
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout waiting for Discord SDK ready event. Client ID might be incorrect or Discord app is not responding.")), 15000)
+            );
+            await Promise.race([readyPromise, timeoutPromise]);
 
-        setStatus("Prompting for authorization...");
-        const { code } = await discordSdk.commands.authorize({
-          client_id: CLIENT_ID,
-          response_type: "code",
-          state: "",
-          prompt: "none",
-          scope: ["identify", "guilds", "email"],
-        });
+            // Authorize
+            const { code } = await discordSdk.commands.authorize({
+              client_id: CLIENT_ID,
+              response_type: "code",
+              state: "",
+              prompt: "none",
+              scope: ["identify", "guilds", "email"],
+            });
 
-        setStatus("Exchanging code for token...");
-        const response = await fetch("/api/auth/activity", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ code }),
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to authenticate");
+            // Exchange code
+            const response = await fetch("/api/auth/activity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code }),
+            });
+            const data = await response.json();
+            
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to authenticate");
+            }
+            
+            localStorage.setItem("discord_jwt", data.token);
+            return data.token;
+          })();
         }
 
-        setStatus("Saving token...");
-        localStorage.setItem("discord_jwt", data.token);
+        setStatus("Setting up Discord Activity...");
+        await setupPromise;
         setIsAuthenticated(true);
-
       } catch (err: any) {
         console.error("Discord SDK Setup Error:", err);
         setError(err.message || String(err));
+        setupPromise = null; // allow retry if it failed
       }
     }
 
