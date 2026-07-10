@@ -10,57 +10,48 @@ class SocialCog(commands.Cog):
     social_group = app_commands.Group(name="social", description="Friends and Direct Messages")
 
     @social_group.command(name="addfriend", description="Send a friend request")
-    @app_commands.describe(username="The DJ Scratch username of the person to add")
-    async def add_friend(self, interaction: discord.Interaction, username: str):
+    @app_commands.describe(user="The Discord user to add as a friend")
+    async def add_friend(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer(ephemeral=True)
         user_id = str(interaction.user.id)
         
-        friend_id = await get_user_by_name(username)
-        if not friend_id:
-            await interaction.followup.send(f"Could not find a user named '{username}' in the DJ Scratch database.")
-            return
+        friend_id = str(user.id)
             
-        if user_id == str(friend_id):
+        if user_id == friend_id:
             await interaction.followup.send("You cannot add yourself!")
             return
             
         status = await add_friend_request(user_id, friend_id)
         if status == 'accepted':
-            await interaction.followup.send(f"You are now friends with {username}!")
+            await interaction.followup.send(f"You are now friends with {user.display_name}!")
             try:
-                discord_user = await self.bot.fetch_user(int(friend_id))
-                await discord_user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                await user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
             except:
                 pass
         elif status == 'pending':
-            await interaction.followup.send(f"Friend request sent to {username}!")
+            await interaction.followup.send(f"Friend request sent to {user.display_name}!")
             try:
-                discord_user = await self.bot.fetch_user(int(friend_id))
-                await discord_user.send(f"**{interaction.user.display_name}** sent you a friend request on DJ Scratch! View it on the website or app.")
+                await user.send(f"**{interaction.user.display_name}** sent you a friend request on DJ Scratch! View it on the website or app.")
             except:
                 pass
         elif status == 'already_friends':
-            await interaction.followup.send(f"You are already friends with {username}.")
+            await interaction.followup.send(f"You are already friends with {user.display_name}.")
         else:
             await interaction.followup.send("Failed to send request.")
 
     @social_group.command(name="accept", description="Accept a friend request")
-    @app_commands.describe(username="The DJ Scratch username of the person to accept")
-    async def accept_friend(self, interaction: discord.Interaction, username: str):
+    @app_commands.describe(user="The Discord user whose request you want to accept")
+    async def accept_friend(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer(ephemeral=True)
         user_id = str(interaction.user.id)
         
-        friend_id = await get_user_by_name(username)
-        if not friend_id:
-            await interaction.followup.send(f"Could not find a user named '{username}' in the DJ Scratch database.")
-            return
+        friend_id = str(user.id)
             
         success = await accept_friend_request(user_id, friend_id)
         if success:
-            await interaction.followup.send(f"Accepted friend request from {username}!")
+            await interaction.followup.send(f"Accepted friend request from {user.display_name}!")
             try:
-                discord_user = await self.bot.fetch_user(int(friend_id))
-                await discord_user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                await user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
             except:
                 pass
         else:

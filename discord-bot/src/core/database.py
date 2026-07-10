@@ -566,12 +566,22 @@ async def unlink_user(user_id):
 
 async def get_user_by_name(username):
     if not db_pool: return None
+    import re
+    
+    # Check if the username is actually a mention or a raw ID
+    mention_match = re.match(r'^<@!?(\d+)>$', username.strip())
+    if mention_match:
+        return mention_match.group(1)
+        
+    if username.strip().isdigit():
+        return username.strip()
+
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT id FROM imported_users WHERE LOWER(username) = LOWER($1)", str(username))
+            row = await conn.fetchrow("SELECT id FROM imported_users WHERE LOWER(username) = LOWER($1) OR LOWER(username) = LOWER($2)", str(username), str(username).replace('@', ''))
             if row: return row['id']
             # Fallback to display name
-            row = await conn.fetchrow("SELECT user_id FROM user_settings WHERE LOWER(display_name) = LOWER($1)", str(username))
+            row = await conn.fetchrow("SELECT user_id FROM user_settings WHERE LOWER(display_name) = LOWER($1) OR LOWER(display_name) = LOWER($2)", str(username), str(username).replace('@', ''))
             if row: return row['user_id']
             return None
     except Exception as e:
