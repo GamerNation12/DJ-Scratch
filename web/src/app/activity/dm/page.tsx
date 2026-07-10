@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import { DiscordSDK } from "@discord/embedded-app-sdk";
 import ActivityDMUI from "@/components/ActivityDMUI";
 
