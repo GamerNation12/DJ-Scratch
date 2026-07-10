@@ -7,21 +7,26 @@ import ActivityDMUI from "@/components/ActivityDMUI";
 export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("Initializing...");
 
   useEffect(() => {
     async function setupDiscordSdk() {
       try {
-        // Fetch Client ID
+        setStatus("Fetching Client ID...");
         const clientIdRes = await fetch('/api/config/client-id');
         const { clientId } = await clientIdRes.json();
         
         if (!clientId) {
-          throw new Error("Client ID not found");
+          throw new Error("Client ID not found in response");
         }
 
+        setStatus(`Setting up SDK (Client: ${clientId.substring(0, 5)}...)...`);
         const discordSdk = new DiscordSDK(clientId);
+        
+        setStatus("Waiting for SDK ready event from Discord...");
         await discordSdk.ready();
 
+        setStatus("Prompting for authorization...");
         const { code } = await discordSdk.commands.authorize({
           client_id: clientId,
           response_type: "code",
@@ -30,7 +35,7 @@ export default function ActivityDMPage() {
           scope: ["identify", "guilds", "email"],
         });
 
-        // Exchange code for token securely on our backend
+        setStatus("Exchanging code for token...");
         const response = await fetch("/api/auth/activity", {
           method: "POST",
           headers: {
@@ -45,13 +50,13 @@ export default function ActivityDMPage() {
           throw new Error(data.error || "Failed to authenticate");
         }
 
-        // Store the returned JWT for the Messages component to use
+        setStatus("Saving token...");
         localStorage.setItem("discord_jwt", data.token);
         setIsAuthenticated(true);
 
       } catch (err: any) {
         console.error("Discord SDK Setup Error:", err);
-        setError(err.message || "Failed to initialize Discord Activity");
+        setError(err.message || String(err));
       }
     }
 
@@ -62,16 +67,18 @@ export default function ActivityDMPage() {
     return (
       <div className="w-screen h-screen bg-[#313338] flex flex-col items-center justify-center text-white p-4">
         <h2 className="text-xl font-bold text-red-500 mb-2">Authentication Failed</h2>
-        <p className="text-[#dbdee1]">{error}</p>
+        <p className="text-[#dbdee1] font-mono text-xs max-w-lg text-center break-words">{error}</p>
+        <p className="text-zinc-500 text-xs mt-4">Last Status: {status}</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="w-screen h-screen bg-[#313338] flex flex-col items-center justify-center text-white p-4">
-        <div className="w-10 h-10 border-4 border-[#5865F2] border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-[#949ba4] font-medium">Authenticating with Discord...</p>
+      <div className="w-screen h-screen bg-[#09090b] flex flex-col items-center justify-center text-white p-4">
+        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6 shadow-lg shadow-indigo-500/20"></div>
+        <p className="text-zinc-400 font-bold tracking-widest uppercase text-sm mb-2">Authenticating</p>
+        <p className="text-indigo-400/80 font-mono text-xs">{status}</p>
       </div>
     );
   }
