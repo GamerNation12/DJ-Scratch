@@ -4,10 +4,14 @@ import { useEffect, useState, Suspense, useRef } from "react";
 import { DiscordSDK } from "@discord/embedded-app-sdk";
 import ActivityDMUI from "@/components/ActivityDMUI";
 
+const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1521582398188290049";
+// Initialize outside React to ensure immediate handshake!
+const discordSdk = new DiscordSDK(CLIENT_ID);
+
 export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Initializing...");
+  const [status, setStatus] = useState("Initializing SDK...");
   const setupStarted = useRef(false);
 
   useEffect(() => {
@@ -16,23 +20,10 @@ export default function ActivityDMPage() {
 
     async function setupDiscordSdk() {
       try {
-        setStatus("Fetching Client ID...");
-        const clientIdRes = await fetch('/api/config/client-id');
-        const { clientId } = await clientIdRes.json();
-        
-        const cleanClientId = String(clientId).trim();
-        
-        if (!cleanClientId) {
-          throw new Error("Client ID not found in response");
-        }
-
         const urlParams = new URLSearchParams(window.location.search);
         const frameId = urlParams.get('frame_id') || 'MISSING';
-
-        setStatus(`Setting up SDK (Client: ${cleanClientId}, Frame: ${frameId})...`);
-        const discordSdk = new DiscordSDK(cleanClientId);
         
-        setStatus(`Waiting for SDK ready event (Client: ${cleanClientId}, Frame: ${frameId})...`);
+        setStatus(`Waiting for SDK ready event (Client: ${CLIENT_ID}, Frame: ${frameId})...`);
         
         // Add a timeout so it doesn't hang forever
         const readyPromise = discordSdk.ready();
@@ -44,7 +35,7 @@ export default function ActivityDMPage() {
 
         setStatus("Prompting for authorization...");
         const { code } = await discordSdk.commands.authorize({
-          client_id: clientId,
+          client_id: CLIENT_ID,
           response_type: "code",
           state: "",
           prompt: "none",
