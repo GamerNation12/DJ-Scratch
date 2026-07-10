@@ -8,8 +8,12 @@ export default function ActivityDMPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Initializing...");
+  const setupStarted = useRef(false);
 
   useEffect(() => {
+    if (setupStarted.current) return;
+    setupStarted.current = true;
+
     async function setupDiscordSdk() {
       try {
         setStatus("Fetching Client ID...");
@@ -20,11 +24,18 @@ export default function ActivityDMPage() {
           throw new Error("Client ID not found in response");
         }
 
-        setStatus(`Setting up SDK (Client: ${clientId.substring(0, 5)}...)...`);
+        setStatus(`Setting up SDK (Client: ${clientId})...`);
         const discordSdk = new DiscordSDK(clientId);
         
-        setStatus("Waiting for SDK ready event from Discord...");
-        await discordSdk.ready();
+        setStatus(`Waiting for SDK ready event (Client: ${clientId})...`);
+        
+        // Add a timeout so it doesn't hang forever
+        const readyPromise = discordSdk.ready();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Timeout waiting for Discord SDK ready event. Client ID might be incorrect or Discord app is not responding.")), 15000)
+        );
+        
+        await Promise.race([readyPromise, timeoutPromise]);
 
         setStatus("Prompting for authorization...");
         const { code } = await discordSdk.commands.authorize({
