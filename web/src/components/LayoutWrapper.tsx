@@ -1,18 +1,22 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { useEffect, useState } from "react";
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [isDiscordIframe, setIsDiscordIframe] = useState(false);
   
-  // Discord proxies the request, so the browser URL might be '/' while serving '/activity/dm'.
-  // The most reliable way to detect the Discord Activity is checking for frame_id or instance_id.
+  useEffect(() => {
+    const search = window.location.search;
+    if (search.includes('frame_id=') || search.includes('instance_id=')) {
+      setIsDiscordIframe(true);
+    }
+  }, []);
+
   const isActivityRoute = pathname.startsWith('/activity');
-  const isDiscordIframe = searchParams.has('frame_id') || searchParams.has('instance_id');
 
   if (isActivityRoute || isDiscordIframe) {
     return <>{children}</>;
