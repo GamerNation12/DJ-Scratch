@@ -3,8 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "react-hot-toast";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +44,8 @@ export const metadata: Metadata = {
   },
 };
 
+import LayoutWrapper from "@/components/LayoutWrapper";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,11 +67,9 @@ export default function RootLayout({
               },
             }}
           />
-          <Navbar />
-          <div className="pt-16 min-h-screen">
+          <LayoutWrapper>
             {children}
-          </div>
-          <Footer />
+          </LayoutWrapper>
         </Providers>
       </body>
     </html>
