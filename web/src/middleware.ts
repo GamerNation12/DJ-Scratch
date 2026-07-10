@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
   if (hasDiscordParams && request.nextUrl.pathname === '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/activity/dm'
-    return NextResponse.rewrite(url)
+    return NextResponse.redirect(url)
   }
 
   return NextResponse.next()

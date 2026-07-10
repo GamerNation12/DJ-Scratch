@@ -7,16 +7,6 @@ import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu,
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 
-// Discord Colors
-// Background (Chat): #313338
-// Sidebar (Friends): #2b2d31
-// Top bar (Header): #313338 (same as chat but with border)
-// Input Bar: #383a40
-// Text Normal: #dbdee1
-// Text Muted: #949ba4
-// Primary Blue: #5865F2
-// Message Hover: #2e3035
-
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
 const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
@@ -290,7 +280,7 @@ export default function ActivityDMUI() {
     while ((match = regex.exec(content)) !== null) {
       if (match.index > lastIndex) {
         parts.push(
-          <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-[#00A8FC] hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
+          <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
             <ReactMarkdown>{content.substring(lastIndex, match.index)}</ReactMarkdown>
           </span>
         );
@@ -306,7 +296,7 @@ export default function ActivityDMUI() {
           src={`https://cdn.discordapp.com/emojis/${emojiId}.${ext}?size=48`} 
           alt={emojiName} 
           title={emojiName}
-          className="inline-block w-6 h-6 object-contain align-middle mx-0.5 pointer-events-none select-none" 
+          className="inline-block w-7 h-7 object-contain align-middle mx-0.5 pointer-events-none select-none drop-shadow-md" 
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       );
@@ -316,7 +306,7 @@ export default function ActivityDMUI() {
     
     if (lastIndex < content.length) {
       parts.push(
-        <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-[#00A8FC] hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
+        <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
           <ReactMarkdown>{content.substring(lastIndex)}</ReactMarkdown>
         </span>
       );
@@ -326,225 +316,237 @@ export default function ActivityDMUI() {
   };
 
   const getAvatar = (user: any) => {
-    if (user.avatar_url) return user.avatar_url;
-    return `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random() * 5)}.png`; // Fallback for Discord
+    if (user?.avatar_url) return user.avatar_url;
+    return `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random() * 5)}.png`;
   };
 
   return (
-    <div className="w-screen h-screen flex overflow-hidden bg-[#313338] text-[#dbdee1] font-sans selection:bg-[#5865F2]/50 selection:text-white">
+    <div className="w-screen h-screen flex overflow-hidden bg-[#09090b] text-zinc-200 font-sans selection:bg-indigo-500/30 selection:text-white">
       
+      {/* Background ambient glow */}
+      <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
+      <div className="absolute bottom-0 right-1/4 w-1/2 h-1/2 bg-purple-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
+
       {/* Mobile Sidebar Overlay */}
       {mobileSidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
+        <div className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
       )}
 
       {/* Sidebar - Friends List */}
       <div className={`
         ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         md:translate-x-0 transition-transform absolute md:relative z-50
-        w-[240px] h-full bg-[#2b2d31] flex flex-col flex-shrink-0
+        w-[280px] h-full bg-zinc-950/80 backdrop-blur-2xl border-r border-white/5 flex flex-col flex-shrink-0 shadow-2xl
       `}>
         {/* Sidebar Header */}
-        <div className="h-12 border-b border-[#1f2023] flex items-center px-4 shadow-[0_1px_2px_rgba(0,0,0,0.2)] z-10">
-          <div className="w-full bg-[#1e1f22] rounded text-sm px-2 py-1 text-[#949ba4] font-medium cursor-pointer">
-            Find or start a conversation
+        <div className="h-16 flex items-center px-6 z-10 border-b border-white/5 bg-white/[0.02]">
+          <div className="flex items-center gap-2 group">
+            <img src="/logo.png" alt="DJ Scratch" className="w-8 h-8 rounded-xl shadow-lg shadow-black/50 group-hover:scale-105 transition-transform" />
+            <span className="font-bold text-lg bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">DJ Scratch</span>
           </div>
         </div>
 
         {/* Sidebar Content */}
-        <div className="flex-1 overflow-y-auto pt-2 px-2 custom-scrollbar">
-          <h2 className="px-3 py-1 text-[11px] font-bold text-[#949ba4] uppercase tracking-wider mb-1">
-            Direct Messages
+        <div className="flex-1 overflow-y-auto pt-4 px-3 custom-scrollbar">
+          <h2 className="px-3 py-1 text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
+            Messages
           </h2>
           
           {friends.length === 0 ? (
-            <p className="text-[#949ba4] text-xs p-3 text-center">No friends yet. Add some!</p>
+            <p className="text-zinc-500 text-sm p-4 text-center bg-white/5 rounded-xl border border-white/5 mt-2">No friends yet.</p>
           ) : (
-            friends.map(f => {
-              const isActive = activeChat?.friend_id === f.friend_id;
-              const name = f.display_name || f.friend_username;
-              return (
-                <button
-                  key={f.friend_id}
-                  onClick={() => {
-                    setActiveChat(f);
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-2 py-[6px] rounded mb-[2px] transition-colors group ${
-                    isActive ? "bg-[#404249] text-white" : "hover:bg-[#35373c] hover:text-[#dbdee1] text-[#949ba4]"
-                  }`}
-                >
-                  <div className="relative">
-                    <img src={getAvatar(f)} className="w-8 h-8 rounded-full bg-[#1e1f22]" alt="" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#23a559] border-2 border-[#2b2d31] rounded-full"></div>
-                  </div>
-                  <span className={`font-medium text-sm truncate ${isActive ? 'text-white' : 'group-hover:text-white'}`}>
-                    {name}
-                  </span>
-                </button>
-              );
-            })
+            <div className="space-y-1">
+              {friends.map(f => {
+                const isActive = activeChat?.friend_id === f.friend_id;
+                const name = f.display_name || f.friend_username;
+                return (
+                  <button
+                    key={f.friend_id}
+                    onClick={() => {
+                      setActiveChat(f);
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative overflow-hidden ${
+                      isActive ? "bg-white/10 text-white shadow-lg shadow-black/20 border border-white/10" : "hover:bg-white/5 text-zinc-400 border border-transparent"
+                    }`}
+                  >
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
+                    )}
+                    <div className="relative">
+                      <img src={getAvatar(f)} className={`w-10 h-10 rounded-full bg-zinc-900 border border-white/10 transition-transform ${isActive ? 'scale-105' : 'group-hover:scale-105'}`} alt="" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-zinc-950 rounded-full shadow-sm"></div>
+                    </div>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className={`font-semibold text-sm truncate w-full text-left ${isActive ? 'text-white' : 'group-hover:text-zinc-200'}`}>
+                        {name}
+                      </span>
+                      <span className="text-xs text-zinc-500 truncate w-full text-left">
+                        @{f.friend_username}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
         
-        {/* User Profile Bar (bottom left) */}
-        <div className="h-[52px] bg-[#232428] flex items-center px-2 flex-shrink-0">
-          <div className="flex items-center gap-2 hover:bg-[#3f4147] rounded p-1 cursor-pointer transition-colors w-full">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+        {/* User Profile Bar */}
+        <div className="p-4 border-t border-white/5 bg-white/[0.02]">
+          <div className="flex items-center gap-3 bg-white/5 rounded-xl p-2.5 border border-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
               <span className="font-bold text-white text-sm">ME</span>
             </div>
             <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-semibold text-white leading-tight truncate">You</span>
-              <span className="text-[11px] text-[#949ba4] leading-tight truncate">Online</span>
+              <span className="text-sm font-bold text-white leading-tight truncate">You</span>
+              <span className="text-xs text-indigo-300 leading-tight truncate">Online</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#313338]">
+      <div className="flex-1 flex flex-col min-w-0 z-10 relative">
         
         {activeChat ? (
           <>
             {/* Chat Header */}
-            <div className="h-12 border-b border-[#1f2023] flex items-center px-4 shadow-[0_1px_2px_rgba(0,0,0,0.2)] z-10 flex-shrink-0 bg-[#313338]">
-              <button className="md:hidden mr-3 text-[#949ba4]" onClick={() => setMobileSidebarOpen(true)}>
-                <Menu className="w-6 h-6" />
+            <div className="h-16 border-b border-white/5 flex items-center px-6 z-10 flex-shrink-0 bg-zinc-950/30 backdrop-blur-md">
+              <button className="md:hidden mr-4 text-zinc-400 hover:text-white p-2 bg-white/5 rounded-lg border border-white/5" onClick={() => setMobileSidebarOpen(true)}>
+                <Menu className="w-5 h-5" />
               </button>
-              <div className="flex items-center gap-2">
-                <span className="text-[#80848e] text-2xl font-light mb-1">@</span>
-                <h3 className="font-semibold text-white">{activeChat.display_name || activeChat.friend_username}</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-[2px] shadow-lg shadow-indigo-500/20">
+                  <img src={getAvatar(activeChat)} className="w-full h-full rounded-full border-2 border-zinc-950 object-cover" alt="" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg leading-tight">{activeChat.display_name || activeChat.friend_username}</h3>
+                  <p className="text-xs text-zinc-400 leading-tight">@{activeChat.friend_username}</p>
+                </div>
               </div>
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar relative">
+            <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar relative">
               {messages.length === 0 ? (
-                <div className="flex flex-col justify-end min-h-full pb-4">
-                  <div className="w-20 h-20 bg-[#2b2d31] rounded-full flex items-center justify-center mb-4">
-                    <User className="w-10 h-10 text-[#dbdee1]" />
+                <div className="flex flex-col justify-end min-h-full pb-8">
+                  <div className="w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-full flex items-center justify-center mb-6 border border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.15)]">
+                    <User className="w-12 h-12 text-indigo-400" />
                   </div>
-                  <h1 className="text-3xl font-bold text-white mb-2">
+                  <h1 className="text-4xl font-black text-white mb-3 tracking-tight">
                     {activeChat.display_name || activeChat.friend_username}
                   </h1>
-                  <p className="text-base text-[#949ba4]">
-                    This is the beginning of your direct message history with <strong className="text-[#dbdee1]">@{activeChat.friend_username}</strong>.
+                  <p className="text-lg text-zinc-400 max-w-md">
+                    This is the beginning of your legendary conversation with <strong className="text-zinc-200">@{activeChat.friend_username}</strong>. Drop a beat!
                   </p>
                 </div>
               ) : (
-                <div className="space-y-[2px]">
+                <div className="space-y-6">
                   {messages.map((m, index) => {
                     const isMe = m.sender_id === myId && !m.is_bot;
-                    const prevMsg = messages[index - 1];
-                    // Group messages if they are from the same sender and within 5 minutes
-                    const isGrouped = prevMsg 
-                      && prevMsg.sender_id === m.sender_id 
-                      && prevMsg.is_bot === m.is_bot 
-                      && (new Date(m.sent_at).getTime() - new Date(prevMsg.sent_at).getTime() < 300000);
-
+                    
                     return (
                       <div 
                         key={m.id} 
-                        className={`group flex items-start hover:bg-[#2e3035] pl-4 pr-12 relative ${isGrouped ? 'py-[2px]' : 'py-3 mt-4'}`}
+                        className={`group flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}
                       >
-                        {/* Avatar Column */}
-                        <div className="w-[40px] flex-shrink-0 mr-4 flex justify-center mt-0.5">
-                          {!isGrouped ? (
-                            isMe ? (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center cursor-pointer">
-                                <span className="font-bold text-white text-sm">ME</span>
-                              </div>
-                            ) : (
-                              <img src={getAvatar(activeChat)} className="w-10 h-10 rounded-full cursor-pointer bg-[#1e1f22]" alt="" />
-                            )
-                          ) : (
-                            <span className="text-[10px] text-[#949ba4] opacity-0 group-hover:opacity-100 mt-1 select-none w-10 text-right pr-2">
-                              {new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Message Content */}
-                        <div className="flex-1 min-w-0">
-                          {!isGrouped && (
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className={`font-medium text-base hover:underline cursor-pointer ${m.is_bot ? 'text-[#5865F2]' : 'text-white'}`}>
-                                {isMe ? 'You' : (m.is_bot ? 'DJ Scratch' : (activeChat.display_name || activeChat.friend_username))}
-                              </span>
-                              {m.is_bot && (
-                                <span className="bg-[#5865F2] text-white text-[10px] uppercase font-bold px-1.5 py-[2px] rounded inline-flex items-center gap-1">
-                                  <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" clipRule="evenodd" d="M16 8A8 8 0 110 8a8 8 0 0116 0zm-4.7-2.7a1 1 0 00-1.4 0L7.5 7.79 6.1 6.3a1 1 0 00-1.4 1.4l2.1 2.1c.4.4 1 .4 1.4 0l3.1-3.1a1 1 0 000-1.4z"/></svg>
-                                  BOT
-                                </span>
-                              )}
-                              <span className="text-xs text-[#949ba4] font-medium ml-1">
-                                {new Date(m.sent_at).toLocaleDateString([], { month: '2-digit', day: '2-digit', year: 'numeric' })} {new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                        {m.is_bot && (
+                          <div className="flex items-center gap-1.5 mb-1.5 ml-2">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                              <span className="text-[10px]">🤖</span>
                             </div>
-                          )}
-                          
-                          <div className={`text-[#dbdee1] ${m.isSending ? 'opacity-60' : ''}`}>
-                            {m.failed && (
-                              <span className="text-red-400 mr-2" title="Failed to send">
-                                <AlertCircle className="w-4 h-4 inline-block -mt-1" />
-                              </span>
-                            )}
-                            {renderMessageContent(m.content)}
-                          </div>
-
-                          {/* Reactions */}
-                          {m.reactions && m.reactions.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {m.reactions.map((r: any, idx: number) => (
-                                <div key={idx} className="bg-[#2b2d31] hover:bg-[#35373c] hover:border-[#5865F2] cursor-pointer px-1.5 py-0.5 rounded-lg flex items-center border border-transparent transition-colors">
-                                  <img src={r.url} alt={r.name} className="w-4 h-4 object-contain" title={r.name} />
-                                  <span className="text-xs font-bold text-[#b5bac1] ml-1.5 mr-1">1</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {/* Failed Actions */}
-                          {m.failed && (
-                            <div className="flex gap-2 mt-1">
-                              <button onClick={() => sendMessage(undefined, m.content, m.id)} className="text-xs text-red-400 hover:underline">Retry</button>
-                              <button onClick={() => deleteFailedMessage(m.id)} className="text-xs text-red-400 hover:underline">Delete</button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Hover Actions (Emoji Picker Button) */}
-                        {!m.isSending && !m.failed && (
-                          <div className="absolute right-4 -top-3 hidden group-hover:flex bg-[#313338] border border-[#1f2023] rounded-md shadow-sm overflow-hidden z-20">
-                            <button 
-                              onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === m.id ? null : m.id)}
-                              className="p-1.5 text-[#b5bac1] hover:bg-[#404249] hover:text-[#dbdee1] transition-colors"
-                              title="Add Reaction"
-                            >
-                              <Smile className="w-4 h-4" />
-                            </button>
+                            <span className="text-xs font-bold text-zinc-300">DJ Scratch</span>
+                            <span className="text-[9px] bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold shadow-sm">Bot</span>
                           </div>
                         )}
 
-                        {/* Reaction Picker Popup */}
-                        {showEmojiPickerFor === m.id && (
-                          <div className="absolute z-50 right-12 top-0 w-64 max-h-48 overflow-y-auto bg-[#2b2d31] border border-[#1f2023] rounded-lg p-2 shadow-2xl flex flex-wrap gap-1 custom-scrollbar">
-                            <div className="w-full flex justify-between items-center mb-1">
-                              <span className="text-xs font-bold text-[#b5bac1] uppercase tracking-wider ml-1">React</span>
-                              <button onClick={() => setShowEmojiPickerFor(null)} className="text-[#b5bac1] hover:text-white p-1">
-                                <X className="w-3 h-3" />
-                              </button>
+                        <div className={`flex ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 max-w-[85%] sm:max-w-[70%]`}>
+                          
+                          {/* Chat Bubble */}
+                          <div className={`px-5 py-3.5 relative group ${
+                            isMe 
+                              ? m.failed
+                                ? 'bg-red-500/10 text-red-200 border border-red-500/30 rounded-2xl rounded-br-sm backdrop-blur-md'
+                                : 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl rounded-br-sm shadow-xl shadow-indigo-600/20 border border-indigo-400/20' 
+                              : m.is_bot
+                                ? 'bg-indigo-950/40 text-zinc-100 rounded-2xl rounded-bl-sm border border-indigo-500/20 shadow-lg backdrop-blur-md ml-8'
+                                : 'bg-zinc-800/80 text-zinc-200 rounded-2xl rounded-bl-sm border border-white/5 shadow-lg backdrop-blur-md'
+                          } ${m.isSending ? 'opacity-60' : ''}`}>
+                            
+                            <div className="leading-relaxed drop-shadow-sm">
+                              {renderMessageContent(m.content)}
                             </div>
-                            {customEmojis.map((emoji) => (
-                              <button
-                                key={emoji.id}
-                                onClick={() => handleReact(m.id, emoji)}
-                                className="w-9 h-9 rounded flex items-center justify-center p-1 hover:bg-[#404249] transition-colors"
-                                title={emoji.name}
-                              >
-                                <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain" />
-                              </button>
-                            ))}
+
+                            {/* Reactions */}
+                            {m.reactions && m.reactions.length > 0 && (
+                              <div className={`flex flex-wrap gap-1.5 mt-2.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                {m.reactions.map((r: any, idx: number) => (
+                                  <div key={idx} className="bg-black/40 hover:bg-black/60 cursor-pointer px-2 py-1 rounded-lg flex items-center border border-white/10 transition-colors backdrop-blur-md shadow-sm">
+                                    <img src={r.url} alt={r.name} className="w-4 h-4 object-contain drop-shadow-md" title={r.name} />
+                                    <span className="text-xs font-bold text-zinc-300 ml-1.5 mr-0.5">1</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Time and Status */}
+                            <div className={`flex items-center gap-1.5 mt-2 text-[10px] font-medium ${isMe ? m.failed ? 'text-red-300' : 'text-indigo-200/80' : 'text-zinc-500'}`}>
+                              {m.failed && <AlertCircle className="w-3 h-3" />}
+                              <span>
+                                {m.failed ? "Failed to send" : new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {isMe && !m.failed && m.read_at && (
+                                <span className="ml-1 flex items-center text-indigo-300 font-bold">
+                                  ✓ Seen
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Hover Actions */}
+                            {!m.isSending && !m.failed && (
+                              <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-10' : '-right-10'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                <button 
+                                  onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === m.id ? null : m.id)}
+                                  className="p-1.5 bg-zinc-800/80 backdrop-blur-md border border-white/10 rounded-full hover:bg-zinc-700 text-zinc-400 hover:text-white shadow-lg"
+                                >
+                                  <Smile className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Reaction Picker Popup */}
+                            {showEmojiPickerFor === m.id && (
+                              <div className={`absolute z-50 top-1/2 -translate-y-1/2 ${isMe ? 'right-[calc(100%+2.5rem)]' : 'left-[calc(100%+2.5rem)]'} w-64 max-h-48 overflow-y-auto bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-xl p-2.5 shadow-2xl flex flex-wrap gap-1.5 custom-scrollbar`}>
+                                <div className="w-full flex justify-between items-center mb-1.5 px-1">
+                                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">React</span>
+                                  <button onClick={() => setShowEmojiPickerFor(null)} className="text-zinc-500 hover:text-white transition-colors">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                {customEmojis.map((emoji) => (
+                                  <button
+                                    key={emoji.id}
+                                    onClick={() => handleReact(m.id, emoji)}
+                                    className="w-10 h-10 rounded-lg flex items-center justify-center p-1.5 hover:bg-white/10 transition-colors"
+                                    title={emoji.name}
+                                  >
+                                    <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain drop-shadow-md" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {isMe && m.failed && (
+                          <div className="flex gap-2 mt-2 mr-2">
+                            <button onClick={() => sendMessage(undefined, m.content, m.id)} className="text-xs text-red-400 font-medium hover:text-red-300 flex items-center gap-1 transition-colors bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg">
+                              <RefreshCw className="w-3 h-3" /> Retry
+                            </button>
+                            <button onClick={() => deleteFailedMessage(m.id)} className="text-xs text-zinc-400 font-medium hover:text-white flex items-center gap-1 transition-colors bg-zinc-800/50 border border-white/5 px-3 py-1.5 rounded-lg">
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
                           </div>
                         )}
                       </div>
@@ -556,52 +558,50 @@ export default function ActivityDMUI() {
             </div>
 
             {/* Input Area */}
-            <div className="px-4 pb-6 pt-0 bg-[#313338] flex-shrink-0">
-              <div className="relative">
+            <div className="px-6 pb-6 pt-2 bg-transparent flex-shrink-0 relative z-20">
+              <div className="relative max-w-4xl mx-auto">
                 <form 
                   onSubmit={sendMessage} 
-                  className="bg-[#383a40] rounded-lg flex items-center pr-2 pl-4 min-h-[44px]"
+                  className="bg-zinc-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl flex items-center p-2 shadow-2xl shadow-black/50 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all"
                 >
+                  <button
+                    type="button"
+                    onClick={() => setShowChatEmojiPicker(!showChatEmojiPicker)}
+                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all ml-1"
+                    title="Select Emoji"
+                  >
+                    <Smile className="w-6 h-6 hover:scale-110 transition-transform" />
+                  </button>
+                  
                   <input
                     type="text"
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    placeholder={`Message @${activeChat.friend_username}`}
-                    className="flex-1 bg-transparent border-none text-[#dbdee1] placeholder-[#87898f] focus:outline-none focus:ring-0 py-3"
+                    placeholder={`Message @${activeChat.friend_username}...`}
+                    className="flex-1 bg-transparent border-none text-white placeholder-zinc-500 focus:outline-none focus:ring-0 px-4 py-3 text-base"
                   />
                   
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowChatEmojiPicker(!showChatEmojiPicker)}
-                      className="p-1.5 text-[#b5bac1] hover:text-[#dbdee1] transition-colors"
-                      title="Select Emoji"
-                    >
-                      <Smile className="w-6 h-6 hover:scale-110 transition-transform" />
-                    </button>
-                    {/* Send Button is hidden in Discord usually, hitting Enter sends, but we'll include it for mobile */}
-                    <button
-                      type="submit"
-                      disabled={!input.trim()}
-                      className="md:hidden p-1.5 text-[#5865F2] hover:text-[#4752c4] disabled:opacity-50 transition-colors"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white p-3 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center mr-1"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
                 </form>
 
                 {/* Chat Input Emoji Picker Popup */}
                 {showChatEmojiPicker && (
-                  <div className="absolute bottom-[calc(100%+8px)] right-0 w-[320px] h-[320px] bg-[#2b2d31] border border-[#1f2023] rounded-lg shadow-2xl flex flex-col z-50 overflow-hidden">
-                    <div className="p-3 border-b border-[#1f2023] flex justify-between items-center bg-[#2b2d31]">
-                      <span className="font-bold text-white text-sm">Emoji</span>
-                      <button onClick={() => setShowChatEmojiPicker(false)} className="text-[#949ba4] hover:text-white">
+                  <div className="absolute bottom-[calc(100%+16px)] left-0 w-[340px] h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
+                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                      <span className="font-bold text-white text-sm">Emojis</span>
+                      <button onClick={() => setShowChatEmojiPicker(false)} className="text-zinc-500 hover:text-white transition-colors bg-white/5 p-1 rounded-lg">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                      <div className="text-xs font-bold text-[#949ba4] uppercase tracking-wider mb-2 ml-1">Custom Emojis</div>
-                      <div className="flex flex-wrap gap-1">
+                    <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                      <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 ml-1">Custom Emojis</div>
+                      <div className="flex flex-wrap gap-1.5">
                         {customEmojis.map((emoji, idx) => (
                           <button 
                             key={idx} 
@@ -610,18 +610,18 @@ export default function ActivityDMUI() {
                               setInput(prev => prev + `<:${emoji.name}:${emoji.id}>`);
                               setShowChatEmojiPicker(false);
                             }}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-[#404249] rounded p-1.5 transition-colors"
+                            className="w-12 h-12 flex items-center justify-center hover:bg-white/10 rounded-xl p-2 transition-colors border border-transparent hover:border-white/5"
                             title={emoji.name}
                           >
-                            <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain" />
+                            <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain drop-shadow-md" />
                           </button>
                         ))}
                       </div>
                       
-                      <div className="w-full h-[1px] bg-[#3f4147] my-3" />
-                      <div className="text-xs font-bold text-[#949ba4] uppercase tracking-wider mb-2 ml-1">Standard</div>
+                      <div className="w-full h-px bg-white/5 my-4" />
+                      <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 ml-1">Standard</div>
                       
-                      <div className="flex flex-wrap gap-1 pb-4">
+                      <div className="flex flex-wrap gap-1.5 pb-4">
                         {STANDARD_EMOJIS.map((emoji, idx) => (
                           <button 
                             key={`std-${idx}`} 
@@ -630,7 +630,7 @@ export default function ActivityDMUI() {
                               setInput(prev => prev + emoji);
                               setShowChatEmojiPicker(false);
                             }}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-[#404249] rounded p-1 transition-colors text-2xl"
+                            className="w-12 h-12 flex items-center justify-center hover:bg-white/10 rounded-xl p-1 transition-colors text-3xl border border-transparent hover:border-white/5"
                           >
                             {emoji}
                           </button>
@@ -643,34 +643,34 @@ export default function ActivityDMUI() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 bg-[#313338]">
-            <button className="md:hidden absolute top-4 left-4 text-[#949ba4]" onClick={() => setMobileSidebarOpen(true)}>
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 bg-transparent relative z-10">
+            <button className="md:hidden absolute top-6 left-6 text-zinc-400 bg-white/5 border border-white/10 p-2 rounded-lg" onClick={() => setMobileSidebarOpen(true)}>
               <Menu className="w-6 h-6" />
             </button>
-            <div className="w-32 h-32 mb-6 opacity-30 pointer-events-none">
+            <div className="w-40 h-40 mb-8 opacity-20 pointer-events-none drop-shadow-2xl">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36">
                 <path fill="currentColor" d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83a72.37 72.37 0 0 0-3.36-6.83A105.73 105.73 0 0 0 19.43 8.07C2.04 33.6.47 58.74 3.09 83.56a105.73 105.73 0 0 0 32.27 16.17 77.7 77.7 0 0 0 6.89-11.1 82.26 82.26 0 0 1-11.19-5.3 65.42 65.42 0 0 0 2.25-1.74 74.02 74.02 0 0 0 60.54 0 65.51 65.51 0 0 0 2.25 1.74 81.79 81.79 0 0 1-11.19 5.3 77.83 77.83 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.27-16.17c2.9-27.11-2.07-52.61-15.37-75.49ZM42.45 65.69c-6.19 0-11.29-5.65-11.29-12.61 0-6.95 4.96-12.6 11.29-12.6 6.4 0 11.4 5.75 11.29 12.6 0 6.96-4.89 12.61-11.29 12.61Zm42.24 0c-6.19 0-11.29-5.65-11.29-12.61 0-6.95 4.96-12.6 11.29-12.6 6.4 0 11.4 5.75 11.29 12.6 0 6.96-4.9 12.61-11.29 12.61Z"/>
               </svg>
             </div>
-            <p className="text-[#949ba4] font-medium text-lg">Select a friend to start chatting</p>
+            <p className="text-zinc-400 font-bold text-xl tracking-tight">Select a friend to start dropping beats</p>
           </div>
         )}
       </div>
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background-color: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #1a1b1e;
-          border-radius: 4px;
+          background-color: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: #111214;
+          background-color: rgba(255, 255, 255, 0.2);
         }
       `}</style>
     </div>
