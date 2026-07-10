@@ -20,19 +20,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Proxy the upload to uguu.se to avoid CORS and local hosting
+    // Proxy the upload to freeimage.host for permanent hotlinkable images
     const formData = new FormData();
-    formData.append("files[]", file);
+    formData.append("source", file);
+    formData.append("key", "6d207e02198a847aa98d0a2a901485a5");
 
-    const res = await fetch("https://uguu.se/upload.php", {
+    const res = await fetch("https://freeimage.host/api/1/upload", {
       method: "POST",
       body: formData
     });
 
     const data = await res.json();
     
-    if (data.success && data.files && data.files.length > 0) {
-      return NextResponse.json({ url: data.files[0].url, success: true });
+    if (data.status_code === 200 && data.image && data.image.url) {
+      return NextResponse.json({ url: data.image.url, success: true });
     } else {
       return NextResponse.json({ error: "External upload failed" }, { status: 500 });
     }
