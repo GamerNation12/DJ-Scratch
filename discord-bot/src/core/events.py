@@ -1091,13 +1091,11 @@ class FMDetailsView(discord.ui.View):
         if song and artist:
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
             btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
-            btn_lyrics.callback = self.show_lyrics
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0:
             custom_prev = f"fm_preview:{artist[:80]}"
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
-            btn2.callback = self.preview_avatar
             self.add_item(btn2)
 
     async def show_lyrics(self, interaction: discord.Interaction):
@@ -1142,19 +1140,15 @@ class FMActionsView(discord.ui.View):
         user_id = str(user.id) if user else "None"
         if current_mode == "compact":
             btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
-            btn_down.callback = self.go_down
             self.add_item(btn_down)
         elif current_mode == "full":
             btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
-            btn_up.callback = self.go_up
             self.add_item(btn_up)
             
             btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
-            btn_down.callback = self.go_down
             self.add_item(btn_down)
         elif current_mode == "stats":
             btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
-            btn_up.callback = self.go_up
             self.add_item(btn_up)
             
         if spotify_url and current_mode != "compact":
@@ -1163,13 +1157,11 @@ class FMActionsView(discord.ui.View):
         if song and artist and current_mode != "compact":
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
             btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
-            btn_lyrics.callback = self.show_lyrics
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
             custom_prev = f"fm_preview:{artist[:80]}"
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
-            btn2.callback = self.preview_avatar
             self.add_item(btn2)
 
     async def go_down(self, interaction: discord.Interaction):
@@ -2700,6 +2692,26 @@ async def on_interaction(interaction: discord.Interaction):
             parts = custom_id.split(":")
             if len(parts) >= 2:
                 artist = ":".join(parts[1:])
-                # Since we don't have the image URL in the ID due to length limits, we just show a generic message 
-                # or fetch it from DB
-                await interaction.response.send_message(f"Please re-run the `/fm` command to preview the avatar for **{artist}** (Bot restarted).", ephemeral=True)
+                img_url = None
+                if interaction.message.embeds and len(interaction.message.embeds) > 0:
+                    embed = interaction.message.embeds[0]
+                    if embed.thumbnail and embed.thumbnail.url:
+                        img_url = embed.thumbnail.url
+                    elif embed.image and embed.image.url:
+                        img_url = embed.image.url
+                        
+                if not img_url:
+                    await interaction.response.send_message(f"Please re-run the `/fm` command to preview the avatar for **{artist}** (Image not found).", ephemeral=True)
+                    return
+                
+                preview_embed = discord.Embed(
+                    title="Bot Avatar Preview", 
+                    description=f"This is how the bot will look if you apply the album art for **{artist}**.", 
+                    color=LASTFM_COLOR
+                )
+                from src.core.database import format_name
+                preview_embed.set_author(name=format_name(interaction.user), icon_url=img_url)
+                preview_embed.set_image(url=img_url)
+                
+                apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=interaction.user, track=None)
+                await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)

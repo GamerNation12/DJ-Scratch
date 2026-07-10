@@ -15,47 +15,9 @@ class SpotifyRemoteView(discord.ui.View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
         self.user_id = str(user_id)
-        self.previous.custom_id = f"spotify_prev:{self.user_id}"
-        self.play_pause.custom_id = f"spotify_play:{self.user_id}"
-        self.next.custom_id = f"spotify_next:{self.user_id}"
-        
-    async def check_auth(self, interaction: discord.Interaction):
-        if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("This is not your remote!", ephemeral=True)
-            return False
-        return True
-        
-    async def handle_response(self, interaction: discord.Interaction, result):
-        if result == "no_token":
-            app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
-            await interaction.response.send_message(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
-        elif result is True:
-            await interaction.response.send_message("Action successful!", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"Failed: {result}", ephemeral=True)
-
-    @discord.ui.button(emoji="⏮️", style=discord.ButtonStyle.secondary)
-    async def previous(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.check_auth(interaction): return
-        async with aiohttp.ClientSession() as session:
-            res = await spotify_skip_to_previous(session, self.user_id)
-            await self.handle_response(interaction, res)
-
-    @discord.ui.button(emoji="⏯️", style=discord.ButtonStyle.primary)
-    async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.check_auth(interaction): return
-        async with aiohttp.ClientSession() as session:
-            res = await spotify_pause_playback(session, self.user_id)
-            if res is not True:
-                res = await spotify_play_track(session, self.user_id)
-            await self.handle_response(interaction, res)
-
-    @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary)
-    async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self.check_auth(interaction): return
-        async with aiohttp.ClientSession() as session:
-            res = await spotify_skip_to_next(session, self.user_id)
-            await self.handle_response(interaction, res)
+        self.add_item(discord.ui.Button(emoji="⏮️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_prev:{self.user_id}"))
+        self.add_item(discord.ui.Button(emoji="⏯️", style=discord.ButtonStyle.primary, custom_id=f"spotify_play:{self.user_id}"))
+        self.add_item(discord.ui.Button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_next:{self.user_id}"))
 
 
 class SpotifyRemote(commands.Cog):
