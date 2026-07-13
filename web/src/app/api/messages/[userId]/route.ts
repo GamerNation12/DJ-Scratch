@@ -94,6 +94,17 @@ export async function POST(
     
     const message = inserted[0];
     
+    // Get sender profile for notification
+    const senderData = await sql`
+      SELECT u.username, u.avatar_url, s.display_name 
+      FROM users u 
+      LEFT JOIN user_settings s ON u.id = s.user_id 
+      WHERE u.id = ${myId}
+    `;
+    const sender = senderData[0] || {};
+    const senderName = sender.display_name || sender.username || "Unknown User";
+    const senderAvatar = sender.avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png";
+    
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
@@ -117,8 +128,8 @@ export async function POST(
           description: filteredContent,
           color: 0x5865F2, // Blurple
           author: {
-            name: (user as any).name || "Unknown User",
-            icon_url: (user as any).avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png"
+            name: senderName,
+            icon_url: senderAvatar
           },
           timestamp: new Date().toISOString(),
           footer: {

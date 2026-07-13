@@ -2028,6 +2028,8 @@ async def process_profile(user):
     if username:
         data = await fetch_user_profile(username)
         if data:
+            if 'error' in data or 'user' not in data:
+                return None, None, f"Last.fm Error: {data.get('message', 'User not found on Last.fm.')}"
             info = data['user']
             embed.title = f"{info['name']}'s DJ Scratch Profile"
             safe_name = urllib.parse.quote(format_name(user))
@@ -2569,7 +2571,7 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                 )
                 embed.set_author(
                     name=sender_name,
-                    icon_url=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
+                    icon_url=interaction.user.display_avatar.url
                 )
                 embed.set_footer(text="DJ Scratch • Activity DM")
                 
