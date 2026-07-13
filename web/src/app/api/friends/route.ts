@@ -84,6 +84,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, status: 'accepted' });
       }
 
+      const BOT_ID = "1521582398188290049";
+      if (finalTargetId === BOT_ID) {
+        // Auto-accept for the bot
+        await sql`INSERT INTO friends (user_id, friend_id, status) VALUES (${userId}, ${finalTargetId}, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'`;
+        await sql`INSERT INTO friends (user_id, friend_id, status) VALUES (${finalTargetId}, ${userId}, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'`;
+        return NextResponse.json({ success: true, status: 'accepted' });
+      }
+
       await sql`INSERT INTO friends (user_id, friend_id, status) VALUES (${userId}, ${finalTargetId}, 'pending') ON CONFLICT (user_id, friend_id) DO NOTHING`;
       await sendDiscordDM(
         finalTargetId, 

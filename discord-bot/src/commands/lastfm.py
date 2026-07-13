@@ -83,6 +83,7 @@ class LastFmCog(commands.Cog):
                     
                     if is_p:
                         artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        album = t.get('album', {}).get('#text')
                         
                         try:
                             from src.core.spotify import get_spotify_track_info
@@ -105,7 +106,7 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=format_name(interaction.user), icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user, track=song)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user, track=song, album=album)
                             msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True, wait=True)
                             view.original_msg = msg
                             return
@@ -351,6 +352,7 @@ class LastFmCog(commands.Cog):
                     is_p = t.get('@attr', {}).get('nowplaying') == 'true'
                     if is_p:
                         artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                        album = t.get('album', {}).get('#text')
                         
                         try:
                             from src.core.spotify import get_spotify_track_info
@@ -371,7 +373,7 @@ class LastFmCog(commands.Cog):
                             preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
                             preview_embed.set_image(url=img)
                             
-                            view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song)
+                            view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song, album=album)
                             msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
                             view.original_msg = msg
                             return
@@ -402,6 +404,7 @@ class LastFmCog(commands.Cog):
                         t = tracks[1]
                         
                     artist, song, img = t['artist']['#text'], t['name'], t['image'][3]['#text']
+                    album = t.get('album', {}).get('#text')
                     
                     try:
                         from src.core.spotify import get_spotify_track_info
@@ -422,7 +425,7 @@ class LastFmCog(commands.Cog):
                         preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
                         preview_embed.set_image(url=img)
                         
-                        view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song)
+                        view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song, album=album)
                         msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
                         view.original_msg = msg
                         return

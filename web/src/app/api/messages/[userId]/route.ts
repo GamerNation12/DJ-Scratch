@@ -97,16 +97,16 @@ export async function POST(
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
-      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${filteredContent}\`\n*(Reply on the website/app or click below)*`,
+      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${filteredContent}\`\n*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*`,
       [
         {
           type: 1, // ActionRow
           components: [
             {
               type: 2, // Button
-              label: "Reply via Discord",
-              style: 1, // Primary/Blurple
-              custom_id: `reply_dm_${myId}`
+              label: "Open Web Dashboard",
+              style: 5, // Link
+              url: "https://the-goats-dj.vercel.app/messages"
             }
           ]
         }

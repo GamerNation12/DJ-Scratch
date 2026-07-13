@@ -1211,7 +1211,7 @@ class FMActionsView(discord.ui.View):
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user, track=self.song)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
-async def update_bot_avatar_and_status(bot_instance, artist, img):
+async def update_bot_avatar_and_status(bot_instance, artist, img, track=None, album=None):
     try:
         cd = await get_avatar_cooldown()
         if cd > 0:
@@ -1231,13 +1231,17 @@ async def update_bot_avatar_and_status(bot_instance, artist, img):
                     async with db_pool.acquire() as conn:
                         await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
                         await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
+                        if track:
+                            await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_track', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", track)
+                        if album:
+                            await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_album', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", album)
                 return True, 300
     except Exception as e:
         print(f"{Log.RED}>>> Error updating bot avatar: {e}{Log.RESET}")
     return False, 0
 
 class ApplyAvatarView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None):
+    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None, album=None):
         super().__init__(timeout=180)
         self.bot_instance = bot_instance
         self.artist = artist
@@ -1245,16 +1249,17 @@ class ApplyAvatarView(discord.ui.View):
         self.original_msg = original_msg
         self.original_user = original_user
         self.track = track
+        self.album = album
         
     @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img)
+        changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img, self.track, self.album)
         if changed:
             if self.track:
                 from src.utils.api import scrobble_bot_track
                 import asyncio
-                asyncio.create_task(scrobble_bot_track(self.artist, self.track))
+                asyncio.create_task(scrobble_bot_track(self.artist, self.track, self.album))
             
             debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
             await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
@@ -2553,10 +2558,10 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                     sender_name = interaction.user.name
                     
                 view = discord.ui.View()
-                btn = discord.ui.Button(label="Reply via Discord", style=discord.ButtonStyle.primary, custom_id=f"reply_dm_{sender_id}")
+                btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://the-goats-dj.vercel.app/messages")
                 view.add_item(btn)
                 
-                await target_user.send(f"New DM from **{sender_name}** on DJ Scratch:\n`{content}`\n*(Reply on the website/app or click below)*", view=view)
+                await target_user.send(f"New DM from **{sender_name}** on DJ Scratch:\n`{content}`\n*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*", view=view)
                 await interaction.response.send_message("Reply sent successfully!", ephemeral=True)
             except Exception as e:
                 print(e)

@@ -114,7 +114,7 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
         logging.error(f"Deezer track fetch error: {e}")
     return None
 
-async def scrobble_bot_track(artist, track):
+async def scrobble_bot_track(artist, track, album=None):
     import os
     BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY")
     if not BOT_LASTFM_SESSION_KEY or not LASTFM_API_SECRET:
@@ -131,6 +131,8 @@ async def scrobble_bot_track(artist, track):
         'timestamp': timestamp,
         'track': track
     }
+    if album:
+        params['album'] = album
     
     sig_string = ""
     for k in sorted(params.keys()):
