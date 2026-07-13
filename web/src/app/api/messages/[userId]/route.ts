@@ -97,7 +97,7 @@ export async function POST(
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
-      `New DM from **${(user as any).name}** on DJ Scratch:\n\`${filteredContent}\`\n*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*`,
+      "*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*",
       [
         {
           type: 1, // ActionRow
@@ -109,6 +109,21 @@ export async function POST(
               url: "https://the-goats-dj.vercel.app/messages"
             }
           ]
+        }
+      ],
+      [
+        {
+          title: "💬 New Direct Message",
+          description: filteredContent,
+          color: 0x5865F2, // Blurple
+          author: {
+            name: (user as any).name || "Unknown User",
+            icon_url: (user as any).avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png"
+          },
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "DJ Scratch • Activity DM"
+          }
         }
       ]
     ).catch(console.error);

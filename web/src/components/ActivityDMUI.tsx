@@ -459,7 +459,11 @@ export default function ActivityDMUI() {
       parts.push(
         <span key={`md-${lastIndex}`} className="inline [&>p]:inline [&_a]:text-indigo-400 hover:[&_a]:underline [&_strong]:font-bold [&_em]:italic break-words text-[15px]">
           <ReactMarkdown components={{
-            img: ({node, ...props}) => <img {...props} className="max-w-xs max-h-64 rounded-xl object-contain mt-2 border border-white/10 shadow-lg" />,
+            img: ({node, ...props}) => (
+              <span className="block mt-2">
+                <img {...props} className="max-w-xs max-h-64 rounded-xl object-contain border border-white/10 shadow-lg inline-block" />
+              </span>
+            ),
             a: ({node, ...props}) => <a {...props} className="text-indigo-400 hover:underline break-all" target="_blank" rel="noopener noreferrer" />
           }}>{content.substring(lastIndex)}</ReactMarkdown>
         </span>
@@ -475,7 +479,7 @@ export default function ActivityDMUI() {
   };
 
   return (
-    <div className="w-screen h-screen flex overflow-hidden bg-[#09090b] text-zinc-200 font-sans selection:bg-indigo-500/30 selection:text-white">
+    <div className="w-screen h-screen flex overflow-hidden bg-[#09090b] text-zinc-200 font-sans selection:bg-indigo-500/30 selection:text-white pt-14 md:pt-0">
       
       {/* Background ambient glow */}
       <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
@@ -837,7 +841,7 @@ export default function ActivityDMUI() {
             </div>
 
             {/* Input Area */}
-            <div className="px-6 pb-6 pt-2 bg-transparent flex-shrink-0 relative z-20">
+            <div className="px-2 sm:px-6 pb-2 sm:pb-6 pt-2 bg-transparent flex-shrink-0 relative z-20">
               {isTyping && (
                 <div className="absolute -top-6 left-10 text-xs font-bold text-indigo-400 animate-pulse flex items-center gap-1.5 bg-zinc-900/80 px-3 py-1 rounded-full border border-indigo-500/20 shadow-lg backdrop-blur-md">
                   <span className="flex space-x-1">
@@ -863,28 +867,28 @@ export default function ActivityDMUI() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingFile}
-                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all ml-1 disabled:opacity-50"
+                    className="flex-shrink-0 p-2 sm:p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all ml-1 disabled:opacity-50"
                     title="Upload File"
                   >
-                    {uploadingFile ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Paperclip className="w-6 h-6 hover:scale-110 transition-transform" />}
+                    {uploadingFile ? <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <Paperclip className="w-5 h-5 sm:w-6 sm:h-6 hover:scale-110 transition-transform" />}
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowChatEmojiPicker(!showChatEmojiPicker)}
-                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
+                    className="flex-shrink-0 p-2 sm:p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
                     title="Select Emoji"
                   >
-                    <Smile className="w-6 h-6 hover:scale-110 transition-transform" />
+                    <Smile className="w-5 h-5 sm:w-6 sm:h-6 hover:scale-110 transition-transform" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => { setShowGifPicker(!showGifPicker); if (!showGifPicker) searchGifs("excited"); }}
-                    className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
+                    className="flex-shrink-0 p-2 sm:p-3 text-zinc-400 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all"
                     title="Select GIF"
                   >
-                    <Film className="w-6 h-6 hover:scale-110 transition-transform" />
+                    <Film className="w-5 h-5 sm:w-6 sm:h-6 hover:scale-110 transition-transform" />
                   </button>
                   
                   <input
@@ -892,21 +896,21 @@ export default function ActivityDMUI() {
                     value={input}
                     onChange={handleTyping}
                     placeholder={`Message @${activeChat.friend_username}...`}
-                    className="flex-1 bg-transparent border-none text-white placeholder-zinc-500 focus:outline-none focus:ring-0 px-4 py-3 text-base"
+                    className="flex-1 min-w-0 bg-transparent border-none text-white placeholder-zinc-500 focus:outline-none focus:ring-0 px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
                   />
                   
                   <button
                     type="submit"
                     disabled={!input.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white p-3 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center mr-1"
+                    className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white p-2 sm:p-3 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center mr-1"
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </form>
 
                 {/* Chat Input Emoji Picker Popup */}
                 {showChatEmojiPicker && (
-                  <div className="absolute bottom-[calc(100%+16px)] left-0 w-[340px] h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
+                  <div className="absolute bottom-[calc(100%+16px)] left-0 sm:left-4 w-[calc(100vw-16px)] sm:w-[340px] max-h-[50vh] sm:h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
                     <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                       <span className="font-bold text-white text-sm">Emojis</span>
                       <button onClick={() => setShowChatEmojiPicker(false)} className="text-zinc-500 hover:text-white transition-colors bg-white/5 p-1 rounded-lg">
@@ -956,7 +960,7 @@ export default function ActivityDMUI() {
                 
                 {/* GIF Picker Popup */}
                 {showGifPicker && (
-                  <div className="absolute bottom-[calc(100%+16px)] left-0 w-[340px] h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
+                  <div className="absolute bottom-[calc(100%+16px)] left-0 sm:left-4 w-[calc(100vw-16px)] sm:w-[340px] max-h-[50vh] sm:h-[360px] bg-zinc-950/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden animate-fade-in-up">
                     <div className="p-4 border-b border-white/5 flex flex-col gap-3 bg-white/[0.02]">
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-white text-sm">Search Tenor GIFs</span>

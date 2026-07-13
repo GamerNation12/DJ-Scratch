@@ -2561,7 +2561,19 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                 btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://the-goats-dj.vercel.app/messages")
                 view.add_item(btn)
                 
-                await target_user.send(f"New DM from **{sender_name}** on DJ Scratch:\n`{content}`\n*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*", view=view)
+                embed = discord.Embed(
+                    title="💬 New Direct Message",
+                    description=content,
+                    color=discord.Color.blurple(),
+                    timestamp=discord.utils.utcnow()
+                )
+                embed.set_author(
+                    name=sender_name,
+                    icon_url=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
+                )
+                embed.set_footer(text="DJ Scratch • Activity DM")
+                
+                await target_user.send("*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*", embed=embed, view=view)
                 await interaction.response.send_message("Reply sent successfully!", ephemeral=True)
             except Exception as e:
                 print(e)

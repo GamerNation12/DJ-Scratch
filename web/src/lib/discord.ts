@@ -1,4 +1,4 @@
-export async function sendDiscordDM(userId: string, content: string, components?: any[]) {
+export async function sendDiscordDM(userId: string, content: string, components?: any[], embeds?: any[]) {
   const token = process.env.DISCORD_TOKEN;
   if (!token) return false;
 
@@ -24,7 +24,7 @@ export async function sendDiscordDM(userId: string, content: string, components?
         "Authorization": `Bot ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ content, components })
+      body: JSON.stringify({ content, components, embeds })
     });
 
     return msgRes.ok;
