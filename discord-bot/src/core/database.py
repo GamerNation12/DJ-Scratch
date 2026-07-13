@@ -44,7 +44,7 @@ def format_name(user):
         
     if name == "gamernation12":
         return "GamerNation12"
-    if "goats dj" in name.lower() or "thegoatsdj" in name.lower():
+    if "goats dj" in name.lower() or "dj-scratch" in name.lower():
         return "DJ Scratch"
         
     return name
