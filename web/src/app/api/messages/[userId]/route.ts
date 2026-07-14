@@ -97,7 +97,7 @@ export async function POST(
     // Get sender profile for notification
     const senderData = await sql`
       SELECT u.username, u.avatar_url, s.display_name 
-      FROM users u 
+      FROM imported_users u 
       LEFT JOIN user_settings s ON u.id = s.user_id 
       WHERE u.id = ${myId}
     `;
