@@ -98,10 +98,11 @@ export async function GET(request: Request) {
       ON CONFLICT (user_id) DO UPDATE SET discord_username = EXCLUDED.discord_username
     `;
     
+    await sql`ALTER TABLE imported_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`;
     await sql`
-      INSERT INTO imported_users (id, username)
-      VALUES (${userData.id}, ${username})
-      ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
+      INSERT INTO imported_users (id, username, avatar_url)
+      VALUES (${userData.id}, ${username}, ${`https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`})
+      ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, avatar_url = EXCLUDED.avatar_url
     `;
     await sql`
       DELETE FROM website_logs 
