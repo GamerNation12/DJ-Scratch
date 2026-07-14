@@ -20,6 +20,7 @@ export default function ActivityDMUI() {
   const [input, setInput] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [customEmojis, setCustomEmojis] = useState<any[]>([]);
   const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<number | null>(null);
   const [showChatEmojiPicker, setShowChatEmojiPicker] = useState(false);
@@ -50,6 +51,7 @@ export default function ActivityDMUI() {
       const base64Str = token.split('.')[1].replace(/-/g, "+").replace(/_/g, "/");
       const decoded = JSON.parse(atob(base64Str));
       setMyId(decoded.id);
+      setCurrentUser(decoded);
       
       let newSocket: Socket | null = null;
     
@@ -575,11 +577,17 @@ export default function ActivityDMUI() {
         {/* User Profile Bar */}
         <div className="p-4 border-t border-white/5 bg-white/[0.02]">
           <div className="flex items-center gap-3 bg-white/5 rounded-xl p-2.5 border border-white/5 hover:bg-white/10 cursor-pointer transition-colors">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
-              <span className="font-bold text-white text-sm">ME</span>
-            </div>
+            {currentUser?.image ? (
+              <img src={currentUser.image} alt={currentUser.discord_name || "You"} className="w-9 h-9 rounded-full shadow-lg shadow-indigo-500/20 object-cover flex-shrink-0 border border-white/10" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+                <span className="font-bold text-white text-sm">ME</span>
+              </div>
+            )}
             <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-bold text-white leading-tight truncate">You</span>
+              <span className="text-sm font-bold text-white leading-tight truncate">
+                {currentUser?.discord_name || currentUser?.name || "You"}
+              </span>
               <span className="text-xs text-indigo-300 leading-tight truncate">Online</span>
             </div>
           </div>
