@@ -108,7 +108,7 @@ export async function POST(
     // Fire off Discord DM asynchronously
     sendDiscordDM(
       params.userId, 
-      "*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*",
+      "*(To reply, launch the DJ Scratch Activity using the App Launcher icon below, or click the button)*",
       [
         {
           type: 1, // ActionRow
