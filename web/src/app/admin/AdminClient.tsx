@@ -100,7 +100,7 @@ function getCommitInfo(message: string) {
 function PushGlobalUpdateCard() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [version, setVersion] = useState("v1.0.0");
+  const [version, setVersion] = useState("");
   const [content, setContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [commits, setCommits] = useState<any[]>([]);
@@ -128,8 +128,6 @@ function PushGlobalUpdateCard() {
         // Find selected commits in order of appearance in commits array
         const selectedCommits = commits.filter(c => newShas.includes(c.sha));
         if (selectedCommits.length > 0) {
-          const topCommitSha = selectedCommits[0].sha.substring(0, 7);
-          setVersion(`v-${topCommitSha}`);
           const combinedMessages = selectedCommits.map(c => {
             const msgLine = c.commit.message.split('\n')[0];
             const info = getCommitInfo(msgLine);
