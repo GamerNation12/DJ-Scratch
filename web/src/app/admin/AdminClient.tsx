@@ -97,7 +97,7 @@ function getCommitInfo(message: string) {
   return { type: null, body: message };
 }
 
-function PushGlobalUpdateCard() {
+function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [version, setVersion] = useState("");
@@ -128,15 +128,36 @@ function PushGlobalUpdateCard() {
         // Find selected commits in order of appearance in commits array
         const selectedCommits = commits.filter(c => newShas.includes(c.sha));
         if (selectedCommits.length > 0) {
+          let hasFeat = false;
+          let hasPatch = false;
+
           const combinedMessages = selectedCommits.map(c => {
             const msgLine = c.commit.message.split('\n')[0];
             const info = getCommitInfo(msgLine);
+            
+            if (info.type === 'feat') hasFeat = true;
+            else if (info.type) hasPatch = true;
+
             if (info.type && tagColors[info.type]) {
               return `- ${tagColors[info.type].name}: ${info.body}`;
             }
             return `- ${msgLine}`;
           }).join('\n');
           setContent(combinedMessages);
+
+          // Generate next semantic version
+          let [_, majorStr, minorStr, patchStr] = (currentVersion || "v1.0.0").match(/v?(\d+)\.(\d+)\.(\d+)/) || ["", "1", "0", "0"];
+          let major = parseInt(majorStr) || 1;
+          let minor = parseInt(minorStr) || 0;
+          let patch = parseInt(patchStr) || 0;
+
+          if (hasFeat) {
+            minor++;
+            patch = 0;
+          } else if (hasPatch || newShas.length > 0) {
+            patch++;
+          }
+          setVersion(`v${major}.${minor}.${patch}`);
         }
       } else {
         setContent("");
@@ -968,7 +989,7 @@ export default function AdminClient() {
         {activeTab === 'system' && (role === 'owner' || role === 'admin') && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in-up">
             <div className="space-y-6">
-              <PushGlobalUpdateCard />
+              <PushGlobalUpdateCard currentVersion={statsData?.currentVersion || "v1.0.0"} />
             </div>
             <div className="space-y-6">
               <AdminActionCard 

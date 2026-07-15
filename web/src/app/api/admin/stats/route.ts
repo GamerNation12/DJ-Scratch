@@ -24,6 +24,7 @@ export async function GET(req: Request) {
   let botStats = null;
   let statusActivity = null;
   let commandUsage = [];
+  let currentVersion = "v1.0.0";
   
   try {
     const playsResult = await pool.query("SELECT COUNT(*) FROM listens");
@@ -42,6 +43,11 @@ export async function GET(req: Request) {
       statusActivity = botStatusResult.rows[0].value;
     }
 
+    const versionResult = await pool.query("SELECT value FROM global_settings WHERE key = 'current_update_version'");
+    if (versionResult.rows.length > 0) {
+      currentVersion = versionResult.rows[0].value;
+    }
+
     const commandsResult = await pool.query("SELECT command_name, usage_count FROM command_usage ORDER BY usage_count DESC LIMIT 5");
     commandUsage = commandsResult.rows;
 
@@ -52,5 +58,5 @@ export async function GET(req: Request) {
     await pool.end();
   }
   
-  return NextResponse.json({ totalPlays, totalUsers, botStats, commandUsage, statusActivity });
+  return NextResponse.json({ totalPlays, totalUsers, botStats, commandUsage, statusActivity, currentVersion });
 }
