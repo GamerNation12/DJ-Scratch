@@ -51,39 +51,18 @@ class InfoCog(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     async def send_updates(self, context):
-        import aiohttp
-        from datetime import timezone
+        from src.core.database import get_global_update_version, get_global_update_message
         
-        embed = discord.Embed(title="<a:VinylRecord:1520654501365678190> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=datetime.now(timezone.utc))
+        embed = discord.Embed(title="<a:VinylRecord:1520654501365678190> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=discord.utils.utcnow())
         
         try:
-            async with aiohttp.ClientSession() as session:
-                # Fetch recent commits from GitHub API
-                async with session.get("https://api.github.com/repos/GamerNation12/DJ-Scratch/commits") as resp:
-                    if resp.status == 200:
-                        commits = await resp.json()
-                        # Show the 5 most recent commits
-                        for commit in commits[:5]:
-                            message = commit['commit']['message']
-                            title = message.split('\n')[0] # Get just the first line
-                            
-                            if len(title) > 250:
-                                title = title[:247] + "..."
-                                
-                            date_str = commit['commit']['author']['date']
-                            date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-                            timestamp = f"<t:{int(date_obj.timestamp())}:R>"
-                            
-                            sha_short = commit['sha'][:7]
-                            url = commit['html_url']
-                            
-                            embed.add_field(
-                                name=f"🔨 {title}", 
-                                value=f"[{sha_short}]({url}) • {timestamp}",
-                                inline=False
-                            )
-                    else:
-                        embed.description = "❌ Could not fetch recent updates from GitHub."
+            version = await get_global_update_version()
+            message = await get_global_update_message()
+            
+            if version and message:
+                embed.add_field(name=f"Update {version}", value=message, inline=False)
+            else:
+                embed.description = "No recent updates found."
         except Exception as e:
             embed.description = f"❌ Error fetching updates: {e}"
 
