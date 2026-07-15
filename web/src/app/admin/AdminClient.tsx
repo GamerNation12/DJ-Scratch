@@ -97,10 +97,11 @@ function getCommitInfo(message: string) {
   return { type: null, body: message };
 }
 
-function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
+function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: string, onUpdate?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [version, setVersion] = useState("");
+  const [isManualVersion, setIsManualVersion] = useState(false);
   const [content, setContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [commits, setCommits] = useState<any[]>([]);
@@ -120,48 +121,51 @@ function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!content) {
+      if (!isManualVersion) setVersion("");
+      return;
+    }
+    if (isManualVersion) return;
+
+    const hasFeat = content.includes("✨") || content.toLowerCase().includes("feature");
+    const hasPatch = content.includes("🐛") || content.includes("🔧") || content.toLowerCase().includes("fix") || content.toLowerCase().includes("update");
+    
+    let [_, majorStr, minorStr, patchStr] = (currentVersion || "v1.0.0").match(/v?(\d+)\.(\d+)\.(\d+)/) || ["", "1", "0", "0"];
+    let major = parseInt(majorStr) || 1;
+    let minor = parseInt(minorStr) || 0;
+    let patch = parseInt(patchStr) || 0;
+
+    if (hasFeat) {
+      minor++;
+      patch = 0;
+    } else if (hasPatch || content.length > 0) {
+      patch++;
+    }
+    setVersion(`v${major}.${minor}.${patch}`);
+  }, [content, currentVersion, isManualVersion]);
+
   const toggleCommit = (sha: string) => {
     setSelectedShas(prev => {
       const newShas = prev.includes(sha) ? prev.filter(s => s !== sha) : [...prev, sha];
+      setIsManualVersion(false);
       
       if (newShas.length > 0) {
         // Find selected commits in order of appearance in commits array
         const selectedCommits = commits.filter(c => newShas.includes(c.sha));
         if (selectedCommits.length > 0) {
-          let hasFeat = false;
-          let hasPatch = false;
-
           const combinedMessages = selectedCommits.map(c => {
             const msgLine = c.commit.message.split('\n')[0];
             const info = getCommitInfo(msgLine);
-            
-            if (info.type === 'feat') hasFeat = true;
-            else if (info.type) hasPatch = true;
-
             if (info.type && tagColors[info.type]) {
               return `- ${tagColors[info.type].name}: ${info.body}`;
             }
             return `- ${msgLine}`;
           }).join('\n');
           setContent(combinedMessages);
-
-          // Generate next semantic version
-          let [_, majorStr, minorStr, patchStr] = (currentVersion || "v1.0.0").match(/v?(\d+)\.(\d+)\.(\d+)/) || ["", "1", "0", "0"];
-          let major = parseInt(majorStr) || 1;
-          let minor = parseInt(minorStr) || 0;
-          let patch = parseInt(patchStr) || 0;
-
-          if (hasFeat) {
-            minor++;
-            patch = 0;
-          } else if (hasPatch || newShas.length > 0) {
-            patch++;
-          }
-          setVersion(`v${major}.${minor}.${patch}`);
         }
       } else {
         setContent("");
-        setVersion("");
       }
       return newShas;
     });
@@ -179,6 +183,7 @@ function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
       if (res.ok) {
         const data = await res.json();
         setContent(data.result);
+        setIsManualVersion(false);
       } else {
         toast.error("AI Error");
       }
@@ -202,6 +207,11 @@ function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
       if (res.ok) {
         setStatus("success");
         setTimeout(() => setStatus("idle"), 3000);
+        setContent("");
+        setVersion("");
+        setSelectedShas([]);
+        setIsManualVersion(false);
+        if (onUpdate) onUpdate();
       } else {
         setStatus("error");
       }
@@ -243,17 +253,17 @@ function PushGlobalUpdateCard({ currentVersion }: { currentVersion: string }) {
           })}
         </div>
         <div className="flex gap-2">
-          <input type="text" value={version} onChange={e => setVersion(e.target.value)} placeholder="Version (e.g. v2.1.0)" className="w-1/3 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+          <input type="text" value={version} onChange={e => { setVersion(e.target.value); setIsManualVersion(true); }} placeholder="Version (e.g. v2.1.0)" className="w-1/3 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
           <button onClick={handleEnhanceWithAI} disabled={aiLoading || !content} className="w-2/3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm font-bold flex justify-center items-center gap-2 transition-colors disabled:opacity-50">
             {aiLoading ? "Generating..." : "✨ Enhance with AI"}
           </button>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setContent(prev => prev + "✨ **New Feature:** ")} className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded hover:bg-emerald-500/30 transition-colors">✨ Feature</button>
-          <button onClick={() => setContent(prev => prev + "🐛 **Bug Fix:** ")} className="text-xs bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-1 rounded hover:bg-red-500/30 transition-colors">🐛 Bug Fix</button>
-          <button onClick={() => setContent(prev => prev + "🔧 **Update:** ")} className="text-xs bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 px-2 py-1 rounded hover:bg-zinc-500/30 transition-colors">🔧 Update</button>
+          <button onClick={() => { setContent(prev => prev + "✨ **New Feature:** "); setIsManualVersion(false); }} className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded hover:bg-emerald-500/30 transition-colors">✨ Feature</button>
+          <button onClick={() => { setContent(prev => prev + "🐛 **Bug Fix:** "); setIsManualVersion(false); }} className="text-xs bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-1 rounded hover:bg-red-500/30 transition-colors">🐛 Bug Fix</button>
+          <button onClick={() => { setContent(prev => prev + "🔧 **Update:** "); setIsManualVersion(false); }} className="text-xs bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 px-2 py-1 rounded hover:bg-zinc-500/30 transition-colors">🔧 Update</button>
         </div>
-        <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Update message..." rows={6} className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+        <textarea value={content} onChange={e => { setContent(e.target.value); setIsManualVersion(false); }} placeholder="Update message..." rows={6} className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
         <button onClick={handleSend} disabled={loading || !version || !content} className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all ${status === 'success' ? 'bg-emerald-500 text-white' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'}`}>
           {loading ? "Pushing..." : status === "success" ? "Pushed!" : "Push Notification"}
         </button>
