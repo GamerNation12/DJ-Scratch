@@ -1160,7 +1160,8 @@ class FMActionsView(discord.ui.View):
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
-            custom_prev = f"fm_preview:{artist[:80]}"
+            user_id_str = str(self.user.id) if self.user else "None"
+            custom_prev = f"fm_preview:{user_id_str}:{artist[:80]}"
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             self.add_item(btn2)
 
@@ -2710,7 +2711,25 @@ async def on_interaction(interaction: discord.Interaction):
         elif custom_id.startswith("fm_preview:"):
             parts = custom_id.split(":")
             if len(parts) >= 2:
-                artist = ":".join(parts[1:])
+                # Handle old format (fm_preview:artist) and new format (fm_preview:user_id:artist)
+                if len(parts) >= 3 and parts[1].isdigit():
+                    target_user_id = parts[1]
+                    artist = ":".join(parts[2:])
+                else:
+                    target_user_id = None
+                    artist = ":".join(parts[1:])
+                    
+                target_user = None
+                if target_user_id:
+                    target_user = bot.get_user(int(target_user_id))
+                    if not target_user:
+                        try:
+                            target_user = await bot.fetch_user(int(target_user_id))
+                        except:
+                            pass
+                if not target_user:
+                    target_user = interaction.user
+
                 img_url = None
                 if interaction.message.embeds and len(interaction.message.embeds) > 0:
                     embed = interaction.message.embeds[0]
@@ -2729,8 +2748,8 @@ async def on_interaction(interaction: discord.Interaction):
                     color=LASTFM_COLOR
                 )
                 from src.core.database import format_name
-                preview_embed.set_author(name=format_name(interaction.user), icon_url=img_url)
+                preview_embed.set_author(name=format_name(target_user), icon_url=img_url)
                 preview_embed.set_image(url=img_url)
                 
-                apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=interaction.user, track=None)
+                apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None)
                 await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
