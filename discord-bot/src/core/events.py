@@ -2729,7 +2729,6 @@ async def on_interaction(interaction: discord.Interaction):
             sender_id = custom_id.replace("accept_friend_", "")
             receiver_id = str(interaction.user.id)
             
-            global db_pool
             pool = db_pool
             if not pool:
                 await interaction.response.send_message("Database connection error.", ephemeral=True)
