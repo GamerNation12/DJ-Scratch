@@ -118,8 +118,10 @@ async def scrobble_bot_track(session, artist, track, album=None):
     import os
     import logging
     BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY")
-    if not BOT_LASTFM_SESSION_KEY or not LASTFM_API_SECRET:
-        return False
+    if not BOT_LASTFM_SESSION_KEY:
+        return "NO_SESSION_KEY"
+    if not LASTFM_API_SECRET:
+        return "NO_API_SECRET"
         
     import hashlib
     import time
@@ -175,8 +177,12 @@ async def scrobble_bot_track(session, artist, track, album=None):
                 if 'scrobbles' in data:
                     logging.info(f"Successfully scrobbled {track} by {artist} to bot profile.")
                     return True
+                return f"NO_SCROBBLES_IN_DATA_{data}"
             else:
-                logging.error(f"Bot scrobble failed with status {r_sc.status}: {await r_sc.text()}")
+                err_text = await r_sc.text()
+                logging.error(f"Bot scrobble failed with status {r_sc.status}: {err_text}")
+                return f"HTTP_{r_sc.status}_{err_text[:20]}"
     except Exception as e:
         logging.error(f"Bot scrobble request failed: {e}")
-    return False
+        return f"EXC_{e}"
+    return "UNKNOWN_ERROR"
