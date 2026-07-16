@@ -5,8 +5,7 @@ import { DiscordSDK } from "@discord/embedded-app-sdk";
 import ActivityDMUI from "@/components/ActivityDMUI";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1521582398188290049";
-// Initialize outside React to ensure immediate handshake!
-const discordSdk = new DiscordSDK(CLIENT_ID);
+let discordSdk: DiscordSDK | null = null;
 let setupPromise: Promise<string> | null = null;
 
 export default function ActivityDMPage() {
@@ -20,7 +19,14 @@ export default function ActivityDMPage() {
         if (!setupPromise) {
           setupPromise = (async () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const frameId = urlParams.get('frame_id') || 'MISSING';
+            const frameId = urlParams.get('frame_id');
+            if (!frameId) {
+              throw new Error("Missing frame_id in URL. Are you running this inside Discord?");
+            }
+
+            if (!discordSdk) {
+              discordSdk = new DiscordSDK(CLIENT_ID);
+            }
             
             // Wait for SDK
             const readyPromise = discordSdk.ready();
@@ -30,7 +36,7 @@ export default function ActivityDMPage() {
             await Promise.race([readyPromise, timeoutPromise]);
 
             // Authorize
-            const { code } = await discordSdk.commands.authorize({
+            const { code } = await discordSdk!.commands.authorize({
               client_id: CLIENT_ID,
               response_type: "code",
               state: "",

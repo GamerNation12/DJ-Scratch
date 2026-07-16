@@ -6,8 +6,9 @@ import { useSession } from "@/app/providers";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 
-import ActivityDMPage from "./activity/dm/page";
+const ActivityDMPage = dynamic(() => import("./activity/dm/page"), { ssr: false });
 
 const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands";
 
