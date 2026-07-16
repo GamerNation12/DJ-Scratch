@@ -38,8 +38,32 @@ class StatusCog(commands.Cog):
     def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server or is currently restarting.*"
+            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\\n*The bot has lost connection to the server or is currently restarting.*"
             embed.set_footer(text="Watchdog Monitor")
+            return embed
+            
+        if getattr(self.bot, 'is_restarting', False):
+            embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.gold(), timestamp=discord.utils.utcnow())
+            timestamp = int(self.bot.is_restarting) if isinstance(self.bot.is_restarting, float) else int(time.time() + 60)
+            reason = getattr(self.bot, 'restart_reason', 'Maintenance')
+            embed.description = f"**🟡 STATUS: RESTARTING**\\n*The bot is shutting down <t:{timestamp}:R> because: **{reason}**.*"
+            
+            # Still show uptime/ping while restarting
+            uptime = time.time() - self.process.create_time()
+            uptime_td = timedelta(seconds=uptime)
+            days = uptime_td.days
+            hours, remainder = divmod(uptime_td.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m {seconds}s"
+            
+            ping = round(self.bot.latency * 1000)
+            server_count = len(self.bot.guilds)
+            
+            embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
+            embed.add_field(name="🏓 Ping", value=f"`{ping}ms`", inline=True)
+            embed.add_field(name="🌐 Servers", value=f"`{server_count:,}`", inline=True)
+            
+            embed.set_footer(text="Live Updating Dashboard • Last Updated")
             return embed
             
         embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.green(), timestamp=discord.utils.utcnow())
@@ -75,6 +99,29 @@ class StatusCog(commands.Cog):
         
         embed.set_footer(text="Live Updating Dashboard • Last Updated")
         return embed
+
+    async def force_update_statuses(self):
+        try:
+            import json
+            raw_msgs = await get_global_setting('status_messages')
+            if not raw_msgs:
+                return
+            messages = json.loads(raw_msgs)
+            for item in messages:
+                channel_id = item.get('channel_id')
+                message_id = item.get('message_id')
+                if channel_id and message_id:
+                    channel = self.bot.get_channel(int(channel_id))
+                    if channel:
+                        try:
+                            msg = await channel.fetch_message(int(message_id))
+                            embed = self.build_status_embed(offline=False)
+                            await msg.edit(embed=embed)
+                        except Exception:
+                            pass
+        except Exception as e:
+            from src.core.config import Log
+            print(f"{Log.RED}>>> Error in force_update_statuses: {e}{Log.RESET}")
 
     @tasks.loop(minutes=1)
     async def status_loop(self):

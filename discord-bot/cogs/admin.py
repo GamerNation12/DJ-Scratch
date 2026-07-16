@@ -154,6 +154,9 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             import time
             self.bot.is_restarting = time.time() + 60
             self.bot.restart_reason = "Manual restart by Developer"
+            status_cog = self.bot.get_cog("StatusCog")
+            if status_cog:
+                await status_cog.force_update_statuses()
             await self.bot.change_presence(
                 status=discord.Status.do_not_disturb, 
                 activity=discord.Game(name="Restarting in 1 min...")

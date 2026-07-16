@@ -43,6 +43,10 @@ async def restart_watchdog():
         bot.is_restarting = time.time() + 60
         bot.restart_reason = "Applying new updates"
         try:
+            status_cog = bot.get_cog("StatusCog")
+            if status_cog:
+                await status_cog.force_update_statuses()
+                
             import discord
             await bot.change_presence(
                 status=discord.Status.do_not_disturb, 
