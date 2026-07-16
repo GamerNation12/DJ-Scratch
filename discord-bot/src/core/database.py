@@ -669,4 +669,22 @@ async def send_dm(sender_id, receiver_id, content):
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error sending DM: {e}{Log.RESET}")
-        return False
+        return False
+
+async def get_global_setting(key: str):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = $1", key)
+            return row['value'] if row else None
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting global setting {key}: {e}{Log.RESET}")
+        return None
+
+async def set_global_setting(key: str, value: str):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, str(value))
+    except Exception as e:
+        print(f"{Log.RED}>>> Error setting global setting {key}: {e}{Log.RESET}")
