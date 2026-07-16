@@ -78,13 +78,24 @@ async def on_ready_monitor():
                     try:
                         users = json.loads(row['value'])
                         if users:
-                            for user_id in users:
+                            channel_notifs = {}
+                            for item in users:
+                                if isinstance(item, dict):
+                                    c_id = item.get("channel_id")
+                                    u_id = item.get("user_id")
+                                    if c_id and u_id:
+                                        if c_id not in channel_notifs:
+                                            channel_notifs[c_id] = []
+                                        channel_notifs[c_id].append(u_id)
+                            
+                            for c_id, u_ids in channel_notifs.items():
                                 try:
-                                    user = await bot.fetch_user(user_id)
-                                    if user:
-                                        await user.send("✅ **The bot is back online!** The restart has been completed successfully.")
+                                    channel = bot.get_channel(c_id)
+                                    if channel:
+                                        mentions = " ".join([f"<@{u}>" for u in u_ids])
+                                        await channel.send(f"✅ **The bot is back online!** The restart has been completed successfully. {mentions}")
                                 except Exception as e:
-                                    print(f"Could not DM user {user_id} about restart: {e}")
+                                    print(f"Could not send restart notif in channel {c_id}: {e}")
                             await conn.execute("DELETE FROM global_settings WHERE key = 'restart_notifs'")
                     except Exception as e:
                         print(f"Error parsing restart_notifs JSON: {e}")

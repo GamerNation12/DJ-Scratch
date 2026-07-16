@@ -40,7 +40,7 @@ bot = commands.Bot(command_prefix=",", intents=intents, tree_cls=CustomTree)
 bot.is_restarting = False
 bot.remove_command('help')
 
-async def add_restarting_user(user_id):
+async def add_restarting_user(user_id, channel_id):
     from src.core.database import db_pool
     import json
     if not db_pool:
@@ -54,8 +54,10 @@ async def add_restarting_user(user_id):
                     users = json.loads(row['value'])
                 except:
                     pass
-            if user_id not in users:
-                users.append(user_id)
+            
+            entry = {"user_id": user_id, "channel_id": channel_id}
+            if entry not in users:
+                users.append(entry)
                 await conn.execute(
                     "INSERT INTO global_settings (key, value) VALUES ('restart_notifs', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
                     json.dumps(users)
@@ -68,10 +70,10 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will DM you when it's back online)", delete_after=15)
+            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
         except:
             pass
-        await add_restarting_user(interaction.user.id)
+        await add_restarting_user(interaction.user.id, interaction.channel.id)
     return True
 
 @bot.check
@@ -79,10 +81,10 @@ async def check_restarting_prefix(ctx) -> bool:
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will DM you when it's back online)", delete_after=15)
+            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
         except:
             pass
-        await add_restarting_user(ctx.author.id)
+        await add_restarting_user(ctx.author.id, ctx.channel.id)
     return True
 
 
