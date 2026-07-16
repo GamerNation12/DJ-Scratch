@@ -1257,11 +1257,12 @@ class ApplyAvatarView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img, self.track, self.album)
         if changed:
+            scr_res = False
             if self.track:
                 from src.utils.api import scrobble_bot_track
-                await scrobble_bot_track(self.bot_instance.session, self.artist, self.track, self.album)
+                scr_res = await scrobble_bot_track(self.bot_instance.session, self.artist, self.track, self.album)
             
-            debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
+            debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)} scr:{scr_res}"
             await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
             self.stop()
             
