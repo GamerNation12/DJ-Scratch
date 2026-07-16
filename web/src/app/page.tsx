@@ -4,19 +4,24 @@ import { fetchApi } from '@/lib/fetchApi';
 
 import { useSession } from "@/app/providers";
 import Link from "next/link";
-import { useEffect, useState, use } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 
 import ActivityDMPage from "./activity/dm/page";
 
 const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands";
 
-export default function Home({ searchParams }: { searchParams: Promise<{ error?: string; details?: string; frame_id?: string; instance_id?: string }> }) {
-  const resolvedParams = use(searchParams);
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
+  const detailsParam = searchParams.get("details");
+  const frameId = searchParams.get("frame_id");
+  const instanceId = searchParams.get("instance_id");
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
 
-  if (resolvedParams.frame_id || resolvedParams.instance_id) {
+  if (frameId || instanceId) {
     return <ActivityDMPage />;
   }
 
@@ -55,10 +60,10 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
       <main className="relative z-10 w-full flex-grow flex flex-col items-center">
         {/* Hero Section */}
         <section className="container mx-auto px-4 pt-32 pb-24 text-center flex flex-col items-center min-h-[85vh] justify-center">
-          {resolvedParams.error && (
+          {errorParam && (
             <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl mb-8 max-w-2xl backdrop-blur-md animate-fade-in-up">
-              <h2 className="text-xl font-bold mb-2">Login Failed ({resolvedParams.error})</h2>
-              <p className="text-sm opacity-80">{resolvedParams.details || "An unknown error occurred during the Discord OAuth process."}</p>
+              <h2 className="text-xl font-bold mb-2">Login Failed ({errorParam})</h2>
+              <p className="text-sm opacity-80">{detailsParam || "An unknown error occurred during the Discord OAuth process."}</p>
             </div>
           )}
           
@@ -293,5 +298,17 @@ export default function Home({ searchParams }: { searchParams: Promise<{ error?:
         </section>
       </main>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-white">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
