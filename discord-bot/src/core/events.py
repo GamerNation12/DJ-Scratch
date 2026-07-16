@@ -2140,7 +2140,7 @@ async def process_profile(user):
     class ProfileLinksView(discord.ui.View):
         def __init__(self, username, lastfm_url):
             super().__init__(timeout=None)
-            safe_name = urllib.parse.quote(format_name(user))
+            safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
             self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=f"https://dj-scratch.vercel.app/{safe_name}"))
             if lastfm_url:
                 self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=lastfm_url))
@@ -2157,7 +2157,7 @@ async def process_profile(user):
                 return None, None, f"Last.fm Error: {data.get('message', 'User not found on Last.fm.')}"
             info = data['user']
             embed.title = f"{info['name']}'s DJ Scratch Profile"
-            safe_name = urllib.parse.quote(format_name(user))
+            safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
             embed.url = f"https://dj-scratch.vercel.app/{safe_name}"
             lastfm_plays = int(info['playcount'])
             view = ProfileLinksView(username, info['url'])

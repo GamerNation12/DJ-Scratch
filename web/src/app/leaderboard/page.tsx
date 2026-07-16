@@ -117,7 +117,7 @@ export default function LeaderboardPage() {
                             {getRankBadge(idx)}
                           </div>
                           
-                          <Link href={`/${user.username}`} className="flex items-center gap-3 sm:gap-4 group-hover:opacity-80 transition-opacity">
+                          <Link href={`/${user.username.replace(/ /g, '-')}`} className="flex items-center gap-3 sm:gap-4 group-hover:opacity-80 transition-opacity">
                             <img 
                               src={user.avatar || "/logo.png"} 
                               alt="Avatar" 
