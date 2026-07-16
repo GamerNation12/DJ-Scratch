@@ -826,6 +826,7 @@ async def on_guild_join(guild):
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await owner.send(embed=embed)
+        await log_to_channel("guild-join", embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild join: {e}{Log.RESET}")
 
 @bot.event
@@ -840,12 +841,28 @@ async def on_guild_remove(guild):
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await owner.send(embed=embed)
+        await log_to_channel("guild-leave", embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
 
 # --- HELPER: LOG TO CHANNEL ---
 async def log_to_channel(channel_name: str, embed: discord.Embed):
     try:
         await bot.wait_until_ready()
+        
+        # Hardcoded specific log channels from owner
+        channel_ids = {
+            "guild-join": 1527127384535334954,
+            "guild-leave": 1527127384535334955,
+            "errors": 1527127384535334956
+        }
+        
+        if channel_name in channel_ids:
+            channel = bot.get_channel(channel_ids[channel_name])
+            if channel:
+                await channel.send(embed=embed)
+                return
+
+        # Fallback to older string search behavior (e.g. for website-log)
         target_guild_id = os.getenv("LOG_GUILD_ID")
         
         for guild in bot.guilds:
