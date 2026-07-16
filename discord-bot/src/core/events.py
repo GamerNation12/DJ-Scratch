@@ -955,18 +955,20 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CheckFailure): return
     
     # Handle common user-facing errors
+    usage = f"`{ctx.prefix}{ctx.command.name} {ctx.command.signature}`" if ctx.command else ""
+    
     if isinstance(error, commands.MissingRequiredArgument):
-        return await ctx.send(f"⚠️ You're missing a required piece of information: `{error.param.name}`. Please check how to use the command and try again!")
+        return await ctx.send(f"⚠️ You're missing a required piece of information: `{error.param.name}`.\n**The right way to use this is:** {usage}")
     elif isinstance(error, commands.CommandOnCooldown):
         return await ctx.send(f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**.")
     elif isinstance(error, commands.BadArgument):
-        return await ctx.send("⚠️ I couldn't understand one of your inputs. Please make sure you're typing it correctly!")
+        return await ctx.send(f"⚠️ I couldn't understand one of your inputs. Please make sure you're typing it correctly!\n**The right way to use this is:** {usage}")
     elif isinstance(error, commands.MissingPermissions):
         return await ctx.send("🚫 You don't have the required permissions to use this command.")
     elif isinstance(error, commands.BotMissingPermissions):
         return await ctx.send("🚫 I don't have the required permissions to perform this action here.")
     elif isinstance(error, commands.MemberNotFound):
-        return await ctx.send("⚠️ I couldn't find that user. Make sure you typed their name correctly.")
+        return await ctx.send(f"⚠️ I couldn't find that user. Make sure you typed their name correctly.\n**The right way to use this is:** {usage}")
         
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
     try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
