@@ -117,10 +117,15 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
 async def scrobble_bot_track(session, artist, track, album=None):
     import os
     import logging
-    BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY")
+    BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY", "").strip()
+    
+    global LASTFM_API_KEY, LASTFM_API_SECRET
+    api_key = LASTFM_API_KEY.strip()
+    api_secret = LASTFM_API_SECRET.strip()
+    
     if not BOT_LASTFM_SESSION_KEY:
         return "NO_SESSION_KEY"
-    if not LASTFM_API_SECRET:
+    if not api_secret:
         return "NO_API_SECRET"
         
     import hashlib
@@ -129,7 +134,7 @@ async def scrobble_bot_track(session, artist, track, album=None):
     
     # 1. Update Now Playing
     np_params = {
-        'api_key': LASTFM_API_KEY,
+        'api_key': api_key,
         'artist': artist,
         'method': 'track.updateNowPlaying',
         'sk': BOT_LASTFM_SESSION_KEY,
@@ -141,13 +146,13 @@ async def scrobble_bot_track(session, artist, track, album=None):
     np_sig_string = ""
     for k in sorted(np_params.keys()):
         np_sig_string += f"{k}{np_params[k]}"
-    np_sig_string += LASTFM_API_SECRET
+    np_sig_string += api_secret
     np_params['api_sig'] = hashlib.md5(np_sig_string.encode('utf-8')).hexdigest()
     np_params['format'] = 'json'
 
     # 2. Scrobble
     sc_params = {
-        'api_key': LASTFM_API_KEY,
+        'api_key': api_key,
         'artist[0]': artist,
         'method': 'track.scrobble',
         'sk': BOT_LASTFM_SESSION_KEY,
@@ -160,7 +165,7 @@ async def scrobble_bot_track(session, artist, track, album=None):
     sc_sig_string = ""
     for k in sorted(sc_params.keys()):
         sc_sig_string += f"{k}{sc_params[k]}"
-    sc_sig_string += LASTFM_API_SECRET
+    sc_sig_string += api_secret
     sc_params['api_sig'] = hashlib.md5(sc_sig_string.encode('utf-8')).hexdigest()
     sc_params['format'] = 'json'
 
