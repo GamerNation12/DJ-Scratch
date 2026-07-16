@@ -117,11 +117,11 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
 async def scrobble_bot_track(session, artist, track, album=None):
     import os
     import logging
-    BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY", "").strip()
+    BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY", "").strip().strip('"').strip("'")
     
     global LASTFM_API_KEY, LASTFM_API_SECRET
-    api_key = LASTFM_API_KEY.strip()
-    api_secret = LASTFM_API_SECRET.strip()
+    api_key = LASTFM_API_KEY.strip().strip('"').strip("'")
+    api_secret = LASTFM_API_SECRET.strip().strip('"').strip("'")
     
     if not BOT_LASTFM_SESSION_KEY:
         return "NO_SESSION_KEY"
