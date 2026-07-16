@@ -93,9 +93,11 @@ export async function GET(request: Request) {
     // Also link their discord username to their settings if it doesn't exist yet
     await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS discord_username TEXT`;
     await sql`
-      INSERT INTO user_settings (user_id, discord_username) 
-      VALUES (${userData.id}, ${username})
-      ON CONFLICT (user_id) DO UPDATE SET discord_username = EXCLUDED.discord_username
+      INSERT INTO user_settings (user_id, discord_username, display_name) 
+      VALUES (${userData.id}, ${userData.username}, ${userData.global_name || userData.username})
+      ON CONFLICT (user_id) DO UPDATE SET 
+        discord_username = EXCLUDED.discord_username,
+        display_name = EXCLUDED.display_name
     `;
     
     await sql`ALTER TABLE imported_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`;
