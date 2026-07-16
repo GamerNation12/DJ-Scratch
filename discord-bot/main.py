@@ -41,7 +41,7 @@ async def restart_watchdog():
             
         import time
         bot.is_restarting = time.time() + 60
-        bot.restart_reason = "Applying new updates from GitHub"
+        bot.restart_reason = "Applying new updates"
         try:
             import discord
             await bot.change_presence(
