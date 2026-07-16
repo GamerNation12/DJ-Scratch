@@ -123,37 +123,60 @@ async def scrobble_bot_track(artist, track, album=None):
     import hashlib
     import time
     timestamp = str(int(time.time()))
-    params = {
+    
+    # 1. Update Now Playing
+    np_params = {
         'api_key': LASTFM_API_KEY,
         'artist': artist,
-        'method': 'track.scrobble',
+        'method': 'track.updateNowPlaying',
         'sk': BOT_LASTFM_SESSION_KEY,
-        'timestamp': timestamp,
         'track': track
     }
     if album:
-        params['album'] = album
+        np_params['album'] = album
+        
+    np_sig_string = ""
+    for k in sorted(np_params.keys()):
+        np_sig_string += f"{k}{np_params[k]}"
+    np_sig_string += LASTFM_API_SECRET
+    np_params['api_sig'] = hashlib.md5(np_sig_string.encode('utf-8')).hexdigest()
+    np_params['format'] = 'json'
+
+    # 2. Scrobble
+    sc_params = {
+        'api_key': LASTFM_API_KEY,
+        'artist[0]': artist,
+        'method': 'track.scrobble',
+        'sk': BOT_LASTFM_SESSION_KEY,
+        'timestamp[0]': timestamp,
+        'track[0]': track
+    }
+    if album:
+        sc_params['album[0]'] = album
     
-    sig_string = ""
-    for k in sorted(params.keys()):
-        sig_string += f"{k}{params[k]}"
-    sig_string += LASTFM_API_SECRET
-    
-    api_sig = hashlib.md5(sig_string.encode('utf-8')).hexdigest()
-    params['api_sig'] = api_sig
-    params['format'] = 'json'
+    sc_sig_string = ""
+    for k in sorted(sc_params.keys()):
+        sc_sig_string += f"{k}{sc_params[k]}"
+    sc_sig_string += LASTFM_API_SECRET
+    sc_params['api_sig'] = hashlib.md5(sc_sig_string.encode('utf-8')).hexdigest()
+    sc_params['format'] = 'json'
 
     from ..core.events import bot
-    import aiohttp
     try:
-        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=params) as r:
-            if r.status == 200:
-                data = await r.json()
+        # Update Now Playing
+        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=np_params) as r_np:
+            if r_np.status != 200:
+                logging.error(f"Bot nowplaying failed: {await r_np.text()}")
+                
+        # Scrobble
+        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
+            if r_sc.status == 200:
+                data = await r_sc.json()
                 if 'scrobbles' in data:
                     logging.info(f"Successfully scrobbled {track} by {artist} to bot profile.")
                     return True
             else:
-                logging.error(f"Bot scrobble failed with status {r.status}: {await r.text()}")
+                logging.error(f"Bot scrobble failed with status {r_sc.status}: {await r_sc.text()}")
     except Exception as e:
         logging.error(f"Bot scrobble request failed: {e}")
     return False
