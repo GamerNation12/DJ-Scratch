@@ -21,8 +21,17 @@ class StatusCog(commands.Cog):
         embed = self.build_status_embed(offline=False)
         msg = await ctx.send(embed=embed)
         
-        await set_global_setting('status_channel_id', str(ctx.channel.id))
-        await set_global_setting('status_message_id', str(msg.id))
+        import json
+        raw_msgs = await get_global_setting('status_messages')
+        messages = []
+        if raw_msgs:
+            try:
+                messages = json.loads(raw_msgs)
+            except:
+                pass
+                
+        messages.append({"channel_id": str(ctx.channel.id), "message_id": str(msg.id)})
+        await set_global_setting('status_messages', json.dumps(messages))
         
         await ctx.send("✅ Status monitoring channel set! The message above will now update every minute.", delete_after=5)
 
@@ -75,20 +84,43 @@ class StatusCog(commands.Cog):
             now = datetime.utcnow().isoformat()
             await set_global_setting('last_heartbeat', now)
             
-            # 2. Fetch channel and message ID
-            channel_id = await get_global_setting('status_channel_id')
-            message_id = await get_global_setting('status_message_id')
+            # 2. Fetch status messages
+            import json
+            raw_msgs = await get_global_setting('status_messages')
+            if not raw_msgs:
+                return
+                
+            messages = []
+            try:
+                messages = json.loads(raw_msgs)
+            except:
+                return
+                
+            updated_messages = []
+            changed = False
             
-            if channel_id and message_id:
-                channel = self.bot.get_channel(int(channel_id))
-                if channel:
-                    try:
-                        msg = await channel.fetch_message(int(message_id))
-                        embed = self.build_status_embed(offline=False)
-                        await msg.edit(embed=embed)
-                    except discord.NotFound:
-                        # Message was deleted
-                        pass
+            for item in messages:
+                channel_id = item.get('channel_id')
+                message_id = item.get('message_id')
+                
+                if channel_id and message_id:
+                    channel = self.bot.get_channel(int(channel_id))
+                    if channel:
+                        try:
+                            msg = await channel.fetch_message(int(message_id))
+                            embed = self.build_status_embed(offline=False)
+                            await msg.edit(embed=embed)
+                            updated_messages.append(item)
+                        except discord.NotFound:
+                            changed = True # Message deleted
+                        except Exception as e:
+                            print(f"Error updating status message {message_id}: {e}")
+                            updated_messages.append(item)
+                    else:
+                        changed = True # Channel deleted/inaccessible
+                        
+            if changed:
+                await set_global_setting('status_messages', json.dumps(updated_messages))
         except Exception as e:
             from src.core.config import Log
             print(f"{Log.RED}>>> Error in status loop: {e}{Log.RESET}")
