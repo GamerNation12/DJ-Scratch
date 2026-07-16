@@ -39,7 +39,8 @@ async def restart_watchdog():
         except:
             pass
             
-        bot.is_restarting = True
+        import time
+        bot.is_restarting = time.time() + 60
         try:
             import discord
             await bot.change_presence(

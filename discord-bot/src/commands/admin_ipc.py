@@ -37,7 +37,8 @@ class AdminIPC(commands.Cog):
             print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot (GitHub/Web request) in 1 minute...{Log.RESET}")
             
             try:
-                self.bot.is_restarting = True
+                import time
+                self.bot.is_restarting = time.time() + 60
                 await self.bot.change_presence(
                     status=discord.Status.do_not_disturb, 
                     activity=discord.Game(name="Restarting in 1 min...")

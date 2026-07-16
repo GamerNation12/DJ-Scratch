@@ -151,7 +151,8 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         
         # Change presence to warn users across servers
         try:
-            self.bot.is_restarting = True
+            import time
+            self.bot.is_restarting = time.time() + 60
             await self.bot.change_presence(
                 status=discord.Status.do_not_disturb, 
                 activity=discord.Game(name="Restarting in 1 min...")
