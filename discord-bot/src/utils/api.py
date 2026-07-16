@@ -132,25 +132,7 @@ async def scrobble_bot_track(session, artist, track, album=None):
     import time
     timestamp = str(int(time.time()))
     
-    # 1. Update Now Playing
-    np_params = {
-        'api_key': api_key,
-        'artist': artist,
-        'method': 'track.updateNowPlaying',
-        'sk': BOT_LASTFM_SESSION_KEY,
-        'track': track
-    }
-    if album:
-        np_params['album'] = album
-        
-    np_sig_string = ""
-    for k in sorted(np_params.keys()):
-        np_sig_string += f"{k}{np_params[k]}"
-    np_sig_string += api_secret
-    np_params['api_sig'] = hashlib.md5(np_sig_string.encode('utf-8')).hexdigest()
-    np_params['format'] = 'json'
-
-    # 2. Scrobble
+    # Scrobble
     sc_params = {
         'api_key': api_key,
         'artist[0]': artist,
@@ -170,11 +152,6 @@ async def scrobble_bot_track(session, artist, track, album=None):
     sc_params['format'] = 'json'
 
     try:
-        # Update Now Playing
-        async with session.post("http://ws.audioscrobbler.com/2.0/", data=np_params) as r_np:
-            if r_np.status != 200:
-                logging.error(f"Bot nowplaying failed: {await r_np.text()}")
-                
         # Scrobble
         async with session.post("http://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
             if r_sc.status == 200:
