@@ -37,7 +37,44 @@ class CustomTree(app_commands.CommandTree):
         )
 
 bot = commands.Bot(command_prefix=",", intents=intents, tree_cls=CustomTree)
+bot.is_restarting = False
 bot.remove_command('help')
+
+def add_restarting_user(user_id):
+    import json
+    import os
+    try:
+        users = []
+        if os.path.exists('restart_notifs.json'):
+            with open('restart_notifs.json', 'r') as f:
+                users = json.load(f)
+        if user_id not in users:
+            users.append(user_id)
+            with open('restart_notifs.json', 'w') as f:
+                json.dump(users, f)
+    except Exception as e:
+        print(f"Failed to save restart notif for {user_id}: {e}")
+
+@bot.tree.interaction_check
+async def check_restarting_slash(interaction: discord.Interaction) -> bool:
+    if getattr(bot, 'is_restarting', False):
+        try:
+            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting in less than a minute. Your command might be interrupted! (We will notify you when it's back online)", delete_after=15)
+        except:
+            pass
+        add_restarting_user(interaction.user.id)
+    return True
+
+@bot.check
+async def check_restarting_prefix(ctx) -> bool:
+    if getattr(bot, 'is_restarting', False):
+        try:
+            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting in less than a minute. Your command might be interrupted! (We will notify you when it's back online)", delete_after=15)
+        except:
+            pass
+        add_restarting_user(ctx.author.id)
+    return True
+
 
 # === LAST.FM CONFIG ===
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")

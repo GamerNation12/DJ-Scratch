@@ -57,6 +57,14 @@ def deploy():
             elif os.path.isdir(local_path):
                 upload_dir(local_path, remote_path)
                 
+        # Write restart flag to tell the bot to restart
+        try:
+            with sftp.file('/.restart_flag', 'w') as f:
+                f.write('restart')
+            print("Wrote .restart_flag to remote server.")
+        except Exception as e:
+            print(f"Could not write .restart_flag: {e}")
+
         print("Deployment successful!")
     except Exception as e:
         print(f"Deployment failed: {e}")

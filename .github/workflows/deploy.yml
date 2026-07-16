@@ -32,32 +32,4 @@ jobs:
           PTERO_PASSWORD: ${{ secrets.PTERO_PASSWORD }}
         run: python deploy.py
 
-      - name: Restart Pterodactyl Server
-        env:
-          PTERO_API_KEY: ${{ secrets.PTERO_API_KEY }}
-          PTERO_URL: ${{ secrets.PTERO_URL }}
-        run: |
-          python -c "
-          import urllib.request, json, os
-          
-          ptero_url = os.environ.get('PTERO_URL', '').strip()
-          ptero_key = os.environ.get('PTERO_API_KEY', '').strip()
-          
-          if not ptero_url or not ptero_key:
-              print('PTERO_URL or PTERO_API_KEY is not set. Skipping auto-restart.')
-              exit(0)
-              
-          url = ptero_url.rstrip('/') + '/api/client/servers/5be081c1/power'
-          req = urllib.request.Request(url, data=json.dumps({'signal': 'restart'}).encode(), headers={
-              'Authorization': f'Bearer {ptero_key}',
-              'Content-Type': 'application/json',
-              'Accept': 'Application/vnd.pterodactyl.v1+json',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-          })
-          try:
-              urllib.request.urlopen(req)
-              print('Server restart signal sent successfully!')
-          except Exception as e:
-              print(f'Failed to restart server: {e}')
-              exit(1)
-          "
+

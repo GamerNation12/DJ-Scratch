@@ -34,18 +34,19 @@ class AdminIPC(commands.Cog):
         
         if action_payload == "RESTART_BOT":
             await message.add_reaction("✅")
-            print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot (GitHub/Web request)...{Log.RESET}")
+            print(f"{Log.CYAN}>>> [WEBSITE] Restarting bot (GitHub/Web request) in 1 minute...{Log.RESET}")
             
             try:
+                self.bot.is_restarting = True
                 await self.bot.change_presence(
                     status=discord.Status.do_not_disturb, 
-                    activity=discord.Game(name="Restarting shortly...")
+                    activity=discord.Game(name="Restarting in 1 min...")
                 )
             except Exception:
                 pass
                 
             import asyncio
-            await asyncio.sleep(5)
+            await asyncio.sleep(60)
             
             if getattr(self.bot, 'session', None):
                 await self.bot.session.close()
