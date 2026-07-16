@@ -67,21 +67,28 @@ async def on_ready_monitor():
         restart_watchdog.start()
         print(f"\033[92mRestart watchdog started.\033[0m")
         
+    from src.core.database import db_pool
     import json
-    if os.path.exists('restart_notifs.json'):
+    if db_pool:
         try:
-            with open('restart_notifs.json', 'r') as f:
-                users = json.load(f)
-            for user_id in users:
-                try:
-                    user = await bot.fetch_user(user_id)
-                    if user:
-                        await user.send("✅ **The bot is back online!** The restart has been completed successfully.")
-                except Exception as e:
-                    print(f"Could not DM user {user_id} about restart: {e}")
-            os.remove('restart_notifs.json')
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_notifs'")
+                if row and row['value']:
+                    try:
+                        users = json.loads(row['value'])
+                        if users:
+                            for user_id in users:
+                                try:
+                                    user = await bot.fetch_user(user_id)
+                                    if user:
+                                        await user.send("✅ **The bot is back online!** The restart has been completed successfully.")
+                                except Exception as e:
+                                    print(f"Could not DM user {user_id} about restart: {e}")
+                            await conn.execute("DELETE FROM global_settings WHERE key = 'restart_notifs'")
+                    except Exception as e:
+                        print(f"Error parsing restart_notifs JSON: {e}")
         except Exception as e:
-            print(f"Error processing restart_notifs.json: {e}")
+            print(f"Error processing restart_notifs from DB: {e}")
 
 load_dotenv()
 if __name__ == "__main__":

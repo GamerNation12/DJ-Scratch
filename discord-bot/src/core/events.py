@@ -40,18 +40,26 @@ bot = commands.Bot(command_prefix=",", intents=intents, tree_cls=CustomTree)
 bot.is_restarting = False
 bot.remove_command('help')
 
-def add_restarting_user(user_id):
+async def add_restarting_user(user_id):
+    from src.core.database import db_pool
     import json
-    import os
+    if not db_pool:
+        return
     try:
-        users = []
-        if os.path.exists('restart_notifs.json'):
-            with open('restart_notifs.json', 'r') as f:
-                users = json.load(f)
-        if user_id not in users:
-            users.append(user_id)
-            with open('restart_notifs.json', 'w') as f:
-                json.dump(users, f)
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_notifs'")
+            users = []
+            if row and row['value']:
+                try:
+                    users = json.loads(row['value'])
+                except:
+                    pass
+            if user_id not in users:
+                users.append(user_id)
+                await conn.execute(
+                    "INSERT INTO global_settings (key, value) VALUES ('restart_notifs', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    json.dumps(users)
+                )
     except Exception as e:
         print(f"Failed to save restart notif for {user_id}: {e}")
 
@@ -62,7 +70,7 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
             await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting in less than a minute. Your command might be interrupted! (We will notify you when it's back online)", delete_after=15)
         except:
             pass
-        add_restarting_user(interaction.user.id)
+        await add_restarting_user(interaction.user.id)
     return True
 
 @bot.check
@@ -72,7 +80,7 @@ async def check_restarting_prefix(ctx) -> bool:
             await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting in less than a minute. Your command might be interrupted! (We will notify you when it's back online)", delete_after=15)
         except:
             pass
-        add_restarting_user(ctx.author.id)
+        await add_restarting_user(ctx.author.id)
     return True
 
 
