@@ -948,6 +948,20 @@ async def notify_owner(ctx, err):
 async def on_command(ctx):
     location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
     print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
+    
+    from .database import db_pool
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO user_settings (user_id, discord_username, display_name) 
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (user_id) DO UPDATE SET 
+                        discord_username = EXCLUDED.discord_username,
+                        display_name = EXCLUDED.display_name
+                """, str(ctx.author.id), ctx.author.name, ctx.author.display_name)
+        except Exception:
+            pass
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -2694,6 +2708,20 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
 
 @bot.listen('on_interaction')
 async def on_interaction(interaction: discord.Interaction):
+    from .database import db_pool
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO user_settings (user_id, discord_username, display_name) 
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (user_id) DO UPDATE SET 
+                        discord_username = EXCLUDED.discord_username,
+                        display_name = EXCLUDED.display_name
+                """, str(interaction.user.id), interaction.user.name, interaction.user.display_name)
+        except Exception:
+            pass
+
     if interaction.type == discord.InteractionType.component:
         custom_id = interaction.data.get("custom_id", "")
         
