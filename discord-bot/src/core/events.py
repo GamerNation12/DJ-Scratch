@@ -1632,7 +1632,7 @@ async def process_top_artists(user, input_period=None):
         local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_data:
-        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     combined = dict(lastfm_data)
     for artist, count in local_data.items():
@@ -1665,7 +1665,7 @@ async def process_top_tracks(user, input_period=None):
         local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_tracks:
-        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
 
     combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
