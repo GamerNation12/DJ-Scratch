@@ -5,30 +5,22 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    return [
-      {
-        source: "/",
-        has: [
-          {
-            type: "query",
-            key: "frame_id",
-          },
-        ],
-        destination: "/activity/dm",
-      },
-      {
-        source: "/activity/dm/_next/:path*",
-        destination: "/_next/:path*",
-      },
-      {
-        source: "/activity/dm/api/:path*",
-        destination: "/api/:path*",
-      },
-      {
-        source: "/activity/dm/logo.png",
-        destination: "/logo.png",
-      }
-    ];
+    return {
+      afterFiles: [
+        {
+          source: "/activity/dm/_next/:path*",
+          destination: "/_next/:path*",
+        },
+        {
+          source: "/activity/dm/api/:path*",
+          destination: "/api/:path*",
+        },
+        {
+          source: "/activity/dm/logo.png",
+          destination: "/logo.png",
+        }
+      ]
+    };
   },
   async headers() {
     return [

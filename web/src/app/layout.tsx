@@ -45,12 +45,15 @@ export const metadata: Metadata = {
 };
 
 import LayoutWrapper from "@/components/LayoutWrapper";
+import { headers } from "next/headers";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const h = await headers();
+  const isDiscordActivity = h.get('x-discord-activity') === 'true';
   return (
     <html lang="en">
       <body
@@ -67,9 +70,13 @@ export default function RootLayout({
               },
             }}
           />
-          <LayoutWrapper>
-            {children}
-          </LayoutWrapper>
+          {isDiscordActivity ? (
+            children
+          ) : (
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+          )}
         </Providers>
       </body>
     </html>

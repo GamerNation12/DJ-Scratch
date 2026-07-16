@@ -3,8 +3,18 @@
 import { useEffect, useState } from "react";
 import { Music } from "lucide-react";
 
+interface NowPlayingData {
+  is_playing: boolean;
+  song?: string;
+  artist?: string;
+  album_art?: string;
+  progress_ms: number;
+  duration_ms: number;
+  error?: string;
+}
+
 export default function ActivityMusic() {
-  const [nowPlaying, setNowPlaying] = useState<any>(null);
+  const [nowPlaying, setNowPlaying] = useState<NowPlayingData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchNowPlaying = async () => {
@@ -28,12 +38,13 @@ export default function ActivityMusic() {
       }
       if (data.error) throw new Error(data.error);
       setNowPlaying(data);
-    } catch(e: any) {
-      setError(e.message || "Failed to fetch now playing data.");
+    } catch(e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to fetch now playing data.");
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNowPlaying();
     const interval = setInterval(fetchNowPlaying, 5000); // poll every 5s
     return () => clearInterval(interval);
