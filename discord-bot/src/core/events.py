@@ -1260,7 +1260,7 @@ class ApplyAvatarView(discord.ui.View):
             if self.track:
                 from src.utils.api import scrobble_bot_track
                 import asyncio
-                asyncio.create_task(scrobble_bot_track(self.artist, self.track, self.album))
+                asyncio.create_task(scrobble_bot_track(self.bot_instance.session, self.artist, self.track, self.album))
             
             debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)}"
             await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)

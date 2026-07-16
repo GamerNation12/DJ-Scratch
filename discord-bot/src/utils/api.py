@@ -114,8 +114,9 @@ async def fetch_deezer_track_image(session, track_name, artist_name):
         logging.error(f"Deezer track fetch error: {e}")
     return None
 
-async def scrobble_bot_track(artist, track, album=None):
+async def scrobble_bot_track(session, artist, track, album=None):
     import os
+    import logging
     BOT_LASTFM_SESSION_KEY = os.getenv("BOT_LASTFM_SESSION_KEY")
     if not BOT_LASTFM_SESSION_KEY or not LASTFM_API_SECRET:
         return False
@@ -161,15 +162,14 @@ async def scrobble_bot_track(artist, track, album=None):
     sc_params['api_sig'] = hashlib.md5(sc_sig_string.encode('utf-8')).hexdigest()
     sc_params['format'] = 'json'
 
-    from ..core.events import bot
     try:
         # Update Now Playing
-        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=np_params) as r_np:
+        async with session.post("http://ws.audioscrobbler.com/2.0/", data=np_params) as r_np:
             if r_np.status != 200:
                 logging.error(f"Bot nowplaying failed: {await r_np.text()}")
                 
         # Scrobble
-        async with bot.session.post("http://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
+        async with session.post("http://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
             if r_sc.status == 200:
                 data = await r_sc.json()
                 if 'scrobbles' in data:
