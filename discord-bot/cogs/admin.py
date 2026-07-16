@@ -111,6 +111,17 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         await self.bot.close()
         os._exit(0)
 
+    @commands.command(name="testscrobble", hidden=True)
+    @commands.is_owner()
+    async def testscrobble(self, ctx, artist: str, track: str):
+        from src.utils.api import scrobble_bot_track
+        await ctx.send(f"Testing scrobble: {artist} - {track}")
+        try:
+            res = await scrobble_bot_track(self.bot.session, artist, track)
+            await ctx.send(f"Result: {res}")
+        except Exception as e:
+            await ctx.send(f"Error: {e}")
+
     @commands.command(name="wipedata", aliases=["wd", "wipe"])
     async def wipe_data(self, ctx):
         msg = await ctx.send("🧨 Wiping ALL imported data from the database. This cannot be undone...")
