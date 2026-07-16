@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/",
+        has: [
+          {
+            type: "query",
+            key: "frame_id",
+          },
+        ],
+        destination: "/activity/dm",
+      },
+      {
         source: "/activity/dm/_next/:path*",
         destination: "/_next/:path*",
       },
