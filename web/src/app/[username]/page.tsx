@@ -10,7 +10,7 @@ import Link from "next/link";
 
 export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
   const resolvedParams = use(params);
-  const usernameParam = resolvedParams.username;
+  const usernameParam = decodeURIComponent(resolvedParams.username || "");
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -136,7 +136,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     
     const fetchProfile = async () => {
       try {
-        const res = await fetchApi(`/api/u/${usernameParam}?t=${Date.now()}`);
+        const res = await fetchApi(`/api/u/${encodeURIComponent(usernameParam)}?t=${Date.now()}`);
         const data = await res.json();
         if (isMounted) {
           if (data.error) {

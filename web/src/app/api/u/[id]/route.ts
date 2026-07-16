@@ -57,7 +57,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       rows = await sql`
         SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
         FROM user_settings 
-        WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId} OR display_name ILIKE ${userId}
+        WHERE REPLACE(discord_username, ' ', '') ILIKE REPLACE(${userId}, ' ', '') 
+           OR lastfm_username ILIKE ${userId} 
+           OR display_name ILIKE ${userId}
       `;
     } catch (e: any) {
       if (e.message?.includes('column "discord_username" does not exist') || e.code === '42703') {
@@ -75,7 +77,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         rows = await sql`
           SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
           FROM user_settings 
-          WHERE discord_username ILIKE ${userId} OR lastfm_username ILIKE ${userId} OR display_name ILIKE ${userId}
+          WHERE REPLACE(discord_username, ' ', '') ILIKE REPLACE(${userId}, ' ', '') 
+             OR lastfm_username ILIKE ${userId} 
+             OR display_name ILIKE ${userId}
         `;
       } else {
         throw e;
