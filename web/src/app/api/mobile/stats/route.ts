@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { verifyToken } from "@/lib/jwt";
 
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
 async function getDeezerArtistImage(artistName: string) {

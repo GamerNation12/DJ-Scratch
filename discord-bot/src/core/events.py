@@ -91,7 +91,7 @@ async def check_restarting_prefix(ctx) -> bool:
 
 
 # === LAST.FM CONFIG ===
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
 OWNER_ID = 759433582107426816
 
 COOLDOWN_FILE = "avatar_cooldown.txt"

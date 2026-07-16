@@ -176,7 +176,7 @@ class LastFmCog(commands.Cog):
         msg = await interaction.original_response()
         
         import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
+        api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&channel_id={interaction.channel_id}&message_id={msg.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
@@ -454,7 +454,7 @@ class LastFmCog(commands.Cog):
         msg = await ctx.send(embed=embed)
         
         import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
+        api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         

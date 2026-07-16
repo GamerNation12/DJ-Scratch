@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

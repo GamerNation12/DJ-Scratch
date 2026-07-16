@@ -15,8 +15,8 @@ export async function GET(req: Request) {
     );
   }
 
-  const apiKey = process.env.LASTFM_API_KEY || "696438a21fc540d4cb27faa736239e75";
-  const sharedSecret = process.env.LASTFM_SHARED_SECRET || "f8b8268e5067d5b927880f9d64abe5bc";
+  const apiKey = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
+  const sharedSecret = process.env.LASTFM_SHARED_SECRET || "e566dd2098e65ed746edc1a4a5ef62f0";
 
   if (!sharedSecret) {
     return NextResponse.json(

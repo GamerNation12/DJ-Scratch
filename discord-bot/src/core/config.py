@@ -16,8 +16,8 @@ OWNER_ID = 759433582107426816
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 POSTGRES_URL = os.getenv("POSTGRES_URL", "").strip()
 
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75").strip()
-LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "f8b8268e5067d5b927880f9d64abe5bc").strip()
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae").strip()
+LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "e566dd2098e65ed746edc1a4a5ef62f0").strip()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 COOLDOWN_FILE = "cooldowns.json"
