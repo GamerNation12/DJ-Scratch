@@ -13,13 +13,12 @@ class Log:
 
 OWNER_ID = 759433582107426816
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-POSTGRES_URL = os.getenv("POSTGRES_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+POSTGRES_URL = os.getenv("POSTGRES_URL", "").strip()
 
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75")
-LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "f8b8268e5067d5b927880f9d64abe5bc")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "696438a21fc540d4cb27faa736239e75").strip()
+LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "f8b8268e5067d5b927880f9d64abe5bc").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 COOLDOWN_FILE = "cooldowns.json"
 

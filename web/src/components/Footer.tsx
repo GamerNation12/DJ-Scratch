@@ -12,7 +12,7 @@ export default function Footer() {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
       <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-2 text-zinc-500">
-          <span className="font-bold text-xl text-white opacity-80 hover:opacity-100 transition-opacity cursor-pointer grayscale hover:grayscale-0"><img src="https://cdn.discordapp.com/emojis/1520654501365678190.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /></span>
+          <span className="font-bold text-xl text-white opacity-80 hover:opacity-100 transition-opacity cursor-pointer grayscale hover:grayscale-0"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /></span>
           <span className="font-semibold text-zinc-300">DJ Scratch</span>
           <span className="text-xs ml-2">© {new Date().getFullYear()}</span>
         </div>

@@ -53,7 +53,7 @@ class InfoCog(commands.Cog):
     async def send_updates(self, context):
         from src.core.database import get_global_update_version, get_global_update_message
         
-        embed = discord.Embed(title="<a:VinylRecord:1520654501365678190> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=discord.utils.utcnow())
+        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=discord.utils.utcnow())
         
         try:
             version = await get_global_update_version()
