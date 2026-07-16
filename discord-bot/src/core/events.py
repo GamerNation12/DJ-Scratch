@@ -902,7 +902,7 @@ async def on_command(ctx):
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
-    try: await ctx.send("Whoops! Error notified.")
+    try: await ctx.send("Whoops! An error occurred and the developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
     except: pass
 
 @bot.tree.error
@@ -910,7 +910,7 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
     cmd_name = interaction.command.name if interaction.command else "unknown"
     await notify_owner(f"/{cmd_name}", error)
     if not interaction.response.is_done(): 
-        try: await interaction.response.send_message("Whoops! Error notified.", ephemeral=True)
+        try: await interaction.response.send_message("Whoops! An error occurred and the developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92", ephemeral=True)
         except: pass
 
 @bot.tree.interaction_check
