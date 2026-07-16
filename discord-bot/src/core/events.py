@@ -70,7 +70,8 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
+            reason = getattr(bot, 'restart_reason', 'Maintenance')
+            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
         except:
             pass
         await add_restarting_user(interaction.user.id, interaction.channel.id)
@@ -81,7 +82,8 @@ async def check_restarting_prefix(ctx) -> bool:
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R>. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
+            reason = getattr(bot, 'restart_reason', 'Maintenance')
+            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
         except:
             pass
         await add_restarting_user(ctx.author.id, ctx.channel.id)

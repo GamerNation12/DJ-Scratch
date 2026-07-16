@@ -39,6 +39,7 @@ class AdminIPC(commands.Cog):
             try:
                 import time
                 self.bot.is_restarting = time.time() + 60
+                self.bot.restart_reason = "Website requested restart"
                 await self.bot.change_presence(
                     status=discord.Status.do_not_disturb, 
                     activity=discord.Game(name="Restarting in 1 min...")
