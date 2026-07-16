@@ -953,17 +953,55 @@ async def on_command(ctx):
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     if isinstance(error, commands.CheckFailure): return
+    
+    # Handle common user-facing errors
+    if isinstance(error, commands.MissingRequiredArgument):
+        return await ctx.send(f"⚠️ You're missing a required piece of information: `{error.param.name}`. Please check how to use the command and try again!")
+    elif isinstance(error, commands.CommandOnCooldown):
+        return await ctx.send(f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**.")
+    elif isinstance(error, commands.BadArgument):
+        return await ctx.send("⚠️ I couldn't understand one of your inputs. Please make sure you're typing it correctly!")
+    elif isinstance(error, commands.MissingPermissions):
+        return await ctx.send("🚫 You don't have the required permissions to use this command.")
+    elif isinstance(error, commands.BotMissingPermissions):
+        return await ctx.send("🚫 I don't have the required permissions to perform this action here.")
+    elif isinstance(error, commands.MemberNotFound):
+        return await ctx.send("⚠️ I couldn't find that user. Make sure you typed their name correctly.")
+        
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
-    try: await ctx.send("Whoops! An error occurred and the developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
+    try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
     except: pass
 
 @bot.tree.error
 async def on_app_command_error_tree(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
     if isinstance(error, discord.app_commands.CheckFailure): return
+    
+    msg = None
+    if isinstance(error, discord.app_commands.CommandOnCooldown):
+        msg = f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**."
+    elif isinstance(error, discord.app_commands.MissingPermissions):
+        msg = "🚫 You don't have the required permissions to use this command."
+    elif isinstance(error, discord.app_commands.BotMissingPermissions):
+        msg = "🚫 I don't have the required permissions to perform this action here."
+        
+    if msg:
+        if not interaction.response.is_done():
+            try: await interaction.response.send_message(msg, ephemeral=True)
+            except: pass
+        else:
+            try: await interaction.followup.send(msg, ephemeral=True)
+            except: pass
+        return
+
     cmd_name = interaction.command.name if interaction.command else "unknown"
     await notify_owner(f"/{cmd_name}", error)
+    
+    fallback_msg = "Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92"
     if not interaction.response.is_done(): 
-        try: await interaction.response.send_message("Whoops! An error occurred and the developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92", ephemeral=True)
+        try: await interaction.response.send_message(fallback_msg, ephemeral=True)
+        except: pass
+    else:
+        try: await interaction.followup.send(fallback_msg, ephemeral=True)
         except: pass
 
 @bot.tree.interaction_check
