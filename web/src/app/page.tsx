@@ -6,13 +6,19 @@ import { useSession } from "@/app/providers";
 import Link from "next/link";
 import { useEffect, useState, use } from "react";
 
+import ActivityDMPage from "./activity/dm/page";
+
 const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands";
 
-export default function Home({ searchParams }: { searchParams: Promise<{ error?: string; details?: string }> }) {
+export default function Home({ searchParams }: { searchParams: Promise<{ error?: string; details?: string; frame_id?: string; instance_id?: string }> }) {
   const resolvedParams = use(searchParams);
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
+
+  if (resolvedParams.frame_id || resolvedParams.instance_id) {
+    return <ActivityDMPage />;
+  }
 
   useEffect(() => {
     setMounted(true);
