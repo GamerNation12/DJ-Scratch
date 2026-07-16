@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import ActivityMusic from "./ActivityMusic";
+import ActivitySettings from "./ActivitySettings";
 import io, { Socket } from "socket.io-client";
-import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X, Paperclip, Image, Film, File } from "lucide-react";
+import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X, Paperclip, Image, Film, File, Music, Settings } from "lucide-react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 
@@ -11,6 +13,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20
 const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
 export default function ActivityDMUI() {
+  const [activeTab, setActiveTab] = useState<'messages' | 'music' | 'settings'>('messages');
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("u");
   
@@ -487,8 +490,36 @@ export default function ActivityDMUI() {
       <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
       <div className="absolute bottom-0 right-1/4 w-1/2 h-1/2 bg-purple-500/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
 
-      {/* Mobile Sidebar Overlay */}
-      {mobileSidebarOpen && (
+      {/* Master Sidebar */}
+      <div className="w-[72px] h-full bg-zinc-950 flex flex-col items-center py-4 gap-4 z-50 border-r border-white/5 flex-shrink-0">
+        <button 
+          onClick={() => setActiveTab('messages')}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'messages' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-zinc-400 hover:bg-indigo-500/50 hover:text-white'}`}
+          title="Messages"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </button>
+        <button 
+          onClick={() => setActiveTab('music')}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'music' ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-white/5 text-zinc-400 hover:bg-green-500/50 hover:text-white'}`}
+          title="Music"
+        >
+          <Music className="w-6 h-6" />
+        </button>
+        <div className="flex-1"></div>
+        <button 
+          onClick={() => setActiveTab('settings')}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'settings' ? 'bg-zinc-700 text-white shadow-lg shadow-black/50' : 'bg-white/5 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}
+          title="Settings"
+        >
+          <Settings className="w-6 h-6" />
+        </button>
+      </div>
+
+      {activeTab === 'messages' && (
+        <>
+          {/* Mobile Sidebar Overlay */}
+          {mobileSidebarOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
       )}
 
@@ -1021,6 +1052,11 @@ export default function ActivityDMUI() {
           </div>
         )}
       </div>
+        </>
+      )}
+
+      {activeTab === 'music' && <ActivityMusic />}
+      {activeTab === 'settings' && <ActivitySettings />}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
