@@ -192,9 +192,14 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
 
     @commands.command(name="inactive_users", aliases=["iu"])
-    async def inactive_users(self, ctx, days: int = 30):
+    async def inactive_users(self, ctx, *, days_input: str = "30"):
         from src.core.database import db_pool
         from datetime import datetime, timedelta, timezone
+        import re
+        
+        match = re.search(r'\d+', days_input)
+        days = int(match.group()) if match else 30
+        
         if not db_pool:
             return await ctx.send("❌ Database not connected.")
             
