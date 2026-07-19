@@ -68,8 +68,24 @@ async def add_restarting_user(user_id, channel_id):
     except Exception as e:
         print(f"Failed to save restart notif for {user_id}: {e}")
 
+async def update_user_activity(user_id):
+    from src.core.database import db_pool
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, last_active) 
+                VALUES ($1, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id) 
+                DO UPDATE SET last_active = CURRENT_TIMESTAMP
+            """, str(user_id))
+    except Exception as e:
+        pass
+
 @bot.tree.interaction_check
 async def check_restarting_slash(interaction: discord.Interaction) -> bool:
+    asyncio.create_task(update_user_activity(interaction.user.id))
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
@@ -82,6 +98,7 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
 
 @bot.check
 async def check_restarting_prefix(ctx) -> bool:
+    asyncio.create_task(update_user_activity(ctx.author.id))
     if getattr(bot, 'is_restarting', False):
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
@@ -315,6 +332,11 @@ async def setup_hook():
 
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT")
+                except Exception as e:
+                    pass
+
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
                 except Exception as e:
                     pass
                     

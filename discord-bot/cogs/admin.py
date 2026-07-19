@@ -191,5 +191,47 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             await ctx.send("❌ Database not connected.")
 
 
+    @commands.command(name="inactive_users", aliases=["iu"])
+    async def inactive_users(self, ctx, days: int = 30):
+        from src.core.database import db_pool
+        from datetime import datetime, timedelta, timezone
+        if not db_pool:
+            return await ctx.send("❌ Database not connected.")
+            
+        async with db_pool.acquire() as conn:
+            total_users = await conn.fetchval("SELECT COUNT(*) FROM user_settings")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            
+            active_users = await conn.fetchval(
+                "SELECT COUNT(*) FROM user_settings WHERE last_active >= $1", 
+                cutoff
+            )
+            
+            inactive_users = total_users - active_users
+            
+            embed = discord.Embed(title="📊 Bot User Activity", color=discord.Color.blue())
+            embed.add_field(name="Total Registered Users", value=f"{total_users:,}", inline=False)
+            embed.add_field(name=f"Active (Last {days} days)", value=f"{active_users:,}", inline=True)
+            embed.add_field(name=f"Inactive (> {days} days)", value=f"{inactive_users:,}", inline=True)
+            
+            oldest = await conn.fetch(
+                "SELECT user_id, last_active FROM user_settings WHERE last_active < $1 OR last_active IS NULL ORDER BY last_active ASC NULLS FIRST LIMIT 5",
+                cutoff
+            )
+            
+            if oldest:
+                oldest_str = ""
+                for row in oldest:
+                    uid = row['user_id']
+                    la = row['last_active']
+                    if la:
+                        oldest_str += f"<@{uid}> (Last active: <t:{int(la.timestamp())}:R>)\n"
+                    else:
+                        oldest_str += f"<@{uid}> (Never tracked)\n"
+                embed.add_field(name="Sample Inactive Users", value=oldest_str, inline=False)
+                
+            await ctx.send(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))
