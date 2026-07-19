@@ -75,10 +75,10 @@ async def update_user_activity(user_id):
     try:
         async with db_pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO user_settings (user_id, last_active) 
-                VALUES ($1, CURRENT_TIMESTAMP)
+                INSERT INTO user_settings (user_id, last_active, purge_warning_sent) 
+                VALUES ($1, CURRENT_TIMESTAMP, FALSE)
                 ON CONFLICT (user_id) 
-                DO UPDATE SET last_active = CURRENT_TIMESTAMP
+                DO UPDATE SET last_active = CURRENT_TIMESTAMP, purge_warning_sent = FALSE
             """, str(user_id))
     except Exception as e:
         pass
@@ -337,6 +337,11 @@ async def setup_hook():
 
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    pass
+
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE")
                 except Exception as e:
                     pass
                     
