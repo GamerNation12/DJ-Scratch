@@ -10,7 +10,10 @@ from discord import app_commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 import asyncpg
+import uuid
 from ..utils.api import *
+
+FM_TRACK_CACHE = {}
 
 # --- TERMINAL COLOR CODES ---
 class Log:
@@ -1262,17 +1265,25 @@ class FMActionsView(discord.ui.View):
         self.track_data = track_data
         
         user_id = str(user.id) if user else "None"
+        
+        unique_id = uuid.uuid4().hex[:8]
+        if track_data is not None:
+            FM_TRACK_CACHE[unique_id] = track_data
+            if len(FM_TRACK_CACHE) > 1000:
+                for k in list(FM_TRACK_CACHE.keys())[:100]:
+                    FM_TRACK_CACHE.pop(k, None)
+                    
         if current_mode == "compact":
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_down)
         elif current_mode == "full":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_up)
             
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}")
+            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_down)
         elif current_mode == "stats":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}")
+            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_up)
             
         if spotify_url and current_mode != "compact":
@@ -1486,26 +1497,26 @@ async def apply_features(session, artist, song, s_artists=None):
             return f"{artist}, {', '.join(features)}", song
     
     try:
-        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=1"
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=5"
         async with session.get(url) as r:
             if r.status == 200:
                 data = await r.json(content_type=None)
                 if data.get('resultCount', 0) > 0:
-                    it_artist = data['results'][0].get('artistName', '')
-                    it_track = data['results'][0].get('trackName', '')
-                    
-                    m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
-                    if m2:
-                        features = m2.group(1).strip()
-                        return f"{artist}, {features}", song
-                    elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
-                        return it_artist, song
-                    else:
-                        pass
-                else:
-                    pass
-            else:
-                pass
+                    for result in data['results']:
+                        it_artist = result.get('artistName', '')
+                        it_track = result.get('trackName', '')
+                        
+                        if 'remix' in it_track.lower() and 'remix' not in song.lower():
+                            continue
+                            
+                        m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
+                        if m2:
+                            features = m2.group(1).strip()
+                            return f"{artist}, {features}", song
+                        elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
+                            return it_artist, song
+                        else:
+                            return artist, song
     except Exception as e:
         pass
         
@@ -1547,8 +1558,12 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         spotify_url = None
         s_artists = None
         try:
-            from src.core.spotify import get_spotify_track_info
-            s_info = await get_spotify_track_info(session, artist, song)
+            from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
+            u_token = await get_user_spotify_access_token(session, str(user.id))
+            s_info = await get_spotify_track_info(session, artist, song, user_token=u_token)
+            if not s_info and u_token:
+                s_info = await get_spotify_track_info(session, artist, song)
+                
             if s_info:
                 spotify_url = s_info.get("spotify_url")
                 s_img = s_info.get("image_url")
@@ -2803,6 +2818,7 @@ async def on_interaction(interaction: discord.Interaction):
                 action = parts[0]
                 user_id_str = parts[1]
                 current_mode = parts[2]
+                unique_id = parts[3] if len(parts) > 3 else None
                 
                 try:
                     target_user = await bot.fetch_user(int(user_id_str))
@@ -2816,7 +2832,8 @@ async def on_interaction(interaction: discord.Interaction):
                     new_mode = "full" if current_mode == "compact" else "stats"
                     
                 await interaction.response.defer()
-                result, _ = await process_fm(interaction, target_user, mode=new_mode, track_data=None)
+                cached_data = FM_TRACK_CACHE.get(unique_id) if unique_id else None
+                result, _ = await process_fm(interaction, target_user, mode=new_mode, track_data=cached_data)
                 if result:
                     content = result.get('content')
                     if not interaction.response.is_done():

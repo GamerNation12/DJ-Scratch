@@ -41,14 +41,14 @@ async def get_spotify_token(session: aiohttp.ClientSession):
         
     return None
 
-async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, song: str):
+async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, song: str, user_token: str = None):
     """
     Returns a dictionary with:
     - spotify_url: Link to the track on Spotify
     - preview_url: 30s audio preview
     - image_url: High-res album art (640x640)
     """
-    token = await get_spotify_token(session)
+    token = user_token or await get_spotify_token(session)
     if not token:
         return None
         

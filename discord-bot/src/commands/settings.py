@@ -117,39 +117,7 @@ class SettingsView(discord.ui.View):
         self.add_item(SettingsDropdown())
         self.add_item(TimezoneDropdown())
 
-async def apply_features(session, artist, song):
-    import re
-    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
-    if m:
-        features = m.group(1).strip()
-        song = song.replace(m.group(0), "").strip()
-        return f"{artist}, {features}", song
-    
-    try:
-        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=1"
-        async with session.get(url) as r:
-            if r.status == 200:
-                data = await r.json()
-                if data.get('resultCount', 0) > 0:
-                    it_artist = data['results'][0].get('artistName', '')
-                    it_track = data['results'][0].get('trackName', '')
-                    
-                    m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
-                    if m2:
-                        features = m2.group(1).strip()
-                        return f"{artist}, {features}", song
-                    elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
-                        return it_artist, song
-                    else:
-                        pass
-                else:
-                    pass
-            else:
-                pass
-    except Exception as e:
-        pass
-        
-    return artist, song
+
 
 # --- CORE LOGIC ---
 
