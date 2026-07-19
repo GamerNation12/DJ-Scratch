@@ -248,7 +248,15 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         async with db_pool.acquire() as conn:
             past_dt = datetime.now(timezone.utc) - timedelta(days=days)
             await conn.execute("UPDATE user_settings SET last_active = $1, purge_warning_sent = FALSE WHERE user_id = $2", past_dt, str(ctx.author.id))
-            await ctx.send(f"✅ Your `last_active` timestamp has been manually set to **{days} days ago** (and warning flag reset)!\n\n**To test the DM warning:** Restart the bot now. The background loop runs immediately on startup and should DM you.\n**To test account deletion:** Run `,simulate_inactive 61` and restart the bot.")
+            await ctx.send(f"✅ Your `last_active` timestamp has been manually set to **{days} days ago** (and warning flag reset)!\n\n**To test the DM warning:** Run `,trigger_purge`.\n**To test account deletion:** Run `,simulate_inactive 61` and then `,trigger_purge`.")
+
+    @commands.command(name="trigger_purge")
+    async def trigger_purge(self, ctx):
+        """Manually forces the automated purge loop to run instantly."""
+        from src.core.events import run_inactive_purge
+        msg = await ctx.send("⏳ Forcing the background purge task to run right now...")
+        await run_inactive_purge()
+        await msg.edit(content="✅ Purge task finished running! Check your DMs (if you were in the 53-60 day range) or the terminal for deletion logs.")
 
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))

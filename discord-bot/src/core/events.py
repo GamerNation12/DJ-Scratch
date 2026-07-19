@@ -83,6 +83,47 @@ async def update_user_activity(user_id):
     except Exception as e:
         pass
 
+async def run_inactive_purge():
+    from src.core.database import db_pool
+    from datetime import datetime, timedelta, timezone
+    if not db_pool:
+        return
+        
+    try:
+        async with db_pool.acquire() as conn:
+            warning_cutoff = datetime.now(timezone.utc) - timedelta(days=53)
+            to_warn = await conn.fetch(
+                "SELECT user_id FROM user_settings WHERE last_active <= $1 AND purge_warning_sent = FALSE",
+                warning_cutoff
+            )
+            for row in to_warn:
+                uid = row['user_id']
+                try:
+                    user = await bot.fetch_user(int(uid))
+                    if user:
+                        await user.send("⚠️ **Account Inactivity Warning**\nYour DJ Scratch data hasn't been used in over 50 days. It will be permanently deleted in 7 days due to inactivity.\n\n*To cancel this deletion, simply run any command like `/fm` or `/stats`!*")
+                except Exception:
+                    pass
+                await conn.execute("UPDATE user_settings SET purge_warning_sent = TRUE WHERE user_id = $1", uid)
+                
+            delete_cutoff = datetime.now(timezone.utc) - timedelta(days=60)
+            to_delete = await conn.fetch(
+                "SELECT user_id FROM user_settings WHERE last_active <= $1",
+                delete_cutoff
+            )
+            for row in to_delete:
+                uid = row['user_id']
+                await conn.execute("DELETE FROM user_settings WHERE user_id = $1", uid)
+                await conn.execute("DELETE FROM command_permissions WHERE user_id = $1", uid)
+                await conn.execute("DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", uid)
+                await conn.execute("DELETE FROM website_logs WHERE user_id = $1", uid)
+                await conn.execute("DELETE FROM direct_messages WHERE sender_id = $1 OR receiver_id = $1", uid)
+                
+            if to_delete:
+                print(f"Purged {len(to_delete)} inactive users.")
+    except Exception as e:
+        print(f"Error in run_inactive_purge: {e}")
+
 @bot.tree.interaction_check
 async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     asyncio.create_task(update_user_activity(interaction.user.id))
