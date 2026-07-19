@@ -237,6 +237,18 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
                 
             await ctx.send(embed=embed)
 
+    @commands.command(name="simulate_inactive")
+    async def simulate_inactive(self, ctx, days: int = 54):
+        """Sets your own account's inactivity timestamp back to test the purge system."""
+        from src.core.database import db_pool
+        from datetime import datetime, timedelta, timezone
+        if not db_pool:
+            return await ctx.send("❌ Database not connected.")
+            
+        async with db_pool.acquire() as conn:
+            past_dt = datetime.now(timezone.utc) - timedelta(days=days)
+            await conn.execute("UPDATE user_settings SET last_active = $1, purge_warning_sent = FALSE WHERE user_id = $2", past_dt, str(ctx.author.id))
+            await ctx.send(f"✅ Your `last_active` timestamp has been manually set to **{days} days ago** (and warning flag reset)!\n\n**To test the DM warning:** Restart the bot now. The background loop runs immediately on startup and should DM you.\n**To test account deletion:** Run `,simulate_inactive 61` and restart the bot.")
 
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))
