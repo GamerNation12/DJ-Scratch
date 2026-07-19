@@ -85,5 +85,33 @@ class InfoCog(commands.Cog):
     async def updates_prefix(self, ctx):
         await self.send_updates(ctx)
 
+    async def send_outofsync(self, context):
+        embed = discord.Embed(title="Spotify & Last.fm Sync Issue", color=Theme.PRIMARY)
+        embed.description = (
+            "Spotify recently changed their API rules. You now have to re-authenticate Last.fm (and other Spotify apps) **every six months**, otherwise your scrobbles will stop.\n\n"
+            "**How to fix:**\n"
+            "1. Go to your [Last.fm Application Settings](https://www.last.fm/settings/applications)\n"
+            "2. Find **Spotify Scrobbling** and click **Reconnect**.\n\n"
+            "You'll need to do this every six months to keep your scrobbles syncing!"
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text=Theme.FOOTER_TEXT)
+        
+        if isinstance(context, discord.Interaction):
+            await context.followup.send(embed=embed)
+        else:
+            await context.send(embed=embed)
+
+    @app_commands.command(name="outofsync", description="Fix missing Spotify scrobbles on Last.fm")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def outofsync_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        await self.send_outofsync(interaction)
+
+    @commands.command(name="outofsync", aliases=["sync", "spotifyauth", "missing"])
+    async def outofsync_prefix(self, ctx):
+        await self.send_outofsync(ctx)
+
 async def setup(bot):
     await bot.add_cog(InfoCog(bot))
