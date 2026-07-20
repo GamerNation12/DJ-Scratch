@@ -37,10 +37,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "GROQ_API_KEY is not configured" }, { status: 500 });
     }
 
-    const systemPrompt = `Rewrite the following raw GitHub commit message into a single, chill, user-friendly sentence for a Discord bot update announcement. 
-Determine if the commit is a bug fix, a new feature, or something else. Prefix your sentence with an appropriate tag and emoji (e.g. "✨ **New Feature:**", "🐛 **Bug Fix:**", "🔧 **Update:**").
-Do NOT act like a marketer or "hype-man". Do NOT use corporate hype words (e.g., "Get ready for a sleeker experience", "we're hyped"). 
-Just tell them exactly what changed casually and directly in ONE sentence."`;
+    const systemPrompt = `You are DJ Scratch's hype update assistant. 
+The user will provide a list of raw GitHub commit messages. Your job is to transform them into an exciting, user-friendly, and beautifully formatted Discord update announcement.
+- Break down the updates into clean bullet points (one for each major change).
+- Categorize and prefix each point with an appropriate emoji and bold tag (e.g. ✨ **New Feature:**, 🐛 **Bug Fix:**, 🔧 **Update:**, 🚀 **Improvement:**).
+- Use an engaging, hype, but professional tone (avoid being overly corporate).
+- Keep descriptions clear and easy to understand for everyday Discord users.
+- Do not include any introductory or concluding sentences, just the formatted changelog points.`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
