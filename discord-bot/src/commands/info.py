@@ -86,16 +86,39 @@ class InfoCog(commands.Cog):
         await self.send_updates(ctx)
 
     async def send_outofsync(self, context):
-        embed = discord.Embed(title="Spotify & Last.fm Sync Issue", color=Theme.PRIMARY)
-        embed.description = (
-            "Spotify recently changed their API rules. You now have to re-authenticate Last.fm (and other Spotify apps) **every six months**, otherwise your scrobbles will stop.\n\n"
-            "**How to fix:**\n"
-            "1. Go to your [Last.fm Application Settings](https://www.last.fm/settings/applications)\n"
-            "2. Find **Spotify Scrobbling** and click **Reconnect**.\n\n"
-            "You'll need to do this every six months to keep your scrobbles syncing!"
-        )
-        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text=Theme.FOOTER_TEXT)
+        user = context.author if isinstance(context, commands.Context) else context.user
+        
+        from src.core.events import get_lastfm_username
+        username = await get_lastfm_username(user.id)
+        
+        lastfm_link = f"[your Last.fm account](https://www.last.fm/user/{username})" if username else "your Last.fm account"
+        
+        time_str = ""
+        if username:
+            from src.utils.api import fetch_now_playing
+            data = await fetch_now_playing(username, 2)
+            if data and 'recenttracks' in data and 'track' in data['recenttracks'] and data['recenttracks']['track']:
+                tracks = data['recenttracks']['track']
+                t = tracks[0]
+                if t.get('@attr', {}).get('nowplaying') == 'true':
+                    time_str = " right now! (Your scrobbles seem to be working)"
+                elif 'date' in t and 'uts' in t['date']:
+                    uts = int(t['date']['uts'])
+                    time_str = f" <t:{uts}:t>, about <t:{uts}:R>"
+        
+        if not time_str:
+            time_str = " an unknown time ago"
+            
+        embed = discord.Embed(title="Using Spotify and tracking is out of sync?", color=Theme.PRIMARY)
+        
+        desc = f"DJ Scratch uses {lastfm_link} for knowing what you listen to. The last scrobble on your profile was{time_str}.\n\n"
+        desc += "**DJ Scratch is not affiliated with Last.fm.** Sync and scrobbling issues are Last.fm issues and **not DJ Scratch issues**, so [we can't fix them for you](https://support.last.fm/t/spotify-has-stopped-scrobbling-what-can-i-do/3184).\n\n"
+        desc += "**Spotify stopped scrobbling completely?**\n"
+        desc += "Spotify expires the Last.fm connection every 6 months. Press **Disconnect** and then **Connect** next to 'Spotify Scrobbling' in [your Last.fm settings](https://www.last.fm/settings/applications).\n\n"
+        desc += "**Still not working after reconnecting?**\n"
+        desc += "Try restarting your Spotify client. Sometimes there's also other issues with Last.fm or Spotify that can cause this. For a comprehensive list of all solutions, please check [the guide on the Last.fm support forums](https://support.last.fm/t/spotify-has-stopped-scrobbling-what-can-i-do/3184)."
+        
+        embed.description = desc
         
         if isinstance(context, discord.Interaction):
             await context.followup.send(embed=embed)
