@@ -1680,6 +1680,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             else:
                 content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
             
+            content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
+            
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:
                 if track_plays == 0 and is_p:
