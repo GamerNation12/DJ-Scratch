@@ -109,7 +109,7 @@ class InfoCog(commands.Cog):
         await interaction.response.defer(ephemeral=False)
         await self.send_outofsync(interaction)
 
-    @commands.command(name="outofsync", aliases=["sync", "spotifyauth", "missing"])
+    @commands.command(name="outofsync", aliases=["spotifyauth", "missing"])
     async def outofsync_prefix(self, ctx):
         await self.send_outofsync(ctx)
 
