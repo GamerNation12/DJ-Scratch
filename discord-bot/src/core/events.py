@@ -939,6 +939,22 @@ async def on_ready():
 @bot.event
 async def on_guild_join(guild):
     print(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
+    
+    try:
+        target_channel = guild.system_channel
+        if not target_channel or not target_channel.permissions_for(guild.me).send_messages:
+            for channel in guild.text_channels:
+                if channel.permissions_for(guild.me).send_messages:
+                    target_channel = channel
+                    break
+                    
+        if target_channel:
+            info_cog = bot.get_cog("InfoCog")
+            if info_cog:
+                await info_cog.send_guide(target_channel)
+    except Exception as e:
+        print(f"Failed to send guide in {guild.name}: {e}")
+        
     try:
         owner = await bot.fetch_user(OWNER_ID)
         embed = discord.Embed(
