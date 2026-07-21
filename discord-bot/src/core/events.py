@@ -1679,8 +1679,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
                 content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
-            
-            content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
+                content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
             
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:
@@ -1775,8 +1774,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 footer_parts.append(" • ".join(stats_line))
                 
             disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
-            footer_parts.append("Scrobbles frozen? Run ,outofsync")
-            embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync")
+            if not is_p:
+                footer_parts.append("Scrobbles frozen? Run ,outofsync")
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync")
+            else:
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data=data)
             result = {"embed": embed, "view": view}
@@ -1794,7 +1796,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+        if not is_p:
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+        else:
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}"
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • Avatar CD: {mins}m {secs}s"
