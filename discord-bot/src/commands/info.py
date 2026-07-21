@@ -136,5 +136,55 @@ class InfoCog(commands.Cog):
     async def outofsync_prefix(self, ctx):
         await self.send_outofsync(ctx)
 
+    async def send_guide(self, context):
+        embed = discord.Embed(
+            title="🚀 Getting Started with DJ Scratch",
+            description="Welcome to DJ Scratch! Here is a quick guide on how to get started.",
+            color=Theme.PRIMARY
+        )
+        embed.add_field(
+            name="1️⃣ Link your Last.fm",
+            value="First, you need to link your Last.fm account to the bot. Use the `/login` command and click the link to authenticate safely.",
+            inline=False
+        )
+        embed.add_field(
+            name="2️⃣ Listen to Music",
+            value="Start playing music on Spotify or Apple Music! (Make sure your Last.fm account is connected to your music app in the Last.fm settings).",
+            inline=False
+        )
+        embed.add_field(
+            name="3️⃣ View your Current Song",
+            value="Type `,fm` or `/fm` in any channel to display the song you are currently listening to, along with your playcount and server stats!",
+            inline=False
+        )
+        embed.add_field(
+            name="4️⃣ Explore More Commands",
+            value="Try `,ta` to see your top artists, `,tt` for top tracks, or `,wk <artist>` to see who in the server listens to an artist the most!",
+            inline=False
+        )
+        embed.add_field(
+            name="Need more help?",
+            value="Type `/help` to view the full command menu and explore everything DJ Scratch has to offer.",
+            inline=False
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text=Theme.FOOTER_TEXT)
+        
+        if isinstance(context, discord.Interaction):
+            await context.followup.send(embed=embed)
+        else:
+            await context.send(embed=embed)
+
+    @app_commands.command(name="guide", description="A quick guide on how to start using the bot")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def guide_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        await self.send_guide(interaction)
+
+    @commands.command(name="guide", aliases=["start", "tutorial", "howto"])
+    async def guide_prefix(self, ctx):
+        await self.send_guide(ctx)
+
 async def setup(bot):
     await bot.add_cog(InfoCog(bot))

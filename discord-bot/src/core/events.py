@@ -1145,7 +1145,7 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
         return True
     
     # Allow specific commands without login
-    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "privacy", "ping", "status", "updates"]
+    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "privacy", "ping", "status", "updates", "guide", "start", "tutorial", "howto"]
     if interaction.command and interaction.command.name in allowed_commands:
         return True
         
@@ -1153,7 +1153,7 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
     if not username:
         embed = discord.Embed(
             title="⚠️ Account Not Linked",
-            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `/login` to link your Last.fm account.",
+            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `/login` to link your Last.fm account.\n*Need help? Run `/guide` to learn how to start!*",
             color=discord.Color.red()
         )
         try:
@@ -1168,7 +1168,7 @@ async def global_login_check_prefix(ctx) -> bool:
     if ctx.author.id == OWNER_ID:
         return True
         
-    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "cd2", "privacy", "ping", "status", "updates", "sync"]
+    allowed_commands = ["login", "logout", "help", "suggest", "bug", "cd", "cd2", "privacy", "ping", "status", "updates", "sync", "guide", "start", "tutorial", "howto"]
     if ctx.command and ctx.command.name in allowed_commands:
         return True
         
@@ -1176,7 +1176,7 @@ async def global_login_check_prefix(ctx) -> bool:
     if not username:
         embed = discord.Embed(
             title="⚠️ Account Not Linked",
-            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `,login` to link your Last.fm account.",
+            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `,login` to link your Last.fm account.\n*Need help? Run `,guide` to learn how to start!*",
             color=discord.Color.red()
         )
         try:
@@ -2407,6 +2407,7 @@ async def process_crowns(guild, user):
 class HelpDropdown(discord.ui.Select):
     def __init__(self, is_owner=False):
         options = [
+            discord.SelectOption(label="🚀 Getting Started", description="Quick guide on how to set up the bot", emoji="🚀"),
             discord.SelectOption(label="🎧 Last.fm Commands", description="Commands for tracking and viewing your Last.fm stats", emoji="🎧"),
             discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="👑"),
             discord.SelectOption(label="💡 Utility & Fun", description="Settings, games, and other utility commands", emoji="💡")
@@ -2423,7 +2424,19 @@ class HelpDropdown(discord.ui.Select):
         embed.set_author(name=f"Help: {self.values[0]}", icon_url=interaction.user.display_avatar.url)
         embed.set_footer(text=Theme.FOOTER_TEXT)
         
-        if self.values[0] == "🎧 Last.fm Commands":
+        if self.values[0] == "🚀 Getting Started":
+            embed.description = (
+                "**Welcome to DJ Scratch!**\n\n"
+                "**1️⃣ Link your Last.fm**\n"
+                "Use `/login` to securely link your Last.fm account.\n\n"
+                "**2️⃣ Listen to Music**\n"
+                "Start playing music on Spotify or Apple Music (ensure they are connected in your Last.fm settings).\n\n"
+                "**3️⃣ View your Current Song**\n"
+                "Type `,fm` or `/fm` in any channel to display the song you are currently listening to.\n\n"
+                "**4️⃣ Explore More Commands**\n"
+                "Try `,ta` to see your top artists, `,tt` for top tracks, or `,wk <artist>` to see who in the server listens to an artist the most!"
+            )
+        elif self.values[0] == "🎧 Last.fm Commands":
             embed.description = (
                 "`/login` - Link your Last.fm account\n"
                 "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
