@@ -32,8 +32,22 @@ async def get_target_user(ctx, arg_string: str = None):
     if cleaned_args and ctx.message.mentions:
         for m in ctx.message.mentions:
             cleaned_args = cleaned_args.replace(f'<@{m.id}>', '').replace(f'<@!{m.id}>', '').strip()
-        if not cleaned_args:
-            cleaned_args = None
+
+    if cleaned_args:
+        first_word = cleaned_args.split()[0]
+        if first_word.isdigit() and len(first_word) >= 17:
+            try:
+                uid = int(first_word)
+                u = ctx.guild.get_member(uid) if ctx.guild else None
+                if not u:
+                    u = await ctx.bot.fetch_user(uid)
+                target_user = u
+                cleaned_args = cleaned_args[len(first_word):].strip()
+            except Exception:
+                pass
+
+    if cleaned_args and not cleaned_args.strip():
+        cleaned_args = None
             
     return target_user, cleaned_args
 
