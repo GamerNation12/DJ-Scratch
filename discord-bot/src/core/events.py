@@ -937,7 +937,9 @@ async def spotify_track_length_scanner():
                 await asyncio.sleep(60)
         except Exception as e:
             print(f"{Log.RED}>>> Error in spotify_track_length_scanner: {e}{Log.RESET}")
-            await asyncio.sleep(60)@bot.event
+            await asyncio.sleep(60)
+
+@bot.event
 async def on_ready():
     print(r"""
 ========================================================================
