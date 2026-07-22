@@ -1856,13 +1856,13 @@ async def process_top_artists(user, input_period=None):
     lastfm_data = {}
     if username and d_source != 'imported_only':
         if not (api_p.isdigit() and len(api_p) == 4):
-            data = await fetch_top_artists(username, api_p, 250)
+            data = await fetch_top_artists(username, api_p, 1000)
             if data and 'topartists' in data:
                 lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
 
     local_data = {}
     if d_source != 'lastfm_only':
-        local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
+        local_data = await get_local_top_artists(user.id, 100000, api_p, before_dt=None)
 
     if not username and not local_data:
         return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
@@ -1887,7 +1887,7 @@ async def process_top_tracks(user, input_period=None):
     lastfm_tracks = {}  # (track, artist) -> plays
     if username and d_source != 'imported_only':
         if not (api_p.isdigit() and len(api_p) == 4):
-            data = await fetch_top_tracks(username, api_p, 250)
+            data = await fetch_top_tracks(username, api_p, 1000)
             if data and 'toptracks' in data:
                 for t in data['toptracks']['track']:
                     key = (t['name'], t['artist']['name'])
@@ -1895,7 +1895,7 @@ async def process_top_tracks(user, input_period=None):
 
     local_tracks = []
     if d_source != 'lastfm_only':
-        local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
+        local_tracks = await get_local_top_tracks(user.id, 100000, api_p, before_dt=None)
 
     if not username and not local_tracks:
         return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
