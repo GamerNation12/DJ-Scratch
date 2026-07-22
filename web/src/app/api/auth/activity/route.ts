@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     });
     
     // Log Activity usage (optional)
+    /*
     try {
       if (!sql) sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
       await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     } catch (e) {
       // ignore
     }
+    */
 
     return NextResponse.json({ token: jwt });
   } catch (error) {

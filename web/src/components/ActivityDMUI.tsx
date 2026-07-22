@@ -4,8 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import ActivityMusic from "./ActivityMusic";
 import ActivitySettings from "./ActivitySettings";
+import ActivityGuide from "./ActivityGuide";
 import io, { Socket } from "socket.io-client";
-import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X, Paperclip, Image, Film, File, Music, Settings } from "lucide-react";
+import { Send, User, MessageSquare, AlertCircle, Trash2, RefreshCw, Smile, Menu, X, Paperclip, Image, Film, File, Music, Settings, BookOpen } from "lucide-react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 
@@ -13,7 +14,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20
 const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
 export default function ActivityDMUI() {
-  const [activeTab, setActiveTab] = useState<'messages' | 'music' | 'settings'>('messages');
+  const [activeTab, setActiveTab] = useState<'messages' | 'music' | 'settings' | 'guide'>('guide');
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("u");
   
@@ -55,6 +56,11 @@ export default function ActivityDMUI() {
       const decoded = JSON.parse(atob(base64Str));
       setMyId(decoded.id);
       setCurrentUser(decoded);
+      
+      const savedTab = localStorage.getItem('activity_default_tab');
+      if (savedTab && ['messages', 'music', 'settings', 'guide'].includes(savedTab)) {
+        setActiveTab(savedTab as any);
+      }
       
       let newSocket: Socket | null = null;
     
@@ -492,6 +498,13 @@ export default function ActivityDMUI() {
 
       {/* Master Sidebar */}
       <div className="w-[72px] h-full bg-zinc-950 flex flex-col items-center py-4 gap-4 z-50 border-r border-white/5 flex-shrink-0">
+        <button 
+          onClick={() => setActiveTab('guide')}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'guide' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-zinc-400 hover:bg-amber-500/50 hover:text-white'}`}
+          title="Guide"
+        >
+          <BookOpen className="w-6 h-6" />
+        </button>
         <button 
           onClick={() => setActiveTab('messages')}
           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'messages' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-zinc-400 hover:bg-indigo-500/50 hover:text-white'}`}
@@ -1057,6 +1070,7 @@ export default function ActivityDMUI() {
 
       {activeTab === 'music' && <ActivityMusic />}
       {activeTab === 'settings' && <ActivitySettings />}
+      {activeTab === 'guide' && <ActivityGuide />}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

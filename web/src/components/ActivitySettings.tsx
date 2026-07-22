@@ -1,8 +1,22 @@
 "use client";
 
 import { Settings, Link2, ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function ActivitySettings() {
+  const [defaultTab, setDefaultTab] = useState("guide");
+
+  useEffect(() => {
+    const savedTab = localStorage.getItem('activity_default_tab');
+    if (savedTab) setDefaultTab(savedTab);
+  }, []);
+
+  const handleDefaultTabChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setDefaultTab(val);
+    localStorage.setItem('activity_default_tab', val);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-6 relative z-10 bg-zinc-950/50 backdrop-blur-sm h-full">
       <div className="max-w-4xl mx-auto flex flex-col gap-8 h-full">
@@ -53,6 +67,27 @@ export default function ActivitySettings() {
                 <div className="w-5 h-5 rounded border border-white/20 bg-black/20 flex items-center justify-center">
                 </div>
                 <span className="text-zinc-400 group-hover/label:text-white transition-colors">Mute notification sounds</span>
+              </label>
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[50px] rounded-full pointer-events-none transition-all group-hover:scale-150 group-hover:bg-amber-500/20"></div>
+            <h3 className="text-lg font-bold text-white mb-4">Activity Preferences</h3>
+            
+            <div className="flex flex-col gap-4">
+              <label className="flex flex-col gap-2">
+                <span className="text-zinc-300 font-semibold">Default Startup Page</span>
+                <p className="text-xs text-zinc-500">Choose which page opens automatically when you start the Discord Activity.</p>
+                <select 
+                  className="bg-black/40 border border-white/10 text-white p-2 rounded-lg outline-none focus:border-indigo-500 transition-colors cursor-pointer w-full max-w-xs"
+                  value={defaultTab}
+                  onChange={handleDefaultTabChange}
+                >
+                  <option value="guide">Guide</option>
+                  <option value="messages">Messages</option>
+                  <option value="music">Music</option>
+                  <option value="settings">Settings</option>
+                </select>
               </label>
             </div>
           </div>
