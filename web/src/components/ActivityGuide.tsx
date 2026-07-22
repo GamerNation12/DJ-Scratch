@@ -27,6 +27,21 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
     }
   }, []);
 
+  const [userInfo, setUserInfo] = useState({ name: 'You', avatar: '' });
+
+  useEffect(() => {
+    const token = localStorage.getItem("discord_jwt");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserInfo({
+          name: payload.global_name || payload.username || 'You',
+          avatar: payload.avatar ? `https://cdn.discordapp.com/avatars/${payload.id}/${payload.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png'
+        });
+      } catch(e) {}
+    }
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -58,14 +73,15 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
             setSandboxMessages(prev => [...prev, { 
               role: 'bot', 
               isCD: true,
-              embed: { thumbnail: imgUrl, title: data.track.name, description: data.track.artist }
+              embed: { thumbnail: imgUrl, trackName: data.track.name, artist: data.track.artist, album: data.track.album }
             }]);
           } else {
             setSandboxMessages(prev => [...prev, { 
               role: 'bot', 
               embed: {
-                title: "Now Playing",
-                description: `**${data.track.name}**\nby ${data.track.artist}\non *${data.track.album}*`,
+                trackName: data.track.name,
+                artist: data.track.artist,
+                album: data.track.album,
                 thumbnail: imgUrl
               }
             }]);
@@ -122,9 +138,9 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
                   </div>
                   <div className={`flex flex-col flex-1 w-full`}>
                     <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-[15px] font-bold text-[#f2f3f5]">{msg.role === 'user' ? userInfo.name : 'DJ Scratch'}</span>
-                      {msg.role === 'bot' && <span className="bg-[#5865f2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> BOT</span>}
-                      <span className="text-xs text-[#949ba4]">Today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      <span className="text-[15px] font-medium text-[#f2f3f5]">{msg.role === 'user' ? userInfo.name : 'DJ Scratch'}</span>
+                      {msg.role === 'bot' && <span className="bg-[#5865f2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] flex items-center gap-1 leading-none h-[15px]"><CheckCircle className="w-2.5 h-2.5" /> BOT</span>}
+                      <span className="text-xs text-[#949ba4] font-medium">Today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
                     {msg.text && (
                       <div className="text-[15px] text-[#dbdee1] leading-relaxed">
@@ -140,19 +156,23 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
                           <div className="absolute inset-0 bg-black/10 rounded-full pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-zinc-900 rounded-full border-2 border-zinc-700 shadow-inner"></div>
                         </div>
-                        <div className="mt-2 text-xs font-bold text-white bg-black/50 px-2 py-1 rounded">{msg.embed.title}</div>
+                        <div className="mt-2 text-xs font-bold text-white bg-black/50 px-2 py-1 rounded">{msg.embed.trackName}</div>
                       </div>
                     ) : msg.embed ? (
-                      <div className="bg-[#2b2d31] rounded-[4px] p-4 mt-2 flex gap-4 w-full max-w-[432px] border-l-4 border-l-[#ff0000]">
+                      <div className="bg-[#2b2d31] rounded-[4px] p-3 mt-2 flex gap-4 w-full max-w-[432px] border-l-4 border-l-[#e82a32]">
                         <div className="flex-1 flex flex-col">
                           <div className="flex items-center gap-2 mb-2">
-                             <img src={userInfo.avatar || "/icon.png"} className="w-6 h-6 rounded-full object-cover" />
-                             <span className="text-[13px] font-bold text-white">{userInfo.name}&apos;s Now Playing</span>
+                             <img src={userInfo.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'} className="w-6 h-6 rounded-full object-cover" />
+                             <span className="text-[14px] font-semibold text-white">{userInfo.name}&apos;s Now Playing</span>
                           </div>
-                          <span className="text-[14px] text-[#dbdee1] mb-1"><ReactMarkdown>{msg.embed.description}</ReactMarkdown></span>
+                          <div className="text-[14px] text-[#dbdee1] leading-snug">
+                            <strong className="text-[#00a8fc] hover:underline cursor-pointer">{msg.embed.trackName}</strong><br />
+                            by <strong>{msg.embed.artist}</strong><br />
+                            <em>{msg.embed.album}</em>
+                          </div>
                         </div>
                         {msg.embed.thumbnail && (
-                          <img src={msg.embed.thumbnail} alt="cover" className="w-[72px] h-[72px] rounded object-cover flex-shrink-0" />
+                          <img src={msg.embed.thumbnail} alt="cover" className="w-[80px] h-[80px] rounded-[4px] object-cover flex-shrink-0" />
                         )}
                       </div>
                     ) : null}

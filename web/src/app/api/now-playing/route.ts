@@ -54,7 +54,7 @@ export async function GET(req: Request) {
           name: track.name,
           artist: track.artist["#text"],
           album: track.album["#text"],
-          image: track.image[2]["#text"] || track.image[1]["#text"] || null, // Large or Medium image
+          image: (track.image && track.image.length > 3) ? (track.image[3]["#text"] || track.image[2]["#text"] || null) : null,
           url: track.url,
         }
       });
