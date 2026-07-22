@@ -1869,8 +1869,7 @@ async def process_top_artists(user, input_period=None):
 
     combined = dict(lastfm_data)
     for artist, count in local_data.items():
-        if artist not in combined:
-            combined[artist] = count
+        combined[artist] = max(combined.get(artist, 0), count)
 
     sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_artists: return Theme.get_error_embed(description="No artist data found."), None, None
@@ -1904,8 +1903,7 @@ async def process_top_tracks(user, input_period=None):
     combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
         key = (track_name, artist_name)
-        if key not in combined:
-            combined[key] = plays
+        combined[key] = max(combined.get(key, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return Theme.get_error_embed(description="No track data found."), None, None
@@ -2065,8 +2063,7 @@ async def process_artist_tracks(user, artist_name):
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
-        if track_name not in combined:
-            combined[track_name] = plays
+        combined[track_name] = max(combined.get(track_name, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return Theme.get_error_embed(description=f"No track data found for **{artist_name}**."), None, None
