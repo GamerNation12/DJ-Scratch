@@ -54,7 +54,7 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
         if (data.error === "not_linked") {
           setSandboxMessages(prev => [...prev, { role: 'bot', text: "❌ You need to link your Last.fm account first! Use `,lfm set <username>`." }]);
         } else if (data.playing && data.track) {
-          const imgUrl = data.track.image ? data.track.image.replace("http://", "https://") : "";
+          const imgUrl = data.track.image ? `/api/proxy-image?url=${encodeURIComponent(data.track.image.replace("http://", "https://"))}` : "";
           if (cmd === ",cd") {
             setSandboxMessages(prev => [...prev, { 
               role: 'bot', 
