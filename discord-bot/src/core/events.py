@@ -1206,6 +1206,12 @@ async def global_login_check_prefix(ctx) -> bool:
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
     print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
+    
+    import time
+    if not hasattr(bot, 'active_users_dict'):
+        bot.active_users_dict = {}
+    bot.active_users_dict[interaction.user.id] = time.time()
+    
     global db_pool
     if not db_pool: return
     try:

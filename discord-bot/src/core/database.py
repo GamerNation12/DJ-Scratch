@@ -166,6 +166,15 @@ async def init_db():
 
 
 
+async def get_total_linked_users():
+    if not db_pool: return 0
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT COUNT(*) as total FROM user_settings WHERE lastfm_username IS NOT NULL")
+            return row['total'] if row else 0
+    except Exception:
+        return 0
+
 async def get_user_fm_mode(user_id):
     if not db_pool: return None
     try:

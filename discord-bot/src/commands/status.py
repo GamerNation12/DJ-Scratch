@@ -4,7 +4,7 @@ import psutil
 import time
 from datetime import datetime, timedelta
 from src.core.theme import Theme
-from src.core.database import get_global_setting, set_global_setting
+from src.core.database import get_global_setting, set_global_setting, get_total_linked_users
 
 class StatusCog(commands.Cog):
     def __init__(self, bot):
@@ -18,7 +18,7 @@ class StatusCog(commands.Cog):
     @commands.command(name="setstatus", hidden=True)
     @commands.is_owner()
     async def setstatus(self, ctx):
-        embed = self.build_status_embed(offline=False)
+        embed = await self.build_status_embed(offline=False)
         msg = await ctx.send(embed=embed)
         
         import json
@@ -35,7 +35,7 @@ class StatusCog(commands.Cog):
         
         await ctx.send("✅ Status monitoring channel set! The message above will now update every minute.", delete_after=5)
 
-    def build_status_embed(self, offline=False):
+    async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
             embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\\n*The bot has lost connection to the server or is currently restarting.*"
@@ -94,6 +94,18 @@ class StatusCog(commands.Cog):
         embed.add_field(name="🌐 Servers", value=f"`{server_count:,}`", inline=True)
         
         embed.add_field(name="👥 Users", value=f"`{total_members:,}`", inline=True)
+        
+        total_linked_users = await get_total_linked_users()
+        embed.add_field(name="🎧 Bot Users", value=f"`{total_linked_users:,}`", inline=True)
+        
+        active_users_count = 0
+        if hasattr(self.bot, 'active_users_dict'):
+            current_time = time.time()
+            self.bot.active_users_dict = {uid: t for uid, t in self.bot.active_users_dict.items() if current_time - t <= 300}
+            active_users_count = len(self.bot.active_users_dict)
+            
+        embed.add_field(name="⚡ Active Cmds (5m)", value=f"`{active_users_count:,}`", inline=True)
+        
         embed.add_field(name="💻 CPU Usage", value=f"`{cpu_usage}%`", inline=True)
         embed.add_field(name="💾 RAM Usage", value=f"`{ram_usage_mb:.1f} MB`", inline=True)
         
@@ -115,7 +127,7 @@ class StatusCog(commands.Cog):
                     if channel:
                         try:
                             msg = await channel.fetch_message(int(message_id))
-                            embed = self.build_status_embed(offline=False)
+                            embed = await self.build_status_embed(offline=False)
                             await msg.edit(embed=embed)
                         except Exception:
                             pass
@@ -155,7 +167,7 @@ class StatusCog(commands.Cog):
                     if channel:
                         try:
                             msg = await channel.fetch_message(int(message_id))
-                            embed = self.build_status_embed(offline=False)
+                            embed = await self.build_status_embed(offline=False)
                             await msg.edit(embed=embed)
                             updated_messages.append(item)
                         except discord.NotFound:
