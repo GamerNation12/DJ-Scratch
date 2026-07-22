@@ -12,20 +12,6 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [userInfo, setUserInfo] = useState({ name: 'You', avatar: '' });
-
-  useEffect(() => {
-    const token = localStorage.getItem("discord_jwt");
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserInfo({
-          name: payload.global_name || payload.username || 'You',
-          avatar: payload.avatar ? `https://cdn.discordapp.com/avatars/${payload.id}/${payload.avatar}.png` : ''
-        });
-      } catch(e) {}
-    }
-  }, []);
 
   const [userInfo, setUserInfo] = useState({ name: 'You', avatar: '' });
 
