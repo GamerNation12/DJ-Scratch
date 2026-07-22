@@ -1380,7 +1380,7 @@ class FMActionsView(discord.ui.View):
             
         if is_p and img and cd <= 0 and current_mode != "compact":
             user_id_str = str(self.user.id) if self.user else "None"
-            custom_prev = f"fm_preview:{user_id_str}:{artist[:80]}"
+            custom_prev = f"fm_preview:{user_id_str}:{unique_id}:{artist[:80]}"
             btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             self.add_item(btn2)
 
@@ -1461,7 +1461,7 @@ async def update_bot_avatar_and_status(bot_instance, artist, img, track=None, al
     return False, 0
 
 class ApplyAvatarView(discord.ui.View):
-    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None, album=None):
+    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None, album=None, track_data=None):
         super().__init__(timeout=180)
         self.bot_instance = bot_instance
         self.artist = artist
@@ -1470,6 +1470,7 @@ class ApplyAvatarView(discord.ui.View):
         self.original_user = original_user
         self.track = track
         self.album = album
+        self.track_data = track_data
         
     @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1494,7 +1495,7 @@ class ApplyAvatarView(discord.ui.View):
                 
                 try:
                     mode = await get_user_fm_mode(self.original_user.id)
-                    result, is_p = await process_fm(interaction, self.original_user, mode=mode or "full")
+                    result, is_p = await process_fm(interaction, self.original_user, mode=mode or "full", track_data=self.track_data)
                     
                     channel = self.original_msg.channel if self.original_msg else interaction.channel
                     if result and channel:
@@ -1639,23 +1640,43 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         t = tracks[0]
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
         
+        raw_artist, raw_song = artist, song
+
+        # Run independent DB and API tasks concurrently
+        async def get_spotify_data():
+            u_token = await get_user_spotify_access_token(session, str(user.id))
+            s_inf = await get_spotify_track_info(session, artist, song, user_token=u_token)
+            if not s_inf and u_token:
+                s_inf = await get_spotify_track_info(session, artist, song)
+            return s_inf
+
+        async def get_track_data(show_pc, m):
+            if show_pc or m == "stats":
+                return await fetch_track_info(username, raw_artist, raw_song)
+            return None
+
+        # Gather user preferences first
+        show_features_task = asyncio.create_task(get_user_show_features(user.id))
+        show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
+        
+        show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
+
+        # Gather API data
+        spotify_task = asyncio.create_task(get_spotify_data())
+        track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
+
+        s_info = await spotify_task
+        t_info = await track_info_task
+
         spotify_url = None
         s_artists = None
-        try:
-            from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
-            u_token = await get_user_spotify_access_token(session, str(user.id))
-            s_info = await get_spotify_track_info(session, artist, song, user_token=u_token)
-            if not s_info and u_token:
-                s_info = await get_spotify_track_info(session, artist, song)
-                
-            if s_info:
-                spotify_url = s_info.get("spotify_url")
-                s_img = s_info.get("image_url")
-                if s_img:
-                    img = s_img
-                s_artists = s_info.get("artists")
-        except Exception as e:
-            print(f"{Log.RED}>>> Spotify fetch error: {e}{Log.RESET}")
+        
+        if s_info:
+            spotify_url = s_info.get("spotify_url")
+            s_img = s_info.get("image_url")
+            if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
+                img = s_img
+            s_artists = s_info.get("artists")
 
         if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
             try:
@@ -1666,9 +1687,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             except Exception as e:
                 print(f"Deezer fallback error: {e}")
 
-        raw_artist, raw_song = artist, song
-
-        show_features = await get_user_show_features(user.id)
         if show_features:
             artist, song = await apply_features(session, artist, song, s_artists)
                 
@@ -1682,13 +1700,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         else:
             cd = 0
 
-        show_playcount = await get_user_show_track_playcount(user.id)
         track_plays = -1
-        t_info = None
-        if show_playcount or mode == "stats":
-            t_info = await fetch_track_info(username, raw_artist, raw_song)
-            if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
-                track_plays = int(t_info['track']['userplaycount'])
+        if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+            track_plays = int(t_info['track']['userplaycount'])
 
         if mode == "compact":
             if is_p:
@@ -2970,8 +2984,13 @@ async def on_interaction(interaction: discord.Interaction):
         elif custom_id.startswith("fm_preview:"):
             parts = custom_id.split(":")
             if len(parts) >= 2:
-                # Handle old format (fm_preview:artist) and new format (fm_preview:user_id:artist)
-                if len(parts) >= 3 and parts[1].isdigit():
+                # Handle old format (fm_preview:artist), new format (fm_preview:user_id:artist), and newest (fm_preview:user_id:unique_id:artist)
+                unique_id = None
+                if len(parts) >= 4 and parts[1].isdigit() and len(parts[2]) == 8:
+                    target_user_id = parts[1]
+                    unique_id = parts[2]
+                    artist = ":".join(parts[3:])
+                elif len(parts) >= 3 and parts[1].isdigit():
                     target_user_id = parts[1]
                     artist = ":".join(parts[2:])
                 else:
@@ -3010,5 +3029,9 @@ async def on_interaction(interaction: discord.Interaction):
                 preview_embed.set_author(name=format_name(target_user), icon_url=img_url)
                 preview_embed.set_image(url=img_url)
                 
-                apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None)
+                track_data = None
+                if unique_id:
+                    track_data = FM_TRACK_CACHE.get(unique_id)
+                
+                apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None, track_data=track_data)
                 await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)

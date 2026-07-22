@@ -91,7 +91,8 @@ class LastFmCog(commands.Cog):
                             if session:
                                 s_info = await get_spotify_track_info(session, artist, song)
                                 if s_info and s_info.get("image_url"):
-                                    img = s_info.get("image_url")
+                                    if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+                                        img = s_info.get("image_url")
                         except Exception as e:
                             print(f"{Log.RED}>>> Spotify fetch error in cd_slash: {e}{Log.RESET}")
 
@@ -360,7 +361,8 @@ class LastFmCog(commands.Cog):
                             if session:
                                 s_info = await get_spotify_track_info(session, artist, song)
                                 if s_info and s_info.get("image_url"):
-                                    img = s_info.get("image_url")
+                                    if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+                                        img = s_info.get("image_url")
                         except Exception as e:
                             print(f"{Log.RED}>>> Spotify fetch error in cd_prefix: {e}{Log.RESET}")
 
@@ -412,7 +414,8 @@ class LastFmCog(commands.Cog):
                         if session:
                             s_info = await get_spotify_track_info(session, artist, song)
                             if s_info and s_info.get("image_url"):
-                                img = s_info.get("image_url")
+                                if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+                                    img = s_info.get("image_url")
                     except Exception as e:
                         print(f"{Log.RED}>>> Spotify fetch error in cd2_prefix: {e}{Log.RESET}")
 
