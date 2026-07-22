@@ -565,6 +565,7 @@ def parse_single_spotify_track(user, track):
     album = track.get("master_metadata_album_album_name") or ""
     played_at_raw = track.get("ts")
     ms_played = track.get("ms_played") or 0
+    spotify_uri = track.get("spotify_track_uri")
 
     if not artist or not title or not played_at_raw or ms_played < 30000:
         return None
@@ -586,7 +587,7 @@ def parse_single_spotify_track(user, track):
                 dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M:%S")
             except:
                 dt = datetime.strptime(cleaned_time, "%Y-%m-%d %H:%M")
-        return (str(user.id), artist, title, album, dt, ms_played)
+        return (str(user.id), artist, title, album, dt, ms_played, spotify_uri)
     except:
         return None
 async def insert_tracks_in_db(valid_tracks):
@@ -599,11 +600,11 @@ async def insert_tracks_in_db(valid_tracks):
     last_end = None
     
     for t in valid_tracks:
-        user_id, artist, title, album, end_dt, ms_played = t
+        user_id, artist, title, album, end_dt, ms_played, spotify_uri = t
         start_dt = end_dt - timedelta(milliseconds=ms_played)
         
         if last_end is None or start_dt >= (last_end - timedelta(seconds=15)):
-            filtered_tracks.append((user_id, artist, title, album, end_dt))
+            filtered_tracks.append((user_id, artist, title, album, end_dt, ms_played, spotify_uri))
             last_end = end_dt
         else:
             pass
@@ -619,8 +620,8 @@ async def insert_tracks_in_db(valid_tracks):
             async with db_pool.acquire() as conn:
                 await conn.executemany(
                     """
-                    INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO listens (user_id, artist_name, track_name, album_name, played_at, ms_played, spotify_uri)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                     ON CONFLICT (user_id, artist_name, track_name, played_at) DO NOTHING
                     """,
                     chunk
@@ -896,8 +897,47 @@ async def web_import_worker():
         await asyncio.sleep(10)
 
 
-
-@bot.event
+async def spotify_track_length_scanner():
+    """Background task to sync track lengths from Spotify API and delete invalid scrobbles."""
+    from .database import db_pool
+    from src.utils.spotify import fetch_spotify_track_durations
+    
+    while True:
+        try:
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    # Find up to 50 tracks that have a spotify_uri but no track_duration (wait, we didn't add track_duration. Let's just use a flag or check if ms_played is still > 0).
+                    # Actually, if we validate it, we need a way to mark it as validated so we don't check it again.
+                    # Wait, we can just set spotify_uri = 'VALID_' + spotify_uri once validated.
+                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 50")
+                    if rows:
+                        uris = [row['spotify_uri'] for row in rows]
+                        durations = await fetch_spotify_track_durations(uris)
+                        
+                        for row in rows:
+                            uri = row['spotify_uri']
+                            ctid = row['ctid']
+                            ms_played = row['ms_played']
+                            
+                            duration_ms = durations.get(uri)
+                            if duration_ms:
+                                # Apply 50% rule or 4 minutes
+                                if ms_played < duration_ms / 2 and ms_played < 240000:
+                                    await conn.execute("DELETE FROM listens WHERE ctid = $1", ctid)
+                                else:
+                                    await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = $1", ctid)
+                            else:
+                                # Not found on Spotify, mark as valid to skip future checks
+                                await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = $1", ctid)
+                        
+                        await asyncio.sleep(2)
+                    else:
+                        await asyncio.sleep(60)
+            else:
+                await asyncio.sleep(60)
+        except Exception as e:
+            print(f"{Log.RED}>>> Error in spotify_track_length_scanner: {e}{Log.RESET}")
+            await asyncio.sleep(60)@bot.event
 async def on_ready():
     print(r"""
 ========================================================================
@@ -930,9 +970,7 @@ async def on_ready():
 
     bot.loop.create_task(import_worker())
     bot.loop.create_task(web_import_worker())
-    
-
-
+    bot.loop.create_task(spotify_track_length_scanner())
 @bot.event
 async def on_guild_join(guild):
     print(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
@@ -2598,23 +2636,11 @@ class PurgeConfirmView(discord.ui.View):
             except Exception as e:
                 print(f"{Log.RED}>>> Error purging user data from DB: {e}{Log.RESET}")
         
-        unlinked = False
-        if db_pool:
-            try:
-                async with db_pool.acquire() as conn:
-                    row = await conn.fetchrow("SELECT lastfm_username FROM user_settings WHERE user_id=$1", str(self.user.id))
-                    if row and row['lastfm_username']:
-                        unlinked = True
-                        await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(self.user.id))
-            except Exception as e:
-                print(f"{Log.RED}>>> Error clearing Last.fm DB link: {e}{Log.RESET}")
-
         embed = Theme.get_embed(
             title="🗑️ Data Successfully Deleted",
             description=(
                 f"Your data has been fully purged from the database:\n\n"
-                f"• **{deleted_count:,}** imported listens deleted.\n"
-                f"• Last.fm account linkage: **{'Removed' if unlinked else 'None linked'}**\n\n"
+                f"• **{deleted_count:,}** imported listens deleted.\n\n"
                 f"All your data has been completely and permanently erased!"
             ),
             color=discord.Color.red(),

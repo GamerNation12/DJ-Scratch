@@ -157,6 +157,14 @@ async def init_db():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN purge_warning_sent BOOLEAN DEFAULT FALSE")
                 except Exception:
                     pass
+                try:
+                    await conn.execute("ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE listens ADD COLUMN IF NOT EXISTS ms_played BIGINT DEFAULT 0")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:
