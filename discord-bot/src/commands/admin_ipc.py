@@ -167,10 +167,15 @@ class AdminIPC(commands.Cog):
                     log_id = row['id']
                     self.last_log_id = max(self.last_log_id, log_id)
                     
+                    import datetime
+                    ts = row['timestamp']
+                    if ts and ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=datetime.timezone.utc)
+                    
                     embed = discord.Embed(
                         title="🌐 Website Activity",
                         color=discord.Color.blue(),
-                        timestamp=row['timestamp']
+                        timestamp=ts
                     )
                     embed.add_field(name="User", value=f"{row['username']} (`{row['user_id']}`)", inline=False)
                     embed.add_field(name="Action", value=f"**{row['action']}**", inline=False)
