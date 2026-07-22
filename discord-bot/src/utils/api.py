@@ -59,10 +59,10 @@ async def fetch_top_albums(u, p='overall', l=10):
         d['topalbums']['album'] = [d['topalbums']['album']]
     return d
 async def fetch_user_profile(u): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user={u}&api_key={LASTFM_API_KEY}&format=json")
-async def fetch_track_info(u, artist, track): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist={urllib.parse.quote(artist)}&track={urllib.parse.quote(track)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=1")
-async def fetch_artist_info(u, artist): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=1")
+async def fetch_track_info(u, artist, track): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist={urllib.parse.quote(artist)}&track={urllib.parse.quote(track)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=0")
+async def fetch_artist_info(u, artist): return await api_get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=0")
 async def fetch_artist_playcount(session, u, artist):
-    async with session.get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=1") as r:
+    async with session.get(f"http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={urllib.parse.quote(artist)}&username={u}&api_key={LASTFM_API_KEY}&format=json&autocorrect=0") as r:
         if r.status == 200:
             d = await r.json()
             if 'artist' in d and 'stats' in d['artist']:
