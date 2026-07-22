@@ -14,7 +14,8 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20
 const STANDARD_EMOJIS = ["😀", "😂", "🤣", "😊", "😍", "🥰", "😘", "😋", "😎", "😭", "🥺", "😡", "👍", "👎", "🙏", "👏", "🔥", "💯", "✨", "💀", "👀", "🤡", "👽", "❤️", "💔", "⭐", "🎉", "✅", "❌"];
 
 export default function ActivityDMUI() {
-  const [activeTab, setActiveTab] = useState<'messages' | 'music' | 'settings' | 'guide'>('guide');
+  const [activeTab, setActiveTab] = useState<'messages' | 'music' | 'settings' | 'guide'>('messages');
+  const [guideCompleted, setGuideCompleted] = useState(false);
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("u");
   
@@ -58,8 +59,15 @@ export default function ActivityDMUI() {
       setCurrentUser(decoded);
       
       const savedTab = localStorage.getItem('activity_default_tab');
-      if (savedTab && ['messages', 'music', 'settings', 'guide'].includes(savedTab)) {
+      const isGuideCompleted = localStorage.getItem('activity_guide_completed') === 'true';
+      setGuideCompleted(isGuideCompleted);
+      
+      if (!isGuideCompleted) {
+        setActiveTab('guide');
+      } else if (savedTab && ['messages', 'music', 'settings'].includes(savedTab)) {
         setActiveTab(savedTab as any);
+      } else {
+        setActiveTab('messages');
       }
       
       let newSocket: Socket | null = null;
@@ -498,13 +506,15 @@ export default function ActivityDMUI() {
 
       {/* Master Sidebar */}
       <div className="w-[72px] h-full bg-zinc-950 flex flex-col items-center py-4 gap-4 z-50 border-r border-white/5 flex-shrink-0">
-        <button 
-          onClick={() => setActiveTab('guide')}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'guide' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-zinc-400 hover:bg-amber-500/50 hover:text-white'}`}
-          title="Guide"
-        >
-          <BookOpen className="w-6 h-6" />
-        </button>
+        {!guideCompleted && (
+          <button 
+            onClick={() => setActiveTab('guide')}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'guide' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-zinc-400 hover:bg-amber-500/50 hover:text-white'}`}
+            title="Guide"
+          >
+            <BookOpen className="w-6 h-6" />
+          </button>
+        )}
         <button 
           onClick={() => setActiveTab('messages')}
           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'messages' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-zinc-400 hover:bg-indigo-500/50 hover:text-white'}`}

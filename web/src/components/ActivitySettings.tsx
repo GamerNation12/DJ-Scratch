@@ -89,6 +89,19 @@ export default function ActivitySettings() {
                   <option value="settings">Settings</option>
                 </select>
               </label>
+
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('activity_guide_completed');
+                    window.location.reload();
+                  }}
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors text-sm font-semibold"
+                >
+                  Replay Onboarding Guide
+                </button>
+                <p className="text-xs text-zinc-500 mt-2">This will un-hide the Guide tab and walk you through the setup process again.</p>
+              </div>
             </div>
           </div>
         </div>
