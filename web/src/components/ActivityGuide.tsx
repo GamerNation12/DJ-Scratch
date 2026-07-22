@@ -12,6 +12,21 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [userInfo, setUserInfo] = useState({ name: 'You', avatar: '' });
+
+  useEffect(() => {
+    const token = localStorage.getItem("discord_jwt");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserInfo({
+          name: payload.global_name || payload.username || 'You',
+          avatar: payload.avatar ? `https://cdn.discordapp.com/avatars/${payload.id}/${payload.avatar}.png` : ''
+        });
+      } catch(e) {}
+    }
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -38,11 +53,12 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
         if (data.error === "not_linked") {
           setSandboxMessages(prev => [...prev, { role: 'bot', text: "❌ You need to link your Last.fm account first! Use `,lfm set <username>`." }]);
         } else if (data.playing && data.track) {
+          const imgUrl = data.track.image ? data.track.image.replace("http://", "https://") : "";
           if (cmd === ",cd") {
             setSandboxMessages(prev => [...prev, { 
               role: 'bot', 
               isCD: true,
-              embed: { thumbnail: data.track.image, title: data.track.name, description: data.track.artist }
+              embed: { thumbnail: imgUrl, title: data.track.name, description: data.track.artist }
             }]);
           } else {
             setSandboxMessages(prev => [...prev, { 
@@ -50,7 +66,7 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
               embed: {
                 title: "Now Playing",
                 description: `**${data.track.name}**\nby ${data.track.artist}\non *${data.track.album}*`,
-                thumbnail: data.track.image
+                thumbnail: imgUrl
               }
             }]);
           }
@@ -93,22 +109,30 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
             <p>Try testing out the bot right here! Type <strong>,fm</strong> or <strong>,cd</strong> below to see your real currently playing song.</p>
           </div>
           
-          <div className="bg-[#1e1f22] rounded-lg overflow-hidden border border-white/5 flex flex-col h-[300px]">
+          <div className="bg-[#313338] rounded-lg overflow-hidden border border-white/5 flex flex-col h-[350px]">
             <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-4">
               {sandboxMessages.map((msg, idx) => (
-                <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-indigo-500' : 'bg-red-500'}`}>
-                    {msg.role === 'user' ? <MessageSquare className="w-4 h-4 text-white" /> : <Music className="w-4 h-4 text-white" />}
+                <div key={idx} className={`flex gap-4 w-full`}>
+                  <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden bg-zinc-700">
+                    {msg.role === 'user' ? (
+                      userInfo.avatar ? <img src={userInfo.avatar} alt="user" className="w-full h-full object-cover" /> : <MessageSquare className="w-5 h-5 text-white" />
+                    ) : (
+                      <img src="/icon.png" alt="bot" className="w-full h-full object-cover bg-[#2b2d31]" />
+                    )}
                   </div>
-                  <div className={`flex flex-col max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    <span className="text-xs font-bold text-zinc-400 mb-1">{msg.role === 'user' ? 'You' : 'DJ Scratch'}</span>
+                  <div className={`flex flex-col flex-1 w-full`}>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-[15px] font-bold text-[#f2f3f5]">{msg.role === 'user' ? userInfo.name : 'DJ Scratch'}</span>
+                      {msg.role === 'bot' && <span className="bg-[#5865f2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> BOT</span>}
+                      <span className="text-xs text-[#949ba4]">Today at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
                     {msg.text && (
-                      <div className={`px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-500 text-white rounded-tr-sm' : 'bg-[#2b2d31] border border-white/5 text-white rounded-tl-sm'}`}>
+                      <div className="text-[15px] text-[#dbdee1] leading-relaxed">
                         {msg.text}
                       </div>
                     )}
                     {msg.isCD ? (
-                      <div className="mt-1 flex flex-col items-center">
+                      <div className="mt-2 flex flex-col items-center max-w-sm">
                         <div className="relative w-32 h-32 rounded-full border-4 border-zinc-800 shadow-xl overflow-hidden animate-[spin_4s_linear_infinite]">
                           {msg.embed.thumbnail && (
                             <img src={msg.embed.thumbnail} alt="cd cover" className="absolute inset-0 w-full h-full object-cover" />
@@ -119,13 +143,16 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
                         <div className="mt-2 text-xs font-bold text-white bg-black/50 px-2 py-1 rounded">{msg.embed.title}</div>
                       </div>
                     ) : msg.embed ? (
-                      <div className="bg-[#2b2d31] border-l-4 border-indigo-500 rounded-r-lg p-3 mt-1 flex gap-4 w-full max-w-sm border border-y-white/5 border-r-white/5 shadow-md">
-                        <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-xs font-bold text-zinc-400 mb-1">{msg.embed.title}</span>
-                          <span className="text-sm text-white mb-1"><ReactMarkdown>{msg.embed.description}</ReactMarkdown></span>
+                      <div className="bg-[#2b2d31] rounded-[4px] p-4 mt-2 flex gap-4 w-full max-w-[432px] border-l-4 border-l-[#ff0000]">
+                        <div className="flex-1 flex flex-col">
+                          <div className="flex items-center gap-2 mb-2">
+                             <img src={userInfo.avatar || "/icon.png"} className="w-6 h-6 rounded-full object-cover" />
+                             <span className="text-[13px] font-bold text-white">{userInfo.name}&apos;s Now Playing</span>
+                          </div>
+                          <span className="text-[14px] text-[#dbdee1] mb-1"><ReactMarkdown>{msg.embed.description}</ReactMarkdown></span>
                         </div>
                         {msg.embed.thumbnail && (
-                          <img src={msg.embed.thumbnail} alt="cover" className="w-16 h-16 rounded-md object-cover flex-shrink-0 shadow-sm" />
+                          <img src={msg.embed.thumbnail} alt="cover" className="w-[72px] h-[72px] rounded object-cover flex-shrink-0" />
                         )}
                       </div>
                     ) : null}
@@ -133,12 +160,15 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
                 </div>
               ))}
               {isLoading && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-red-500">
-                    <Music className="w-4 h-4 text-white" />
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden bg-[#2b2d31]">
+                    <img src="/icon.png" alt="bot" className="w-full h-full object-cover" />
                   </div>
-                  <div className="bg-[#2b2d31] px-4 py-2 rounded-2xl rounded-tl-sm border border-white/5 text-zinc-400">
-                    <span className="animate-pulse">DJ Scratch is thinking...</span>
+                  <div className="flex flex-col justify-center">
+                    <span className="text-[15px] font-bold text-[#f2f3f5] mb-1 flex items-center gap-2">
+                      DJ Scratch <span className="bg-[#5865f2] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> BOT</span>
+                    </span>
+                    <span className="text-[14px] text-zinc-400 animate-pulse">DJ Scratch is typing...</span>
                   </div>
                 </div>
               )}
