@@ -1079,8 +1079,11 @@ export default function ActivityDMUI() {
       )}
 
       {activeTab === 'music' && <ActivityMusic />}
-      {activeTab === 'settings' && <ActivitySettings />}
-      {activeTab === 'guide' && <ActivityGuide />}
+      {activeTab === 'settings' && <ActivitySettings onReplayGuide={() => { setGuideCompleted(false); setActiveTab('guide'); }} />}
+      {activeTab === 'guide' && <ActivityGuide onComplete={() => {
+        setGuideCompleted(true);
+        setActiveTab('messages');
+      }} />}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

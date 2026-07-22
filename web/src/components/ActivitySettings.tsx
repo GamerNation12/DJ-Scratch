@@ -3,7 +3,7 @@
 import { Settings, Link2, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export default function ActivitySettings() {
+export default function ActivitySettings({ onReplayGuide }: { onReplayGuide?: () => void }) {
   const [defaultTab, setDefaultTab] = useState("guide");
 
   useEffect(() => {
@@ -94,7 +94,11 @@ export default function ActivitySettings() {
                 <button 
                   onClick={() => {
                     localStorage.removeItem('activity_guide_completed');
-                    window.location.reload();
+                    if (onReplayGuide) {
+                      onReplayGuide();
+                    } else {
+                      window.location.reload();
+                    }
                   }}
                   className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors text-sm font-semibold"
                 >
