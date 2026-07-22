@@ -9,21 +9,32 @@ from src.core.database import format_name
 async def api_get(url):
     from ..core.events import bot
     import aiohttp
-    try:
-        async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
-            try:
-                data = await r.json()
-            except Exception:
-                data = None
-                logging.error(f"Failed to parse JSON from Last.fm API. Status: {r.status}")
+    import asyncio
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                try:
+                    data = await r.json()
+                except Exception:
+                    data = None
+                    logging.error(f"Failed to parse JSON from Last.fm API. Status: {r.status}")
 
-            if r.status != 200 or (isinstance(data, dict) and 'error' in data):
-                logging.error(f"Last.fm API Error: {data} for url: {url.replace(LASTFM_API_KEY, 'HIDDEN_KEY')}")
-            
-            return data
-    except Exception as e:
-        logging.error(f"API get failed: {e}")
-        return None
+                if r.status != 200 or (isinstance(data, dict) and 'error' in data):
+                    logging.error(f"Last.fm API Error (Attempt {attempt+1}/{max_retries}): {data} for url: {url.replace(LASTFM_API_KEY, 'HIDDEN_KEY')}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1 * (attempt + 1))
+                        continue
+                
+                return data
+        except Exception as e:
+            logging.error(f"API get failed (Attempt {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(1 * (attempt + 1))
+                continue
+            return None
+    return None
 async def fetch_now_playing(u, l=1):
     d = await api_get(f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}")
     if d and 'recenttracks' in d and 'track' in d['recenttracks'] and isinstance(d['recenttracks']['track'], dict):
