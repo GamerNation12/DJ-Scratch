@@ -2622,6 +2622,7 @@ class PurgeConfirmView(discord.ui.View):
 
     @discord.ui.button(label="Confirm Delete", style=discord.ButtonStyle.danger, emoji="⚠️")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         self.confirmed = True
         self.stop()
         
@@ -2646,7 +2647,7 @@ class PurgeConfirmView(discord.ui.View):
             color=discord.Color.red(),
             timestamp=datetime.now()
         )
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.edit_original_response(embed=embed, view=None)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):

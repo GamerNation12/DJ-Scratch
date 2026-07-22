@@ -36,7 +36,7 @@ class ImporterCog(commands.Cog):
     async def delete_data_slash(self, interaction: discord.Interaction):
         view = self.bot.PurgeConfirmView(interaction.user)
         await interaction.response.send_message(
-            "⚠️ **WARNING:** This will delete all your imported Spotify history from the bot's database.\\n\\nAre you absolutely sure you want to proceed?", 
+            "⚠️ **WARNING:** This will delete all your imported Spotify history from the bot's database.\n\nAre you absolutely sure you want to proceed?", 
             view=view, ephemeral=True
         )
 
@@ -44,7 +44,7 @@ class ImporterCog(commands.Cog):
     async def delete_data_prefix(self, ctx):
         view = self.bot.PurgeConfirmView(ctx.author)
         await ctx.send(
-            "⚠️ **WARNING:** This will delete all your imported Spotify history from the bot's database.\\n\\nAre you absolutely sure you want to proceed?", 
+            "⚠️ **WARNING:** This will delete all your imported Spotify history from the bot's database.\n\nAre you absolutely sure you want to proceed?", 
             view=view
         )
 
