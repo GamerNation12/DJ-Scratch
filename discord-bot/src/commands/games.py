@@ -57,7 +57,7 @@ class GamesCog(commands.Cog):
         
         file = discord.File(buf, filename="pixel.png")
         from src.core.theme import Theme
-        embed = discord.Embed(title="🖼️ Pixelated Album", description="Guess the album name or artist!\nYou have 30 seconds.", color=Theme.PRIMARY)
+        embed = Theme.get_embed(title="🖼️ Pixelated Album", description="Guess the album name or artist!\nYou have 30 seconds.", color=Theme.PRIMARY)
         embed.set_image(url="attachment://pixel.png")
         await ctx.send(embed=embed, file=file)
 
@@ -103,7 +103,7 @@ class GamesCog(commands.Cog):
             scrambled = "".join(chars)
 
         from src.core.theme import Theme
-        embed = discord.Embed(title="🎵 Artist Jumble", description=f"Unscramble this artist name:\n\n**`{scrambled.upper()}`**\n\nYou have 30 seconds!", color=Theme.PRIMARY)
+        embed = Theme.get_embed(title="🎵 Artist Jumble", description=f"Unscramble this artist name:\n\n**`{scrambled.upper()}`**\n\nYou have 30 seconds!", color=Theme.PRIMARY)
         await ctx.send(embed=embed)
 
         def check(m):

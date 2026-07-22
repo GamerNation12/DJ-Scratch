@@ -178,9 +178,6 @@ def get_period_data(input_period):
     return PERIOD_MAP.get(input_lower, ('overall', 'All Time'))
 
 def get_medal(index):
-    if index == 0: return "🥇"
-    if index == 1: return "🥈"
-    if index == 2: return "🥉"
     return f"` {index+1}. `"
 
 # --- SUGGESTION VIEW & MODAL ---
@@ -236,7 +233,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                 item_type = "bug report" if self.is_bug else "suggestion"
                 desc_lines = [f"Your {item_type} has been marked as **{self.action_status.upper()}**.", f"", f"**Your Report:**" if self.is_bug else f"**Your Idea:**", embed.description]
                 title = f"{self.action_emoji} Bug Report Update" if self.is_bug else f"{self.action_emoji} Suggestion Update"
-                notify_embed = discord.Embed(title=title, description=chr(10).join(desc_lines), color=self.action_color)
+                notify_embed = Theme.get_embed(title=title, description=chr(10).join(desc_lines), color=self.action_color)
                 if feedback_text:
                     notify_embed.add_field(name="Developer Reply", value=feedback_text, inline=False)
                 notify_embed.set_footer(text="DJ Scratch Feedback System")
@@ -246,7 +243,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                 pass
         try:
             log_title = "Bug Report Updated (Admin)" if self.is_bug else "Suggestion Updated (Admin)"
-            log_embed = discord.Embed(title=log_title, description=embed.description, color=self.action_color, timestamp=datetime.now())
+            log_embed = Theme.get_embed(title=log_title, description=embed.description, color=self.action_color, timestamp=datetime.now())
             log_embed.add_field(name="Status", value=f"{self.action_emoji} **{self.action_status}**", inline=False)
             if feedback_text:
                 log_embed.add_field(name="Reply", value=feedback_text, inline=False)
@@ -695,7 +692,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                         os.remove(temp_filepath)
                     except: pass
                     
-                    embed = discord.Embed(
+                    embed = Theme.get_embed(
                         title="❌ Invalid Export Package",
                         description="You uploaded the **Account Data** package, which is missing album names and contains duplicates.\\n\\nPlease go to Spotify Privacy settings and request the **Extended streaming history** instead.",
                         color=discord.Color.red(),
@@ -753,7 +750,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
         except: pass
 
         # Send DM when finished
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="✅ Spotify Import Complete!",
             description=(
                 f"Hey **{format_name(user)}**, your Spotify history has finished importing!\n\n"
@@ -957,7 +954,7 @@ async def on_guild_join(guild):
         
     try:
         owner = await bot.fetch_user(OWNER_ID)
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="📥 Joined New Server!",
             description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`\n**Members:** {guild.member_count}\n**Owner:** {guild.owner if guild.owner else 'Unknown'}",
             color=discord.Color.green()
@@ -972,7 +969,7 @@ async def on_guild_remove(guild):
     print(f"LEFT GUILD: {guild.name} ({guild.id})")
     try:
         owner = await bot.fetch_user(OWNER_ID)
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="📤 Left Server",
             description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`",
             color=discord.Color.red()
@@ -1025,7 +1022,7 @@ async def notify_owner(ctx, err):
         tick = chr(96)
         code_block = tick + tick + tick
         msg_lines = [f"An error occurred in **{str(ctx)}**:", f"{code_block}py", str(err)[:1800], code_block]
-        embed = discord.Embed(title="⚠️ Bot Error", description=chr(10).join(msg_lines), color=discord.Color.red())
+        embed = Theme.get_embed(title="⚠️ Bot Error", description=chr(10).join(msg_lines), color=discord.Color.red())
         embed.timestamp = datetime.now()
         await owner.send(embed=embed)
         await log_to_channel("errors", embed)
@@ -1167,7 +1164,7 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
         
     username = await get_lastfm_username(interaction.user.id)
     if not username:
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="⚠️ Account Not Linked",
             description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `/login` to link your Last.fm account.\n*Need help? Run `/guide` to learn how to start!*",
             color=discord.Color.red()
@@ -1190,7 +1187,7 @@ async def global_login_check_prefix(ctx) -> bool:
         
     username = await get_lastfm_username(ctx.author.id)
     if not username:
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="⚠️ Account Not Linked",
             description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `,login` to link your Last.fm account.\n*Need help? Run `,guide` to learn how to start!*",
             color=discord.Color.red()
@@ -1323,13 +1320,13 @@ class FMDetailsView(discord.ui.View):
         if lyrics:
             if len(lyrics) > 4096:
                 lyrics = lyrics[:4093] + "..."
-            embed = discord.Embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
+            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
-        preview_embed = discord.Embed(
+        preview_embed = Theme.get_embed(
             title="Bot Avatar Preview", 
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
@@ -1364,16 +1361,16 @@ class FMActionsView(discord.ui.View):
                     FM_TRACK_CACHE.pop(k, None)
                     
         if current_mode == "compact":
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
+            btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_down)
         elif current_mode == "full":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
+            btn_up = discord.ui.Button(label="", emoji="<:Up:1528249701164646410>", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_up)
             
-            btn_down = discord.ui.Button(label="", emoji="🔽", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
+            btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_down)
         elif current_mode == "stats":
-            btn_up = discord.ui.Button(label="", emoji="🔼", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
+            btn_up = discord.ui.Button(label="", emoji="<:Up:1528249701164646410>", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
             self.add_item(btn_up)
             
         if spotify_url and current_mode != "compact":
@@ -1420,13 +1417,13 @@ class FMActionsView(discord.ui.View):
         if lyrics:
             if len(lyrics) > 4096:
                 lyrics = lyrics[:4093] + "..."
-            embed = discord.Embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
+            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
-        preview_embed = discord.Embed(
+        preview_embed = Theme.get_embed(
             title="Bot Avatar Preview", 
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
@@ -1531,7 +1528,7 @@ async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
-    embed = discord.Embed(title=f"⚙️ Settings for {format_name(user)}", color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=f"⚙️ Settings for {format_name(user)}", color=LASTFM_COLOR)
     embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
     embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
@@ -1627,7 +1624,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
-    if not username: return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`"
+    if not username: return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`")}, False
     
     if track_data is not None:
         data = track_data
@@ -1636,10 +1633,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
     if isinstance(data, dict) and 'error' in data:
         err_msg = data.get('message', 'Unknown error')
-        return None, f"Last.fm API Error: {err_msg}"
+        return {"embed": Theme.get_error_embed(description=f"Last.fm API Error: {err_msg}")}, False
         
     if not data or 'recenttracks' not in data or not data['recenttracks']['track']: 
-        return None, "Could not find recent tracks."
+        return {"embed": Theme.get_error_embed(description="Could not find recent tracks.")}, False
     
     try:
         tracks = data['recenttracks']['track']
@@ -1727,7 +1724,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
             
             desc = chr(10).join(desc_lines)
-            embed = discord.Embed(description=desc, color=color)
+            embed = Theme.get_embed(description=desc, color=color)
             embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
@@ -1760,7 +1757,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 else:
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
             
-            embed = discord.Embed(description=chr(10).join(desc_lines), color=color)
+            embed = Theme.get_embed(description=chr(10).join(desc_lines), color=color)
             embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
             if img: embed.set_thumbnail(url=img)
             
@@ -1830,7 +1827,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 desc_lines.append(f"\n🔢 **{track_plays}** plays")
                 
         desc = chr(10).join(desc_lines)
-        embed = discord.Embed(description=desc, color=color)
+        embed = Theme.get_embed(description=desc, color=color)
         embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
@@ -1848,7 +1845,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         return result, is_p
     except Exception as e: 
         print(f"parsing error: {e}")
-        return None, "Error formatting track."
+        return {"embed": Theme.get_error_embed(description="Error formatting track.")}, False
 async def process_top_artists(user, input_period=None):
     username = await get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
@@ -1868,14 +1865,14 @@ async def process_top_artists(user, input_period=None):
         local_data = await get_local_top_artists(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_data:
-        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
     combined = dict(lastfm_data)
     for artist, count in local_data.items():
         combined[artist] = max(combined.get(artist, 0), count)
 
     sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-    if not sorted_artists: return None, None, "No artist data found."
+    if not sorted_artists: return Theme.get_error_embed(description="No artist data found."), None, None
 
     view = TopItemsPaginator(user, sorted_artists, disp_p, username if d_source != 'imported_only' else None, 'ta')
     embed = view.generate_embed()
@@ -1901,7 +1898,7 @@ async def process_top_tracks(user, input_period=None):
         local_tracks = await get_local_top_tracks(user.id, 250, api_p, before_dt=None)
 
     if not username and not local_tracks:
-        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
     combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
@@ -1909,7 +1906,7 @@ async def process_top_tracks(user, input_period=None):
         combined[key] = max(combined.get(key, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-    if not sorted_tracks: return None, None, "No track data found."
+    if not sorted_tracks: return Theme.get_error_embed(description="No track data found."), None, None
 
     view = TopItemsPaginator(user, sorted_tracks, disp_p, username if d_source != 'imported_only' else None, 'tt')
     embed = view.generate_embed()
@@ -1938,13 +1935,13 @@ class TopItemsPaginator(discord.ui.View):
         page_items = self.sorted_items[start:end]
 
         if self.cmd_type == 'tt':
-            lines = [f"{start + idx + 1}. {a} - {t} - {c:,} plays" for idx, ((t, a), c) in enumerate(page_items)]
-            title = f"{format_name(self.user)}'s Top Tracks ({self.disp_p})"
+            lines = [f"{get_medal(start + idx)} **{a}** — **{t}** `[{c:,}]`" for idx, ((t, a), c) in enumerate(page_items)]
+            title = f"🏆 {format_name(self.user)}'s Top Tracks ({self.disp_p})"
         else:
-            lines = [f"{start + idx + 1}. {name} - {count:,} plays" for idx, (name, count) in enumerate(page_items)]
-            title = f"{format_name(self.user)}'s Top Artists ({self.disp_p})"
+            lines = [f"{get_medal(start + idx)} **{name}** `[{count:,}]`" for idx, (name, count) in enumerate(page_items)]
+            title = f"🏆 {format_name(self.user)}'s Top Artists ({self.disp_p})"
             
-        embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now(), user=self.user)
         embed.set_author(name=title, icon_url=self.user.display_avatar.url)
         embed.set_thumbnail(url=self.user.display_avatar.url)
         
@@ -1954,7 +1951,7 @@ class TopItemsPaginator(discord.ui.View):
         embed.set_footer(text=footer_text)
         return embed
 
-    @discord.ui.button(label="<", style=discord.ButtonStyle.secondary, custom_id="prev")
+    @discord.ui.button(label="", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="prev")
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
@@ -1962,7 +1959,7 @@ class TopItemsPaginator(discord.ui.View):
         self.update_buttons()
         await interaction.response.edit_message(embed=self.generate_embed(), view=self)
 
-    @discord.ui.button(label=">", style=discord.ButtonStyle.secondary, custom_id="next")
+    @discord.ui.button(label="", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="next")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
@@ -2016,16 +2013,16 @@ class ArtistTracksPaginator(discord.ui.View):
         end = start + self.items_per_page
         page_tracks = self.sorted_tracks[start:end]
 
-        lines = [f"{start + idx + 1}. {t} - {c:,} plays" for idx, (t, c) in enumerate(page_tracks)]
+        lines = [f"{get_medal(start + idx)} **{t}** `[{c:,}]`" for idx, (t, c) in enumerate(page_tracks)]
         
-        embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-        embed.set_author(name=f"Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
+        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now(), user=self.user)
+        embed.set_author(name=f"🏆 Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
         
         footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{format_name(self.user)} has {self.total_plays:,} total artist plays"
         embed.set_footer(text=footer_text)
         return embed
 
-    @discord.ui.button(label="<", style=discord.ButtonStyle.secondary, custom_id="prev")
+    @discord.ui.button(label="", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="prev")
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
@@ -2033,7 +2030,7 @@ class ArtistTracksPaginator(discord.ui.View):
         self.update_buttons()
         await interaction.response.edit_message(embed=self.generate_embed(), view=self)
 
-    @discord.ui.button(label=">", style=discord.ButtonStyle.secondary, custom_id="next")
+    @discord.ui.button(label="", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="next")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
@@ -2046,10 +2043,10 @@ async def process_artist_tracks(user, artist_name):
     d_source = await get_user_data_source(user.id)
 
     if not artist_name:
-        if not username or d_source == 'imported_only': return None, None, "Link account or provide an artist name."
+        if not username or d_source == 'imported_only': return Theme.get_error_embed(description="Link account or provide an artist name."), None, None
         np_data = await fetch_now_playing(username, 1)
         try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
-        except: return None, None, "You aren't playing anything right now and didn't provide an artist!"
+        except: return Theme.get_error_embed(description="You aren't playing anything right now and didn't provide an artist!"), None, None
 
     lastfm_tracks = {}
     if username and d_source != 'imported_only':
@@ -2062,14 +2059,14 @@ async def process_artist_tracks(user, artist_name):
         local_tracks = await get_local_artist_top_tracks(user.id, artist_name, 5000, 'overall', before_dt=None)
 
     if not username and not local_tracks:
-        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
         combined[track_name] = max(combined.get(track_name, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-    if not sorted_tracks: return None, None, f"No track data found for **{artist_name}**."
+    if not sorted_tracks: return Theme.get_error_embed(description=f"No track data found for **{artist_name}**."), None, None
 
     total_plays = sum(combined.values())
     
@@ -2104,12 +2101,15 @@ async def process_recent(user):
                 prefix = "🎶" if is_np else f"` {i+1}. `"
                 track_name = t.get('name', 'Unknown Track')
                 artist_name = t.get('artist', {}).get('#text', 'Unknown Artist')
-                track_url = t.get('url', '')
+                # Fetch timestamp
+                ts = ""
+                if not is_np and 'date' in t and 'uts' in t['date']:
+                    ts = f" <t:{t['date']['uts']}:R>"
                 
-                track_formatted = f"[{track_name}]({track_url})" if track_url else track_name
-                lines.append(f"{prefix} **{track_formatted}** — *{artist_name}*")
+                track_formatted = f"**{track_name}**{ts}"
+                lines.append(f"{prefix} {track_formatted} — *{artist_name}*")
                 
-            embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks", icon_url=user.display_avatar.url)
             
             # Use album art for thumbnail if available
@@ -2128,15 +2128,15 @@ async def process_recent(user):
     if d_source != 'lastfm_only':
         local = await get_local_recent_tracks(user.id, 10)
         if local:
-            lines = [f"` {i+1}. ` **{t}** — *{a}*" for i, (t, a, _) in enumerate(local)]
-            embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            lines = [f"` {i+1}. ` **{t}**" + (f" <t:{int(ts.timestamp())}:R>" if ts else "") + f" — *{a}*" for i, (t, a, ts) in enumerate(local)]
+            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
             embed.set_thumbnail(url=user.display_avatar.url)
             embed.set_footer(text=f"Requested by {format_name(user)} • Using Imported Data", icon_url=user.display_avatar.url)
             return embed, None
     if not username:
-        return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
-    return None, f"No recent tracks found for **{user.name}**."
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None
+    return Theme.get_error_embed(description=f"No recent tracks found for **{user.name}**."), None
 
 
 async def process_judge(user):
@@ -2177,8 +2177,8 @@ async def process_judge(user):
 
     if not top_artists and not top_tracks:
         if not username:
-            return None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal to use the AI Judge."
-        return None, f"Not enough data to judge **{user.name}**."
+            return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal to use the AI Judge."), None
+        return Theme.get_error_embed(description=f"Not enough data to judge **{user.name}**."), None
 
     # Format the data exactly like fmbot
     artist_lines = [f"{a[:40]} - {c} plays" for a, c in top_artists]
@@ -2201,7 +2201,7 @@ async def process_judge(user):
         api_key = os.getenv("GROQ_API_KEY", "").strip().strip("'").strip('"')
         
         if not api_key:
-            return None, "Please get a free Groq API key from console.groq.com/keys and put it in your .env as GROQ_API_KEY!"
+            return Theme.get_error_embed(description="Please get a free Groq API key from console.groq.com/keys and put it in your .env as GROQ_API_KEY!"), None
 
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
@@ -2242,7 +2242,8 @@ async def process_judge(user):
             if local_session:
                 await session.close()
         
-        embed = discord.Embed(
+        roast_text = f"> {roast_text.replace(chr(10), chr(10) + '> ')}" if roast_text else ""
+        embed = Theme.get_embed(
             description=roast_text,
             color=0xFF7A01,
             timestamp=datetime.now()
@@ -2252,7 +2253,7 @@ async def process_judge(user):
         return embed, None
     except Exception as e:
         print(f"Judge API Error: {e}")
-        return None, "An error occurred while contacting the AI Judge. Try again later."
+        return Theme.get_error_embed(description="An error occurred while contacting the AI Judge. Try again later."), None
 
 async def process_profile(user):
     bot_instance = bot
@@ -2264,7 +2265,7 @@ async def process_profile(user):
     d_source = await get_user_data_source(user.id)
 
     if not username and d_source == 'lastfm_only':
-        return None, None, f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
     class ProfileLinksView(discord.ui.View):
         def __init__(self, username, lastfm_url):
@@ -2276,14 +2277,14 @@ async def process_profile(user):
 
     view = None
 
-    embed = discord.Embed(color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{format_name(user)}'s Profile", icon_url=user.display_avatar.url)
 
     if username:
         data = await fetch_user_profile(username)
         if data:
             if 'error' in data or 'user' not in data:
-                return None, None, f"Last.fm Error: {data.get('message', 'User not found on Last.fm.')}"
+                return Theme.get_error_embed(description=f"Last.fm Error: {data.get('message', 'User not found on Last.fm.')}"), None, None
             info = data['user']
             embed.title = f"{info['name']}'s DJ Scratch Profile"
             safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
@@ -2321,17 +2322,17 @@ async def process_profile(user):
 async def process_whoknows(guild, user, artist_name):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
-    if not guild: return None, "Must be used in a server."
+    if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
     users_db = await load_users()
     display_names = await load_display_names()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return None, "No one in this server has linked their account."
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
     if not artist_name:
         username = await get_lastfm_username(user.id)
-        if not username: return None, "Link account or provide an artist name."
+        if not username: return Theme.get_error_embed(description="Link account or provide an artist name."), None
         np_data = await fetch_now_playing(username, 1)
         try: artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
-        except: return None, "You aren't playing anything right now!"
+        except: return Theme.get_error_embed(description="You aren't playing anything right now!"), None
 
     lb = []
     tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist_name)) for uid, lname in linked.items()]
@@ -2347,10 +2348,10 @@ async def process_whoknows(guild, user, artist_name):
                 name = member.display_name if member else tasks[idx][1]
             lb.append({"name": name, "plays": pc})
 
-    if not lb: return None, f"No one here listens to **{artist_name}**."
+    if not lb: return Theme.get_error_embed(description=f"No one here listens to **{artist_name}**."), None
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
@@ -2380,7 +2381,7 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
         embed_title = "🐛 New Bug Report" if is_bug else "💡 New Bot Suggestion"
         embed_color = discord.Color.red() if is_bug else discord.Color.gold()
         
-        embed = discord.Embed(title=embed_title, description=suggestion_text, color=embed_color, timestamp=datetime.now())
+        embed = Theme.get_embed(title=embed_title, description=suggestion_text, color=embed_color, timestamp=datetime.now())
         embed.set_author(name=f"{format_name(user)} ({user.id})", icon_url=user.display_avatar.url)
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
         embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
@@ -2389,7 +2390,7 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
         print(f"{Log.GREEN}>>> New {'bug report' if is_bug else 'suggestion'} forwarded to owner & DB.{Log.RESET}")
         
         confirm_text = "✅ Bug report saved to your Dashboard & sent directly to the developer!" if is_bug else "✅ Suggestion saved to your Dashboard & sent directly to the developer!"
-        confirm = discord.Embed(description=confirm_text, color=discord.Color.green())
+        confirm = Theme.get_embed(description=confirm_text, color=discord.Color.green())
         
         if isinstance(ctx_int, discord.Interaction): await ctx_int.response.send_message(embed=confirm, ephemeral=True)
         else: await ctx_int.send(embed=confirm)
@@ -2399,19 +2400,19 @@ async def process_crowns(guild, user):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
 
-    if not guild: return None, "Must be used in a server."
+    if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
     username = await get_lastfm_username(user.id)
-    if not username: return None, "Link your account first with `/login`"
+    if not username: return Theme.get_error_embed(description="Link your account first with `/login`"), None
     
     users_db = await load_users()
     linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return None, "No one in this server has linked their account."
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
     
     top_artists_data = await fetch_top_artists(username, 'overall', 15)
-    if not top_artists_data or 'topartists' not in top_artists_data: return None, "Error fetching your top artists."
+    if not top_artists_data or 'topartists' not in top_artists_data: return Theme.get_error_embed(description="Error fetching your top artists."), None
     
     artists_to_check = [a['name'] for a in top_artists_data['topartists']['artist']]
-    if not artists_to_check: return None, "You don't have any artists in your history!"
+    if not artists_to_check: return Theme.get_error_embed(description="You don't have any artists in your history!"), None
 
     async def check_artist(artist):
         tasks = [(uid, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
@@ -2426,10 +2427,10 @@ async def process_crowns(guild, user):
     crowns = [r for r in artist_results if r is not None]
     
     if not crowns:
-        return None, "You don't hold any crowns for your top 15 artists in this server!"
+        return Theme.get_error_embed(description="You don't hold any crowns for your top 15 artists in this server!"), None
         
     lines = [f"👑 **{artist}** — **{plays:,}** plays" for artist, plays in crowns]
-    embed = discord.Embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
     embed.set_footer(text=f"Checked your top 15 artists • Requested by {format_name(user)}", icon_url=user.display_avatar.url)
@@ -2458,9 +2459,9 @@ class HelpDropdown(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         from src.core.theme import Theme
         
-        embed = discord.Embed(color=Theme.PRIMARY)
+        embed = Theme.get_embed(user=interaction.user)
         embed.set_author(name=f"Help: {self.values[0]}", icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text=Theme.FOOTER_TEXT)
+        embed.set_thumbnail(url=interaction.client.user.display_avatar.url)
         
         if self.values[0] == "🚀 Getting Started":
             embed.description = (
@@ -2518,17 +2519,16 @@ class HelpView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(HelpDropdown(is_owner))
 
-def get_help_embed(user):
+def get_help_embed(user, bot_user):
     from src.core.theme import Theme
     is_owner = user.id == 759433582107426816
-    embed = discord.Embed(
+    embed = Theme.get_embed(
         title="🤖 DJ Scratch | Command Center", 
-        color=Theme.PRIMARY, 
-        description="Welcome to **DJ Scratch**!\nSelect a category from the dropdown menu below to see available commands."
+        description="Welcome to **DJ Scratch**!\nSelect a category from the dropdown menu below to see available commands.",
+        user=user
     )
-    embed.set_thumbnail(url="https://i.imgur.com/your_logo_here.png") # Optional placeholder
+    embed.set_thumbnail(url=bot_user.display_avatar.url)
     embed.set_author(name=format_name(user), icon_url=user.display_avatar.url)
-    embed.set_footer(text=Theme.FOOTER_TEXT)
     return embed, HelpView(is_owner)
 
 # --- ADMIN COMMAND ---
@@ -2609,7 +2609,7 @@ class PurgeConfirmView(discord.ui.View):
             except Exception as e:
                 print(f"{Log.RED}>>> Error clearing Last.fm DB link: {e}{Log.RESET}")
 
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="🗑️ Data Successfully Deleted",
             description=(
                 f"Your data has been fully purged from the database:\n\n"
@@ -2625,7 +2625,7 @@ class PurgeConfirmView(discord.ui.View):
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.stop()
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             description="❌ **Purge cancelled.** Your data remains completely safe.",
             color=discord.Color.blue()
         )
@@ -2678,11 +2678,11 @@ async def process_receipt(user, period='overall', limit=10):
     
     username = await get_lastfm_username(user.id)
     if not username:
-        return None, None, f"You have not linked your Last.fm account! Use `/login` to link it."
+        return Theme.get_error_embed(description=f"You have not linked your Last.fm account! Use `/login` to link it."), None, None
         
     data = await fetch_top_tracks(username, period, limit)
     if not data or 'toptracks' not in data or not data['toptracks']['track']:
-        return None, None, "Could not fetch top tracks for the receipt."
+        return Theme.get_error_embed(description="Could not fetch top tracks for the receipt."), None, None
         
     tracks_raw = data['toptracks']['track']
     tracks = []
@@ -2692,7 +2692,7 @@ async def process_receipt(user, period='overall', limit=10):
     buf = generate_receipt_image(username, period, tracks)
     file = discord.File(buf, filename="receipt.png")
     
-    embed = discord.Embed(title=f"🧾 {format_name(user)}'s Top Tracks Receipt", color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=f"🧾 {format_name(user)}'s Top Tracks Receipt", color=LASTFM_COLOR)
     embed.set_image(url="attachment://receipt.png")
     
     return embed, file, None
@@ -2749,7 +2749,7 @@ async def update_notif_prefix(ctx):
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 
                 color=0x10b981
@@ -2772,7 +2772,7 @@ async def update_notif_slash(interaction, command):
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
             
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 
                 color=0x10b981
@@ -2830,7 +2830,7 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                 btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://the-goats-dj.vercel.app/messages")
                 view.add_item(btn)
                 
-                embed = discord.Embed(
+                embed = Theme.get_embed(
                     title="💬 New Direct Message",
                     description=content,
                     color=discord.Color.blurple(),
@@ -2984,7 +2984,7 @@ async def on_interaction(interaction: discord.Interaction):
                 if lyrics:
                     if len(lyrics) > 4096:
                         lyrics = lyrics[:4093] + "..."
-                    embed = discord.Embed(title=f"Lyrics for {song} by {artist}", description=lyrics, color=LASTFM_COLOR)
+                    embed = Theme.get_embed(title=f"Lyrics for {song} by {artist}", description=lyrics, color=LASTFM_COLOR)
                     await interaction.followup.send(embed=embed, ephemeral=True)
                 else:
                     await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
@@ -3028,7 +3028,7 @@ async def on_interaction(interaction: discord.Interaction):
                     await interaction.response.send_message(f"Please re-run the `/fm` command to preview the avatar for **{artist}** (Image not found).", ephemeral=True)
                     return
                 
-                preview_embed = discord.Embed(
+                preview_embed = Theme.get_embed(
                     title="Bot Avatar Preview", 
                     description=f"This is how the bot will look if you apply the album art for **{artist}**.", 
                     color=LASTFM_COLOR

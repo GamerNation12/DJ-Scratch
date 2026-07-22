@@ -9,15 +9,17 @@ class Theme:
     ERROR = 0xe74c3c
     WARNING = 0xf1c40f
     LASTFM = 0xba0000
+    PREMIUM = 0xFFD700  # Premium Gold
 
     # Formatting
-    FOOTER_TEXT = "DJ Scratch | By GamerNation12"
+    FOOTER_TEXT = "DJ Scratch • Seamless Music Experience"
     
     @classmethod
-    def get_embed(cls, title=None, description=None, color=None, include_timestamp=True, **kwargs):
+    def get_embed(cls, title=None, description=None, color=None, user=None, include_timestamp=True, **kwargs):
         """Creates a standardized embed with the bot's theme."""
-        color = color if color is not None else cls.PRIMARY
-        
+        if color is None:
+            color = user.color if user and hasattr(user, 'color') and user.color.value != 0 else cls.PRIMARY
+            
         embed = discord.Embed(
             title=title,
             description=description,
@@ -32,13 +34,17 @@ class Theme:
         return embed
 
     @classmethod
-    def get_success_embed(cls, title="Success", description=None):
-        return cls.get_embed(title=f"✅ {title}", description=description, color=cls.SUCCESS)
+    def get_success_embed(cls, title="Success", description=None, user=None):
+        return cls.get_embed(title=f"✅ {title}", description=description, color=cls.SUCCESS, user=user)
 
     @classmethod
-    def get_error_embed(cls, title="Error", description=None):
-        return cls.get_embed(title=f"❌ {title}", description=description, color=cls.ERROR)
+    def get_error_embed(cls, title="Error", description=None, user=None):
+        return cls.get_embed(title=f"❌ {title}", description=description, color=cls.ERROR, user=user)
 
     @classmethod
-    def get_warning_embed(cls, title="Warning", description=None):
-        return cls.get_embed(title=f"⚠️ {title}", description=description, color=cls.WARNING)
+    def get_warning_embed(cls, title="Warning", description=None, user=None):
+        return cls.get_embed(title=f"⚠️ {title}", description=description, color=cls.WARNING, user=user)
+
+    @classmethod
+    def get_premium_embed(cls, title="Premium Feature", description=None, user=None):
+        return cls.get_embed(title=f"🔒 {title}", description=description, color=cls.PREMIUM, user=user)

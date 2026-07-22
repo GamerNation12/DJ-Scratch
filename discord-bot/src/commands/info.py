@@ -35,7 +35,7 @@ class InfoCog(commands.Cog):
         server_count = len(self.bot.guilds)
         total_members = sum(g.member_count for g in self.bot.guilds if g.member_count)
         
-        embed = discord.Embed(title="🤖 Bot Status", color=Theme.PRIMARY, timestamp=datetime.utcnow())
+        embed = Theme.get_embed(title="🤖 Bot Status", user=interaction.user, timestamp=datetime.utcnow())
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         
         embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
@@ -53,7 +53,8 @@ class InfoCog(commands.Cog):
     async def send_updates(self, context):
         from src.core.database import get_global_update_version, get_global_update_message
         
-        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - Latest Updates", color=Theme.PRIMARY, timestamp=discord.utils.utcnow())
+        user = context.author if isinstance(context, commands.Context) else context.user
+        embed = Theme.get_embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - Latest Updates", user=user, timestamp=discord.utils.utcnow())
         
         try:
             version = await get_global_update_version()
@@ -109,7 +110,7 @@ class InfoCog(commands.Cog):
         if not time_str:
             time_str = " an unknown time ago"
             
-        embed = discord.Embed(title="Using Spotify and tracking is out of sync?", color=Theme.PRIMARY)
+        embed = Theme.get_embed(title="Using Spotify and tracking is out of sync?", user=user)
         
         desc = f"DJ Scratch uses {lastfm_link} for knowing what you listen to. The last scrobble on your profile was{time_str}.\n\n"
         desc += "**DJ Scratch is not affiliated with Last.fm.** Sync and scrobbling issues are Last.fm issues and **not DJ Scratch issues**, so [we can't fix them for you](https://support.last.fm/t/spotify-has-stopped-scrobbling-what-can-i-do/3184).\n\n"
@@ -137,10 +138,11 @@ class InfoCog(commands.Cog):
         await self.send_outofsync(ctx)
 
     async def send_guide(self, context):
-        embed = discord.Embed(
+        user = context.author if isinstance(context, commands.Context) else context.user
+        embed = Theme.get_embed(
             title="🚀 Getting Started with DJ Scratch",
             description="Welcome to DJ Scratch! Here is a quick guide on how to get started.",
-            color=Theme.PRIMARY
+            user=user
         )
         embed.add_field(
             name="1️⃣ Link your Last.fm",
@@ -185,6 +187,53 @@ class InfoCog(commands.Cog):
     @commands.command(name="guide", aliases=["start", "tutorial", "howto"])
     async def guide_prefix(self, ctx):
         await self.send_guide(ctx)
+
+    async def send_premium(self, context):
+        user = context.author if isinstance(context, commands.Context) else context.user
+        
+        embed = Theme.get_premium_embed(
+            title="Premium Upgrade (Coming Soon!)",
+            description="DJ Scratch Premium is currently in development! Upgrade your music experience to the absolute max with these upcoming features:",
+            user=user
+        )
+        embed.add_field(
+            name="⚡ Zero Cooldowns",
+            value="Spam commands as fast as you want with no global or user limits.",
+            inline=False
+        )
+        embed.add_field(
+            name="📊 Advanced Statistics",
+            value="View deep insights into your listening habits over custom timeframes.",
+            inline=False
+        )
+        embed.add_field(
+            name="🎨 Custom Profiles",
+            value="Fully customize your Last.fm profile card with custom backgrounds and badge colors.",
+            inline=False
+        )
+        embed.add_field(
+            name="🤖 Enhanced AI Judging",
+            value="Unlock deeper, more brutal AI roasts with premium-tier models.",
+            inline=False
+        )
+        
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        
+        if isinstance(context, discord.Interaction):
+            await context.followup.send(embed=embed)
+        else:
+            await context.send(embed=embed)
+
+    @app_commands.command(name="premium", description="Preview upcoming premium features!")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def premium_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        await self.send_premium(interaction)
+
+    @commands.command(name="premium", aliases=["upgrade", "pro"])
+    async def premium_prefix(self, ctx):
+        await self.send_premium(ctx)
 
 async def setup(bot):
     await bot.add_cog(InfoCog(bot))

@@ -1,3 +1,4 @@
+from src.core.theme import Theme
 from src.core.config import Log
 import discord
 from discord.ext import commands
@@ -99,7 +100,7 @@ class LastFmCog(commands.Cog):
                         if img:
                             title = "Bot Avatar Preview (Last Played)" if last_song else "Bot Avatar Preview"
                             desc = f"Last track: **{song}** by **{artist}**" if last_song else f"Current track: **{song}** by **{artist}**"
-                            preview_embed = discord.Embed(
+                            preview_embed = Theme.get_embed(
                                 title=title, 
                                 description=desc, 
                                 color=LASTFM_COLOR
@@ -146,7 +147,7 @@ class LastFmCog(commands.Cog):
                     desc = "Your profile is now hidden from the public dashboard and server stats." if new_state else "Your profile is now visible on the public dashboard and server stats."
                     color = discord.Color.red() if new_state else discord.Color.green()
                     
-                    embed = discord.Embed(title=f"🔒 Privacy Mode {state_str}", description=desc, color=color)
+                    embed = Theme.get_embed(title=f"🔒 Privacy Mode {state_str}", description=desc, color=color)
                     await send_func(embed=embed)
             except Exception as e:
                 print(f"Privacy toggle error: {e}")
@@ -161,14 +162,14 @@ class LastFmCog(commands.Cog):
         from src.core.events import get_lastfm_username
         username = await get_lastfm_username(interaction.user.id)
         if username:
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title="✅ Already Logged In",
                 description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `/logout` command first.",
                 color=discord.Color.green()
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
             
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="🔗 Connect Last.fm",
             description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
             color=discord.Color.red()
@@ -191,7 +192,7 @@ class LastFmCog(commands.Cog):
     async def logout_slash(self, interaction: discord.Interaction):
         from src.core.database import unlink_user
         await unlink_user(interaction.user.id)
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="👋 Logged Out",
             description="Your Last.fm account has been successfully unlinked from your Discord account.",
             color=discord.Color.green()
@@ -317,7 +318,7 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def help_slash(self, interaction: discord.Interaction):
-        embed, view = self.bot.get_help_embed(interaction.user)
+        embed, view = self.bot.get_help_embed(interaction.user, self.bot.user)
         await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name="crowns", description="See which of your top artists you have the most plays for")
@@ -367,7 +368,7 @@ class LastFmCog(commands.Cog):
                             print(f"{Log.RED}>>> Spotify fetch error in cd_prefix: {e}{Log.RESET}")
 
                         if img:
-                            preview_embed = discord.Embed(
+                            preview_embed = Theme.get_embed(
                                 title="Bot Avatar Preview", 
                                 description=f"Current track: **{song}** by **{artist}**", 
                                 color=LASTFM_COLOR
@@ -420,7 +421,7 @@ class LastFmCog(commands.Cog):
                         print(f"{Log.RED}>>> Spotify fetch error in cd2_prefix: {e}{Log.RESET}")
 
                     if img:
-                        preview_embed = discord.Embed(
+                        preview_embed = Theme.get_embed(
                             title="Bot Avatar Preview (Last Played)", 
                             description=f"Last track: **{song}** by **{artist}**", 
                             color=LASTFM_COLOR
@@ -442,14 +443,14 @@ class LastFmCog(commands.Cog):
         from src.core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)
         if username:
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title="✅ Already Logged In",
                 description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `,logout` command first.",
                 color=discord.Color.green()
             )
             return await ctx.send(embed=embed)
             
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="🔗 Connect Last.fm",
             description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
             color=discord.Color.red()
@@ -469,7 +470,7 @@ class LastFmCog(commands.Cog):
     async def logout_prefix(self, ctx):
         from src.core.database import unlink_user
         await unlink_user(ctx.author.id)
-        embed = discord.Embed(
+        embed = Theme.get_embed(
             title="👋 Logged Out",
             description="Your Last.fm account has been successfully unlinked from your Discord account.",
             color=discord.Color.green()
@@ -550,7 +551,7 @@ class LastFmCog(commands.Cog):
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
         if not suggestion:
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title="❌ Missing Suggestion", 
                 description="Please provide a suggestion!\n\n**Usage:** `,suggest <your idea>`",
                 color=discord.Color.red()
@@ -561,7 +562,7 @@ class LastFmCog(commands.Cog):
     @commands.command(name="bug", aliases=["bugreport", "reportbug"])
     async def bug_prefix(self, ctx, *, bug: str = None):
         if not bug:
-            embed = discord.Embed(
+            embed = Theme.get_embed(
                 title="❌ Missing Bug Report", 
                 description="Please describe the bug!\n\n**Usage:** `,bug <description>`",
                 color=discord.Color.red()
@@ -571,7 +572,7 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="help", aliases=["h"])
     async def help_prefix(self, ctx):
-        embed, view = self.bot.get_help_embed(ctx.author)
+        embed, view = self.bot.get_help_embed(ctx.author, self.bot.user)
         await ctx.send(embed=embed, view=view)
 
     @commands.command(name="crowns", aliases=["cr", "cw"])
