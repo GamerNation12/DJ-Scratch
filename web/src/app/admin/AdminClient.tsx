@@ -155,13 +155,24 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
         const selectedCommits = commits.filter(c => newShas.includes(c.sha));
         if (selectedCommits.length > 0) {
           const combinedMessages = selectedCommits.map(c => {
-            const msgLine = c.commit.message.split('\n')[0];
+            const lines = c.commit.message.split('\n');
+            const msgLine = lines[0];
+            const body = lines.slice(1).join('\n').trim();
             const info = getCommitInfo(msgLine);
+            
+            let result = "";
             if (info.type && tagColors[info.type]) {
-              return `- ${tagColors[info.type].name}: ${info.body}`;
+              result = `- ${tagColors[info.type].name}: ${info.body}`;
+            } else {
+              result = `- ${msgLine}`;
             }
-            return `- ${msgLine}`;
-          }).join('\n');
+            
+            if (body) {
+              // add a newline and the body to the output
+              result += `\n${body}`;
+            }
+            return result;
+          }).join('\n\n');
           setContent(combinedMessages);
         }
       } else {
