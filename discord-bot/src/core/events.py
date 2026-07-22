@@ -1644,6 +1644,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
         # Run independent DB and API tasks concurrently
         async def get_spotify_data():
+            from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
             u_token = await get_user_spotify_access_token(session, str(user.id))
             s_inf = await get_spotify_track_info(session, artist, song, user_token=u_token)
             if not s_inf and u_token:
@@ -1656,6 +1657,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             return None
 
         # Gather user preferences first
+        from src.core.database import get_user_show_features, get_user_show_track_playcount
         show_features_task = asyncio.create_task(get_user_show_features(user.id))
         show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
         
