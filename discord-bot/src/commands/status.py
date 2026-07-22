@@ -38,37 +38,21 @@ class StatusCog(commands.Cog):
     async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\\n*The bot has lost connection to the server or is currently restarting.*"
+            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server or is currently restarting.*"
             embed.set_footer(text="Watchdog Monitor")
             return embed
             
-        if getattr(self.bot, 'is_restarting', False):
-            embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.gold(), timestamp=discord.utils.utcnow())
+        is_restarting = getattr(self.bot, 'is_restarting', False)
+        color = discord.Color.gold() if is_restarting else discord.Color.green()
+        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=color, timestamp=discord.utils.utcnow())
+        
+        if is_restarting:
             timestamp = int(self.bot.is_restarting) if isinstance(self.bot.is_restarting, float) else int(time.time() + 60)
             reason = getattr(self.bot, 'restart_reason', 'Maintenance')
-            embed.description = f"**🟡 STATUS: RESTARTING**\\n*The bot is shutting down <t:{timestamp}:R> because: **{reason}**.*"
+            embed.description = f"**🟡 STATUS: RESTARTING**\n*The bot is shutting down <t:{timestamp}:R> because: **{reason}**.*"
+        else:
+            embed.description = "**🟢 STATUS: ONLINE**"
             
-            # Still show uptime/ping while restarting
-            uptime = time.time() - self.process.create_time()
-            uptime_td = timedelta(seconds=uptime)
-            days = uptime_td.days
-            hours, remainder = divmod(uptime_td.seconds, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m {seconds}s"
-            
-            ping = round(self.bot.latency * 1000)
-            server_count = len(self.bot.guilds)
-            
-            embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
-            embed.add_field(name="🏓 Ping", value=f"`{ping}ms`", inline=True)
-            embed.add_field(name="🌐 Servers", value=f"`{server_count:,}`", inline=True)
-            
-            embed.set_footer(text="Live Updating Dashboard • Last Updated")
-            return embed
-            
-        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.green(), timestamp=discord.utils.utcnow())
-        embed.description = "**🟢 STATUS: ONLINE**"
-        
         # Calculate uptime
         uptime = time.time() - self.process.create_time()
         uptime_td = timedelta(seconds=uptime)
