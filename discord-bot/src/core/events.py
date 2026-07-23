@@ -487,7 +487,6 @@ async def setup_hook():
                     print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
                     
             if getattr(bot, 'is_test_bot', False):
-                import os
                 test_dir = os.path.join(os.path.dirname(__file__), "..", "test_commands")
                 if os.path.exists(test_dir):
                     for filename in os.listdir(test_dir):
