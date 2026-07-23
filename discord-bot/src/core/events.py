@@ -1406,14 +1406,14 @@ class FMDetailsView(discord.ui.View):
                 # Fallback: Check Discord Rich Presence
                 if isinstance(interaction.user, discord.Member):
                     for activity in interaction.user.activities:
-                    if isinstance(activity, discord.Spotify):
-                        # Verify it's the same song by comparing artist or title
-                        if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
-                            import datetime
-                            now = datetime.datetime.now(datetime.timezone.utc)
-                            elapsed = (now - activity.start).total_seconds()
-                            start_time = max(0.0, elapsed)
-                            break
+                        if isinstance(activity, discord.Spotify):
+                            # Verify it's the same song by comparing artist or title
+                            if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
+                                import datetime
+                                now = datetime.datetime.now(datetime.timezone.utc)
+                                elapsed = (now - activity.start).total_seconds()
+                                start_time = max(0.0, elapsed)
+                                break
                             
             view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
             embed = view._build_embed()
@@ -3080,13 +3080,13 @@ async def on_interaction(interaction: discord.Interaction):
                         # Fallback: Check Discord Rich Presence
                         if isinstance(interaction.user, discord.Member):
                             for activity in interaction.user.activities:
-                            if isinstance(activity, discord.Spotify):
-                                if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
-                                    import datetime
-                                    now = datetime.datetime.now(datetime.timezone.utc)
-                                    elapsed = (now - activity.start).total_seconds()
-                                    start_time = max(0.0, elapsed)
-                                    break
+                                if isinstance(activity, discord.Spotify):
+                                    if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
+                                        import datetime
+                                        now = datetime.datetime.now(datetime.timezone.utc)
+                                        elapsed = (now - activity.start).total_seconds()
+                                        start_time = max(0.0, elapsed)
+                                        break
                                     
                     view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
                     embed = view._build_embed()
