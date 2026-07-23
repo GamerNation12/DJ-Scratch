@@ -178,7 +178,11 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             pass
             
         import asyncio
-        await asyncio.sleep(60)
+        for _ in range(60):
+            if not getattr(self.bot, 'is_restarting', False):
+                # If it's cancelled, we don't need to exit. The cancel command handles status resets.
+                return
+            await asyncio.sleep(1)
         
         if getattr(self.bot, 'session', None):
             await self.bot.session.close()
