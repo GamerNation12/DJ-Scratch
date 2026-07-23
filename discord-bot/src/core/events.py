@@ -39,7 +39,12 @@ class CustomTree(app_commands.CommandTree):
             allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
         )
 
-bot = commands.Bot(command_prefix=",", intents=intents, tree_cls=CustomTree)
+def get_prefix(client, message):
+    if getattr(client, 'is_test_bot', False):
+        return ",,"
+    return ","
+
+bot = commands.Bot(command_prefix=get_prefix, intents=intents, tree_cls=CustomTree)
 bot.is_restarting = False
 bot.remove_command('help')
 
