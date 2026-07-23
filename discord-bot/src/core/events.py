@@ -901,8 +901,8 @@ async def spotify_track_length_scanner():
     """Background task to sync track lengths from Spotify API and delete invalid scrobbles."""
     from .database import db_pool
     from src.utils.spotify import fetch_spotify_track_durations
-    
     total_processed = 0
+    was_processing = False
     while True:
         try:
             if db_pool: # Dummy comment to trigger webhook
@@ -910,6 +910,7 @@ async def spotify_track_length_scanner():
                     # Fetch up to 1000 unique tracks to process
                     rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 1000")
                     if rows:
+                        was_processing = True
                         uris = [row['spotify_uri'] for row in rows]
                         
                         # Split URIs into chunks of 50 for Spotify API
@@ -964,6 +965,9 @@ async def spotify_track_length_scanner():
                         
                         await asyncio.sleep(0.1)
                     else:
+                        if was_processing:
+                            print(f"{Log.GREEN}>>> [BACKGROUND SCANNER] Queue completely empty! All tracks have been validated and filtered.{Log.RESET}")
+                            was_processing = False
                         await asyncio.sleep(60)
             else:
                 await asyncio.sleep(60)
