@@ -1018,16 +1018,20 @@ async def on_ready():
     
 
 
-    from .database import db_pool
-    if db_pool:
-        try:
-            async with db_pool.acquire() as conn:
-                row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
-                if row and row['value']:
-                    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
-                    print(f"{Log.GREEN}>>> Restored bot status to: {row['value']}{Log.RESET}")
-        except Exception as e:
-            print(f"{Log.RED}>>> Failed to load bot status from DB: {e}{Log.RESET}")
+    if getattr(bot, 'is_test_bot', False):
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Use the main bot: DJ Scratch!"))
+        print(f"{Log.GREEN}>>> Set test bot promotional status.{Log.RESET}")
+    else:
+        from .database import db_pool
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
+                    if row and row['value']:
+                        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
+                        print(f"{Log.GREEN}>>> Restored bot status to: {row['value']}{Log.RESET}")
+            except Exception as e:
+                print(f"{Log.RED}>>> Failed to load bot status from DB: {e}{Log.RESET}")
 
     bot.loop.create_task(import_worker())
     bot.loop.create_task(web_import_worker())
