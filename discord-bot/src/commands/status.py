@@ -97,6 +97,7 @@ class StatusCog(commands.Cog):
         return embed
 
     async def force_update_statuses(self):
+        if getattr(self.bot, 'is_test_bot', False): return
         try:
             import json
             raw_msgs = await get_global_setting('status_messages')
@@ -121,6 +122,7 @@ class StatusCog(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def status_loop(self):
+        if getattr(self.bot, 'is_test_bot', False): return
         await self.bot.wait_until_ready()
         try:
             # 1. Update heartbeat
