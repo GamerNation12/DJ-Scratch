@@ -1166,6 +1166,8 @@ async def on_command_error(ctx, error):
         return await ctx.send("🚫 I don't have the required permissions to perform this action here.")
     elif isinstance(error, commands.MemberNotFound):
         return await ctx.send(f"⚠️ I couldn't find that user. Make sure you typed their name correctly.\n**The right way to use this is:** {usage}")
+    elif isinstance(error, commands.CommandInvokeError) and isinstance(error.original, discord.HTTPException) and error.original.code == 200000:
+        return await ctx.send("❌ The response was blocked by AutoMod. This usually happens if your username or requested data contains a blocked word.")
         
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
     try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
@@ -1182,6 +1184,8 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
         msg = "🚫 You don't have the required permissions to use this command."
     elif isinstance(error, discord.app_commands.BotMissingPermissions):
         msg = "🚫 I don't have the required permissions to perform this action here."
+    elif isinstance(error, discord.app_commands.CommandInvokeError) and isinstance(error.original, discord.HTTPException) and error.original.code == 200000:
+        msg = "❌ The response was blocked by AutoMod. This usually happens if your username or requested data contains a blocked word."
         
     if msg:
         if not interaction.response.is_done():
