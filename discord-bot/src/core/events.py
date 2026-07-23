@@ -1404,8 +1404,9 @@ class FMDetailsView(discord.ui.View):
                 start_time = spotify_progress
             else:
                 # Fallback: Check Discord Rich Presence
-                if isinstance(interaction.user, discord.Member):
-                    for activity in interaction.user.activities:
+                member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+                if member and isinstance(member, discord.Member):
+                    for activity in member.activities:
                         if isinstance(activity, discord.Spotify):
                             # Verify it's the same song by comparing artist or title
                             if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
@@ -3078,8 +3079,9 @@ async def on_interaction(interaction: discord.Interaction):
                         start_time = spotify_progress
                     else:
                         # Fallback: Check Discord Rich Presence
-                        if isinstance(interaction.user, discord.Member):
-                            for activity in interaction.user.activities:
+                        member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+                        if member and isinstance(member, discord.Member):
+                            for activity in member.activities:
                                 if isinstance(activity, discord.Spotify):
                                     if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
                                         import datetime
