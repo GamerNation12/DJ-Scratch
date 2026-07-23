@@ -88,7 +88,17 @@ async def fetch_spotify_track_durations(uris: list):
                         uri = uri_to_id.get(track['id'])
                         if uri:
                             durations[uri] = track['duration_ms']
+            elif resp.status == 403:
+                print(f"Spotify API 403 Forbidden! Missing Premium subscription.")
+                return None
+            elif resp.status == 429:
+                print(f"Spotify API 429 Rate Limited!")
+                return None
+            else:
+                print(f"Spotify API error: {resp.status}")
+                return None
     except Exception as e:
         print(f"Error fetching Spotify tracks: {e}")
+        return None
         
     return durations

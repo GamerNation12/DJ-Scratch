@@ -905,8 +905,9 @@ async def spotify_track_length_scanner():
     total_processed = 0
     while True:
         try:
-            if db_pool:
+            if db_pool: # Dummy comment to trigger webhook
                 async with db_pool.acquire() as conn:
+                    # Fetch up to 1000 unique tracks to process
                     rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 1000")
                     if rows:
                         uris = [row['spotify_uri'] for row in rows]
@@ -920,9 +921,18 @@ async def spotify_track_length_scanner():
                         
                         # Merge durations
                         durations = {}
+                        api_failed = False
                         for res in results:
+                            if res is None or isinstance(res, Exception):
+                                api_failed = True
+                                break
                             if isinstance(res, dict):
                                 durations.update(res)
+                                
+                        if api_failed:
+                            print(f"{Log.RED}>>> [BACKGROUND SCANNER] Spotify API failed or requires Premium! Pausing scanner...{Log.RESET}")
+                            await asyncio.sleep(60)
+                            continue
                         
                         delete_ctids = []
                         update_ctids = []
