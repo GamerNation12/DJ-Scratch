@@ -26,22 +26,24 @@ def parse_synced_lyrics(synced_text: str):
     return lines
 
 class KaraokeLyricsView(discord.ui.View):
-    def __init__(self, artist: str, song: str, synced_lyrics: str, plain_lyrics: str):
+    def __init__(self, artist: str, song: str, synced_lyrics: str, plain_lyrics: str, start_time: float = 0.0):
         super().__init__(timeout=300) # 5 minutes timeout
         self.artist = artist
         self.song = song
         self.plain_lyrics = plain_lyrics
         self.lines = parse_synced_lyrics(synced_lyrics) if synced_lyrics else []
         
-        self.is_playing = False
-        self.current_time = 0.0
+        self.is_playing = True if start_time > 0.0 else False
+        self.current_time = start_time
         self.message: discord.Message = None
         self.update_task = None
         
         # Get total duration from the last lyric line if possible
         self.duration = self.lines[-1][0] + 10.0 if self.lines else 180.0
         
-        # If no synced lyrics, disable karaoke controls
+        # If auto-started, spin up the background task
+        if self.is_playing and self.lines:
+            self.update_task = asyncio.create_task(self._update_loop())
         if not self.lines:
             for child in self.children:
                 child.disabled = True
@@ -127,7 +129,7 @@ class KaraokeLyricsView(discord.ui.View):
             
         return embed
 
-    @discord.ui.button(label="Play", emoji="▶️", style=discord.ButtonStyle.primary, custom_id="play_pause")
+    @discord.ui.button(label="Play", emoji="▶️", style=discord.ButtonStyle.primary, custom_id="play_pause", row=1)
     async def btn_play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_playing = not self.is_playing
         
@@ -139,19 +141,31 @@ class KaraokeLyricsView(discord.ui.View):
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="-10s", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="rewind")
+    @discord.ui.button(label="-10s", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="rewind", row=0)
     async def btn_rewind(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_time = max(0.0, self.current_time - 10.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="+10s", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="forward")
+    @discord.ui.button(label="-2s", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="rewind_small", row=0)
+    async def btn_rewind_small(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_time = max(0.0, self.current_time - 2.0)
+        await interaction.response.defer()
+        await self._edit_message()
+
+    @discord.ui.button(label="+2s", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="forward_small", row=0)
+    async def btn_forward_small(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_time = min(self.duration, self.current_time + 2.0)
+        await interaction.response.defer()
+        await self._edit_message()
+
+    @discord.ui.button(label="+10s", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="forward", row=0)
     async def btn_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_time = min(self.duration, self.current_time + 10.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="Plain Text", emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="stop")
+    @discord.ui.button(label="Plain Text", emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="stop", row=1)
     async def btn_stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_playing = False
         

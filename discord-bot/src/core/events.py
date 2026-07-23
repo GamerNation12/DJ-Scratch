@@ -931,9 +931,8 @@ async def spotify_track_length_scanner():
                                 durations.update(res)
                                 
                         if api_failed:
-                            print(f"{Log.RED}>>> [BACKGROUND SCANNER] Spotify API failed or requires Premium! Pausing scanner...{Log.RESET}")
-                            await asyncio.sleep(60)
-                            continue
+                            print(f"{Log.RED}>>> [BACKGROUND SCANNER] Spotify API requires Premium! Scanner is permanently paused until bot is restarted.{Log.RESET}")
+                            break
                         
                         delete_ctids = []
                         update_ctids = []
@@ -1395,7 +1394,21 @@ class FMDetailsView(discord.ui.View):
         lyrics_data = await fetch_lyrics(session, self.artist, self.song)
         if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
             from src.core.karaoke import KaraokeLyricsView
-            view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"))
+            
+            # WORKAROUND: Check Discord Rich Presence for Spotify auto-sync
+            start_time = 0.0
+            if isinstance(interaction.user, discord.Member):
+                for activity in interaction.user.activities:
+                    if isinstance(activity, discord.Spotify):
+                        # Verify it's the same song by comparing artist or title
+                        if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
+                            import datetime
+                            now = datetime.datetime.now(datetime.timezone.utc)
+                            elapsed = (now - activity.start).total_seconds()
+                            start_time = max(0.0, elapsed)
+                            break
+                            
+            view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
             embed = view._build_embed()
             view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         else:
@@ -3048,7 +3061,20 @@ async def on_interaction(interaction: discord.Interaction):
                 lyrics_data = await fetch_lyrics(session, artist, song)
                 if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
                     from src.core.karaoke import KaraokeLyricsView
-                    view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"))
+                    
+                    # WORKAROUND: Check Discord Rich Presence for Spotify auto-sync
+                    start_time = 0.0
+                    if isinstance(interaction.user, discord.Member):
+                        for activity in interaction.user.activities:
+                            if isinstance(activity, discord.Spotify):
+                                if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
+                                    import datetime
+                                    now = datetime.datetime.now(datetime.timezone.utc)
+                                    elapsed = (now - activity.start).total_seconds()
+                                    start_time = max(0.0, elapsed)
+                                    break
+                                    
+                    view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
                     embed = view._build_embed()
                     view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
                 else:

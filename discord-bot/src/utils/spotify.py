@@ -89,7 +89,7 @@ async def fetch_spotify_track_durations(uris: list):
                         if uri:
                             durations[uri] = track['duration_ms']
             elif resp.status == 403:
-                print(f"Spotify API 403 Forbidden! Missing Premium subscription.")
+                # Silently return None to let events.py pause the scanner without spamming console
                 return None
             elif resp.status == 429:
                 print(f"Spotify API 429 Rate Limited!")
