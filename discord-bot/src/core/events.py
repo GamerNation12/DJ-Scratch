@@ -1036,6 +1036,21 @@ async def on_ready():
     bot.loop.create_task(import_worker())
     bot.loop.create_task(web_import_worker())
     bot.loop.create_task(spotify_track_length_scanner())
+
+@bot.check
+async def global_test_bot_check(ctx):
+    if getattr(bot, 'is_test_bot', False):
+        if ctx.author.id != 759433582107426816:
+            raise commands.CheckFailure("This is the test bot. Only the developer can use it!")
+    return True
+
+@bot.tree.interaction_check
+async def global_test_bot_interaction_check(interaction: discord.Interaction):
+    if getattr(bot, 'is_test_bot', False):
+        if interaction.user.id != 759433582107426816:
+            await interaction.response.send_message("❌ This is the beta test bot. Only the developer can use it!", ephemeral=True)
+            return False
+    return True
 @bot.event
 async def on_guild_join(guild):
     print(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
