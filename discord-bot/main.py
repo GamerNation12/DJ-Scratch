@@ -61,24 +61,6 @@ async def restart_watchdog():
         for _ in range(60):
             if not getattr(bot, 'is_restarting', False):
                 print(f"[{bot.user.name}] Restart cancelled by owner.")
-                try:
-                    import discord
-                    from src.core.database import db_pool
-                    if db_pool:
-                        async with db_pool.acquire() as conn:
-                            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
-                            if row and row['value']:
-                                await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
-                            else:
-                                await bot.change_presence(status=discord.Status.online, activity=None)
-                    else:
-                        await bot.change_presence(status=discord.Status.online, activity=None)
-                        
-                    status_cog = bot.get_cog("StatusCog")
-                    if status_cog:
-                        await status_cog.force_update_statuses()
-                except Exception as e:
-                    print(f"Failed to reset status on cancel: {e}")
                 return
             await asyncio.sleep(1)
         

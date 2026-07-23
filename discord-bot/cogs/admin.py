@@ -27,6 +27,25 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         if getattr(self.bot, 'is_restarting', False):
             self.bot.is_restarting = False
             await ctx.send("✅ **Restart cancelled.** The bot will remain online.")
+            
+            try:
+                import discord
+                from src.core.database import db_pool
+                if db_pool:
+                    async with db_pool.acquire() as conn:
+                        row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
+                        if row and row['value']:
+                            await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.listening, name=row['value']))
+                        else:
+                            await self.bot.change_presence(status=discord.Status.online, activity=None)
+                else:
+                    await self.bot.change_presence(status=discord.Status.online, activity=None)
+                    
+                status_cog = self.bot.get_cog("StatusCog")
+                if status_cog:
+                    await status_cog.force_update_statuses()
+            except Exception as e:
+                print(f"Failed to reset status on cancel: {e}")
         else:
             await ctx.send("⚠️ No restart is currently in progress.")
 
