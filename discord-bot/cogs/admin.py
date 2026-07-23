@@ -328,5 +328,30 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             
         await ctx.send(embed=embed)
 
+    @commands.command(name="updatetest", aliases=["ut"])
+    async def update_test_bot(self, ctx):
+        if getattr(self.bot, 'is_test_bot', False):
+            await ctx.send("❌ This command can only be run from the main bot.")
+            return
+            
+        msg = await ctx.send("🔄 Pulling latest code from GitHub for the Beta Bot...")
+        import subprocess
+        try:
+            result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+            output = result.stdout
+        except subprocess.CalledProcessError as e:
+            await msg.edit(content=f"❌ `git pull` failed:\n```\n{e.stderr}\n```")
+            return
+            
+        if getattr(self.bot, 'test_bot_process', None) and self.bot.test_bot_process.poll() is None:
+            self.bot.test_bot_process.terminate()
+            self.bot.test_bot_process = None
+            
+        import sys
+        self.bot.test_bot_process = subprocess.Popen([sys.executable, "main.py", "--test"])
+        
+        output_trim = output if len(output) < 1500 else output[:1500] + "... (truncated)"
+        await msg.edit(content=f"✅ Beta Bot updated and restarted successfully!\n```\n{output_trim}\n```")
+
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))
