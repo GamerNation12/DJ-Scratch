@@ -114,6 +114,18 @@ async def init_db():
                 except Exception:
                     pass
                 try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_access_token TEXT")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_refresh_token TEXT")
+                except Exception:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_token_expires_at TIMESTAMP")
+                except Exception:
+                    pass
+                try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN lastfm_username TEXT")
                 except Exception:
                     pass

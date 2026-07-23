@@ -1395,10 +1395,17 @@ class FMDetailsView(discord.ui.View):
         if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
             from src.core.karaoke import KaraokeLyricsView
             
-            # WORKAROUND: Check Discord Rich Presence for Spotify auto-sync
+            # WORKAROUND: Check Spotify OAuth first!
             start_time = 0.0
-            if isinstance(interaction.user, discord.Member):
-                for activity in interaction.user.activities:
+            from src.utils.spotify import fetch_user_currently_playing
+            spotify_progress = await fetch_user_currently_playing(str(interaction.user.id))
+            
+            if spotify_progress > 0:
+                start_time = spotify_progress
+            else:
+                # Fallback: Check Discord Rich Presence
+                if isinstance(interaction.user, discord.Member):
+                    for activity in interaction.user.activities:
                     if isinstance(activity, discord.Spotify):
                         # Verify it's the same song by comparing artist or title
                         if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
@@ -3062,10 +3069,17 @@ async def on_interaction(interaction: discord.Interaction):
                 if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
                     from src.core.karaoke import KaraokeLyricsView
                     
-                    # WORKAROUND: Check Discord Rich Presence for Spotify auto-sync
+                    # WORKAROUND: Check Spotify OAuth first!
                     start_time = 0.0
-                    if isinstance(interaction.user, discord.Member):
-                        for activity in interaction.user.activities:
+                    from src.utils.spotify import fetch_user_currently_playing
+                    spotify_progress = await fetch_user_currently_playing(str(interaction.user.id))
+                    
+                    if spotify_progress > 0:
+                        start_time = spotify_progress
+                    else:
+                        # Fallback: Check Discord Rich Presence
+                        if isinstance(interaction.user, discord.Member):
+                            for activity in interaction.user.activities:
                             if isinstance(activity, discord.Spotify):
                                 if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
                                     import datetime
