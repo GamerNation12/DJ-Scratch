@@ -7,6 +7,13 @@ from datetime import datetime, timedelta
 _spotify_access_token = None
 _spotify_token_expires = None
 _spotify_lock = asyncio.Lock()
+_spotify_session = None
+
+async def get_spotify_session():
+    global _spotify_session
+    if _spotify_session is None or _spotify_session.closed:
+        _spotify_session = aiohttp.ClientSession()
+    return _spotify_session
 
 async def get_spotify_token():
     global _spotify_access_token, _spotify_token_expires
@@ -32,14 +39,14 @@ async def get_spotify_token():
         data = {"grant_type": "client_credentials"}
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, data=data) as resp:
-                    if resp.status == 200:
-                        json_data = await resp.json()
-                        _spotify_access_token = json_data['access_token']
-                        expires_in = json_data['expires_in']
-                        _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
-                        return _spotify_access_token
+            session = await get_spotify_session()
+            async with session.post(url, headers=headers, data=data) as resp:
+                if resp.status == 200:
+                    json_data = await resp.json()
+                    _spotify_access_token = json_data['access_token']
+                    expires_in = json_data['expires_in']
+                    _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
+                    return _spotify_access_token
         except Exception as e:
             print(f"Error fetching Spotify token: {e}")
             
@@ -72,15 +79,15 @@ async def fetch_spotify_track_durations(uris: list):
     
     durations = {}
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for track in data.get('tracks', []):
-                        if track and 'id' in track and 'duration_ms' in track:
-                            uri = uri_to_id.get(track['id'])
-                            if uri:
-                                durations[uri] = track['duration_ms']
+        session = await get_spotify_session()
+        async with session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for track in data.get('tracks', []):
+                    if track and 'id' in track and 'duration_ms' in track:
+                        uri = uri_to_id.get(track['id'])
+                        if uri:
+                            durations[uri] = track['duration_ms']
     except Exception as e:
         print(f"Error fetching Spotify tracks: {e}")
         
