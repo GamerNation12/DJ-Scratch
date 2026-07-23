@@ -22,7 +22,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         from src.core.database import has_command_permission
         return await has_command_permission(str(ctx.author.id), ctx.command.name)
 
-    @commands.command(name="cancelrestart", aliases=["cr"])
+    @commands.command(name="cancel", aliases=["cr"])
     async def cancel_restart(self, ctx):
         if getattr(self.bot, 'is_restarting', False):
             self.bot.is_restarting = False
