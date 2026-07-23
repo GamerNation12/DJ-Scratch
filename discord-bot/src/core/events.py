@@ -478,7 +478,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.spotify_auth']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
