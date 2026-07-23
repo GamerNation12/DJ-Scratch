@@ -510,8 +510,12 @@ async def setup_hook():
                             except Exception as e:
                                 print(f"{Log.RED}>>> Failed to load TEST feature {test_cog}: {e}{Log.RESET}")
             
-            from src.core.socket_server import start_socket_server
-            await start_socket_server()
+            if not getattr(bot, 'is_test_bot', False):
+                try:
+                    from src.core.socket_server import start_socket_server
+                    await start_socket_server()
+                except Exception as e:
+                    pass
             
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
