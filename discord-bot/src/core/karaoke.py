@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import re
-from src.core.theme import Theme, LASTFM_COLOR
+from src.core.theme import Theme
 
 def parse_synced_lyrics(synced_text: str):
     """
@@ -79,7 +79,7 @@ class KaraokeLyricsView(discord.ui.View):
             desc = self.plain_lyrics or "No lyrics available."
             if len(desc) > 4096:
                 desc = desc[:4093] + "..."
-            return Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=LASTFM_COLOR)
+            return Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
             
         # Find current active line index
         active_idx = 0
@@ -119,7 +119,7 @@ class KaraokeLyricsView(discord.ui.View):
         
         desc += f"\n\n`{mins}:{secs:02d} {bar} {tmins}:{tsecs:02d}`"
         
-        embed = Theme.get_embed(title=f"🎤 Karaoke: {self.song} by {self.artist}", description=desc, color=LASTFM_COLOR)
+        embed = Theme.get_embed(title=f"🎤 Karaoke: {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
         if self.is_playing:
             embed.set_footer(text="Auto-syncing lyrics... (Updates every 2s)")
         else:
@@ -159,7 +159,7 @@ class KaraokeLyricsView(discord.ui.View):
         if len(desc) > 4096:
             desc = desc[:4093] + "..."
             
-        embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=LASTFM_COLOR)
+        embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
         
         # Remove buttons
         self.clear_items()
