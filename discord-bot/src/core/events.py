@@ -1397,11 +1397,13 @@ class FMDetailsView(discord.ui.View):
             
             # WORKAROUND: Check Spotify OAuth first!
             start_time = 0.0
+            real_duration = 0.0
             from src.utils.spotify import fetch_user_currently_playing
-            spotify_progress = await fetch_user_currently_playing(str(interaction.user.id))
+            spotify_progress, spotify_duration = await fetch_user_currently_playing(str(interaction.user.id))
             
             if spotify_progress > 0:
                 start_time = spotify_progress
+                real_duration = spotify_duration
             else:
                 # Fallback: Check Discord Rich Presence
                 member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
@@ -1414,7 +1416,26 @@ class FMDetailsView(discord.ui.View):
                                 now = datetime.datetime.now(datetime.timezone.utc)
                                 elapsed = (now - activity.start).total_seconds()
                                 start_time = max(0.0, elapsed)
+                                real_duration = activity.duration.total_seconds() if activity.duration else 0.0
                                 break
+                                
+            # Auto-fix offset if lyrics track is longer than the real track
+            if real_duration > 0 and lyrics_data.get("synced"):
+                try:
+                    # Get the very last timestamp in the lyrics as the "lyrics duration"
+                    last_line = lyrics_data["synced"].strip().split('\n')[-1]
+                    import re
+                    match = re.search(r'\[(\d+):(\d+\.\d+)\]', last_line)
+                    if match:
+                        lyric_duration = int(match.group(1)) * 60 + float(match.group(2))
+                        offset = lyric_duration - real_duration
+                        # If the difference is between 2 and 30 seconds, apply the offset
+                        if 2.0 <= offset <= 30.0:
+                            start_time += offset
+                        elif -30.0 <= offset <= -2.0:
+                            start_time += offset
+                except Exception:
+                    pass
                             
             view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
             embed = view._build_embed()
@@ -3072,11 +3093,13 @@ async def on_interaction(interaction: discord.Interaction):
                     
                     # WORKAROUND: Check Spotify OAuth first!
                     start_time = 0.0
+                    real_duration = 0.0
                     from src.utils.spotify import fetch_user_currently_playing
-                    spotify_progress = await fetch_user_currently_playing(str(interaction.user.id))
+                    spotify_progress, spotify_duration = await fetch_user_currently_playing(str(interaction.user.id))
                     
                     if spotify_progress > 0:
                         start_time = spotify_progress
+                        real_duration = spotify_duration
                     else:
                         # Fallback: Check Discord Rich Presence
                         member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
@@ -3088,7 +3111,24 @@ async def on_interaction(interaction: discord.Interaction):
                                         now = datetime.datetime.now(datetime.timezone.utc)
                                         elapsed = (now - activity.start).total_seconds()
                                         start_time = max(0.0, elapsed)
+                                        real_duration = activity.duration.total_seconds() if activity.duration else 0.0
                                         break
+                                        
+                    # Auto-fix offset if lyrics track is longer than the real track
+                    if real_duration > 0 and lyrics_data.get("synced"):
+                        try:
+                            last_line = lyrics_data["synced"].strip().split('\n')[-1]
+                            import re
+                            match = re.search(r'\[(\d+):(\d+\.\d+)\]', last_line)
+                            if match:
+                                lyric_duration = int(match.group(1)) * 60 + float(match.group(2))
+                                offset = lyric_duration - real_duration
+                                if 2.0 <= offset <= 30.0:
+                                    start_time += offset
+                                elif -30.0 <= offset <= -2.0:
+                                    start_time += offset
+                        except Exception:
+                            pass
                                     
                     view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
                     embed = view._build_embed()
