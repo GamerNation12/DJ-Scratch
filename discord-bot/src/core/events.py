@@ -485,6 +485,31 @@ async def setup_hook():
                     print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
+                    
+            if getattr(bot, 'is_test_bot', False):
+                import os
+                test_dir = os.path.join(os.path.dirname(__file__), "..", "test_commands")
+                if os.path.exists(test_dir):
+                    for filename in os.listdir(test_dir):
+                        if filename.endswith('.py') and not filename.startswith('__'):
+                            base_name = filename[:-3]
+                            test_cog = f"src.test_commands.{base_name}"
+                            
+                            # Check if this overrides an existing command
+                            possible_overrides = [f"src.commands.{base_name}", f"cogs.{base_name}"]
+                            for original_cog in possible_overrides:
+                                if original_cog in bot.extensions:
+                                    try:
+                                        await bot.unload_extension(original_cog)
+                                        print(f"{Log.YELLOW}>>> Unloaded original {original_cog} for test override{Log.RESET}")
+                                    except Exception as e:
+                                        pass
+                            
+                            try:
+                                await bot.load_extension(test_cog)
+                                print(f"{Log.MAGENTA}>>> Loaded TEST feature {test_cog}{Log.RESET}")
+                            except Exception as e:
+                                print(f"{Log.RED}>>> Failed to load TEST feature {test_cog}: {e}{Log.RESET}")
             
             from src.core.socket_server import start_socket_server
             await start_socket_server()
@@ -1604,7 +1629,14 @@ class ApplyAvatarView(discord.ui.View):
                 scr_res = await scrobble_bot_track(self.bot_instance.session, self.artist, self.track, self.album)
             
             debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)} scr:{scr_res}"
-            await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
+            if getattr(self.bot_instance, 'is_test_bot', False):
+                embed = Theme.get_success_embed(
+                    title="Avatar Updated", 
+                    description=f"Successfully applied **{self.artist}** as the bot avatar!\n\n```ini\n[Debug Info]\n{debug_info}\n```"
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
             self.stop()
             
             if self.original_msg and self.original_user:

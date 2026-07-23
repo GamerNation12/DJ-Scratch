@@ -3,6 +3,8 @@ from discord.ext import commands, tasks
 import json
 import os
 import sys
+import subprocess
+from discord import app_commands
 from ..core.events import Log
 
 from src.core.database import format_name
@@ -112,6 +114,42 @@ class AdminIPC(commands.Cog):
                 except Exception as e:
                     print(f"Failed to DM user {user_id} for permission revoke: {e}")
                     await message.add_reaction("⚠️")
+
+    @app_commands.command(name="testbot", description="Turn the test bot on or off (Owner Only)")
+    @app_commands.choices(action=[
+        app_commands.Choice(name="On", value="on"),
+        app_commands.Choice(name="Off", value="off")
+    ])
+    async def testbot_cmd(self, interaction: discord.Interaction, action: str):
+        from src.core.config import OWNER_ID
+        if interaction.user.id != OWNER_ID:
+            await interaction.response.send_message("❌ You are not the owner of this bot.", ephemeral=True)
+            return
+
+        if getattr(self.bot, 'is_test_bot', False):
+            await interaction.response.send_message("❌ This command can only be run on the main bot.", ephemeral=True)
+            return
+
+        if action == "on":
+            if getattr(self.bot, 'test_bot_process', None) and self.bot.test_bot_process.poll() is None:
+                await interaction.response.send_message("⚠️ The test bot is already running!", ephemeral=True)
+                return
+                
+            if not os.getenv("TEST_DISCORD_TOKEN"):
+                await interaction.response.send_message("❌ `TEST_DISCORD_TOKEN` is not set in `.env`!", ephemeral=True)
+                return
+                
+            self.bot.test_bot_process = subprocess.Popen([sys.executable, "main.py", "--test"])
+            await interaction.response.send_message("✅ Started the test bot in the background!")
+            
+        elif action == "off":
+            if not getattr(self.bot, 'test_bot_process', None) or self.bot.test_bot_process.poll() is not None:
+                await interaction.response.send_message("⚠️ The test bot is not currently running.", ephemeral=True)
+                return
+                
+            self.bot.test_bot_process.terminate()
+            self.bot.test_bot_process = None
+            await interaction.response.send_message("✅ Terminated the test bot!")
 
     @tasks.loop(minutes=30)
     async def push_stats(self):

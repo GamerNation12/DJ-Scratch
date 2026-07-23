@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 @tasks.loop(minutes=1)
 async def memory_monitor():
+    if getattr(bot, 'is_test_bot', False): return
     try:
         # Check overall system RAM usage percentage
         ram_percent = psutil.virtual_memory().percent
@@ -29,6 +30,7 @@ async def memory_monitor():
 
 @tasks.loop(seconds=5)
 async def restart_watchdog():
+    if getattr(bot, 'is_test_bot', False): return
     if getattr(bot, 'is_restarting', False):
         return
         
@@ -65,6 +67,7 @@ async def restart_watchdog():
 
 @tasks.loop(hours=24)
 async def inactive_purge_task():
+    if getattr(bot, 'is_test_bot', False): return
     from src.core.events import run_inactive_purge
     await run_inactive_purge()
 
@@ -118,6 +121,7 @@ async def on_ready_monitor():
 
 load_dotenv()
 if __name__ == "__main__":
+    is_test = "--test" in sys.argv
     print("Cleaning up old temp files...")
     for f in os.listdir('.'):
         if f.startswith('temp_import_') or f.startswith('web_import_'):
@@ -129,5 +133,15 @@ if __name__ == "__main__":
                 
     import logging
     logging.getLogger().handlers.clear()
-    print("Starting DJ Scratch Bot...")
-    bot.run(os.getenv("DISCORD_TOKEN"), log_level=logging.WARNING)
+    
+    token_env = "TEST_DISCORD_TOKEN" if is_test else "DISCORD_TOKEN"
+    token = os.getenv(token_env)
+    if not token:
+        print(f"ERROR: {token_env} is not set in your .env file!")
+        sys.exit(1)
+        
+    bot.is_test_bot = is_test
+    bot.test_bot_process = None
+        
+    print(f"Starting DJ Scratch {'(TEST MODE) ' if is_test else ''}Bot...")
+    bot.run(token, log_level=logging.WARNING)
