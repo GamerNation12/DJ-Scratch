@@ -289,5 +289,44 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         await run_inactive_purge()
         await msg.edit(content="✅ Purge task finished running! Check your DMs (if you were in the 53-60 day range) or the terminal for deletion logs.")
 
+    @commands.command(name="debug", aliases=["db"])
+    async def debug_cmd(self, ctx):
+        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> System Debug Info", color=discord.Color.gold(), timestamp=discord.utils.utcnow())
+        
+        # CPU & RAM
+        import psutil
+        cpu_usage = psutil.cpu_percent(interval=None)
+        ram_usage = psutil.virtual_memory().percent
+        
+        # Database
+        from src.core.database import db_pool
+        db_status = "🟢 Connected" if db_pool else "🔴 Disconnected"
+        
+        # Web Socket
+        from src.core.socket_server import user_sockets
+        socket_status = f"🟢 Online ({len(user_sockets)} connected)"
+        if getattr(self.bot, 'is_test_bot', False):
+            socket_status = "⚪ Disabled (Test Bot)"
+        
+        # Discord API
+        latency = round(self.bot.latency * 1000)
+        
+        embed.add_field(name="Server Resources", value=f"**CPU:** {cpu_usage}%\n**RAM:** {ram_usage}%", inline=True)
+        embed.add_field(name="Database", value=db_status, inline=True)
+        embed.add_field(name="Web Socket IPC", value=socket_status, inline=True)
+        embed.add_field(name="Discord API", value=f"**Latency:** {latency}ms\n**Guilds:** {len(self.bot.guilds)}\n**Users:** {len(self.bot.users)}", inline=False)
+        
+        # Spotify Scanner
+        try:
+            from src.core.events import SPOTIFY_PREMIUM_ERROR
+            if SPOTIFY_PREMIUM_ERROR:
+                embed.add_field(name="Spotify Scanner", value="🔴 Paused (Premium Required)", inline=False)
+            else:
+                embed.add_field(name="Spotify Scanner", value="🟢 Active", inline=False)
+        except Exception:
+            pass
+            
+        await ctx.send(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))

@@ -1663,11 +1663,11 @@ class ApplyAvatarView(discord.ui.View):
             if getattr(self.bot_instance, 'is_test_bot', False):
                 embed = Theme.get_success_embed(
                     title="Avatar Updated", 
-                    description=f"Successfully applied **{self.artist}** as the bot avatar!\n\n```ini\n[Debug Info]\n{debug_info}\n```"
+                    description=f"Successfully applied **{self.artist}** as the bot avatar!"
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
-                await interaction.followup.send(f"✅ Avatar updated successfully! [{debug_info}]", ephemeral=True)
+                await interaction.followup.send(f"✅ Avatar updated successfully!", ephemeral=True)
             self.stop()
             
             if self.original_msg and self.original_user:
