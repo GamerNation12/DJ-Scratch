@@ -58,7 +58,20 @@ async def restart_watchdog():
             pass
             
         import asyncio
-        await asyncio.sleep(60)
+        for _ in range(60):
+            if not getattr(bot, 'is_restarting', False):
+                print(f"[{bot.user.name}] Restart cancelled by owner.")
+                try:
+                    status_cog = bot.get_cog("StatusCog")
+                    if status_cog:
+                        await status_cog.force_update_statuses()
+                        
+                    import discord
+                    await bot.change_presence(status=discord.Status.online, activity=None)
+                except Exception:
+                    pass
+                return
+            await asyncio.sleep(1)
         
         if getattr(bot, 'session', None):
             await bot.session.close()

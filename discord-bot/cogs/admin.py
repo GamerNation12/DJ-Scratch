@@ -22,6 +22,14 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         from src.core.database import has_command_permission
         return await has_command_permission(str(ctx.author.id), ctx.command.name)
 
+    @commands.command(name="cancelrestart", aliases=["cr"])
+    async def cancel_restart(self, ctx):
+        if getattr(self.bot, 'is_restarting', False):
+            self.bot.is_restarting = False
+            await ctx.send("✅ **Restart cancelled.** The bot will remain online.")
+        else:
+            await ctx.send("⚠️ No restart is currently in progress.")
+
     @commands.command(name="sync", aliases=["sy"])
     async def sync_commands(self, ctx):
         msg = await ctx.send("Syncing slash commands globally... (This may take a moment)")
