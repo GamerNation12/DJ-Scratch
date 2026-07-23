@@ -909,10 +909,22 @@ async def spotify_track_length_scanner():
                     # Find up to 50 tracks that have a spotify_uri but no track_duration (wait, we didn't add track_duration. Let's just use a flag or check if ms_played is still > 0).
                     # Actually, if we validate it, we need a way to mark it as validated so we don't check it again.
                     # Wait, we can just set spotify_uri = 'VALID_' + spotify_uri once validated.
-                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 50")
+                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 250")
                     if rows:
                         uris = [row['spotify_uri'] for row in rows]
-                        durations = await fetch_spotify_track_durations(uris)
+                        
+                        # Split URIs into chunks of 50 for Spotify API
+                        chunks = [uris[i:i + 50] for i in range(0, len(uris), 50)]
+                        
+                        # Fetch all chunks concurrently
+                        tasks = [fetch_spotify_track_durations(chunk) for chunk in chunks]
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        
+                        # Merge durations
+                        durations = {}
+                        for res in results:
+                            if isinstance(res, dict):
+                                durations.update(res)
                         
                         delete_ctids = []
                         update_ctids = []
@@ -940,9 +952,9 @@ async def spotify_track_length_scanner():
                             
                         # Log progress to console
                         remaining = await conn.fetchval("SELECT COUNT(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
-                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed 50 tracks. Remaining unvalidated tracks: {remaining}{Log.RESET}")
+                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Remaining unvalidated tracks: {remaining}{Log.RESET}")
                         
-                        await asyncio.sleep(0.3)
+                        await asyncio.sleep(0.1)
                     else:
                         await asyncio.sleep(60)
             else:
