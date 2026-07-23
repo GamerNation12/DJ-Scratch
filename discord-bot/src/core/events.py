@@ -914,6 +914,9 @@ async def spotify_track_length_scanner():
                         uris = [row['spotify_uri'] for row in rows]
                         durations = await fetch_spotify_track_durations(uris)
                         
+                        delete_ctids = []
+                        update_ctids = []
+                        
                         for row in rows:
                             uri = row['spotify_uri']
                             ctid = row['ctid']
@@ -923,14 +926,19 @@ async def spotify_track_length_scanner():
                             if duration_ms:
                                 # Apply 50% rule or 4 minutes
                                 if ms_played < duration_ms / 2 and ms_played < 240000:
-                                    await conn.execute("DELETE FROM listens WHERE ctid = $1", ctid)
+                                    delete_ctids.append(ctid)
                                 else:
-                                    await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = $1", ctid)
+                                    update_ctids.append(ctid)
                             else:
                                 # Not found on Spotify, mark as valid to skip future checks
-                                await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = $1", ctid)
+                                update_ctids.append(ctid)
+                                
+                        if delete_ctids:
+                            await conn.execute("DELETE FROM listens WHERE ctid = ANY($1::tid[])", delete_ctids)
+                        if update_ctids:
+                            await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = ANY($1::tid[])", update_ctids)
                         
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(0.3)
                     else:
                         await asyncio.sleep(60)
             else:
