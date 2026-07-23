@@ -937,6 +937,10 @@ async def spotify_track_length_scanner():
                             await conn.execute("DELETE FROM listens WHERE ctid = ANY($1::tid[])", delete_ctids)
                         if update_ctids:
                             await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = ANY($1::tid[])", update_ctids)
+                            
+                        # Log progress to console
+                        remaining = await conn.fetchval("SELECT COUNT(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
+                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed 50 tracks. Remaining unvalidated tracks: {remaining}{Log.RESET}")
                         
                         await asyncio.sleep(0.3)
                     else:
