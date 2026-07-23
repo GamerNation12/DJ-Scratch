@@ -337,7 +337,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         msg = await ctx.send("🔄 Pulling latest code from GitHub for the Beta Bot...")
         import subprocess
         try:
-            result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+            result = subprocess.run(["git", "pull"], cwd="..", capture_output=True, text=True, check=True)
             output = result.stdout
         except subprocess.CalledProcessError as e:
             await msg.edit(content=f"❌ `git pull` failed:\n```\n{e.stderr}\n```")
