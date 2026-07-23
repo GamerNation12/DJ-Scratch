@@ -20,8 +20,10 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
         async with session.get(url, params=params) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                lyrics = data.get("syncedLyrics") or data.get("plainLyrics")
-                return lyrics
+                return {
+                    "synced": data.get("syncedLyrics"),
+                    "plain": data.get("plainLyrics")
+                }
     except Exception as e:
         print(f"{Log.RED}>>> Failed to fetch lyrics: {e}{Log.RESET}")
         

@@ -1392,12 +1392,12 @@ class FMDetailsView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         from src.core.lyrics import fetch_lyrics
         session = getattr(self.bot_instance, 'session', None)
-        lyrics = await fetch_lyrics(session, self.artist, self.song)
-        if lyrics:
-            if len(lyrics) > 4096:
-                lyrics = lyrics[:4093] + "..."
-            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
-            await interaction.followup.send(embed=embed, ephemeral=True)
+        lyrics_data = await fetch_lyrics(session, self.artist, self.song)
+        if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
+            from src.core.karaoke import KaraokeLyricsView
+            view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"))
+            embed = view._build_embed()
+            view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
@@ -3045,12 +3045,12 @@ async def on_interaction(interaction: discord.Interaction):
                 if not session:
                     session = aiohttp.ClientSession()
                     bot.session = session
-                lyrics = await fetch_lyrics(session, artist, song)
-                if lyrics:
-                    if len(lyrics) > 4096:
-                        lyrics = lyrics[:4093] + "..."
-                    embed = Theme.get_embed(title=f"Lyrics for {song} by {artist}", description=lyrics, color=LASTFM_COLOR)
-                    await interaction.followup.send(embed=embed, ephemeral=True)
+                lyrics_data = await fetch_lyrics(session, artist, song)
+                if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
+                    from src.core.karaoke import KaraokeLyricsView
+                    view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"))
+                    embed = view._build_embed()
+                    view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
                 else:
                     await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
                     
