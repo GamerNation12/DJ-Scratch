@@ -38,7 +38,7 @@ class StatusCog(commands.Cog):
     async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server or is currently restarting.*"
+            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server.*"
             embed.set_footer(text="Watchdog Monitor")
             return embed
             

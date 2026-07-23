@@ -30,9 +30,11 @@ def main():
         last_heartbeat_str = last_heartbeat_str.replace('Z', '')
         last_heartbeat = datetime.fromisoformat(last_heartbeat_str)
         
-        # Check if heartbeat is older than 3 minutes
-        if datetime.utcnow() - last_heartbeat > timedelta(minutes=3):
-            print("Heartbeat is older than 3 minutes! Bot is offline.")
+        force_crash = "--force-crash" in sys.argv
+        
+        # Check if heartbeat is older than 3 minutes or force crashed
+        if force_crash or datetime.utcnow() - last_heartbeat > timedelta(minutes=3):
+            print("Bot is offline or crashed!")
             
             # Fetch message coordinates
             cur.execute("SELECT value FROM global_settings WHERE key = 'status_messages'")
@@ -48,7 +50,7 @@ def main():
                 
                 embed = {
                     "title": "<a:VinylRecord:1527125818713837701> DJ Scratch - System Status",
-                    "description": "**🔴 STATUS: OFFLINE (CRASHED)**\\n*The bot has lost connection to the server or is currently restarting.*",
+                    "description": "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server.*",
                     "color": 16711680, # Red
                     "footer": {
                         "text": "Watchdog Monitor"

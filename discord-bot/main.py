@@ -144,4 +144,13 @@ if __name__ == "__main__":
     bot.test_bot_process = None
         
     print(f"Starting DJ Scratch {'(TEST MODE) ' if is_test else ''}Bot...")
-    bot.run(token, log_level=logging.WARNING)
+    try:
+        bot.run(token, log_level=logging.WARNING)
+    except Exception as e:
+        print(f"CRITICAL: Bot crashed with unhandled exception: {e}")
+        import subprocess
+        watchdog_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "watchdog.py")
+        if os.path.exists(watchdog_path):
+            print("Invoking watchdog script immediately to update status...")
+            subprocess.run([sys.executable, watchdog_path, "--force-crash"])
+        raise e
