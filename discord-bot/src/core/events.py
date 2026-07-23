@@ -902,14 +902,12 @@ async def spotify_track_length_scanner():
     from .database import db_pool
     from src.utils.spotify import fetch_spotify_track_durations
     
+    total_processed = 0
     while True:
         try:
             if db_pool:
                 async with db_pool.acquire() as conn:
-                    # Find up to 50 tracks that have a spotify_uri but no track_duration (wait, we didn't add track_duration. Let's just use a flag or check if ms_played is still > 0).
-                    # Actually, if we validate it, we need a way to mark it as validated so we don't check it again.
-                    # Wait, we can just set spotify_uri = 'VALID_' + spotify_uri once validated.
-                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 250")
+                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 1000")
                     if rows:
                         uris = [row['spotify_uri'] for row in rows]
                         
@@ -951,8 +949,8 @@ async def spotify_track_length_scanner():
                             await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = ANY($1::tid[])", update_ctids)
                             
                         # Log progress to console
-                        remaining = await conn.fetchval("SELECT COUNT(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
-                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Remaining unvalidated tracks: {remaining}{Log.RESET}")
+                        total_processed += len(rows)
+                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Total processed this session: {total_processed}{Log.RESET}")
                         
                         await asyncio.sleep(0.1)
                     else:
