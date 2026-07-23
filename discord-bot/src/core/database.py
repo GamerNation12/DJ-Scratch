@@ -110,11 +110,11 @@ async def init_db():
                     )
                 ''')
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN timezone TEXT DEFAULT 'UTC'")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'")
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_access_token TEXT")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_access_token TEXT")
                 except Exception:
                     pass
                 try:
@@ -122,19 +122,19 @@ async def init_db():
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN spotify_token_expires_at TIMESTAMP")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_token_expires_at TIMESTAMP")
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN lastfm_username TEXT")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username TEXT")
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN show_track_playcount BOOLEAN DEFAULT TRUE")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN display_name TEXT")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS display_name TEXT")
                 except Exception:
                     pass
                 try:
