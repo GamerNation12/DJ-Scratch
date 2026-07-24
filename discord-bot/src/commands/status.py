@@ -62,7 +62,10 @@ class StatusCog(commands.Cog):
         uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m {seconds}s"
         
         # Ping
-        ping = round(self.bot.latency * 1000)
+        try:
+            ping = round(self.bot.latency * 1000)
+        except (OverflowError, ValueError, TypeError):
+            ping = 0
         
         # Guilds and members
         server_count = len(self.bot.guilds)

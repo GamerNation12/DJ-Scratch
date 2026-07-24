@@ -309,7 +309,10 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             socket_status = "⚪ Disabled (Test Bot)"
         
         # Discord API
-        latency = round(self.bot.latency * 1000)
+        try:
+            latency = round(self.bot.latency * 1000)
+        except (OverflowError, ValueError, TypeError):
+            latency = 0
         
         embed.add_field(name="Server Resources", value=f"**CPU:** {cpu_usage}%\n**RAM:** {ram_usage}%", inline=True)
         embed.add_field(name="Database", value=db_status, inline=True)
