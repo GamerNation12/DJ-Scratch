@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 
 const ActivityDMPage = dynamic(() => import("./activity/dm/page"), { ssr: false });
 
-const INVITE_LINK = "https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands";
+const INVITE_LINK = "/invite";
 
 function HomeContent() {
   const searchParams = useSearchParams();

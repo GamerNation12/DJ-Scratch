@@ -181,7 +181,7 @@ export default function Navbar() {
                   <MessageSquare className="w-4 h-4" />
                 </Link>
                 <a 
-                  href="https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands"
+                  href="/invite"
                   target="_blank" 
                   rel="noreferrer"
                   className="hidden lg:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
@@ -208,7 +208,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-3">
                 <a 
-                  href="https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands"
+                  href="/invite"
                   target="_blank" 
                   rel="noreferrer"
                   className="hidden md:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
@@ -332,7 +332,7 @@ export default function Navbar() {
             )}
             <div className="h-px bg-white/10 my-2"></div>
             <a 
-              href="https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands"
+              href="/invite"
               target="_blank" 
               rel="noreferrer"
               className="px-4 py-3 rounded-xl text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-all flex items-center gap-2"
