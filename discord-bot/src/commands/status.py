@@ -150,6 +150,12 @@ class StatusCog(commands.Cog):
                 
                 if channel_id and message_id:
                     channel = self.bot.get_channel(int(channel_id))
+                    if not channel:
+                        try:
+                            channel = await self.bot.fetch_channel(int(channel_id))
+                        except Exception:
+                            pass
+                            
                     if channel:
                         try:
                             msg = await channel.fetch_message(int(message_id))
