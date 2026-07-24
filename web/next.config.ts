@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/invite',
+        destination: 'https://discord.com/oauth2/authorize?client_id=1521582398188290049&permissions=347200&scope=bot%20applications.commands',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return {
       afterFiles: [
