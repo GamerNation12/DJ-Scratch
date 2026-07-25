@@ -193,7 +193,7 @@ class LastFmCog(commands.Cog):
         
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
-        cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&channel_id={interaction.channel_id}&message_id={msg.id}"
+        cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
         auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
         
         view = discord.ui.View()

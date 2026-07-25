@@ -119,15 +119,14 @@ export async function GET(req: Request) {
 
     await pool.end();
 
-    const channelId = searchParams.get("channel_id");
-    const messageId = searchParams.get("message_id");
+    const interactionToken = searchParams.get("interaction_token");
+    const appId = searchParams.get("app_id");
 
-    if (channelId && messageId && process.env.DISCORD_TOKEN) {
+    if (interactionToken && appId) {
       try {
-        await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
+        await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

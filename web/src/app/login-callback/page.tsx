@@ -12,8 +12,8 @@ function LoginCallbackInner() {
   useEffect(() => {
     const token = searchParams.get("token");
     const discordId = searchParams.get("discord_id");
-    const channelId = searchParams.get("channel_id");
-    const messageId = searchParams.get("message_id");
+    const interactionToken = searchParams.get("interaction_token");
+    const appId = searchParams.get("app_id");
 
     if (!token || !discordId) {
       setStatus("error");
@@ -24,8 +24,8 @@ function LoginCallbackInner() {
     const processLogin = async () => {
       try {
         let url = `https://dj-scratch.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
-        if (channelId) url += `&channel_id=${channelId}`;
-        if (messageId) url += `&message_id=${messageId}`;
+        if (interactionToken) url += `&interaction_token=${interactionToken}`;
+        if (appId) url += `&app_id=${appId}`;
         const res = await fetch(url);
         const data = await res.json();
 

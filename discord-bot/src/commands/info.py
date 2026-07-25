@@ -138,7 +138,10 @@ class InfoCog(commands.Cog):
         await self.send_outofsync(ctx)
 
     async def send_guide(self, context):
-        user = context.author if isinstance(context, commands.Context) else context.user
+        if isinstance(context, discord.TextChannel):
+            user = None
+        else:
+            user = context.author if isinstance(context, commands.Context) else context.user
         embed = Theme.get_embed(
             title="🚀 Getting Started with DJ Scratch",
             description="Welcome to DJ Scratch! Here is a quick guide on how to get started.",
