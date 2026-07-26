@@ -433,6 +433,18 @@ async def setup_hook():
                     """
                 )
                 
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS server_crowns (
+                        guild_id VARCHAR(255),
+                        user_id VARCHAR(255),
+                        artist_name VARCHAR(255),
+                        plays INT,
+                        PRIMARY KEY (guild_id, artist_name)
+                    )
+                    """
+                )
+                
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
                 except Exception as e:
@@ -478,6 +490,8 @@ async def setup_hook():
             bot.process_suggestion = process_suggestion
             bot.get_help_embed = get_help_embed
             bot.process_crowns = process_crowns
+            bot.process_crownseeder = process_crownseeder
+            bot.process_killallcrowns = process_killallcrowns
             bot.handle_discord_import = handle_discord_import
             bot.PurgeConfirmView = PurgeConfirmView
             bot.add_custom_reactions = add_custom_reactions
@@ -2527,10 +2541,25 @@ async def process_whoknows(guild, user, artist_name):
             else:
                 member = guild.get_member(int(uid))
                 name = member.display_name if member else tasks[idx][1]
-            lb.append({"name": name, "plays": pc})
+            lb.append({"name": name, "plays": pc, "uid": uid})
 
     if not lb: return Theme.get_error_embed(description=f"No one here listens to **{artist_name}**."), None
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+    
+    if lb[0]['plays'] >= 30:
+        top_uid = lb[0]['uid']
+        global db_pool
+        if db_pool:
+            import asyncpg
+            if isinstance(db_pool, asyncpg.pool.Pool):
+                async with db_pool.acquire() as conn:
+                    await conn.execute('''
+                        INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (guild_id, artist_name) DO UPDATE 
+                        SET user_id = EXCLUDED.user_id, plays = EXCLUDED.plays
+                    ''', str(guild.id), str(top_uid), artist_name, lb[0]['plays'])
+
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
     embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
@@ -2578,46 +2607,98 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     except Exception as e:
         print(f"Suggestion/Bug report error: {e}")
 async def process_crowns(guild, user):
-    bot_instance = bot
-    session = getattr(bot_instance, 'session', None)
-
     if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
-    username = await get_lastfm_username(user.id)
-    if not username: return Theme.get_error_embed(description="Link your account first with `/login`"), None
     
-    users_db = await load_users()
-    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
-    
-    top_artists_data = await fetch_top_artists(username, 'overall', 15)
-    if not top_artists_data or 'topartists' not in top_artists_data: return Theme.get_error_embed(description="Error fetching your top artists."), None
-    
-    artists_to_check = [a['name'] for a in top_artists_data['topartists']['artist']]
-    if not artists_to_check: return Theme.get_error_embed(description="You don't have any artists in your history!"), None
-
-    async def check_artist(artist):
-        tasks = [(uid, fetch_artist_playcount(session, lname, artist)) for uid, lname in linked.items()]
-        results = await asyncio.gather(*(t[1] for t in tasks))
-        top_plays = max(results) if results else 0
-        if top_plays > 0:
-            top_user = tasks[results.index(top_plays)][0]
-            if top_user == str(user.id): return (artist, top_plays)
-        return None
-
-    artist_results = await asyncio.gather(*(check_artist(artist) for artist in artists_to_check))
-    crowns = [r for r in artist_results if r is not None]
-    
-    if not crowns:
-        return Theme.get_error_embed(description="You don't hold any crowns for your top 15 artists in this server!"), None
+    global db_pool
+    if not db_pool:
+        return Theme.get_error_embed(description="Database not connected."), None
         
-    lines = [f"👑 **{artist}** — **{plays:,}** plays" for artist, plays in crowns]
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT artist_name, plays FROM server_crowns WHERE guild_id = $1 AND user_id = $2 ORDER BY plays DESC", str(guild.id), str(user.id))
+        
+    if not rows:
+        return Theme.get_error_embed(description="You don't hold any seeded crowns in this server! Check with `/whoknows` on your top artists or ask an admin to run `.crownseeder`."), None
+        
+    lines = [f"👑 **{r['artist_name']}** — **{r['plays']:,}** plays" for r in rows]
+    
+    if len(lines) > 50:
+        lines = lines[:50]
+        lines.append(f"... and {len(rows) - 50} more crowns!")
+        
     embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
     embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Checked your top 15 artists • Requested by {format_name(user)}", icon_url=user.display_avatar.url)
+    embed.set_footer(text=f"Showing your top seeded crowns • Requested by {format_name(user)}", icon_url=user.display_avatar.url)
     return embed, None
 
+async def process_crownseeder(guild, user):
+    if not guild: return Theme.get_error_embed(description="Must be used in a server.")
+    
+    global db_pool
+    if not db_pool:
+        return Theme.get_error_embed(description="Database not connected.")
+        
+    users_db = await load_users()
+    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account.")
+    
+    artist_plays = {}
+    
+    for uid, lname in linked.items():
+        data = await fetch_top_artists(lname, 'overall', 1000)
+        if data and 'topartists' in data and 'artist' in data['topartists']:
+            for artist in data['topartists']['artist']:
+                name = artist['name']
+                plays = int(artist['playcount'])
+                if name not in artist_plays:
+                    artist_plays[name] = {}
+                artist_plays[name][uid] = plays
+        await asyncio.sleep(0.5)
+        
+    new_crowns = []
+    for artist, users_plays in artist_plays.items():
+        if not users_plays: continue
+        top_uid = max(users_plays, key=users_plays.get)
+        top_plays = users_plays[top_uid]
+        if top_plays >= 30:
+            new_crowns.append((str(guild.id), str(top_uid), artist, top_plays))
+            
+    if not new_crowns:
+        embed = Theme.get_embed(description="Seeded 0 crowns. No one has >= 30 plays on any artist.", color=discord.Color.gold())
+        embed.set_author(name="Crownseeder", icon_url=guild.icon.url if guild.icon else None)
+        return embed
+        
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("DELETE FROM server_crowns WHERE guild_id = $1", str(guild.id))
+            for chunk in [new_crowns[i:i + 100] for i in range(0, len(new_crowns), 100)]:
+                await conn.executemany('''
+                    INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
+                    VALUES ($1, $2, $3, $4)
+                ''', chunk)
+                
+    embed = Theme.get_embed(description=f"✅ Seeded **{len(new_crowns)}** crowns for your server.\n\nIf you would like to remove crowns, use:\n- `.killallcrowns` (All crowns)\n- `.killallseededcrowns` (Only seeded crowns)", color=discord.Color.green())
+    embed.set_author(name="Crownseeder", icon_url=guild.icon.url if guild.icon else None)
+    embed.set_footer(text=f"Crownseeder initiated by {format_name(user)}")
+    return embed
 
+async def process_killallcrowns(guild, user):
+    if not guild: return Theme.get_error_embed(description="Must be used in a server.")
+    
+    global db_pool
+    if not db_pool:
+        return Theme.get_error_embed(description="Database not connected.")
+        
+    async with db_pool.acquire() as conn:
+        deleted = await conn.execute("DELETE FROM server_crowns WHERE guild_id = $1", str(guild.id))
+        
+    try:
+        count = int(deleted.split()[-1])
+    except:
+        count = 0
+        
+    embed = Theme.get_embed(description=f"🗑️ Removed **{count}** crowns from the server.", color=discord.Color.red())
+    return embed
 
 
 

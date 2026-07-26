@@ -343,6 +343,24 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_crowns(interaction.guild, interaction.user)
         await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
+    @app_commands.command(name="crownseeder", description="Seed crowns for all users in the server (Admin only)")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.allowed_installs(guilds=True, users=False)
+    @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    async def crownseeder_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed = await self.bot.process_crownseeder(interaction.guild, interaction.user)
+        await interaction.edit_original_response(embed=embed)
+
+    @app_commands.command(name="killallcrowns", description="Remove all seeded crowns for the server (Admin only)")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.allowed_installs(guilds=True, users=False)
+    @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    async def killallcrowns_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed = await self.bot.process_killallcrowns(interaction.guild, interaction.user)
+        await interaction.edit_original_response(embed=embed)
+
     @app_commands.command(name="judge", description="Let an AI judge your recent music taste")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -594,6 +612,19 @@ class LastFmCog(commands.Cog):
         target_user, _ = await get_target_user(ctx, args)
         embed, err = await self.bot.process_crowns(ctx.guild, target_user)
         await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="crownseeder")
+    @commands.has_permissions(administrator=True)
+    async def crownseeder_prefix(self, ctx):
+        msg = await ctx.send("⏳ Fetching top artists for all users and seeding crowns... This may take a minute.")
+        embed = await self.bot.process_crownseeder(ctx.guild, ctx.author)
+        await msg.edit(content=None, embed=embed)
+        
+    @commands.command(name="killallcrowns", aliases=["killallseededcrowns"])
+    @commands.has_permissions(administrator=True)
+    async def killallcrowns_prefix(self, ctx):
+        embed = await self.bot.process_killallcrowns(ctx.guild, ctx.author)
+        await self._reply_and_delete(ctx, embed=embed)
 
     @commands.command(name="judge", aliases=["roast", "jd", "j"])
     async def judge_prefix(self, ctx, *, args: str = None):
