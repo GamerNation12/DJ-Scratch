@@ -2619,16 +2619,23 @@ async def process_crowns(guild, user):
     if not rows:
         return Theme.get_error_embed(description="You don't hold any seeded crowns in this server! Check with `/whoknows` (or `,whoknows`) on your top artists or ask an admin to run `/crownseeder` (or `,crownseeder`)."), None
         
-    lines = [f"👑 **{r['artist_name']}** — **{r['plays']:,}** plays" for r in rows]
+    import urllib.parse
+    total = len(rows)
+    embed = Theme.get_embed(color=LASTFM_COLOR, timestamp=datetime.now())
+    embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name} ({total})", icon_url=user.display_avatar.url)
     
-    if len(lines) > 50:
-        lines = lines[:50]
-        lines.append(f"... and {len(rows) - 50} more crowns!")
+    lines = []
+    for i, r in enumerate(rows):
+        artist_url = f"https://last.fm/music/{urllib.parse.quote(r['artist_name'])}"
+        lines.append(f"`{i+1}.` **[{r['artist_name']}]({artist_url})** — **{r['plays']:,}** plays")
         
-    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name}", icon_url=user.display_avatar.url)
+    if len(lines) > 25:
+        lines = lines[:25]
+        lines.append(f"\n*... and **{total - 25}** more crowns!*")
+        
+    embed.description = chr(10).join(lines)
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Showing your top seeded crowns • Requested by {format_name(user)}", icon_url=user.display_avatar.url)
+    embed.set_footer(text=f"Requested by {format_name(user)}", icon_url=user.display_avatar.url)
     return embed, None
 
 async def process_crownseeder(guild, user):
