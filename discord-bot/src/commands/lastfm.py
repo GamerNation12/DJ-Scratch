@@ -340,8 +340,8 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     async def crowns_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        embed, err = await self.bot.process_crowns(interaction.guild, interaction.user)
-        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
+        embed, view = await self.bot.process_crowns(interaction.guild, interaction.user)
+        await interaction.edit_original_response(embed=embed, view=view)
 
     @app_commands.command(name="crownseeder", description="Seed crowns for all users in the server (Admin only)")
     @app_commands.default_permissions(administrator=True)
@@ -610,8 +610,8 @@ class LastFmCog(commands.Cog):
     @commands.command(name="crowns", aliases=["cr", "cw"])
     async def crowns_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
-        embed, err = await self.bot.process_crowns(ctx.guild, target_user)
-        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        embed, view = await self.bot.process_crowns(ctx.guild, target_user)
+        await self._reply_and_delete(ctx, embed=embed, view=view)
 
     @commands.command(name="crownseeder")
     @commands.has_permissions(administrator=True)

@@ -444,6 +444,24 @@ async def setup_hook():
                     )
                     """
                 )
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS crown_history (
+                        id SERIAL PRIMARY KEY,
+                        guild_id VARCHAR(255),
+                        artist_name VARCHAR(255),
+                        previous_user_id VARCHAR(255),
+                        new_user_id VARCHAR(255),
+                        plays INT,
+                        stolen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                
+                try:
+                    await conn.execute("ALTER TABLE server_crowns ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
+                    print(f"{Log.RED}>>> Failed to add claimed_at column to server_crowns: {e}{Log.RESET}")
                 
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
@@ -2186,6 +2204,132 @@ class TopItemsPaginator(discord.ui.View):
         else:
             await interaction.followup.send(err, ephemeral=True)
 
+class CrownsPaginator(discord.ui.View):
+    def __init__(self, user, guild, db_pool, current_sort="plays"):
+        super().__init__(timeout=180)
+        self.user = user
+        self.guild = guild
+        self.db_pool = db_pool
+        self.current_sort = current_sort
+        self.current_page = 0
+        self.items_per_page = 10
+        self.crowns = []
+        self.max_pages = 1
+
+    async def fetch_crowns(self):
+        async with self.db_pool.acquire() as conn:
+            if self.current_sort == "plays":
+                self.crowns = await conn.fetch("SELECT artist_name, plays, claimed_at FROM server_crowns WHERE guild_id = $1 AND user_id = $2 ORDER BY plays DESC", str(self.guild.id), str(self.user.id))
+            elif self.current_sort == "recent":
+                self.crowns = await conn.fetch("SELECT artist_name, plays, claimed_at FROM server_crowns WHERE guild_id = $1 AND user_id = $2 ORDER BY claimed_at DESC NULLS LAST", str(self.guild.id), str(self.user.id))
+            elif self.current_sort == "stolen":
+                self.crowns = await conn.fetch("SELECT artist_name, plays, stolen_at as claimed_at, new_user_id FROM crown_history WHERE guild_id = $1 AND previous_user_id = $2 ORDER BY stolen_at DESC NULLS LAST", str(self.guild.id), str(self.user.id))
+        
+        self.max_pages = max(1, (len(self.crowns) + self.items_per_page - 1) // self.items_per_page)
+        if self.current_page >= self.max_pages:
+            self.current_page = max(0, self.max_pages - 1)
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.first_button.disabled = self.current_page == 0
+        self.prev_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page >= self.max_pages - 1
+        self.last_button.disabled = self.current_page >= self.max_pages - 1
+
+    def generate_embed(self):
+        from src.core.theme import Theme
+        
+        start = self.current_page * self.items_per_page
+        end = start + self.items_per_page
+        page_items = self.crowns[start:end]
+
+        embed = Theme.get_embed(color=LASTFM_COLOR)
+        if self.current_sort == "stolen":
+            embed.set_author(name=f"Stolen Crowns for {format_name(self.user)} in {self.guild.name}", icon_url=self.user.display_avatar.url)
+        else:
+            embed.set_author(name=f"Crowns for {format_name(self.user)} in {self.guild.name}", icon_url=self.user.display_avatar.url)
+            
+        embed.set_thumbnail(url=self.user.display_avatar.url)
+        
+        lines = []
+        import urllib.parse
+        for i, r in enumerate(page_items):
+            idx = start + i + 1
+            artist_url = f"https://last.fm/music/{urllib.parse.quote(r['artist_name'])}"
+            if self.current_sort == "stolen":
+                stolen_by = self.guild.get_member(int(r['new_user_id']))
+                stolen_by_name = stolen_by.display_name if stolen_by else "Unknown"
+                if r['claimed_at']:
+                    lines.append(f"`{idx}.` **[{r['artist_name']}]({artist_url})** — *{r['plays']:,} plays* — Stolen by {stolen_by_name} <t:{int(r['claimed_at'].timestamp())}:R>")
+                else:
+                    lines.append(f"`{idx}.` **[{r['artist_name']}]({artist_url})** — *{r['plays']:,} plays* — Stolen by {stolen_by_name}")
+            else:
+                if r['claimed_at']:
+                    lines.append(f"`{idx}.` **[{r['artist_name']}]({artist_url})** — *{r['plays']:,} plays* — Claimed <t:{int(r['claimed_at'].timestamp())}:R>")
+                else:
+                    lines.append(f"`{idx}.` **[{r['artist_name']}]({artist_url})** — *{r['plays']:,} plays*")
+
+        if not lines:
+            if self.current_sort == "stolen":
+                lines = ["You haven't had any crowns stolen... yet!"]
+            else:
+                lines = ["You don't hold any crowns!"]
+
+        embed.description = chr(10).join(lines)
+        embed.set_footer(text=f"Page {self.current_page + 1}/{self.max_pages} — {len(self.crowns)} total crowns")
+        return embed
+
+    @discord.ui.select(
+        placeholder="Select Sort Order...",
+        options=[
+            discord.SelectOption(label="Active crowns ordered by playcount", value="plays"),
+            discord.SelectOption(label="Recently obtained crowns", value="recent"),
+            discord.SelectOption(label="Recently stolen crowns", value="stolen")
+        ],
+        row=0
+    )
+    async def sort_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_sort = select.values[0]
+        self.current_page = 0
+        for opt in select.options:
+            opt.default = (opt.value == self.current_sort)
+        await self.fetch_crowns()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label="", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="first", row=1)
+    async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page = 0
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label="", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="prev", row=1)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label="", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="next", row=1)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label="", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="last", row=1)
+    async def last_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page = self.max_pages - 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
 class ArtistTracksPaginator(discord.ui.View):
     def __init__(self, user, artist_name, sorted_tracks, total_plays, local_tracks_present):
         super().__init__(timeout=180)
@@ -2553,12 +2697,24 @@ async def process_whoknows(guild, user, artist_name):
             import asyncpg
             if isinstance(db_pool, asyncpg.pool.Pool):
                 async with db_pool.acquire() as conn:
-                    await conn.execute('''
-                        INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT (guild_id, artist_name) DO UPDATE 
-                        SET user_id = EXCLUDED.user_id, plays = EXCLUDED.plays
-                    ''', str(guild.id), str(top_uid), artist_name, lb[0]['plays'])
+                    existing = await conn.fetchrow("SELECT user_id FROM server_crowns WHERE guild_id = $1 AND artist_name = $2", str(guild.id), artist_name)
+                    if existing and existing['user_id'] != str(top_uid):
+                        await conn.execute('''
+                            INSERT INTO crown_history (guild_id, artist_name, previous_user_id, new_user_id, plays)
+                            VALUES ($1, $2, $3, $4, $5)
+                        ''', str(guild.id), artist_name, existing['user_id'], str(top_uid), lb[0]['plays'])
+                        
+                        await conn.execute('''
+                            UPDATE server_crowns SET user_id = $1, plays = $2, claimed_at = CURRENT_TIMESTAMP
+                            WHERE guild_id = $3 AND artist_name = $4
+                        ''', str(top_uid), lb[0]['plays'], str(guild.id), artist_name)
+                    else:
+                        await conn.execute('''
+                            INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (guild_id, artist_name) DO UPDATE 
+                            SET plays = EXCLUDED.plays
+                        ''', str(guild.id), str(top_uid), artist_name, lb[0]['plays'])
 
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
     embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
@@ -2614,29 +2770,14 @@ async def process_crowns(guild, user):
         return Theme.get_error_embed(description="Database not connected."), None
         
     async with db_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT artist_name, plays FROM server_crowns WHERE guild_id = $1 AND user_id = $2 ORDER BY plays DESC", str(guild.id), str(user.id))
+        rows = await conn.fetch("SELECT artist_name FROM server_crowns WHERE guild_id = $1 AND user_id = $2 LIMIT 1", str(guild.id), str(user.id))
         
     if not rows:
         return Theme.get_error_embed(description="You don't hold any seeded crowns in this server! Check with `/whoknows` (or `,whoknows`) on your top artists or ask an admin to run `/crownseeder` (or `,crownseeder`)."), None
         
-    import urllib.parse
-    total = len(rows)
-    embed = Theme.get_embed(color=LASTFM_COLOR, timestamp=datetime.now())
-    embed.set_author(name=f"{format_name(user)}'s Crowns in {guild.name} ({total})", icon_url=user.display_avatar.url)
-    
-    lines = []
-    for i, r in enumerate(rows):
-        artist_url = f"https://last.fm/music/{urllib.parse.quote(r['artist_name'])}"
-        lines.append(f"`{i+1}.` **[{r['artist_name']}]({artist_url})** — **{r['plays']:,}** plays")
-        
-    if len(lines) > 25:
-        lines = lines[:25]
-        lines.append(f"\n*... and **{total - 25}** more crowns!*")
-        
-    embed.description = chr(10).join(lines)
-    embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Requested by {format_name(user)}", icon_url=user.display_avatar.url)
-    return embed, None
+    view = CrownsPaginator(user, guild, db_pool)
+    await view.fetch_crowns()
+    return view.generate_embed(), view
 
 async def process_crownseeder(guild, user):
     if not guild: return Theme.get_error_embed(description="Must be used in a server.")
@@ -2677,12 +2818,53 @@ async def process_crownseeder(guild, user):
         
     async with db_pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute("DELETE FROM server_crowns WHERE guild_id = $1", str(guild.id))
-            for chunk in [new_crowns[i:i + 100] for i in range(0, len(new_crowns), 100)]:
-                await conn.executemany('''
-                    INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
-                    VALUES ($1, $2, $3, $4)
-                ''', chunk)
+            existing = await conn.fetch("SELECT artist_name, user_id FROM server_crowns WHERE guild_id = $1", str(guild.id))
+            existing_map = {r['artist_name']: r['user_id'] for r in existing}
+            
+            history_inserts = []
+            inserts = []
+            updates = []
+            new_artist_names = set()
+            
+            for g_id, u_id, artist, plays in new_crowns:
+                new_artist_names.add(artist)
+                if artist not in existing_map:
+                    inserts.append((g_id, u_id, artist, plays))
+                else:
+                    old_u_id = existing_map[artist]
+                    if old_u_id != u_id:
+                        history_inserts.append((g_id, artist, old_u_id, u_id, plays))
+                        inserts.append((g_id, u_id, artist, plays))
+                    else:
+                        updates.append((plays, g_id, artist))
+                        
+            to_delete = [artist for artist in existing_map if artist not in new_artist_names]
+            
+            if to_delete:
+                for chunk in [to_delete[i:i + 100] for i in range(0, len(to_delete), 100)]:
+                    await conn.executemany("DELETE FROM server_crowns WHERE guild_id = $1 AND artist_name = $2", [(str(guild.id), a) for a in chunk])
+            
+            if history_inserts:
+                for chunk in [history_inserts[i:i + 100] for i in range(0, len(history_inserts), 100)]:
+                    await conn.executemany('''
+                        INSERT INTO crown_history (guild_id, artist_name, previous_user_id, new_user_id, plays)
+                        VALUES ($1, $2, $3, $4, $5)
+                    ''', chunk)
+                    
+            if inserts:
+                for chunk in [inserts[i:i + 100] for i in range(0, len(inserts), 100)]:
+                    await conn.executemany('''
+                        INSERT INTO server_crowns (guild_id, user_id, artist_name, plays)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (guild_id, artist_name) DO UPDATE 
+                        SET user_id = EXCLUDED.user_id, plays = EXCLUDED.plays, claimed_at = CURRENT_TIMESTAMP
+                    ''', chunk)
+                    
+            if updates:
+                for chunk in [updates[i:i + 100] for i in range(0, len(updates), 100)]:
+                    await conn.executemany('''
+                        UPDATE server_crowns SET plays = $1 WHERE guild_id = $2 AND artist_name = $3
+                    ''', chunk)
                 
     embed = Theme.get_embed(description=f"✅ Seeded **{len(new_crowns)}** crowns for your server.\n\nIf you would like to remove crowns, use:\n- `/killallcrowns` (or `,killallcrowns`)\n- `,killallseededcrowns` (Only seeded crowns)", color=discord.Color.green())
     embed.set_author(name="Crownseeder", icon_url=guild.icon.url if guild.icon else None)
