@@ -4,6 +4,7 @@ from discord import app_commands
 import random
 import io
 import asyncio
+import difflib
 from PIL import Image
 from ..utils.api import fetch_top_artists, fetch_top_tracks
 
@@ -14,6 +15,50 @@ class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    def is_close_match(self, guess, target, threshold=0.85, allow_substring=True):
+        guess = guess.lower().strip()
+        target = target.lower().strip()
+        if len(guess) < 3:
+            return False
+            
+        if allow_substring:
+            if guess in target and len(guess) >= len(target) * 0.5:
+                return True
+            if target in guess:
+                return True
+                
+        ratio = difflib.SequenceMatcher(None, guess, target).ratio()
+        return ratio >= threshold
+
+    async def wait_for_guess(self, check, timeout=30.0):
+        end_time = asyncio.get_event_loop().time() + timeout
+        while True:
+            remaining = end_time - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                return None
+                
+            msg_task = asyncio.create_task(self.bot.wait_for('message', check=check))
+            edit_task = asyncio.create_task(self.bot.wait_for('message_edit', check=lambda b, a: check(a)))
+            
+            done, pending = await asyncio.wait([msg_task, edit_task], timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
+            
+            for task in pending:
+                task.cancel()
+                
+            if not done:
+                return None
+                
+            task = done.pop()
+            try:
+                result = task.result()
+                if isinstance(result, tuple):
+                    return result[1]
+                else:
+                    return result
+            except asyncio.CancelledError:
+                pass
+        return None
+
     async def run_guess_game(self, context):
         from ..core.events import get_lastfm_username
         from ..utils.api import fetch_top_albums
@@ -21,6 +66,12 @@ class GamesCog(commands.Cog):
 
         user = context.author if isinstance(context, commands.Context) else context.user
         channel = context.channel
+
+        if isinstance(context, discord.Interaction):
+            if channel is None or isinstance(channel, discord.PartialMessageable):
+                msg = "❌ This game requires me to read your chat! You can only play it in servers where DJ Scratch is added, or directly in my DMs."
+                await context.followup.send(msg)
+                return
 
         username = await get_lastfm_username(user.id)
         if not username:
@@ -86,12 +137,13 @@ class GamesCog(commands.Cog):
             await context.send(embed=embed, file=file)
 
         def check(m):
-            return m.channel == channel and (m.content.lower() in album_name.lower() or m.content.lower() in artist_name.lower()) and len(m.content) > 3
+            if m.channel != channel: return False
+            return self.is_close_match(m.content, album_name) or self.is_close_match(m.content, artist_name)
 
-        try:
-            msg = await self.bot.wait_for('message', check=check, timeout=30.0)
-            await channel.send(f"🎉 **{msg.author.display_name}** got it! It was **{album_name}** by **{artist_name}**!")
-        except asyncio.TimeoutError:
+        msg_out = await self.wait_for_guess(check, timeout=30.0)
+        if msg_out:
+            await channel.send(f"🎉 **{msg_out.author.display_name}** got it! It was **{album_name}** by **{artist_name}**!")
+        else:
             await channel.send(f"⏰ Time's up! It was **{album_name}** by **{artist_name}**.")
 
     @app_commands.command(name="guess", description="Play a game guessing a pixelated album cover")
@@ -110,6 +162,12 @@ class GamesCog(commands.Cog):
         
         user = context.author if isinstance(context, commands.Context) else context.user
         channel = context.channel
+
+        if isinstance(context, discord.Interaction):
+            if channel is None or isinstance(channel, discord.PartialMessageable):
+                msg = "❌ This game requires me to read your chat! You can only play it in servers where DJ Scratch is added, or directly in my DMs."
+                await context.followup.send(msg)
+                return
 
         username = await get_lastfm_username(user.id)
         if not username:
@@ -157,12 +215,13 @@ class GamesCog(commands.Cog):
             await context.send(embed=embed)
 
         def check(m):
-            return m.channel == channel and m.content.lower() == target.lower()
+            if m.channel != channel: return False
+            return self.is_close_match(m.content, target, threshold=0.85, allow_substring=False)
 
-        try:
-            msg = await self.bot.wait_for('message', check=check, timeout=30.0)
-            await channel.send(f"🎉 **{msg.author.display_name}** got it! The artist was **{target}**!")
-        except asyncio.TimeoutError:
+        msg_out = await self.wait_for_guess(check, timeout=30.0)
+        if msg_out:
+            await channel.send(f"🎉 **{msg_out.author.display_name}** got it! The artist was **{target}**!")
+        else:
             await channel.send(f"⏰ Time's up! The artist was **{target}**.")
 
     @app_commands.command(name="scramble", description="Play a game unscrambling an artist's name")
@@ -178,3 +237,4 @@ class GamesCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(GamesCog(bot))
+
