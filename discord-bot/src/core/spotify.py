@@ -204,3 +204,24 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
     except Exception as e:
         print(f"{Log.RED}>>> Failed to search Spotify track: {e}{Log.RESET}")
     return None
+
+async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str):
+    token = await get_spotify_token(session)
+    if not token: return None
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"q": artist_name, "type": "artist", "limit": 1}
+    try:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                artists = data.get("artists", {}).get("items", [])
+                if artists:
+                    artist = artists[0]
+                    return {
+                        "popularity": artist.get("popularity"),
+                        "genres": artist.get("genres", [])
+                    }
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to search Spotify artist: {e}{Log.RESET}")
+    return None

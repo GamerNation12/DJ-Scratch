@@ -179,3 +179,21 @@ async def scrobble_bot_track(session, artist, track, album=None):
         logging.error(f"Bot scrobble request failed: {e}")
         return f"EXC_{e}"
     return "UNKNOWN_ERROR"
+
+async def fetch_musicbrainz_artist_info(session, artist_name):
+    url = f"https://musicbrainz.org/ws/2/artist/?query=artist:{urllib.parse.quote(artist_name)}&fmt=json"
+    headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
+    try:
+        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data and 'artists' in data and len(data['artists']) > 0:
+                    artist = data['artists'][0]
+                    return {
+                        "type": artist.get("type"), # 'Group' or 'Person'
+                        "country": artist.get("country"), # e.g. 'US', 'GB'
+                        "start_date": artist.get("life-span", {}).get("begin")
+                    }
+    except Exception as e:
+        logging.error(f"MusicBrainz fetch error: {e}")
+    return None

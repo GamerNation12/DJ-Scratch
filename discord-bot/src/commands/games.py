@@ -10,6 +10,72 @@ from ..utils.api import fetch_top_artists, fetch_top_tracks
 
 from src.core.database import format_name
 
+class ScrambleView(discord.ui.View):
+    def __init__(self, target, original_embed, hints):
+        super().__init__(timeout=None)
+        self.target = target
+        self.original_embed = original_embed
+        self.hints = hints
+        self.current_hint_index = 0
+        self.scrambled = self._scramble(target)
+        self.given_up = False
+        self.stop_event = asyncio.Event()
+
+    def _scramble(self, target):
+        words = target.split(" ")
+        scrambled_words = []
+        for word in words:
+            chars = list(word)
+            random.shuffle(chars)
+            scrambled_words.append("".join(chars))
+        scrambled = " ".join(scrambled_words)
+        if scrambled.lower() == target.lower() and len(target) > 2:
+            chars = list(target.replace(" ", ""))
+            random.shuffle(chars)
+            scrambled = "".join(chars)
+        return scrambled
+
+    def update_embed(self):
+        desc = f"Unscramble this artist name:\n\n**`{self.scrambled.upper()}`**\n\n"
+        if self.current_hint_index > 0:
+            desc = f"Unscramble this artist name ({len(self.hints)} extra hints available):\n\n**`{self.scrambled.upper()}`**\n\n"
+            for i in range(self.current_hint_index):
+                if i < len(self.hints):
+                    desc += f"• {self.hints[i]}\n"
+        desc += "\nType your answer within 30 seconds to make a guess"
+        self.original_embed.description = desc
+
+    @discord.ui.button(label="Add hint", style=discord.ButtonStyle.secondary)
+    async def add_hint(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_hint_index < len(self.hints):
+            self.current_hint_index += 1
+            if self.current_hint_index >= len(self.hints):
+                button.disabled = True
+            self.update_embed()
+            await interaction.response.edit_message(embed=self.original_embed, view=self)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="Reshuffle", style=discord.ButtonStyle.secondary)
+    async def reshuffle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.scrambled = self._scramble(self.target)
+        self.update_embed()
+        await interaction.response.edit_message(embed=self.original_embed, view=self)
+
+    @discord.ui.button(label="Give up", style=discord.ButtonStyle.danger)
+    async def give_up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.given_up = True
+        self.stop_event.set()
+        
+        from src.core.theme import Theme
+        self.original_embed.description = f"**Time is up!**\nIt was **{self.target}**"
+        self.original_embed.color = Theme.ERROR
+        
+        for child in self.children:
+            child.disabled = True
+            
+        await interaction.response.edit_message(embed=self.original_embed, view=self)
+        self.stop()
 
 class GamesCog(commands.Cog):
     def __init__(self, bot):
@@ -30,9 +96,11 @@ class GamesCog(commands.Cog):
         ratio = difflib.SequenceMatcher(None, guess, target).ratio()
         return ratio >= threshold
 
-    async def wait_for_guess(self, check, timeout=30.0):
+    async def wait_for_guess(self, check, timeout=30.0, stop_event=None):
         end_time = asyncio.get_event_loop().time() + timeout
         while True:
+            if stop_event and stop_event.is_set():
+                return None
             remaining = end_time - asyncio.get_event_loop().time()
             if remaining <= 0:
                 return None
@@ -40,7 +108,12 @@ class GamesCog(commands.Cog):
             msg_task = asyncio.create_task(self.bot.wait_for('message', check=check))
             edit_task = asyncio.create_task(self.bot.wait_for('message_edit', check=lambda b, a: check(a)))
             
-            done, pending = await asyncio.wait([msg_task, edit_task], timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
+            tasks = [msg_task, edit_task]
+            if stop_event:
+                stop_task = asyncio.create_task(stop_event.wait())
+                tasks.append(stop_task)
+            
+            done, pending = await asyncio.wait(tasks, timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
             
             for task in pending:
                 task.cancel()
@@ -48,7 +121,14 @@ class GamesCog(commands.Cog):
             if not done:
                 return None
                 
-            task = done.pop()
+            if stop_event and stop_task in done:
+                return None
+                
+            done_tasks = list(done)
+            task = done_tasks[0]
+            if stop_event and task == stop_task:
+                return None
+                
             try:
                 result = task.result()
                 if isinstance(result, tuple):
@@ -191,38 +271,63 @@ class GamesCog(commands.Cog):
         artists = [a['name'] for a in data['topartists']['artist']]
         target = random.choice(artists)
         
-        # Scramble
-        words = target.split(" ")
-        scrambled_words = []
-        for word in words:
-            chars = list(word)
-            random.shuffle(chars)
-            scrambled_words.append("".join(chars))
-        scrambled = " ".join(scrambled_words)
+        # Fetch hints
+        from ..core.spotify import search_spotify_artist
+        from ..utils.api import fetch_musicbrainz_artist_info, fetch_artist_playcount
         
-        # If the scramble accidentally equals the target, shuffle again
-        if scrambled.lower() == target.lower() and len(target) > 2:
-            chars = list(target.replace(" ", ""))
-            random.shuffle(chars)
-            scrambled = "".join(chars)
+        mb_info, sp_info, pc = await asyncio.gather(
+            fetch_musicbrainz_artist_info(self.bot.session, target),
+            search_spotify_artist(self.bot.session, target),
+            fetch_artist_playcount(self.bot.session, username, target)
+        )
+        
+        hints = []
+        if sp_info and sp_info.get('popularity'):
+            hints.append(f"They have a popularity of **{sp_info['popularity']}** out of 100")
+        if mb_info and mb_info.get('country'):
+            code = mb_info['country'].upper()
+            flag = chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397) if len(code) == 2 else code
+            hints.append(f"Their country flag: {flag}")
+        if sp_info and sp_info.get('genres'):
+            hints.append(f"One of their genres is **{random.choice(sp_info['genres'])}**")
+        if pc > 0:
+            hints.append(f"You have **{pc}** plays on this artist")
+        if mb_info and mb_info.get('start_date'):
+            hints.append(f"They started on **{mb_info['start_date']}**")
+        if mb_info and mb_info.get('type'):
+            hints.append(f"They are a **{mb_info['type'].lower()}**")
 
         from src.core.theme import Theme
-        embed = Theme.get_embed(title="🎵 Artist Scramble", description=f"Unscramble this artist name:\n\n**`{scrambled.upper()}`**\n\nYou have 30 seconds!", color=Theme.PRIMARY)
+        embed = Theme.get_embed(title="🎵 Artist Scramble", description="", color=Theme.PRIMARY)
+        
+        view = ScrambleView(target, embed, hints)
+        view.update_embed()
         
         if isinstance(context, discord.Interaction):
-            await context.followup.send(embed=embed)
+            message = await context.followup.send(embed=embed, view=view, wait=True)
         else:
-            await context.send(embed=embed)
+            message = await context.send(embed=embed, view=view)
 
         def check(m):
             if m.channel != channel: return False
             return self.is_close_match(m.content, target, threshold=0.85, allow_substring=False)
 
-        msg_out = await self.wait_for_guess(check, timeout=30.0)
+        msg_out = await self.wait_for_guess(check, timeout=30.0, stop_event=view.stop_event)
+        
+        if view.given_up:
+            return # The Give Up button handled the failure message
+
+        for child in view.children:
+            child.disabled = True
+            
         if msg_out:
-            await channel.send(f"🎉 **{msg_out.author.display_name}** got it! The artist was **{target}**!")
+            embed.color = Theme.SUCCESS
+            embed.description = f"🎉 **{msg_out.author.display_name}** got it! The artist was **{target}**!"
+            await message.edit(embed=embed, view=view)
         else:
-            await channel.send(f"⏰ Time's up! The artist was **{target}**.")
+            embed.color = Theme.ERROR
+            embed.description = f"⏰ Time's up! The artist was **{target}**."
+            await message.edit(embed=embed, view=view)
 
     @app_commands.command(name="scramble", description="Play a game unscrambling an artist's name")
     @app_commands.allowed_installs(guilds=True, users=True)
