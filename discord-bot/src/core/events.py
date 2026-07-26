@@ -2617,7 +2617,7 @@ async def process_crowns(guild, user):
         rows = await conn.fetch("SELECT artist_name, plays FROM server_crowns WHERE guild_id = $1 AND user_id = $2 ORDER BY plays DESC", str(guild.id), str(user.id))
         
     if not rows:
-        return Theme.get_error_embed(description="You don't hold any seeded crowns in this server! Check with `/whoknows` on your top artists or ask an admin to run `.crownseeder`."), None
+        return Theme.get_error_embed(description="You don't hold any seeded crowns in this server! Check with `/whoknows` (or `,whoknows`) on your top artists or ask an admin to run `/crownseeder` (or `,crownseeder`)."), None
         
     lines = [f"👑 **{r['artist_name']}** — **{r['plays']:,}** plays" for r in rows]
     
@@ -2677,7 +2677,7 @@ async def process_crownseeder(guild, user):
                     VALUES ($1, $2, $3, $4)
                 ''', chunk)
                 
-    embed = Theme.get_embed(description=f"✅ Seeded **{len(new_crowns)}** crowns for your server.\n\nIf you would like to remove crowns, use:\n- `.killallcrowns` (All crowns)\n- `.killallseededcrowns` (Only seeded crowns)", color=discord.Color.green())
+    embed = Theme.get_embed(description=f"✅ Seeded **{len(new_crowns)}** crowns for your server.\n\nIf you would like to remove crowns, use:\n- `/killallcrowns` (or `,killallcrowns`)\n- `,killallseededcrowns` (Only seeded crowns)", color=discord.Color.green())
     embed.set_author(name="Crownseeder", icon_url=guild.icon.url if guild.icon else None)
     embed.set_footer(text=f"Crownseeder initiated by {format_name(user)}")
     return embed
@@ -2751,7 +2751,9 @@ class HelpDropdown(discord.ui.Select):
         elif self.values[0] == "👑 Server Stats":
             embed.description = (
                 "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
-                "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server"
+                "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server\n"
+                "`/crownseeder` (or `,crownseeder`) - Seed crowns for all users in the server (Admin only)\n"
+                "`/killallcrowns` (or `,killallcrowns`) - Remove all seeded crowns for the server (Admin only)"
             )
         elif self.values[0] == "💡 Utility & Fun":
             embed.description = (
