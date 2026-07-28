@@ -188,9 +188,6 @@ class LastFmCog(commands.Cog):
             description="Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.",
             color=discord.Color.red()
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        msg = await interaction.original_response()
-        
         import urllib.parse, os
         api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
@@ -198,7 +195,8 @@ class LastFmCog(commands.Cog):
         
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-        await interaction.edit_original_response(view=view)
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
 
     @app_commands.command(name="logout", description="Unlink your Last.fm account from the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
