@@ -215,7 +215,16 @@ class AdminIPC(commands.Cog):
                         color=discord.Color.blue(),
                         timestamp=ts
                     )
-                    embed.add_field(name="User", value=f"{row['username']} (`{row['user_id']}`)", inline=False)
+                    
+                    user_id = str(row['user_id'])
+                    username = str(row['username']) if row['username'] else user_id
+                    
+                    if username == user_id:
+                        user_val = f"<@{user_id}> (`{user_id}`)"
+                    else:
+                        user_val = f"{username} - <@{user_id}> (`{user_id}`)"
+                        
+                    embed.add_field(name="User", value=user_val, inline=False)
                     embed.add_field(name="Action", value=f"**{row['action']}**", inline=False)
                     embed.add_field(name="Details", value=row['details'] or "None", inline=False)
                     
