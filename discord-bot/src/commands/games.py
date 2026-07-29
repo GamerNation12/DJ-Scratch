@@ -232,8 +232,10 @@ class GamesCog(commands.Cog):
         user = context.author if isinstance(context, commands.Context) else context.user
         channel = context.channel
 
+        channel_id = context.channel.id if context.channel else getattr(context, 'channel_id', None)
+
         if isinstance(context, discord.Interaction):
-            if channel is None or isinstance(channel, discord.PartialMessageable):
+            if context.guild_id and self.bot.get_guild(context.guild_id) is None:
                 msg = "❌ This game requires me to read your chat! You can only play it in servers where DJ Scratch is added, or directly in my DMs."
                 await context.followup.send(msg)
                 return
@@ -304,7 +306,7 @@ class GamesCog(commands.Cog):
             message = await context.send(embed=embed, file=file, view=view)
 
         def check(m):
-            if m.channel != channel: return False
+            if m.channel.id != channel_id: return False
             return self.is_close_match(m.content, album_name) or self.is_close_match(m.content, artist_name)
 
         msg_out = await self.wait_for_guess(check, timeout=30.0, stop_event=view.stop_event)
@@ -346,8 +348,10 @@ class GamesCog(commands.Cog):
         user = context.author if isinstance(context, commands.Context) else context.user
         channel = context.channel
 
+        channel_id = context.channel.id if context.channel else getattr(context, 'channel_id', None)
+
         if isinstance(context, discord.Interaction):
-            if channel is None or isinstance(channel, discord.PartialMessageable):
+            if context.guild_id and self.bot.get_guild(context.guild_id) is None:
                 msg = "❌ This game requires me to read your chat! You can only play it in servers where DJ Scratch is added, or directly in my DMs."
                 await context.followup.send(msg)
                 return
@@ -412,7 +416,7 @@ class GamesCog(commands.Cog):
             message = await context.send(embed=embed, view=view)
 
         def check(m):
-            if m.channel != channel: return False
+            if m.channel.id != channel_id: return False
             return self.is_close_match(m.content, target, threshold=0.85, allow_substring=False)
 
         msg_out = await self.wait_for_guess(check, timeout=30.0, stop_event=view.stop_event)
