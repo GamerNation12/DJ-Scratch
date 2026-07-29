@@ -36,12 +36,16 @@ class ScrambleView(discord.ui.View):
         return scrambled
 
     def update_embed(self):
-        desc = f"Unscramble this artist name:\n\n# {self.scrambled.upper()}\n\n"
+        desc = f"Unscramble this artist name:\n\n# {self.scrambled}\n\n"
         if self.current_hint_index > 0:
-            desc = f"Unscramble this artist name ({len(self.hints)} extra hints available):\n\n# {self.scrambled.upper()}\n\n"
+            desc = f"Unscramble this artist name ({len(self.hints)} extra hints available):\n\n# {self.scrambled}\n\n"
             for i in range(self.current_hint_index):
                 if i < len(self.hints):
                     desc += f"• {self.hints[i]}\n"
+        
+        if hasattr(self, 'last_interactor') and self.last_interactor:
+            desc += f"\n*Last hint revealed by {self.last_interactor.display_name}*\n"
+            
         desc += "\nType your answer within 30 seconds to make a guess"
         self.original_embed.description = desc
 
@@ -51,6 +55,7 @@ class ScrambleView(discord.ui.View):
             self.current_hint_index += 1
             if self.current_hint_index >= len(self.hints):
                 button.disabled = True
+            self.last_interactor = interaction.user
             self.update_embed()
             await interaction.response.edit_message(embed=self.original_embed, view=self)
         else:
@@ -116,6 +121,10 @@ class GuessView(discord.ui.View):
             for i in range(self.current_hint_index):
                 if i < len(self.hints):
                     desc += f"• {self.hints[i]}\n"
+                    
+        if hasattr(self, 'last_interactor') and self.last_interactor:
+            desc += f"\n*Last hint revealed by {self.last_interactor.display_name}*\n"
+            
         self.original_embed.description = desc
         self.original_embed.set_image(url="attachment://pixel.png")
 
@@ -125,6 +134,7 @@ class GuessView(discord.ui.View):
             self.current_hint_index += 1
             if self.current_hint_index >= len(self.hints):
                 button.disabled = True
+            self.last_interactor = interaction.user
             self.update_embed()
             file = self.generate_pixelated_image()
             await interaction.response.edit_message(embed=self.original_embed, view=self, attachments=[file])
@@ -282,7 +292,7 @@ class GamesCog(commands.Cog):
         hints.append(f"The artist name has **{len(artist_name)}** characters")
 
         from src.core.theme import Theme
-        embed = Theme.get_embed(title="🖼️ Pixelated Album", description="Guess the album name or artist!\nYou have 30 seconds.", color=Theme.PRIMARY)
+        embed = Theme.get_embed(title="<:pixel:1531835168430493746> Pixelated Album", description="Guess the album name or artist!\nYou have 30 seconds.", color=Theme.PRIMARY)
         
         view = GuessView(album_name, artist_name, embed, hints, img)
         file = view.generate_pixelated_image()
@@ -312,11 +322,11 @@ class GamesCog(commands.Cog):
 
         if msg_out:
             embed.color = Theme.SUCCESS
-            embed.description = f"🎉 **{msg_out.author.display_name}** got it! It was **{album_name}** by **{artist_name}**!"
+            embed.description = f"<a:celebrate:1531835618013876326> **{msg_out.author.display_name}** got it right! It was **{album_name}** by **{artist_name}**!"
             await message.edit(embed=embed, view=view, attachments=[final_file])
         else:
             embed.color = Theme.ERROR
-            embed.description = f"⏰ Time's up! It was **{album_name}** by **{artist_name}**."
+            embed.description = f"❌ Nobody got it right! It was **{album_name}** by **{artist_name}**."
             await message.edit(embed=embed, view=view, attachments=[final_file])
 
     @app_commands.command(name="guess", description="Play a game guessing a pixelated album cover")
@@ -415,11 +425,11 @@ class GamesCog(commands.Cog):
             
         if msg_out:
             embed.color = Theme.SUCCESS
-            embed.description = f"🎉 **{msg_out.author.display_name}** got it! The artist was **{target}**!"
+            embed.description = f"<a:celebrate:1531835618013876326> **{msg_out.author.display_name}** got it right! The artist was **{target}**!"
             await message.edit(embed=embed, view=view)
         else:
             embed.color = Theme.ERROR
-            embed.description = f"⏰ Time's up! The artist was **{target}**."
+            embed.description = f"❌ Nobody got it right! The artist was **{target}**."
             await message.edit(embed=embed, view=view)
 
     @app_commands.command(name="scramble", description="Play a game unscrambling an artist's name")
