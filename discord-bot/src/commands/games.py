@@ -10,8 +10,28 @@ from ..utils.api import fetch_top_artists, fetch_top_tracks
 
 from src.core.database import format_name
 
+class GuessModal(discord.ui.Modal):
+    def __init__(self, view, guess_check):
+        super().__init__(title="Make a Guess")
+        self.game_view = view
+        self.guess_check = guess_check
+        self.guess = discord.ui.TextInput(
+            label="Your guess",
+            placeholder="Type your answer here...",
+            required=True
+        )
+        self.add_item(self.guess)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.guess_check(self.guess.value):
+            self.game_view.winner = interaction.user
+            self.game_view.stop_event.set()
+            await interaction.response.defer()
+        else:
+            await interaction.response.send_message("❌ Incorrect guess! Keep trying.", ephemeral=True)
+
 class ScrambleView(discord.ui.View):
-    def __init__(self, target, original_embed, hints):
+    def __init__(self, target, original_embed, hints, is_dm=False):
         super().__init__(timeout=None)
         self.target = target
         self.original_embed = original_embed
@@ -19,7 +39,18 @@ class ScrambleView(discord.ui.View):
         self.current_hint_index = 0
         self.scrambled = self._scramble(target)
         self.given_up = False
+        self.winner = None
         self.stop_event = asyncio.Event()
+        if is_dm:
+            btn = discord.ui.Button(label="Make a Guess", style=discord.ButtonStyle.primary, row=1)
+            btn.callback = self.guess_btn_callback
+            self.add_item(btn)
+
+    async def guess_btn_callback(self, interaction: discord.Interaction):
+        def check_func(guess_str):
+            from .games import GamesCog
+            return GamesCog.is_close_match(guess_str, self.target, threshold=0.85, allow_substring=False)
+        await interaction.response.send_modal(GuessModal(self, check_func))
 
     def _scramble(self, target):
         words = target.split(" ")
@@ -83,7 +114,7 @@ class ScrambleView(discord.ui.View):
         self.stop()
 
 class GuessView(discord.ui.View):
-    def __init__(self, album_name, artist_name, original_embed, hints, img):
+    def __init__(self, album_name, artist_name, original_embed, hints, img, is_dm=False):
         super().__init__(timeout=None)
         self.album_name = album_name
         self.artist_name = artist_name
@@ -92,7 +123,18 @@ class GuessView(discord.ui.View):
         self.img = img
         self.current_hint_index = 0
         self.given_up = False
+        self.winner = None
         self.stop_event = asyncio.Event()
+        if is_dm:
+            btn = discord.ui.Button(label="Make a Guess", style=discord.ButtonStyle.primary, row=1)
+            btn.callback = self.guess_btn_callback
+            self.add_item(btn)
+
+    async def guess_btn_callback(self, interaction: discord.Interaction):
+        def check_func(guess_str):
+            from .games import GamesCog
+            return GamesCog.is_close_match(guess_str, self.album_name) or GamesCog.is_close_match(guess_str, self.artist_name)
+        await interaction.response.send_modal(GuessModal(self, check_func))
 
     def generate_pixelated_image(self):
         sizes = [16, 12, 8, 5, 3]
@@ -166,7 +208,8 @@ class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    def is_close_match(self, guess, target, threshold=0.85, allow_substring=True):
+    @staticmethod
+    def is_close_match(guess, target, threshold=0.85, allow_substring=True):
         guess = guess.lower().strip()
         target = target.lower().strip()
         if len(guess) < 3:
@@ -296,7 +339,8 @@ class GamesCog(commands.Cog):
         from src.core.theme import Theme
         embed = Theme.get_embed(title="<:pixel:1531835168430493746> Pixelated Album", description="Guess the album name or artist!\nYou have 30 seconds.", color=Theme.PRIMARY)
         
-        view = GuessView(album_name, artist_name, embed, hints, img)
+        is_dm = isinstance(context, discord.Interaction) and not context.guild_id
+        view = GuessView(album_name, artist_name, embed, hints, img, is_dm=is_dm)
         file = view.generate_pixelated_image()
         view.update_embed()
         
@@ -307,7 +351,14 @@ class GamesCog(commands.Cog):
 
         def check(m):
             if m.channel.id != channel_id: return False
-            return self.is_close_match(m.content, album_name) or self.is_close_match(m.content, artist_name)
+            if m.author.bot or len(m.content.strip()) < 2: return False
+            is_correct = self.is_close_match(m.content, album_name) or self.is_close_match(m.content, artist_name)
+            if is_correct:
+                self.bot.loop.create_task(m.add_reaction("✅"))
+                return True
+            else:
+                self.bot.loop.create_task(m.add_reaction("❌"))
+                return False
 
         msg_out = await self.wait_for_guess(check, timeout=30.0, stop_event=view.stop_event)
         
@@ -322,9 +373,11 @@ class GamesCog(commands.Cog):
         buf.seek(0)
         final_file = discord.File(buf, filename="pixel.png")
 
-        if msg_out:
+        winner = getattr(view, 'winner', None) or (msg_out.author if msg_out else None)
+
+        if winner:
             embed.color = Theme.SUCCESS
-            embed.description = f"<a:celebrate:1531835618013876326> **{msg_out.author.display_name}** got it right! It was **{album_name}** by **{artist_name}**!"
+            embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! It was **{album_name}** by **{artist_name}**!"
             await message.edit(embed=embed, view=view, attachments=[final_file])
         else:
             embed.color = Theme.ERROR
@@ -407,7 +460,8 @@ class GamesCog(commands.Cog):
         from src.core.theme import Theme
         embed = Theme.get_embed(title="🎵 Artist Scramble", description="", color=Theme.PRIMARY)
         
-        view = ScrambleView(target, embed, hints)
+        is_dm = isinstance(context, discord.Interaction) and not context.guild_id
+        view = ScrambleView(target, embed, hints, is_dm=is_dm)
         view.update_embed()
         
         if isinstance(context, discord.Interaction):
@@ -417,7 +471,14 @@ class GamesCog(commands.Cog):
 
         def check(m):
             if m.channel.id != channel_id: return False
-            return self.is_close_match(m.content, target, threshold=0.85, allow_substring=False)
+            if m.author.bot or len(m.content.strip()) < 2: return False
+            is_correct = self.is_close_match(m.content, target, threshold=0.85, allow_substring=False)
+            if is_correct:
+                self.bot.loop.create_task(m.add_reaction("✅"))
+                return True
+            else:
+                self.bot.loop.create_task(m.add_reaction("❌"))
+                return False
 
         msg_out = await self.wait_for_guess(check, timeout=30.0, stop_event=view.stop_event)
         
@@ -427,9 +488,11 @@ class GamesCog(commands.Cog):
         for child in view.children:
             child.disabled = True
             
-        if msg_out:
+        winner = getattr(view, 'winner', None) or (msg_out.author if msg_out else None)
+            
+        if winner:
             embed.color = Theme.SUCCESS
-            embed.description = f"<a:celebrate:1531835618013876326> **{msg_out.author.display_name}** got it right! The artist was **{target}**!"
+            embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! The artist was **{target}**!"
             await message.edit(embed=embed, view=view)
         else:
             embed.color = Theme.ERROR
