@@ -18,7 +18,8 @@ class SocialCog(commands.Cog):
         friend_id = str(user.id)
             
         if user_id == friend_id:
-            await interaction.followup.send("You cannot add yourself!")
+            embed = discord.Embed(color=0xFF0000, description="❌ You cannot add yourself!")
+            await interaction.followup.send(embed=embed)
             return
             
         status = await add_friend_request(
@@ -28,21 +29,31 @@ class SocialCog(commands.Cog):
             user_avatar=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
         )
         if status == 'accepted':
-            await interaction.followup.send(f"You are now friends with {user.display_name}!")
+            embed = discord.Embed(color=0x00FF00, description=f"✅ You are now friends with **{user.display_name}**!")
+            if user.avatar: embed.set_thumbnail(url=user.avatar.url)
+            await interaction.followup.send(embed=embed)
             try:
-                await user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                dm_embed = discord.Embed(color=0x00FF00, description=f"✅ **{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                if interaction.user.avatar: dm_embed.set_thumbnail(url=interaction.user.avatar.url)
+                await user.send(embed=dm_embed)
             except:
                 pass
         elif status == 'pending':
-            await interaction.followup.send(f"Friend request sent to {user.display_name}!")
+            embed = discord.Embed(color=0x00AAFF, description=f"📩 Friend request sent to **{user.display_name}**!")
+            if user.avatar: embed.set_thumbnail(url=user.avatar.url)
+            await interaction.followup.send(embed=embed)
             try:
-                await user.send(f"**{interaction.user.display_name}** sent you a friend request on DJ Scratch! View it on the website or app.")
+                dm_embed = discord.Embed(color=0x00AAFF, description=f"📩 **{interaction.user.display_name}** sent you a friend request on DJ Scratch! View it on the website or app.")
+                if interaction.user.avatar: dm_embed.set_thumbnail(url=interaction.user.avatar.url)
+                await user.send(embed=dm_embed)
             except:
                 pass
         elif status == 'already_friends':
-            await interaction.followup.send(f"You are already friends with {user.display_name}.")
+            embed = discord.Embed(color=0xFFA500, description=f"⚠️ You are already friends with **{user.display_name}**.")
+            await interaction.followup.send(embed=embed)
         else:
-            await interaction.followup.send("Failed to send request.")
+            embed = discord.Embed(color=0xFF0000, description="❌ Failed to send request.")
+            await interaction.followup.send(embed=embed)
 
     @social_group.command(name="accept", description="Accept a friend request")
     @app_commands.describe(user="The Discord user whose request you want to accept")
@@ -59,13 +70,18 @@ class SocialCog(commands.Cog):
             user_avatar=interaction.user.avatar.url if interaction.user.avatar else (interaction.user.default_avatar.url if interaction.user.default_avatar else None)
         )
         if success:
-            await interaction.followup.send(f"Accepted friend request from {user.display_name}!")
+            embed = discord.Embed(color=0x00FF00, description=f"✅ Accepted friend request from **{user.display_name}**!")
+            if user.avatar: embed.set_thumbnail(url=user.avatar.url)
+            await interaction.followup.send(embed=embed)
             try:
-                await user.send(f"**{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                dm_embed = discord.Embed(color=0x00FF00, description=f"✅ **{interaction.user.display_name}** accepted your friend request on DJ Scratch!")
+                if interaction.user.avatar: dm_embed.set_thumbnail(url=interaction.user.avatar.url)
+                await user.send(embed=dm_embed)
             except:
                 pass
         else:
-            await interaction.followup.send("Failed to accept request (make sure they sent one first).")
+            embed = discord.Embed(color=0xFF0000, description="❌ Failed to accept request (make sure they sent one first).")
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="dms", description="Open your DJ Scratch Direct Messages")
     async def open_dms(self, interaction: discord.Interaction):

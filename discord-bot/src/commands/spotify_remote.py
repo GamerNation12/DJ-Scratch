@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import aiohttp
 import os
 
 from src.core.database import format_name
@@ -19,7 +18,6 @@ class SpotifyRemoteView(discord.ui.View):
         self.add_item(discord.ui.Button(emoji="⏯️", style=discord.ButtonStyle.primary, custom_id=f"spotify_play:{self.user_id}"))
         self.add_item(discord.ui.Button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_next:{self.user_id}"))
 
-
 class SpotifyRemote(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -36,28 +34,41 @@ class SpotifyRemote(commands.Cog):
         self.bot.tree.add_command(self.ctx_menu_queue)
 
     async def _handle_track_command(self, ctx, query, action="play"):
-        async with aiohttp.ClientSession() as session:
-            token = await get_user_spotify_access_token(session, str(ctx.author.id))
-            if not token:
-                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
-                return await ctx.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})")
-                
-            track = await search_spotify_track(session, query)
-            if not track:
-                return await ctx.send("Could not find that track on Spotify.")
-                
-            if action == "play":
-                res = await spotify_play_track(session, str(ctx.author.id), track['uri'])
-                if res is True:
-                    await ctx.send(f"▶️ Playing **{track['name']}** by {', '.join(track['artists'])}")
-                else:
-                    await ctx.send(f"Failed to play: {res}")
+        session = self.bot.session
+        token = await get_user_spotify_access_token(session, str(ctx.author.id))
+        if not token:
+            app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+            embed = discord.Embed(color=0xFF0000, description=f"❌ You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})")
+            return await ctx.send(embed=embed)
+            
+        track = await search_spotify_track(session, query)
+        if not track:
+            embed = discord.Embed(color=0xFF0000, description="❌ Could not find that track on Spotify.")
+            return await ctx.send(embed=embed)
+            
+        embed = discord.Embed(color=0x1DB954)
+        if track.get('album') and track['album'].get('images'):
+            embed.set_thumbnail(url=track['album']['images'][0]['url'])
+            
+        if action == "play":
+            res = await spotify_play_track(session, str(ctx.author.id), track['uri'])
+            if res is True:
+                embed.description = f"▶️ Playing **{track['name']}** by {', '.join(track['artists'])}"
+                view = SpotifyRemoteView(ctx.author.id)
+                await ctx.send(embed=embed, view=view)
             else:
-                res = await spotify_add_to_queue(session, str(ctx.author.id), track['uri'])
-                if res is True:
-                    await ctx.send(f"🎵 Added **{track['name']}** to queue!")
-                else:
-                    await ctx.send(f"Failed to queue: {res}")
+                embed.color = 0xFF0000
+                embed.description = f"❌ Failed to play: {res}"
+                await ctx.send(embed=embed)
+        else:
+            res = await spotify_add_to_queue(session, str(ctx.author.id), track['uri'])
+            if res is True:
+                embed.description = f"🎵 Added **{track['name']}** to queue!"
+                await ctx.send(embed=embed)
+            else:
+                embed.color = 0xFF0000
+                embed.description = f"❌ Failed to queue: {res}"
+                await ctx.send(embed=embed)
 
     @commands.command(aliases=['rc'])
     async def remote(self, ctx):
@@ -72,16 +83,23 @@ class SpotifyRemote(commands.Cog):
                 msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
                 query = msg.content
             else:
-                async with aiohttp.ClientSession() as session:
-                    res = await spotify_play_track(session, str(ctx.author.id))
-                    if res is True:
-                        return await ctx.send("▶️ Resumed playback.")
-                    elif res == "no_token":
-                        app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
-                        return await ctx.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})")
-                    else:
-                        return await ctx.send(f"Failed to resume: {res}")
-                        
+                session = self.bot.session
+                res = await spotify_play_track(session, str(ctx.author.id))
+                embed = discord.Embed(color=0x1DB954)
+                if res is True:
+                    embed.description = "▶️ Resumed playback."
+                    view = SpotifyRemoteView(ctx.author.id)
+                    return await ctx.send(embed=embed, view=view)
+                elif res == "no_token":
+                    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+                    embed.color = 0xFF0000
+                    embed.description = f"❌ You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={ctx.author.id})"
+                    return await ctx.send(embed=embed)
+                else:
+                    embed.color = 0xFF0000
+                    embed.description = f"❌ Failed to resume: {res}"
+                    return await ctx.send(embed=embed)
+                    
         await self._handle_track_command(ctx, query, "play")
 
     @commands.command(aliases=['q'])
@@ -91,78 +109,132 @@ class SpotifyRemote(commands.Cog):
                 msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
                 query = msg.content
             else:
-                return await ctx.send("Please provide a track to queue.")
+                embed = discord.Embed(color=0xFF0000, description="❌ Please provide a track to queue.")
+                return await ctx.send(embed=embed)
         await self._handle_track_command(ctx, query, "queue")
 
     @commands.command(aliases=['ps', 'pa'])
     async def pause(self, ctx):
-        async with aiohttp.ClientSession() as session:
-            res = await spotify_pause_playback(session, str(ctx.author.id))
-            if res is True:
-                await ctx.send("⏸️ Paused playback.")
-            else:
-                await ctx.send(f"Failed: {res}")
+        session = self.bot.session
+        res = await spotify_pause_playback(session, str(ctx.author.id))
+        embed = discord.Embed(color=0x1DB954)
+        if res is True:
+            embed.description = "⏸️ Paused playback."
+            view = SpotifyRemoteView(ctx.author.id)
+            await ctx.send(embed=embed, view=view)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await ctx.send(embed=embed)
 
     @commands.command(aliases=['sk', 'next'])
     async def skip(self, ctx):
-        async with aiohttp.ClientSession() as session:
-            res = await spotify_skip_to_next(session, str(ctx.author.id))
-            if res is True:
-                await ctx.send("⏭️ Skipped track.")
-            else:
-                await ctx.send(f"Failed: {res}")
+        session = self.bot.session
+        res = await spotify_skip_to_next(session, str(ctx.author.id))
+        embed = discord.Embed(color=0x1DB954)
+        if res is True:
+            embed.description = "⏭️ Skipped track."
+            view = SpotifyRemoteView(ctx.author.id)
+            await ctx.send(embed=embed, view=view)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await ctx.send(embed=embed)
 
     @commands.command(aliases=['rl'])
     async def rclike(self, ctx, *, query: str = None):
         if not query:
-            return await ctx.send("Please provide a track to like.")
-        async with aiohttp.ClientSession() as session:
-            track = await search_spotify_track(session, query)
-            if not track: return await ctx.send("Track not found.")
-            res = await spotify_like_track(session, str(ctx.author.id), track['id'])
-            if res is True:
-                await ctx.send(f"❤️ Liked **{track['name']}** on Spotify.")
-            else:
-                await ctx.send(f"Failed: {res}")
+            embed = discord.Embed(color=0xFF0000, description="❌ Please provide a track to like.")
+            return await ctx.send(embed=embed)
+        session = self.bot.session
+        track = await search_spotify_track(session, query)
+        if not track: 
+            embed = discord.Embed(color=0xFF0000, description="❌ Track not found.")
+            return await ctx.send(embed=embed)
+            
+        res = await spotify_like_track(session, str(ctx.author.id), track['id'])
+        embed = discord.Embed(color=0x1DB954)
+        if res is True:
+            if track.get('album') and track['album'].get('images'):
+                embed.set_thumbnail(url=track['album']['images'][0]['url'])
+            embed.description = f"❤️ Liked **{track['name']}** on Spotify."
+            await ctx.send(embed=embed)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await ctx.send(embed=embed)
 
     @commands.command(aliases=['ru'])
     async def rcunlike(self, ctx, *, query: str):
-        async with aiohttp.ClientSession() as session:
-            track = await search_spotify_track(session, query)
-            if not track: return await ctx.send("Track not found.")
-            res = await spotify_unlike_track(session, str(ctx.author.id), track['id'])
-            if res is True:
-                await ctx.send(f"💔 Unliked **{track['name']}** on Spotify.")
-            else:
-                await ctx.send(f"Failed: {res}")
+        session = self.bot.session
+        track = await search_spotify_track(session, query)
+        if not track: 
+            embed = discord.Embed(color=0xFF0000, description="❌ Track not found.")
+            return await ctx.send(embed=embed)
+            
+        res = await spotify_unlike_track(session, str(ctx.author.id), track['id'])
+        embed = discord.Embed(color=0x1DB954)
+        if res is True:
+            if track.get('album') and track['album'].get('images'):
+                embed.set_thumbnail(url=track['album']['images'][0]['url'])
+            embed.description = f"💔 Unliked **{track['name']}** on Spotify."
+            await ctx.send(embed=embed)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await ctx.send(embed=embed)
 
     async def play_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer(ephemeral=True)
         query = message.content
-        async with aiohttp.ClientSession() as session:
-            track = await search_spotify_track(session, query)
-            if not track: return await interaction.followup.send("Could not find track.")
-            res = await spotify_play_track(session, str(interaction.user.id), track['uri'])
-            if res is True:
-                await interaction.followup.send(f"▶️ Playing **{track['name']}** on Spotify!")
-            elif res == "no_token":
-                await interaction.followup.send("You need to link your Spotify account first.")
-            else:
-                await interaction.followup.send(f"Failed: {res}")
+        session = self.bot.session
+        track = await search_spotify_track(session, query)
+        if not track: 
+            embed = discord.Embed(color=0xFF0000, description="❌ Could not find track.")
+            return await interaction.followup.send(embed=embed)
+            
+        res = await spotify_play_track(session, str(interaction.user.id), track['uri'])
+        embed = discord.Embed(color=0x1DB954)
+        if track.get('album') and track['album'].get('images'):
+            embed.set_thumbnail(url=track['album']['images'][0]['url'])
+            
+        if res is True:
+            embed.description = f"▶️ Playing **{track['name']}** on Spotify!"
+            await interaction.followup.send(embed=embed)
+        elif res == "no_token":
+            embed.color = 0xFF0000
+            embed.description = "❌ You need to link your Spotify account first."
+            await interaction.followup.send(embed=embed)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await interaction.followup.send(embed=embed)
 
     async def queue_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer(ephemeral=True)
         query = message.content
-        async with aiohttp.ClientSession() as session:
-            track = await search_spotify_track(session, query)
-            if not track: return await interaction.followup.send("Could not find track.")
-            res = await spotify_add_to_queue(session, str(interaction.user.id), track['uri'])
-            if res is True:
-                await interaction.followup.send(f"🎵 Queued **{track['name']}** on Spotify!")
-            elif res == "no_token":
-                await interaction.followup.send("You need to link your Spotify account first.")
-            else:
-                await interaction.followup.send(f"Failed: {res}")
+        session = self.bot.session
+        track = await search_spotify_track(session, query)
+        if not track: 
+            embed = discord.Embed(color=0xFF0000, description="❌ Could not find track.")
+            return await interaction.followup.send(embed=embed)
+            
+        res = await spotify_add_to_queue(session, str(interaction.user.id), track['uri'])
+        embed = discord.Embed(color=0x1DB954)
+        if track.get('album') and track['album'].get('images'):
+            embed.set_thumbnail(url=track['album']['images'][0]['url'])
+            
+        if res is True:
+            embed.description = f"🎵 Queued **{track['name']}** on Spotify!"
+            await interaction.followup.send(embed=embed)
+        elif res == "no_token":
+            embed.color = 0xFF0000
+            embed.description = "❌ You need to link your Spotify account first."
+            await interaction.followup.send(embed=embed)
+        else:
+            embed.color = 0xFF0000
+            embed.description = f"❌ Failed: {res}"
+            await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(SpotifyRemote(bot))

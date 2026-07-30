@@ -136,25 +136,27 @@ class GuessView(discord.ui.View):
             return GamesCog.is_close_match(guess_str, self.album_name) or GamesCog.is_close_match(guess_str, self.artist_name)
         await interaction.response.send_modal(GuessModal(self, check_func))
 
-    def generate_pixelated_image(self):
-        sizes = [16, 12, 8, 5, 3]
-        if self.current_hint_index < len(sizes):
-            pixel_size = sizes[self.current_hint_index]
-        else:
-            pixel_size = 1
-            
-        if pixel_size <= 1:
+    async def generate_pixelated_image(self):
+        def _process():
+            sizes = [16, 12, 8, 5, 3]
+            if self.current_hint_index < len(sizes):
+                pixel_size = sizes[self.current_hint_index]
+            else:
+                pixel_size = 1
+                
+            if pixel_size <= 1:
+                buf = io.BytesIO()
+                self.img.save(buf, format='PNG')
+                buf.seek(0)
+                return discord.File(buf, filename="pixel.png")
+                
+            small = self.img.resize((max(1, self.img.size[0] // pixel_size), max(1, self.img.size[1] // pixel_size)), Image.BILINEAR)
+            pixelated = small.resize(self.img.size, Image.NEAREST)
             buf = io.BytesIO()
-            self.img.save(buf, format='PNG')
+            pixelated.save(buf, format='PNG')
             buf.seek(0)
             return discord.File(buf, filename="pixel.png")
-            
-        small = self.img.resize((max(1, self.img.size[0] // pixel_size), max(1, self.img.size[1] // pixel_size)), Image.BILINEAR)
-        pixelated = small.resize(self.img.size, Image.NEAREST)
-        buf = io.BytesIO()
-        pixelated.save(buf, format='PNG')
-        buf.seek(0)
-        return discord.File(buf, filename="pixel.png")
+        return await asyncio.to_thread(_process)
 
     def update_embed(self):
         desc = "Guess the album name or artist!\nYou have 30 seconds.\n\n"
@@ -178,7 +180,7 @@ class GuessView(discord.ui.View):
                 button.disabled = True
             self.last_interactor = interaction.user
             self.update_embed()
-            file = self.generate_pixelated_image()
+            file = await self.generate_pixelated_image()
             await interaction.response.edit_message(embed=self.original_embed, view=self, attachments=[file])
         else:
             await interaction.response.defer()
@@ -321,15 +323,15 @@ class GamesCog(commands.Cog):
         img_url = target['image'][-1]['#text']
 
         # Download image
-        async with aiohttp.ClientSession() as session:
-            async with session.get(img_url) as resp:
-                if resp.status != 200:
-                    msg = "Failed to download album art!"
-                    if isinstance(context, discord.Interaction):
-                        return await context.followup.send(msg)
-                    else:
-                        return await context.send(msg)
-                img_bytes = await resp.read()
+        session = self.bot.session
+        async with session.get(img_url) as resp:
+            if resp.status != 200:
+                msg = "Failed to download album art!"
+                if isinstance(context, discord.Interaction):
+                    return await context.followup.send(msg)
+                else:
+                    return await context.send(msg)
+            img_bytes = await resp.read()
 
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         
@@ -346,7 +348,7 @@ class GamesCog(commands.Cog):
         
         is_dm = isinstance(context, discord.Interaction) and not context.guild_id
         view = GuessView(album_name, artist_name, embed, hints, img, is_dm=is_dm)
-        file = view.generate_pixelated_image()
+        file = await view.generate_pixelated_image()
         view.update_embed()
         
         if isinstance(context, discord.Interaction):

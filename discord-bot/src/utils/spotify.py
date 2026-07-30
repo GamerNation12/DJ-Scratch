@@ -146,19 +146,19 @@ async def fetch_user_currently_playing(user_id: str):
             import base64
             auth_str = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post('https://accounts.spotify.com/api/token', headers={
-                    'Authorization': f'Basic {auth_str}',
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }, data={
-                    'grant_type': 'refresh_token',
-                    'refresh_token': refresh_token
-                }) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        access_token = data['access_token']
-                        new_refresh = data.get('refresh_token', refresh_token)
-                        new_expires = now + datetime.timedelta(seconds=data['expires_in'])
+            session = await get_spotify_session()
+            async with session.post('https://accounts.spotify.com/api/token', headers={
+                'Authorization': f'Basic {auth_str}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }, data={
+                'grant_type': 'refresh_token',
+                'refresh_token': refresh_token
+            }) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    access_token = data['access_token']
+                    new_refresh = data.get('refresh_token', refresh_token)
+                    new_expires = now + datetime.timedelta(seconds=data['expires_in'])
                         
                         await conn.execute('''
                             UPDATE user_settings 
@@ -172,13 +172,12 @@ async def fetch_user_currently_playing(user_id: str):
                         return (0.0, 0.0)
                         
         # Now fetch the currently playing track!
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
-                'Authorization': f'Bearer {access_token}'
-            }) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
+        session = await get_spotify_session()
+        async with session.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
+            'Authorization': f'Bearer {access_token}'
+        }) as resp:
+            if resp.status == 200:
+                data = await resp.json()
                     if data and data.get('is_playing') and 'progress_ms' in data:
                         progress = data['progress_ms'] / 1000.0
                         duration = 0.0
