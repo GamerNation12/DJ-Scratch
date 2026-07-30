@@ -10,7 +10,7 @@ def create_simple_layout(description: str, color: discord.Color = discord.Color.
     
     components.append(discord.ui.TextDisplay(description))
     
-    accessory = discord.ui.Thumbnail(thumbnail_url) if thumbnail_url else None
+    accessory = discord.ui.Thumbnail(thumbnail_url) if thumbnail_url else discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
     
     section = discord.ui.Section(*components, accessory=accessory)
         

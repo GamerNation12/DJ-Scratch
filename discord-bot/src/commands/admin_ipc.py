@@ -229,7 +229,7 @@ class AdminIPC(commands.Cog):
                     section = discord.ui.Section(
                         discord.ui.TextDisplay("🌐 Website Activity"),
                         discord.ui.TextDisplay(desc),
-                        accessory=None
+                        accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
                     )
                     view.add_item(discord.ui.Container(section, accent_color=discord.Color.blue()))
                     

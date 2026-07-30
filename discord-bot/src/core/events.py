@@ -1609,7 +1609,7 @@ class FMActionsView(discord.ui.LayoutView):
         if self.embed_data.get('footer'):
             components.append(discord.ui.TextDisplay(f"*{self.embed_data['footer']}*"))
             
-        accessory = discord.ui.Thumbnail(self.img) if self.img else None
+        accessory = discord.ui.Thumbnail(self.img) if self.img else discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
         
         section = discord.ui.Section(*components, accessory=accessory)
             
@@ -1784,7 +1784,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed_data['footer'] = footer_text
         
         view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data=data, embed_data=embed_data)
-        return {"content": content, "embeds": [], "view": view}, is_p
+        return {"embeds": [], "view": view}, is_p
 
     if mode == "stats":
         desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]

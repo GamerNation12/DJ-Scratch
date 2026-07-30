@@ -95,7 +95,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         section = discord.ui.Section(
             discord.ui.TextDisplay("📊 Bot Server Usage Statistics"),
             discord.ui.TextDisplay(f"{desc_text}\n\n{stats_text}"),
-            accessory=None
+            accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
         )
         view.add_item(discord.ui.Container(section, accent_color=Theme.PRIMARY))
         
@@ -275,7 +275,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             section = discord.ui.Section(
                 discord.ui.TextDisplay("📊 Bot User Activity"),
                 discord.ui.TextDisplay(desc),
-                accessory=None
+                accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
             )
             view.add_item(discord.ui.Container(section, accent_color=discord.Color.blue()))
             await ctx.send(view=view)
@@ -344,7 +344,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         section = discord.ui.Section(
             discord.ui.TextDisplay("<a:VinylRecord:1527125818713837701> System Debug Info"),
             discord.ui.TextDisplay(desc),
-            accessory=None
+            accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
         )
         view.add_item(discord.ui.Container(section, accent_color=discord.Color.gold()))
         await ctx.send(view=view)

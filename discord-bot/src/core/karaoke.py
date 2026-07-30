@@ -104,7 +104,7 @@ class KaraokeLyricsView(discord.ui.LayoutView):
             section = discord.ui.Section(
                 discord.ui.TextDisplay(f"Lyrics for {self.song} by {self.artist}"),
                 discord.ui.TextDisplay(desc),
-                accessory=None
+                accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
             )
             container = discord.ui.Container(section, accent_color=Theme.PRIMARY)
             self.add_item(container)
@@ -149,7 +149,7 @@ class KaraokeLyricsView(discord.ui.LayoutView):
         section = discord.ui.Section(
             discord.ui.TextDisplay(f"🎤 Karaoke: {self.song} by {self.artist}"),
             discord.ui.TextDisplay(desc),
-            accessory=None
+            accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
         )
         
         row1 = discord.ui.ActionRow(self.btn_rewind, self.btn_rewind_small, self.btn_forward_small, self.btn_forward)
