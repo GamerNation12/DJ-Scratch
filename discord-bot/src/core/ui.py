@@ -12,10 +12,7 @@ def create_simple_layout(description: str, color: discord.Color = discord.Color.
     
     accessory = discord.ui.Thumbnail(thumbnail_url) if thumbnail_url else None
     
-    if accessory:
-        section = discord.ui.Section(*components, accessory=accessory)
-    else:
-        section = discord.ui.Section(*components)
+    section = discord.ui.Section(*components, accessory=accessory)
         
     container = discord.ui.Container(section, accent_color=color)
     view.add_item(container)

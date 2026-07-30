@@ -1611,10 +1611,7 @@ class FMActionsView(discord.ui.LayoutView):
             
         accessory = discord.ui.Thumbnail(self.img) if self.img else None
         
-        if accessory:
-            section = discord.ui.Section(*components, accessory=accessory)
-        else:
-            section = discord.ui.Section(*components)
+        section = discord.ui.Section(*components, accessory=accessory)
             
         container_args = [section]
         

@@ -97,7 +97,8 @@ class SocialCog(commands.Cog):
         layout_view = discord.ui.LayoutView()
         section = discord.ui.Section(
             discord.ui.TextDisplay("💬 DJ Scratch DMs"),
-            discord.ui.TextDisplay(desc)
+            discord.ui.TextDisplay(desc),
+            accessory=None
         )
         row = discord.ui.ActionRow(btn)
         container = discord.ui.Container(section, row, accent_color=discord.Color.blurple())

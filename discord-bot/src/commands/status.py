@@ -43,7 +43,8 @@ class StatusCog(commands.Cog):
             desc = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server.*"
             section = discord.ui.Section(
                 discord.ui.TextDisplay(title),
-                discord.ui.TextDisplay(desc)
+                discord.ui.TextDisplay(desc),
+                accessory=None
             )
             container = discord.ui.Container(section, accent_color=discord.Color.red())
             view.add_item(container)
@@ -99,7 +100,8 @@ class StatusCog(commands.Cog):
         section = discord.ui.Section(
             discord.ui.TextDisplay("<a:VinylRecord:1527125818713837701> DJ Scratch - System Status"),
             discord.ui.TextDisplay(status_text),
-            discord.ui.TextDisplay(stats_text)
+            discord.ui.TextDisplay(stats_text),
+            accessory=None
         )
         
         container = discord.ui.Container(section, accent_color=color)

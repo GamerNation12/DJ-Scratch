@@ -228,7 +228,8 @@ class AdminIPC(commands.Cog):
                     view = discord.ui.LayoutView()
                     section = discord.ui.Section(
                         discord.ui.TextDisplay("🌐 Website Activity"),
-                        discord.ui.TextDisplay(desc)
+                        discord.ui.TextDisplay(desc),
+                        accessory=None
                     )
                     view.add_item(discord.ui.Container(section, accent_color=discord.Color.blue()))
                     
