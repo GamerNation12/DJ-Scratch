@@ -160,16 +160,16 @@ async def fetch_user_currently_playing(user_id: str):
                     new_refresh = data.get('refresh_token', refresh_token)
                     new_expires = now + datetime.timedelta(seconds=data['expires_in'])
                         
-                        await conn.execute('''
-                            UPDATE user_settings 
-                            SET spotify_access_token = $1, 
-                                spotify_refresh_token = $2, 
-                                spotify_token_expires_at = $3 
-                            WHERE user_id = $4
-                        ''', access_token, new_refresh, new_expires.replace(tzinfo=None), str(user_id))
-                    else:
-                        # Refresh failed, user needs to login again
-                        return (0.0, 0.0)
+                    await conn.execute('''
+                        UPDATE user_settings 
+                        SET spotify_access_token = $1, 
+                            spotify_refresh_token = $2, 
+                            spotify_token_expires_at = $3 
+                        WHERE user_id = $4
+                    ''', access_token, new_refresh, new_expires.replace(tzinfo=None), str(user_id))
+                else:
+                    # Refresh failed, user needs to login again
+                    return (0.0, 0.0)
                         
         # Now fetch the currently playing track!
         session = await get_spotify_session()
@@ -178,11 +178,11 @@ async def fetch_user_currently_playing(user_id: str):
         }) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                    if data and data.get('is_playing') and 'progress_ms' in data:
-                        progress = data['progress_ms'] / 1000.0
-                        duration = 0.0
-                        if 'item' in data and data['item'] and 'duration_ms' in data['item']:
-                            duration = data['item']['duration_ms'] / 1000.0
-                        return (progress, duration)
+                if data and data.get('is_playing') and 'progress_ms' in data:
+                    progress = data['progress_ms'] / 1000.0
+                    duration = 0.0
+                    if 'item' in data and data['item'] and 'duration_ms' in data['item']:
+                        duration = data['item']['duration_ms'] / 1000.0
+                    return (progress, duration)
                         
     return (0.0, 0.0)
