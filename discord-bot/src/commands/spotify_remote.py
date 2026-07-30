@@ -7,16 +7,18 @@ from src.core.database import format_name
 from src.core.spotify import (
     spotify_play_track, spotify_pause_playback, spotify_skip_to_next, 
     spotify_skip_to_previous, spotify_add_to_queue, spotify_like_track, 
-    spotify_unlike_track, search_spotify_track, get_user_spotify_access_token
+    spotify_unlike_track, search_spotify_track, get_user_spotify_access_token,
+    get_currently_playing_track
 )
 
 class SpotifyRemoteView(discord.ui.View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
         self.user_id = str(user_id)
-        self.add_item(discord.ui.Button(emoji="⏪", style=discord.ButtonStyle.secondary, custom_id=f"spotify_prev:{self.user_id}"))
-        self.add_item(discord.ui.Button(emoji="⏸", style=discord.ButtonStyle.secondary, custom_id=f"spotify_play:{self.user_id}"))
-        self.add_item(discord.ui.Button(emoji="⏩", style=discord.ButtonStyle.secondary, custom_id=f"spotify_next:{self.user_id}"))
+        # Using standard emoji with variation selectors to ensure they render as Twemoji
+        self.add_item(discord.ui.Button(emoji="⏮️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_prev:{self.user_id}"))
+        self.add_item(discord.ui.Button(emoji="⏸️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_pause:{self.user_id}"))
+        self.add_item(discord.ui.Button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id=f"spotify_next:{self.user_id}"))
         self.add_item(discord.ui.Button(emoji="❤️", style=discord.ButtonStyle.success, custom_id=f"spotify_like:{self.user_id}"))
         self.add_item(discord.ui.Button(emoji="🔁", style=discord.ButtonStyle.secondary, custom_id=f"spotify_repeat:{self.user_id}"))
 
@@ -36,7 +38,7 @@ class SpotifyRemote(commands.Cog):
         self.bot.tree.add_command(self.ctx_menu_queue)
 
     def format_embed(self, embed, track):
-        embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+        embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
         embed.title = track['name']
         if track.get('spotify_url'):
             embed.url = track['spotify_url']
@@ -73,7 +75,7 @@ class SpotifyRemote(commands.Cog):
             res = await spotify_add_to_queue(session, str(ctx.author.id), track['uri'])
             if res is True:
                 embed = self.format_embed(embed, track)
-                embed.set_author(name="Spotify remote – Added to queue", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+                embed.set_author(name="Spotify remote – Added to queue", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
                 await ctx.send(embed=embed)
             else:
                 embed.color = 0xFF0000
@@ -82,9 +84,19 @@ class SpotifyRemote(commands.Cog):
 
     @commands.command(aliases=['rc'])
     async def remote(self, ctx):
+        session = self.bot.session
         view = SpotifyRemoteView(ctx.author.id)
-        embed = discord.Embed(title="Spotify Remote", description="Control your playback.", color=0x1DB954)
-        embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+        embed = discord.Embed(color=0x1DB954)
+        
+        # Fetch currently playing track
+        track = await get_currently_playing_track(session, str(ctx.author.id))
+        if track and track != "no_token":
+            embed = self.format_embed(embed, track)
+        else:
+            embed.title = "Spotify Remote"
+            embed.description = "Control your playback."
+            embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
+            
         await ctx.send(embed=embed, view=view)
 
     @commands.command(aliases=['p'])
@@ -98,8 +110,12 @@ class SpotifyRemote(commands.Cog):
                 res = await spotify_play_track(session, str(ctx.author.id))
                 embed = discord.Embed(color=0x1DB954)
                 if res is True:
-                    embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
-                    embed.description = "▶️ Resumed playback."
+                    track = await get_currently_playing_track(session, str(ctx.author.id))
+                    if track and track != "no_token":
+                        embed = self.format_embed(embed, track)
+                    else:
+                        embed.set_author(name="Spotify remote – Now playing", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
+                        embed.description = "▶️ Resumed playback."
                     view = SpotifyRemoteView(ctx.author.id)
                     return await ctx.send(embed=embed, view=view)
                 elif res == "no_token":
@@ -131,8 +147,12 @@ class SpotifyRemote(commands.Cog):
         res = await spotify_pause_playback(session, str(ctx.author.id))
         embed = discord.Embed(color=0x1DB954)
         if res is True:
-            embed.set_author(name="Spotify remote – Paused", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
-            embed.description = "⏸️ Paused playback."
+            track = await get_currently_playing_track(session, str(ctx.author.id))
+            if track and track != "no_token":
+                embed = self.format_embed(embed, track)
+            else:
+                embed.description = "⏸️ Paused playback."
+            embed.set_author(name="Spotify remote – Paused", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
             view = SpotifyRemoteView(ctx.author.id)
             await ctx.send(embed=embed, view=view)
         else:
@@ -146,8 +166,12 @@ class SpotifyRemote(commands.Cog):
         res = await spotify_skip_to_next(session, str(ctx.author.id))
         embed = discord.Embed(color=0x1DB954)
         if res is True:
-            embed.set_author(name="Spotify remote – Skipped", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
-            embed.description = "⏭️ Skipped track."
+            track = await get_currently_playing_track(session, str(ctx.author.id))
+            if track and track != "no_token":
+                embed = self.format_embed(embed, track)
+            else:
+                embed.description = "⏭️ Skipped track."
+            embed.set_author(name="Spotify remote – Skipped", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
             view = SpotifyRemoteView(ctx.author.id)
             await ctx.send(embed=embed, view=view)
         else:
@@ -170,7 +194,7 @@ class SpotifyRemote(commands.Cog):
         embed = discord.Embed(color=0x1DB954)
         if res is True:
             embed = self.format_embed(embed, track)
-            embed.set_author(name="Spotify remote – Liked", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+            embed.set_author(name="Spotify remote – Liked", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
             await ctx.send(embed=embed)
         else:
             embed.color = 0xFF0000
@@ -189,7 +213,7 @@ class SpotifyRemote(commands.Cog):
         embed = discord.Embed(color=0x1DB954)
         if res is True:
             embed = self.format_embed(embed, track)
-            embed.set_author(name="Spotify remote – Unliked", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+            embed.set_author(name="Spotify remote – Unliked", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
             await ctx.send(embed=embed)
         else:
             embed.color = 0xFF0000
@@ -232,7 +256,7 @@ class SpotifyRemote(commands.Cog):
         embed = discord.Embed(color=0x1DB954)
         if res is True:
             embed = self.format_embed(embed, track)
-            embed.set_author(name="Spotify remote – Added to queue", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png")
+            embed.set_author(name="Spotify remote – Added to queue", icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png")
             await interaction.followup.send(embed=embed)
         elif res == "no_token":
             embed.color = 0xFF0000
