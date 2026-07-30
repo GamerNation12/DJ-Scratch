@@ -199,7 +199,9 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
                         "id": track.get("id"),
                         "name": track.get("name"),
                         "artists": [a.get("name") for a in track.get("artists", [])],
-                        "spotify_url": track.get("external_urls", {}).get("spotify")
+                        "spotify_url": track.get("external_urls", {}).get("spotify"),
+                        "album_name": track.get("album", {}).get("name"),
+                        "album_images": track.get("album", {}).get("images", [])
                     }
     except Exception as e:
         print(f"{Log.RED}>>> Failed to search Spotify track: {e}{Log.RESET}")
