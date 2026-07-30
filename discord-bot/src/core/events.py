@@ -3389,28 +3389,16 @@ async def on_interaction(interaction: discord.Interaction):
                     await asyncio.sleep(1)
                     
                     track = await get_currently_playing_track(session, owner_id)
-                    if track and track != "no_token" and interaction.message.embeds:
-                        embed = interaction.message.embeds[0]
-                        embed.title = track['name']
-                        if track.get('spotify_url'):
-                            embed.url = track['spotify_url']
-                        artists = ", ".join(track['artists'])
-                        album = track.get('album_name') or "Unknown Album"
-                        embed.description = f"**{artists}** • *{album}*"
+                    if track and track != "no_token":
+                        action_label = "Now playing"
+                        if action == "spotify_pause": action_label = "Paused"
+                        elif action == "spotify_prev": action_label = "Previous"
+                        elif action == "spotify_next": action_label = "Skipped"
+                        elif action == "spotify_like": action_label = "Liked"
                         
-                        spotify_icon = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png"
-                        if action == "spotify_pause":
-                            embed.set_author(name="Spotify remote – Paused", icon_url=spotify_icon)
-                        elif action == "spotify_prev":
-                            embed.set_author(name="Spotify remote – Previous", icon_url=spotify_icon)
-                        elif action == "spotify_next":
-                            embed.set_author(name="Spotify remote – Skipped", icon_url=spotify_icon)
-                        elif action == "spotify_like":
-                            embed.set_author(name="Spotify remote – Liked", icon_url=spotify_icon)
-                        else:
-                            embed.set_author(name="Spotify remote – Now playing", icon_url=spotify_icon)
-                            
-                        await interaction.message.edit(embed=embed)
+                        from src.commands.spotify_remote import get_spotify_remote_layout
+                        view = get_spotify_remote_layout(track, owner_id, action_label)
+                        await interaction.message.edit(embeds=[], view=view)
                         
         elif custom_id.startswith("fm_up:") or custom_id.startswith("fm_down:"):
             parts = custom_id.split(":")
