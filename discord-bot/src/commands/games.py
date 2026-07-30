@@ -210,19 +210,24 @@ class GamesCog(commands.Cog):
 
     @staticmethod
     def is_close_match(guess, target, threshold=0.85, allow_substring=True):
+        import re
         guess = guess.lower().strip()
         target = target.lower().strip()
         if len(guess) < 3:
             return False
             
-        if allow_substring:
-            if guess in target and len(guess) >= len(target) * 0.5:
-                return True
-            if target in guess:
-                return True
-                
-        ratio = difflib.SequenceMatcher(None, guess, target).ratio()
-        return ratio >= threshold
+        target_clean = re.sub(r'\(.*?\)|\[.*?\]', '', target).split(' - ')[0].strip()
+        
+        def check(t):
+            if not t: return False
+            if allow_substring:
+                if guess in t and len(guess) >= len(t) * 0.5:
+                    return True
+                if t in guess:
+                    return True
+            return difflib.SequenceMatcher(None, guess, t).ratio() >= threshold
+            
+        return check(target) or check(target_clean)
 
     async def wait_for_guess(self, check, timeout=30.0, stop_event=None):
         end_time = asyncio.get_event_loop().time() + timeout
