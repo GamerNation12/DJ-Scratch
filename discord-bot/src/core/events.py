@@ -1580,17 +1580,17 @@ class FMActionsView(discord.ui.View):
             self.add_item(btn_up)
             
         if spotify_url and current_mode != "compact":
-            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="≡ƒÄº", style=discord.ButtonStyle.link))
+            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
             
         if song and artist and current_mode != "compact":
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="≡ƒô¥", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📜", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
             user_id_str = str(self.user.id) if self.user else "None"
             custom_prev = f"fm_preview:{user_id_str}:{unique_id}:{artist[:80]}"
-            btn2 = discord.ui.Button(label="Preview Avatar", emoji="≡ƒû╝∩╕Å", style=discord.ButtonStyle.primary, custom_id=custom_prev)
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             self.add_item(btn2)
 
     async def go_down(self, interaction: discord.Interaction):
@@ -1754,8 +1754,8 @@ async def get_settings_embed(user_id, user):
 class SettingsDropdown(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="≡ƒô¥", value="fm_compact"),
-            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="≡ƒû╝∩╕Å", value="fm_full"),
+            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📜", value="fm_compact"),
+            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="🖼️", value="fm_full"),
             discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="≡ƒôè", value="fm_stats"),
             discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="≡ƒÄñ", value="feat_on"),
             discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="≡ƒÜ½", value="feat_off"),
@@ -1926,15 +1926,15 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if is_p:
                 content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
-                content = f"≡ƒÄº **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
                 content += "\n*(ΓÜá∩╕Å Scrobbles frozen? Run `,outofsync`)*"
             
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:
                 if track_plays == 0 and is_p:
-                    desc_lines.append("\n≡ƒÄº **First time listening!**")
+                    desc_lines.append("\n🎧 **First time listening!**")
                 else:
-                    desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+                    desc_lines.append(f"\n🔢 **{track_plays}** plays")
             
             desc = chr(10).join(desc_lines)
             embed = Theme.get_embed(description=desc, color=color)
@@ -1944,7 +1944,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
             if cd > 0:
                 m, s = divmod(int(cd), 60)
-                footer_text += f" ΓÇó Avatar CD: {m}m {s}s"
+                footer_text += f" • Avatar CD: {m}m {s}s"
                 
             embed.set_footer(text=footer_text)
             
@@ -1952,7 +1952,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
-            desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** ΓÇó *{album}*"]
+            desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
             
             if len(tracks) > 1:
                 prev_t = tracks[1]
@@ -1962,13 +1962,13 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     p_artist, p_song = await apply_features(session, p_artist, p_song)
                 
                 p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
-                desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** ΓÇó *{p_album}*"])
+                desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
             
             if show_playcount and track_plays != -1:
                 if track_plays == 0 and is_p:
-                    desc_lines.append("\n≡ƒÄº **First time listening!**")
+                    desc_lines.append("\n🎧 **First time listening!**")
                 else:
-                    desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+                    desc_lines.append(f"\n🔢 **{track_plays}** plays")
             
             embed = Theme.get_embed(description=chr(10).join(desc_lines), color=color)
             embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
@@ -2009,17 +2009,17 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
             stats_line = []
             if t_info and 'track' in t_info and t_info['track'].get('userloved') == '1':
-                stats_line.append("Γ¥ñ∩╕Å Loved track")
+                stats_line.append("❤️ Loved track")
             
             if a_info and 'artist' in a_info and 'stats' in a_info['artist']:
                 pc = a_info['artist']['stats'].get('userplaycount', 0)
                 stats_line.append(f"{pc} artist scrobbles")
                 
             if crown_winner:
-                stats_line.append(f"≡ƒææ {crown_winner['name']} ({crown_winner['plays']} plays)")
+                stats_line.append(f"👑 {crown_winner['name']} ({crown_winner['plays']} plays)")
             
             if stats_line:
-                footer_parts.append(" ΓÇó ".join(stats_line))
+                footer_parts.append(" • ".join(stats_line))
                 
             disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
             if not is_p:
@@ -2035,9 +2035,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
         if show_playcount and track_plays != -1:
             if track_plays == 0 and is_p:
-                desc_lines.append("\n≡ƒÄº **First time listening!**")
+                desc_lines.append("\n🎧 **First time listening!**")
             else:
-                desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+                desc_lines.append(f"\n🔢 **{track_plays}** plays")
                 
         desc = chr(10).join(desc_lines)
         embed = Theme.get_embed(description=desc, color=color)
@@ -2050,7 +2050,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}"
         if cd > 0:
             mins, secs = divmod(cd, 60)
-            footer_text += f" ΓÇó Avatar CD: {mins}m {secs}s"
+            footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
         view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data=data)
