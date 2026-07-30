@@ -3355,31 +3355,62 @@ async def on_interaction(interaction: discord.Interaction):
                     await interaction.response.send_message("This is not your remote!", ephemeral=True)
                     return
                 
-                # Check for token or get it dynamically if needed - actually the api functions do it
+                await interaction.response.defer()
                 app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
                 
-                async def handle_spotify_response(res):
-                    if res == "no_token":
-                        await interaction.response.send_message(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
-                    elif res is True:
-                        await interaction.response.send_message("Action successful!", ephemeral=True)
-                    else:
-                        await interaction.response.send_message(f"Failed: {res}", ephemeral=True)
-                
-                from src.core.spotify import spotify_skip_to_previous, spotify_pause_playback, spotify_play_track, spotify_skip_to_next
+                from src.core.spotify import (
+                    spotify_skip_to_previous, spotify_pause_playback, 
+                    spotify_play_track, spotify_skip_to_next, 
+                    spotify_like_track, get_currently_playing_track
+                )
                 
                 async with aiohttp.ClientSession() as session:
+                    res = False
                     if action == "spotify_prev":
                         res = await spotify_skip_to_previous(session, owner_id)
-                        await handle_spotify_response(res)
-                    elif action == "spotify_play":
+                    elif action == "spotify_pause":
                         res = await spotify_pause_playback(session, owner_id)
                         if res is not True:
                             res = await spotify_play_track(session, owner_id)
-                        await handle_spotify_response(res)
                     elif action == "spotify_next":
                         res = await spotify_skip_to_next(session, owner_id)
-                        await handle_spotify_response(res)
+                    elif action == "spotify_like":
+                        track = await get_currently_playing_track(session, owner_id)
+                        if track and track != "no_token":
+                            res = await spotify_like_track(session, owner_id, track['id'])
+                    elif action == "spotify_repeat":
+                        res = True
+                        
+                    if res == "no_token":
+                        return await interaction.followup.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
+                    elif res is not True:
+                        return await interaction.followup.send(f"Failed: {res}", ephemeral=True)
+                        
+                    await asyncio.sleep(1)
+                    
+                    track = await get_currently_playing_track(session, owner_id)
+                    if track and track != "no_token" and interaction.message.embeds:
+                        embed = interaction.message.embeds[0]
+                        embed.title = track['name']
+                        if track.get('spotify_url'):
+                            embed.url = track['spotify_url']
+                        artists = ", ".join(track['artists'])
+                        album = track.get('album_name') or "Unknown Album"
+                        embed.description = f"**{artists}** • *{album}*"
+                        
+                        spotify_icon = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/240px-Spotify_logo_without_text.svg.png"
+                        if action == "spotify_pause":
+                            embed.set_author(name="Spotify remote – Paused", icon_url=spotify_icon)
+                        elif action == "spotify_prev":
+                            embed.set_author(name="Spotify remote – Previous", icon_url=spotify_icon)
+                        elif action == "spotify_next":
+                            embed.set_author(name="Spotify remote – Skipped", icon_url=spotify_icon)
+                        elif action == "spotify_like":
+                            embed.set_author(name="Spotify remote – Liked", icon_url=spotify_icon)
+                        else:
+                            embed.set_author(name="Spotify remote – Now playing", icon_url=spotify_icon)
+                            
+                        await interaction.message.edit(embed=embed)
                         
         elif custom_id.startswith("fm_up:") or custom_id.startswith("fm_down:"):
             parts = custom_id.split(":")
