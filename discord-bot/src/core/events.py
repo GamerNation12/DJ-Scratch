@@ -1543,8 +1543,8 @@ class FMDetailsView(discord.ui.View):
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user, track=self.song)
         await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
-class FMActionsView(discord.ui.LayoutView):
-    def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full", track_data=None, embed_data=None):
+class FMActionsView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full", track_data=None):
         super().__init__(timeout=None)
         self.bot_instance = bot_instance
         self.artist = artist
@@ -1556,10 +1556,9 @@ class FMActionsView(discord.ui.LayoutView):
         self.cd = cd
         self.current_mode = current_mode
         self.track_data = track_data
-        self.embed_data = embed_data or {}
         
-        import uuid
         user_id = str(user.id) if user else "None"
+        
         unique_id = uuid.uuid4().hex[:8]
         if track_data is not None:
             FM_TRACK_CACHE[unique_id] = track_data
@@ -1567,63 +1566,32 @@ class FMActionsView(discord.ui.LayoutView):
                 for k in list(FM_TRACK_CACHE.keys())[:100]:
                     FM_TRACK_CACHE.pop(k, None)
                     
-        self.btn_up = discord.ui.Button(label="", emoji="<:Up:1528249701164646410>", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
-        self.btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
-        
-        self.btn_up.callback = self.go_up
-        self.btn_down.callback = self.go_down
-        
-        self.action_items = []
         if current_mode == "compact":
-            self.action_items.append(self.btn_down)
+            btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
+            self.add_item(btn_down)
         elif current_mode == "full":
-            self.action_items.append(self.btn_up)
-            self.action_items.append(self.btn_down)
+            btn_up = discord.ui.Button(label="", emoji="<:Up:1528249701164646410>", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
+            self.add_item(btn_up)
+            
+            btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
+            self.add_item(btn_down)
         elif current_mode == "stats":
-            self.action_items.append(self.btn_up)
+            btn_up = discord.ui.Button(label="", emoji="<:Up:1528249701164646410>", style=discord.ButtonStyle.secondary, custom_id=f"fm_up:{user_id}:{current_mode}:{unique_id}")
+            self.add_item(btn_up)
             
         if spotify_url and current_mode != "compact":
-            self.action_items.append(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
+            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="≡ƒÄº", style=discord.ButtonStyle.link))
             
         if song and artist and current_mode != "compact":
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=f"fm_lyrics:{artist[:40]}:{song[:40]}")
-            btn_lyrics.callback = self.show_lyrics
-            self.action_items.append(btn_lyrics)
+            custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="≡ƒô¥", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
-            btn_preview = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=f"fm_preview:{user_id}:{unique_id}:{artist[:80]}")
-            btn_preview.callback = self.preview_avatar
-            self.action_items.append(btn_preview)
-            
-        self._build_layout()
-
-    def _build_layout(self):
-        self.clear_items()
-        
-        components = []
-        if self.embed_data.get('author'):
-            components.append(discord.ui.TextDisplay(f"**{self.embed_data['author']}**"))
-            
-        components.append(discord.ui.TextDisplay(self.embed_data.get('description', '')))
-        
-        if self.embed_data.get('footer'):
-            components.append(discord.ui.TextDisplay(f"*{self.embed_data['footer']}*"))
-            
-        accessory = discord.ui.Thumbnail(self.img) if self.img else discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
-        
-        section = discord.ui.Section(*components, accessory=accessory)
-            
-        container_args = [section]
-        
-        # Split action items into rows of max 5
-        for i in range(0, len(self.action_items), 5):
-            row_items = self.action_items[i:i+5]
-            if row_items:
-                container_args.append(discord.ui.ActionRow(*row_items))
-                
-        color = LASTFM_COLOR if self.is_p else discord.Color.dark_gray()
-        container = discord.ui.Container(*container_args, accent_color=color)
-        self.add_item(container)
+            user_id_str = str(self.user.id) if self.user else "None"
+            custom_prev = f"fm_preview:{user_id_str}:{unique_id}:{artist[:80]}"
+            btn2 = discord.ui.Button(label="Preview Avatar", emoji="≡ƒû╝∩╕Å", style=discord.ButtonStyle.primary, custom_id=custom_prev)
+            self.add_item(btn2)
 
     async def go_down(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -1632,9 +1600,9 @@ class FMActionsView(discord.ui.LayoutView):
         if result:
             content = result.get('content')
             if not interaction.response.is_done():
-                await interaction.response.edit_message(content=content, embeds=[], view=result.get('view'))
+                await interaction.response.edit_message(content=content, embed=result.get('embed'), view=result.get('view'))
             else:
-                await interaction.edit_original_response(content=content, embeds=[], view=result.get('view'))
+                await interaction.edit_original_response(content=content, embed=result.get('embed'), view=result.get('view'))
 
     async def go_up(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -1643,9 +1611,9 @@ class FMActionsView(discord.ui.LayoutView):
         if result:
             content = result.get('content')
             if not interaction.response.is_done():
-                await interaction.response.edit_message(content=content, embeds=[], view=result.get('view'))
+                await interaction.response.edit_message(content=content, embed=result.get('embed'), view=result.get('view'))
             else:
-                await interaction.edit_original_response(content=content, embeds=[], view=result.get('view'))
+                await interaction.edit_original_response(content=content, embed=result.get('embed'), view=result.get('view'))
 
     async def show_lyrics(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -1655,225 +1623,442 @@ class FMActionsView(discord.ui.LayoutView):
         if lyrics:
             if len(lyrics) > 4096:
                 lyrics = lyrics[:4093] + "..."
-            from src.core.ui import create_simple_layout
-            view = create_simple_layout(lyrics, color=LASTFM_COLOR, title=f"Lyrics for {self.song} by {self.artist}")
-            await interaction.followup.send(view=view, ephemeral=True)
+            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
+            await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
-        from src.core.ui import create_simple_layout
-        desc = f"This is how the bot will look if you apply the album art for **{self.artist}**."
-        preview_view = create_simple_layout(desc, color=LASTFM_COLOR, title="Bot Avatar Preview", thumbnail_url=self.img)
-        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user, track=self.song)
-        await interaction.response.send_message(view=apply_view, ephemeral=True)
-
-async def process_fm(ctx_int, user, mode="full", track_data=None):
-    from src.core.ui import create_error_layout
-    bot_instance = bot
-    session = getattr(bot_instance, 'session', None)
-    
-    import urllib.parse
-    
-    username = await get_lastfm_username(user.id)
-    if not username:
-        return {"view": create_error_layout(f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`")}, False
-
-    d_source = await get_user_data_source(user.id)
-    data = track_data
-    if not data and d_source != 'imported_only':
-        data = await fetch_now_playing(username, 2)
+        preview_embed = Theme.get_embed(
+            title="Bot Avatar Preview", 
+            description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
+            color=LASTFM_COLOR
+        )
+        preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
+        preview_embed.set_image(url=self.img)
         
-    if not data or 'recenttracks' not in data or not data['recenttracks']['track']:
-        return {"view": create_error_layout("Could not find recent tracks.")}, False
+        apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user, track=self.song)
+        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
 
-    tracks = data['recenttracks']['track']
-    t = tracks[0]
+async def update_bot_avatar_and_status(bot_instance, artist, img, track=None, album=None):
+    try:
+        cd = await get_avatar_cooldown()
+        if cd > 0:
+            return False, cd
+
+        async with bot_instance.session.get(img) as resp:
+            if resp.status == 200:
+                image_bytes = await resp.read()
+                await bot_instance.user.edit(avatar=image_bytes)
+                
+                activity = discord.Activity(type=discord.ActivityType.listening, name=artist)
+                await bot_instance.change_presence(activity=activity)
+                
+                from src.core.database import db_pool
+                if db_pool:
+                    now = datetime.utcnow()
+                    async with db_pool.acquire() as conn:
+                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
+                        await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
+                        if track:
+                            await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_track', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", track)
+                        if album:
+                            await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_album', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", album)
+                return True, 300
+    except Exception as e:
+        print(f"{Log.RED}>>> Error updating bot avatar: {e}{Log.RESET}")
+    return False, 0
+
+class ApplyAvatarView(discord.ui.View):
+    def __init__(self, bot_instance, artist, img, original_msg=None, original_user=None, track=None, album=None, track_data=None):
+        super().__init__(timeout=180)
+        self.bot_instance = bot_instance
+        self.artist = artist
+        self.img = img
+        self.original_msg = original_msg
+        self.original_user = original_user
+        self.track = track
+        self.album = album
+        self.track_data = track_data
+        
+    @discord.ui.button(label="Set as Bot Avatar", emoji="Γ£à", style=discord.ButtonStyle.success)
+    async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img, self.track, self.album)
+        if changed:
+            scr_res = False
+            if self.track:
+                from src.utils.api import scrobble_bot_track
+                scr_res = await scrobble_bot_track(self.bot_instance.session, self.artist, self.track, self.album)
+            
+            debug_info = f"msg:{bool(self.original_msg)} usr:{bool(self.original_user)} scr:{scr_res}"
+            if getattr(self.bot_instance, 'is_test_bot', False):
+                embed = Theme.get_success_embed(
+                    title="Avatar Updated", 
+                    description=f"Successfully applied **{self.artist}** as the bot avatar!"
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                await interaction.followup.send(f"Γ£à Avatar updated successfully!", ephemeral=True)
+            self.stop()
+            
+            if self.original_msg and self.original_user:
+                try:
+                    await self.original_msg.delete()
+                except Exception as e:
+                    if interaction.guild:
+                        await interaction.followup.send(f"ΓÜá∩╕Å Could not delete old msg: {e}", ephemeral=True)
+                
+                try:
+                    mode = await get_user_fm_mode(self.original_user.id)
+                    result, is_p = await process_fm(interaction, self.original_user, mode=mode or "full", track_data=self.track_data)
+                    
+                    channel = self.original_msg.channel if self.original_msg else interaction.channel
+                    if result and channel:
+                        if isinstance(result, dict):
+                            try:
+                                new_msg = await interaction.followup.send(**result, ephemeral=False, wait=True)
+                            except Exception:
+                                new_msg = await channel.send(**result)
+                            if is_p:
+                                await add_custom_reactions(new_msg)
+                        else:
+                            await channel.send(result)
+                    else:
+                        if interaction.guild:
+                            await interaction.followup.send(f"ΓÜá∩╕Å Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
+                except Exception as e:
+                    if interaction.guild:
+                        await interaction.followup.send(f"ΓÜá∩╕Å Error resending fm: {e}", ephemeral=True)
+        else:
+            if cd > 0:
+                m, s = divmod(cd, 60)
+                await interaction.followup.send(f"ΓÅ│ Avatar is on cooldown. Please wait {m}m {s}s.", ephemeral=True)
+            else:
+                await interaction.followup.send("Γ¥î Failed to update avatar. It might already be set.", ephemeral=True)
+
+async def get_settings_embed(user_id, user):
+    mode = await get_user_fm_mode(user_id)
+    feats = await get_user_show_features(user_id)
+    d_source = await get_user_data_source(user_id)
+    embed = Theme.get_embed(title=f"ΓÜÖ∩╕Å Settings for {format_name(user)}", color=LASTFM_COLOR)
+    embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
+    embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
-    raw_artist = t['artist']['#text']
-    raw_song = t['name']
-    album = t.get('album', {}).get('#text', 'Unknown Album')
-    img = t['image'][-1]['#text'] if t['image'] else None
+    source_label = "Imported Only" if d_source == 'imported_only' else ("Last.fm Only" if d_source == 'lastfm_only' else "Last.fm + Imported")
+    embed.add_field(name="Data Source", value=f"`{source_label}`", inline=True)
     
-    artist, song = raw_artist, raw_song
+    embed.set_footer(text="Use the dropdown below to change your settings.")
+    return embed
+
+class SettingsDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="≡ƒô¥", value="fm_compact"),
+            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="≡ƒû╝∩╕Å", value="fm_full"),
+            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="≡ƒôè", value="fm_stats"),
+            discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="≡ƒÄñ", value="feat_on"),
+            discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="≡ƒÜ½", value="feat_off"),
+            discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="≡ƒöä", value="ds_combined"),
+            discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="≡ƒôª", value="ds_imported_only"),
+        ]
+        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options, custom_id="settings_dropdown")
+
+    async def callback(self, interaction: discord.Interaction):
+        val = self.values[0]
+        if val.startswith("fm_"):
+            mode = val.split("_")[1]
+            await set_user_fm_mode(interaction.user.id, mode)
+        elif val.startswith("feat_"):
+            on = (val == "feat_on")
+            await set_user_show_features(interaction.user.id, on)
+        elif val.startswith("ds_"):
+            source = val[3:]
+            await set_user_data_source(interaction.user.id, source)
+            
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class SettingsView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(SettingsDropdown())
+
+async def apply_features(session, artist, song, s_artists=None):
+    import re
+    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
+    if m:
+        features = m.group(1).strip()
+        song = song.replace(m.group(0), "").strip()
+        return f"{artist}, {features}", song
+        
+    if s_artists and len(s_artists) > 1:
+        features = [a for a in s_artists if a.lower() not in artist.lower()]
+        if features:
+            return f"{artist}, {', '.join(features)}", song
     
     try:
-        from src.utils.database import get_db_connection
-        async with get_db_connection() as db:
-            async with db.execute('SELECT playcount, features_enabled FROM settings WHERE user_id = ?', (str(user.id),)) as cursor:
-                row = await cursor.fetchone()
-                show_playcount = row[0] if row else True
-                show_features = row[1] if row else False
-    except:
-        show_playcount, show_features = True, False
-
-    async def get_spotify_data():
-        if not session: return None
-        from src.core.spotify import get_spotify_track_info
-        return await get_spotify_track_info(session, artist, song)
-
-    async def get_track_data(spc, current_mode):
-        if not spc or current_mode == "compact": return None
-        from src.utils.api import api_get, LASTFM_API_KEY
-        if username:
-            url = f"http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key={LASTFM_API_KEY}&artist={urllib.parse.quote(raw_artist)}&track={urllib.parse.quote(raw_song)}&username={username}&format=json"
-            return await api_get(url)
-        return None
-
-    spotify_task = asyncio.create_task(get_spotify_data())
-    track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
-
-    s_info = await spotify_task
-    t_info = await track_info_task
-
-    spotify_url = None
-    s_artists = None
-    
-    if s_info:
-        spotify_url = s_info.get("spotify_url")
-        s_img = s_info.get("image_url")
-        if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
-            img = s_img
-        s_artists = s_info.get("artists")
-
-    if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
-        try:
-            from src.utils.api import fetch_deezer_track_image
-            deezer_img = await fetch_deezer_track_image(session, song, artist)
-            if deezer_img: img = deezer_img
-        except: pass
-
-    if show_features:
-        from src.core.spotify import apply_features
-        artist, song = await apply_features(session, artist, song, s_artists)
-            
-    track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
-    is_p = t.get('@attr', {}).get('nowplaying') == 'true'
-    status = "Now Playing" if is_p else "Last Played"
-
-    if is_p:
-        cd = await get_avatar_cooldown()
-    else: cd = 0
-
-    track_plays = -1
-    if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
-        track_plays = int(t_info['track']['userplaycount'])
-
-    embed_data = {}
-    disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
-
-    if mode == "compact":
-        if is_p:
-            content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
-        else:
-            content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=5"
+        async with session.get(url) as r:
+            if r.status == 200:
+                data = await r.json(content_type=None)
+                if data.get('resultCount', 0) > 0:
+                    for result in data['results']:
+                        it_artist = result.get('artistName', '')
+                        it_track = result.get('trackName', '')
+                        
+                        if 'remix' in it_track.lower() and 'remix' not in song.lower():
+                            continue
+                            
+                        m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
+                        if m2:
+                            features = m2.group(1).strip()
+                            return f"{artist}, {features}", song
+                        elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
+                            return it_artist, song
+                        else:
+                            return artist, song
+    except Exception as e:
+        pass
         
+    return artist, song
+
+# --- CORE LOGIC ---
+import discord
+from datetime import datetime, timedelta
+
+from src.core.database import format_name
+
+
+
+
+async def process_fm(ctx_int, user, mode="full", track_data=None):
+    bot_instance = getattr(ctx_int, 'client', getattr(ctx_int, 'bot', bot))
+    session = getattr(bot_instance, 'session', None)
+
+    username = await get_lastfm_username(user.id)
+    if not username: return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`")}, False
+    
+    if track_data is not None:
+        data = track_data
+    else:
+        data = await fetch_now_playing(username, 2)
+
+    if isinstance(data, dict) and 'error' in data:
+        err_msg = data.get('message', 'Unknown error')
+        return {"embed": Theme.get_error_embed(description=f"Last.fm API Error: {err_msg}")}, False
+        
+    if not data or 'recenttracks' not in data or not data['recenttracks']['track']: 
+        return {"embed": Theme.get_error_embed(description="Could not find recent tracks.")}, False
+    
+    try:
+        tracks = data['recenttracks']['track']
+        t = tracks[0]
+        artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
+        
+        raw_artist, raw_song = artist, song
+
+        # Run independent DB and API tasks concurrently
+        async def get_spotify_data():
+            from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
+            u_token = await get_user_spotify_access_token(session, str(user.id))
+            s_inf = await get_spotify_track_info(session, artist, song, user_token=u_token)
+            if not s_inf and u_token:
+                s_inf = await get_spotify_track_info(session, artist, song)
+            return s_inf
+
+        async def get_track_data(show_pc, m):
+            if show_pc or m == "stats":
+                return await fetch_track_info(username, raw_artist, raw_song)
+            return None
+
+        # Gather user preferences first
+        from src.core.database import get_user_show_features, get_user_show_track_playcount
+        show_features_task = asyncio.create_task(get_user_show_features(user.id))
+        show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
+        
+        show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
+
+        # Gather API data
+        spotify_task = asyncio.create_task(get_spotify_data())
+        track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
+
+        s_info = await spotify_task
+        t_info = await track_info_task
+
+        spotify_url = None
+        s_artists = None
+        
+        if s_info:
+            spotify_url = s_info.get("spotify_url")
+            s_img = s_info.get("image_url")
+            if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
+                img = s_img
+            s_artists = s_info.get("artists")
+
+        if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+            try:
+                from src.utils.api import fetch_deezer_track_image
+                deezer_img = await fetch_deezer_track_image(session, song, artist)
+                if deezer_img:
+                    img = deezer_img
+            except Exception as e:
+                print(f"Deezer fallback error: {e}")
+
+        if show_features:
+            artist, song = await apply_features(session, artist, song, s_artists)
+                
+        track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
+        is_p = t.get('@attr', {}).get('nowplaying') == 'true'
+        status = "Now Playing" if is_p else "Last Played"
+        color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
+
+        if is_p:
+            cd = await get_avatar_cooldown()
+        else:
+            cd = 0
+
+        track_plays = -1
+        if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+            track_plays = int(t_info['track']['userplaycount'])
+
+        if mode == "compact":
+            if is_p:
+                content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
+            else:
+                content = f"≡ƒÄº **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content += "\n*(ΓÜá∩╕Å Scrobbles frozen? Run `,outofsync`)*"
+            
+            desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
+            if show_playcount and track_plays != -1:
+                if track_plays == 0 and is_p:
+                    desc_lines.append("\n≡ƒÄº **First time listening!**")
+                else:
+                    desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+            
+            desc = chr(10).join(desc_lines)
+            embed = Theme.get_embed(description=desc, color=color)
+            embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
+            if img: embed.set_thumbnail(url=img)
+            
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+            if cd > 0:
+                m, s = divmod(int(cd), 60)
+                footer_text += f" ΓÇó Avatar CD: {m}m {s}s"
+                
+            embed.set_footer(text=footer_text)
+            
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data=data)
+            return {"content": content, "view": view}, is_p
+
+        if mode == "stats":
+            desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** ΓÇó *{album}*"]
+            
+            if len(tracks) > 1:
+                prev_t = tracks[1]
+                p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
+                
+                if show_features:
+                    p_artist, p_song = await apply_features(session, p_artist, p_song)
+                
+                p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
+                desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** ΓÇó *{p_album}*"])
+            
+            if show_playcount and track_plays != -1:
+                if track_plays == 0 and is_p:
+                    desc_lines.append("\n≡ƒÄº **First time listening!**")
+                else:
+                    desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+            
+            embed = Theme.get_embed(description=chr(10).join(desc_lines), color=color)
+            embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
+            if img: embed.set_thumbnail(url=img)
+            
+            a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist))
+            
+            guild = getattr(ctx_int, 'guild', None)
+            crown_task = None
+            if guild:
+                users_db = await load_users()
+                display_names = await load_display_names()
+                linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+                if linked:
+                    async def fetch_crown():
+                        tasks = [(uid, lname, fetch_artist_playcount(session, lname, raw_artist)) for uid, lname in linked.items()]
+                        results = await asyncio.gather(*(t[2] for t in tasks))
+                        
+                        def get_name(uid, lname):
+                            custom_name = display_names.get(uid)
+                            if custom_name: return custom_name
+                            member = guild.get_member(int(uid))
+                            return member.display_name if member else lname
+                            
+                        lb = [{"name": get_name(tasks[i][0], tasks[i][1]), "plays": pc} for i, pc in enumerate(results) if pc > 0]
+                        if not lb: return None
+                        lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+                        return lb[0]
+                    crown_task = asyncio.create_task(fetch_crown())
+            
+            a_info = await a_info_task
+            crown_winner = await crown_task if crown_task else None
+
+            footer_parts = []
+            if a_info and 'artist' in a_info and 'tags' in a_info['artist'] and 'tag' in a_info['artist']['tags']:
+                tags = [tag['name'].lower() for tag in a_info['artist']['tags']['tag'][:4]]
+                if tags: footer_parts.append(" - ".join(tags))
+                
+            stats_line = []
+            if t_info and 'track' in t_info and t_info['track'].get('userloved') == '1':
+                stats_line.append("Γ¥ñ∩╕Å Loved track")
+            
+            if a_info and 'artist' in a_info and 'stats' in a_info['artist']:
+                pc = a_info['artist']['stats'].get('userplaycount', 0)
+                stats_line.append(f"{pc} artist scrobbles")
+                
+            if crown_winner:
+                stats_line.append(f"≡ƒææ {crown_winner['name']} ({crown_winner['plays']} plays)")
+            
+            if stats_line:
+                footer_parts.append(" ΓÇó ".join(stats_line))
+                
+            disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
+            if not is_p:
+                footer_parts.append("Scrobbles frozen? Run ,outofsync")
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync")
+            else:
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
+            
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data=data)
+            result = {"embed": embed, "view": view}
+            return result, is_p
+
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
         if show_playcount and track_plays != -1:
             if track_plays == 0 and is_p:
-                desc_lines.append("\n🎧 **First time listening!**")
-            else: desc_lines.append(f"\n🔢 **{track_plays}** plays")
+                desc_lines.append("\n≡ƒÄº **First time listening!**")
+            else:
+                desc_lines.append(f"\n≡ƒöó **{track_plays}** plays")
+                
+        desc = chr(10).join(desc_lines)
+        embed = Theme.get_embed(description=desc, color=color)
+        embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
+        if img: embed.set_thumbnail(url=img)
         
-        embed_data['description'] = chr(10).join(desc_lines)
-        embed_data['author'] = f"{format_name(user)}'s {status}"
-        
-        footer_text = f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync"
+        if not is_p:
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+        else:
+            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}"
         if cd > 0:
-            m, s = divmod(int(cd), 60)
-            footer_text += f" • Avatar CD: {m}m {s}s"
-        embed_data['footer'] = footer_text
+            mins, secs = divmod(cd, 60)
+            footer_text += f" ΓÇó Avatar CD: {mins}m {secs}s"
+        embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data=data, embed_data=embed_data)
-        return {"embeds": [], "view": view}, is_p
-
-    if mode == "stats":
-        desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
-        if tracks and len(tracks) > 1:
-            prev_t = tracks[1]
-            p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
-            if show_features:
-                from src.core.spotify import apply_features
-                p_artist, p_song = await apply_features(session, p_artist, p_song)
-            p_url = prev_t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(p_artist)}/_/{urllib.parse.quote(p_song)}")
-            desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
-        
-        if show_playcount and track_plays != -1:
-            if track_plays == 0 and is_p:
-                desc_lines.append("\n🎧 **First time listening!**")
-            else: desc_lines.append(f"\n🔢 **{track_plays}** plays")
-        
-        embed_data['description'] = chr(10).join(desc_lines)
-        embed_data['author'] = f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}"
-        
-        a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist))
-        
-        guild = getattr(ctx_int, 'guild', None)
-        crown_task = None
-        if guild:
-            users_db = await load_users()
-            display_names = await load_display_names()
-            linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-            if linked:
-                async def fetch_crown():
-                    tasks = [(uid, lname, fetch_artist_playcount(session, lname, raw_artist)) for uid, lname in linked.items()]
-                    results = await asyncio.gather(*(t[2] for t in tasks))
-                    
-                    def get_name(uid, lname):
-                        custom_name = display_names.get(uid)
-                        if custom_name: return custom_name
-                        member = guild.get_member(int(uid))
-                        return member.display_name if member else lname
-                        
-                    lb = [{"name": get_name(tasks[i][0], tasks[i][1]), "plays": pc} for i, pc in enumerate(results) if pc > 0]
-                    if not lb: return None
-                    lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
-                    return lb[0]
-                crown_task = asyncio.create_task(fetch_crown())
-        
-        a_info = await a_info_task
-        crown_winner = await crown_task if crown_task else None
-
-        footer_parts = []
-        if a_info and 'artist' in a_info and 'tags' in a_info['artist'] and 'tag' in a_info['artist']['tags']:
-            tags = [tag['name'].lower() for tag in a_info['artist']['tags']['tag'][:4]]
-            if tags: footer_parts.append(" - ".join(tags))
-            
-        stats_line = []
-        if t_info and 'track' in t_info and t_info['track'].get('userloved') == '1':
-            stats_line.append("❤️ Loved track")
-        if a_info and 'artist' in a_info and 'stats' in a_info['artist']:
-            pc = a_info['artist']['stats'].get('userplaycount', 0)
-            stats_line.append(f"{pc} artist scrobbles")
-            
-        if crown_winner:
-            stats_line.append(f"👑 {crown_winner['name']} ({crown_winner['plays']} plays)")
-            
-        if stats_line: footer_parts.append(" • ".join(stats_line))
-            
-        if not is_p: footer_parts.append("Scrobbles frozen? Run ,outofsync")
-        embed_data['footer'] = chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}"
-        
-        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data=data, embed_data=embed_data)
-        return {"embeds": [], "view": view}, is_p
-
-    # Full Mode
-    desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
-    if show_playcount and track_plays != -1:
-        if track_plays == 0 and is_p:
-            desc_lines.append("\n🎧 **First time listening!**")
-        else: desc_lines.append(f"\n🔢 **{track_plays}** plays")
-            
-    embed_data['description'] = chr(10).join(desc_lines)
-    embed_data['author'] = f"{format_name(user)}'s {status}"
-    
-    if not is_p: footer_text = f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync"
-    else: footer_text = f"Scrobbling as {disp_u}"
-    embed_data['footer'] = footer_text
-    
-    view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data=data, embed_data=embed_data)
-    return {"embeds": [], "view": view}, is_p
-
-
+        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data=data)
+        result = {"embed": embed, "view": view}
+        return result, is_p
+    except Exception as e: 
+        print(f"parsing error: {e}")
+        return {"embed": Theme.get_error_embed(description="Error formatting track.")}, False
 async def process_top_artists(user, input_period=None):
     username = await get_lastfm_username(user.id)
     api_p, disp_p = get_period_data(input_period)
