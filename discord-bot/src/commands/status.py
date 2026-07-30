@@ -18,8 +18,8 @@ class StatusCog(commands.Cog):
     @commands.command(name="setstatus", hidden=True)
     @commands.is_owner()
     async def setstatus(self, ctx):
-        embed = await self.build_status_embed(offline=False)
-        msg = await ctx.send(embed=embed)
+        view = await self.build_status_layout(offline=False)
+        msg = await ctx.send(view=view)
         
         import json
         raw_msgs = await get_global_setting('status_messages')
@@ -35,23 +35,29 @@ class StatusCog(commands.Cog):
         
         await ctx.send("✅ Status monitoring channel set! The message above will now update every minute.", delete_after=5)
 
-    async def build_status_embed(self, offline=False):
+    async def build_status_layout(self, offline=False):
+        view = discord.ui.LayoutView()
+        
         if offline:
-            embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
-            embed.description = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server.*"
-            embed.set_footer(text="Watchdog Monitor")
-            return embed
+            title = "<a:VinylRecord:1527125818713837701> DJ Scratch - System Status"
+            desc = "**🔴 STATUS: OFFLINE (CRASHED)**\n*The bot has lost connection to the server.*"
+            section = discord.ui.Section(
+                discord.ui.TextDisplay(title),
+                discord.ui.TextDisplay(desc)
+            )
+            container = discord.ui.Container(section, accent_color=discord.Color.red())
+            view.add_item(container)
+            return view
             
         is_restarting = getattr(self.bot, 'is_restarting', False)
         color = discord.Color.gold() if is_restarting else discord.Color.green()
-        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=color, timestamp=discord.utils.utcnow())
         
         if is_restarting:
             timestamp = int(self.bot.is_restarting) if isinstance(self.bot.is_restarting, float) else int(time.time() + 60)
             reason = getattr(self.bot, 'restart_reason', 'Maintenance')
-            embed.description = f"**🟡 STATUS: RESTARTING**\n*The bot is shutting down <t:{timestamp}:R> because: **{reason}**.*"
+            status_text = f"**🟡 STATUS: RESTARTING**\n*The bot is shutting down <t:{timestamp}:R> because: **{reason}**.*"
         else:
-            embed.description = "**🟢 STATUS: ONLINE**"
+            status_text = "**🟢 STATUS: ONLINE**"
             
         # Calculate uptime
         uptime = time.time() - self.process.create_time()
@@ -76,14 +82,7 @@ class StatusCog(commands.Cog):
         ram_usage_bytes = self.process.memory_info().rss
         ram_usage_mb = ram_usage_bytes / (1024 * 1024)
         
-        embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
-        embed.add_field(name="🏓 Ping", value=f"`{ping}ms`", inline=True)
-        embed.add_field(name="🌐 Servers", value=f"`{server_count:,}`", inline=True)
-        
-        embed.add_field(name="👥 Users", value=f"`{total_members:,}`", inline=True)
-        
         total_linked_users = await get_total_linked_users()
-        embed.add_field(name="🎧 Bot Users", value=f"`{total_linked_users:,}`", inline=True)
         
         active_users_count = 0
         if hasattr(self.bot, 'active_users_dict'):
@@ -91,13 +90,21 @@ class StatusCog(commands.Cog):
             self.bot.active_users_dict = {uid: t for uid, t in self.bot.active_users_dict.items() if current_time - t <= 300}
             active_users_count = len(self.bot.active_users_dict)
             
-        embed.add_field(name="⚡ Active Cmds (5m)", value=f"`{active_users_count:,}`", inline=True)
+        stats_text = (
+            f"**🟢 Uptime:** `{uptime_str}` | **🏓 Ping:** `{ping}ms` | **🌐 Servers:** `{server_count:,}`\n"
+            f"**👥 Users:** `{total_members:,}` | **🎧 Bot Users:** `{total_linked_users:,}` | **⚡ Active Cmds (5m):** `{active_users_count:,}`\n"
+            f"**💻 CPU Usage:** `{cpu_usage}%` | **💾 RAM Usage:** `{ram_usage_mb:.1f} MB`"
+        )
         
-        embed.add_field(name="💻 CPU Usage", value=f"`{cpu_usage}%`", inline=True)
-        embed.add_field(name="💾 RAM Usage", value=f"`{ram_usage_mb:.1f} MB`", inline=True)
+        section = discord.ui.Section(
+            discord.ui.TextDisplay("<a:VinylRecord:1527125818713837701> DJ Scratch - System Status"),
+            discord.ui.TextDisplay(status_text),
+            discord.ui.TextDisplay(stats_text)
+        )
         
-        embed.set_footer(text="Live Updating Dashboard • Last Updated")
-        return embed
+        container = discord.ui.Container(section, accent_color=color)
+        view.add_item(container)
+        return view
 
     async def force_update_statuses(self):
         if getattr(self.bot, 'is_test_bot', False): return
@@ -115,8 +122,8 @@ class StatusCog(commands.Cog):
                     if channel:
                         try:
                             msg = await channel.fetch_message(int(message_id))
-                            embed = await self.build_status_embed(offline=False)
-                            await msg.edit(embed=embed)
+                            view = await self.build_status_layout(offline=False)
+                            await msg.edit(embeds=[], view=view)
                         except Exception:
                             pass
         except Exception as e:
@@ -162,8 +169,8 @@ class StatusCog(commands.Cog):
                     if channel:
                         try:
                             msg = await channel.fetch_message(int(message_id))
-                            embed = await self.build_status_embed(offline=False)
-                            await msg.edit(embed=embed)
+                            view = await self.build_status_layout(offline=False)
+                            await msg.edit(embeds=[], view=view)
                             updated_messages.append(item)
                         except discord.NotFound:
                             changed = True # Message deleted

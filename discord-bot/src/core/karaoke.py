@@ -4,9 +4,6 @@ import re
 from src.core.theme import Theme
 
 def parse_synced_lyrics(synced_text: str):
-    """
-    Parses synced lyrics into a list of (timestamp_seconds, text).
-    """
     lines = []
     for line in synced_text.split('\n'):
         match = re.match(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)', line)
@@ -15,7 +12,6 @@ def parse_synced_lyrics(synced_text: str):
             seconds = int(match.group(2))
             millis = int(match.group(3))
             
-            # Convert to seconds
             if len(match.group(3)) == 2:
                 total_seconds = minutes * 60 + seconds + (millis / 100.0)
             else:
@@ -25,9 +21,9 @@ def parse_synced_lyrics(synced_text: str):
             lines.append((total_seconds, text))
     return lines
 
-class KaraokeLyricsView(discord.ui.View):
+class KaraokeLyricsView(discord.ui.LayoutView):
     def __init__(self, artist: str, song: str, synced_lyrics: str, plain_lyrics: str, start_time: float = 0.0):
-        super().__init__(timeout=300) # 5 minutes timeout
+        super().__init__(timeout=300)
         self.artist = artist
         self.song = song
         self.plain_lyrics = plain_lyrics
@@ -38,15 +34,39 @@ class KaraokeLyricsView(discord.ui.View):
         self.message: discord.Message = None
         self.update_task = None
         
-        # Get total duration from the last lyric line if possible
         self.duration = self.lines[-1][0] + 10.0 if self.lines else 180.0
         
-        # If auto-started, spin up the background task
+        # Setup buttons manually
+        self.btn_rewind = discord.ui.Button(label="-10s", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="rewind")
+        self.btn_rewind.callback = self._on_rewind
+        
+        self.btn_rewind_small = discord.ui.Button(label="-2s", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="rewind_small")
+        self.btn_rewind_small.callback = self._on_rewind_small
+        
+        self.btn_forward_small = discord.ui.Button(label="+2s", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="forward_small")
+        self.btn_forward_small.callback = self._on_forward_small
+        
+        self.btn_forward = discord.ui.Button(label="+10s", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="forward")
+        self.btn_forward.callback = self._on_forward
+        
+        self.btn_play_pause = discord.ui.Button(label="Pause" if self.is_playing else "Play", emoji="⏸️" if self.is_playing else "▶️", style=discord.ButtonStyle.success if self.is_playing else discord.ButtonStyle.primary, custom_id="play_pause")
+        self.btn_play_pause.callback = self._on_play_pause
+        
+        self.btn_stop = discord.ui.Button(label="Plain Text", emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="stop")
+        self.btn_stop.callback = self._on_stop
+        
+        if not self.lines:
+            self.btn_rewind.disabled = True
+            self.btn_rewind_small.disabled = True
+            self.btn_forward_small.disabled = True
+            self.btn_forward.disabled = True
+            self.btn_play_pause.disabled = True
+            self.btn_stop.disabled = True
+            
+        self._build_layout()
+        
         if self.is_playing and self.lines:
             self.update_task = asyncio.create_task(self._update_loop())
-        if not self.lines:
-            for child in self.children:
-                child.disabled = True
 
     async def _update_loop(self):
         while self.is_playing:
@@ -62,28 +82,33 @@ class KaraokeLyricsView(discord.ui.View):
         if not self.message:
             return
             
-        embed = self._build_embed()
+        self.btn_play_pause.label = "Pause" if self.is_playing else "Play"
+        self.btn_play_pause.emoji = "⏸️" if self.is_playing else "▶️"
+        self.btn_play_pause.style = discord.ButtonStyle.success if self.is_playing else discord.ButtonStyle.primary
         
-        # Update button styles
-        for child in self.children:
-            if child.custom_id == "play_pause":
-                child.label = "Pause" if self.is_playing else "Play"
-                child.emoji = "⏸️" if self.is_playing else "▶️"
-                child.style = discord.ButtonStyle.success if self.is_playing else discord.ButtonStyle.primary
+        self._build_layout()
                 
         try:
-            await self.message.edit(embed=embed, view=self)
+            await self.message.edit(embeds=[], view=self)
         except Exception:
             self.is_playing = False
 
-    def _build_embed(self) -> discord.Embed:
+    def _build_layout(self):
+        self.clear_items()
+        
         if not self.lines:
             desc = self.plain_lyrics or "No lyrics available."
             if len(desc) > 4096:
                 desc = desc[:4093] + "..."
-            return Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
+                
+            section = discord.ui.Section(
+                discord.ui.TextDisplay(f"Lyrics for {self.song} by {self.artist}"),
+                discord.ui.TextDisplay(desc)
+            )
+            container = discord.ui.Container(section, accent_color=Theme.PRIMARY)
+            self.add_item(container)
+            return
             
-        # Find current active line index
         active_idx = 0
         for i, (ts, text) in enumerate(self.lines):
             if ts <= self.current_time:
@@ -91,7 +116,6 @@ class KaraokeLyricsView(discord.ui.View):
             else:
                 break
                 
-        # Build scrolling text
         start_idx = max(0, active_idx - 3)
         end_idx = min(len(self.lines), active_idx + 6)
         
@@ -110,7 +134,6 @@ class KaraokeLyricsView(discord.ui.View):
                 
         desc = "\n".join(display_lines)
         
-        # Progress bar
         pct = min(1.0, self.current_time / self.duration)
         bar_len = 15
         filled = int(pct * bar_len)
@@ -119,18 +142,21 @@ class KaraokeLyricsView(discord.ui.View):
         mins, secs = divmod(int(self.current_time), 60)
         tmins, tsecs = divmod(int(self.duration), 60)
         
-        desc += f"\n\n`{mins}:{secs:02d} {bar} {tmins}:{tsecs:02d}`"
+        footer_text = "Auto-syncing lyrics... (Updates every 2s)" if self.is_playing else "Paused. Use buttons to sync."
+        desc += f"\n\n`{mins}:{secs:02d} {bar} {tmins}:{tsecs:02d}`\n*{footer_text}*"
         
-        embed = Theme.get_embed(title=f"🎤 Karaoke: {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
-        if self.is_playing:
-            embed.set_footer(text="Auto-syncing lyrics... (Updates every 2s)")
-        else:
-            embed.set_footer(text="Paused. Use buttons to sync.")
-            
-        return embed
+        section = discord.ui.Section(
+            discord.ui.TextDisplay(f"🎤 Karaoke: {self.song} by {self.artist}"),
+            discord.ui.TextDisplay(desc)
+        )
+        
+        row1 = discord.ui.ActionRow(self.btn_rewind, self.btn_rewind_small, self.btn_forward_small, self.btn_forward)
+        row2 = discord.ui.ActionRow(self.btn_play_pause, self.btn_stop)
+        
+        container = discord.ui.Container(section, row1, row2, accent_color=Theme.PRIMARY)
+        self.add_item(container)
 
-    @discord.ui.button(label="Play", emoji="▶️", style=discord.ButtonStyle.primary, custom_id="play_pause", row=1)
-    async def btn_play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_play_pause(self, interaction: discord.Interaction):
         self.is_playing = not self.is_playing
         
         if self.is_playing:
@@ -141,50 +167,43 @@ class KaraokeLyricsView(discord.ui.View):
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="-10s", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="rewind", row=0)
-    async def btn_rewind(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_rewind(self, interaction: discord.Interaction):
         self.current_time = max(0.0, self.current_time - 10.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="-2s", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="rewind_small", row=0)
-    async def btn_rewind_small(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_rewind_small(self, interaction: discord.Interaction):
         self.current_time = max(0.0, self.current_time - 2.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="+2s", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="forward_small", row=0)
-    async def btn_forward_small(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_forward_small(self, interaction: discord.Interaction):
         self.current_time = min(self.duration, self.current_time + 2.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="+10s", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="forward", row=0)
-    async def btn_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_forward(self, interaction: discord.Interaction):
         self.current_time = min(self.duration, self.current_time + 10.0)
         await interaction.response.defer()
         await self._edit_message()
 
-    @discord.ui.button(label="Plain Text", emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="stop", row=1)
-    async def btn_stop(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def _on_stop(self, interaction: discord.Interaction):
         self.is_playing = False
-        
-        desc = self.plain_lyrics or "No lyrics available."
-        if len(desc) > 4096:
-            desc = desc[:4093] + "..."
-            
-        embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
-        
-        # Remove buttons
-        self.clear_items()
-        await interaction.response.edit_message(embed=embed, view=self)
+        self.lines = [] # Force plain text mode
+        self._build_layout()
+        await interaction.response.edit_message(embeds=[], view=self)
 
     async def on_timeout(self):
         self.is_playing = False
         if self.message:
             try:
-                for child in self.children:
-                    child.disabled = True
+                self.btn_rewind.disabled = True
+                self.btn_rewind_small.disabled = True
+                self.btn_forward_small.disabled = True
+                self.btn_forward.disabled = True
+                self.btn_play_pause.disabled = True
+                self.btn_stop.disabled = True
+                self._build_layout()
                 await self.message.edit(view=self)
             except:
                 pass

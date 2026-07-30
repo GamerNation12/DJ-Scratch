@@ -88,15 +88,17 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             desc_lines.append(f"\n*...and {len(guilds) - 25} more servers.*")
             
         from src.core.theme import Theme
-        embed = discord.Embed(
-            title="📊 Bot Server Usage Statistics",
-            description=chr(10).join(desc_lines) if desc_lines else "Currently not in any servers.",
-            color=Theme.PRIMARY
-        )
-        embed.add_field(name="Total Servers", value=f"`{total_servers}`", inline=True)
-        embed.add_field(name="Total Reach", value=f"`{total_members}` members", inline=True)
+        desc_text = chr(10).join(desc_lines) if desc_lines else "Currently not in any servers."
+        stats_text = f"**Total Servers:** `{total_servers}` | **Total Reach:** `{total_members}` members"
         
-        await ctx.send(embed=embed)
+        view = discord.ui.LayoutView()
+        section = discord.ui.Section(
+            discord.ui.TextDisplay("📊 Bot Server Usage Statistics"),
+            discord.ui.TextDisplay(f"{desc_text}\n\n{stats_text}")
+        )
+        view.add_item(discord.ui.Container(section, accent_color=Theme.PRIMARY))
+        
+        await ctx.send(view=view)
 
     @commands.command(name="cleanduplicates", aliases=["cdp", "cleand"])
     async def clean_duplicates_command(self, ctx):
@@ -245,28 +247,36 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             
             inactive_users = total_users - active_users
             
-            embed = discord.Embed(title="📊 Bot User Activity", color=discord.Color.blue())
-            embed.add_field(name="Total Registered Users", value=f"{total_users:,}", inline=False)
-            embed.add_field(name=f"Active (Last {days} days)", value=f"{active_users:,}", inline=True)
-            embed.add_field(name=f"Inactive (> {days} days)", value=f"{inactive_users:,}", inline=True)
-            
             oldest = await conn.fetch(
                 "SELECT user_id, last_active FROM user_settings WHERE last_active < $1 OR last_active IS NULL ORDER BY last_active ASC NULLS FIRST LIMIT 5",
                 cutoff
             )
             
+            oldest_str = ""
             if oldest:
-                oldest_str = ""
+                oldest_str = "\n\n**Sample Inactive Users:**\n"
                 for row in oldest:
                     uid = row['user_id']
                     la = row['last_active']
                     if la:
-                        oldest_str += f"<@{uid}> (Last active: <t:{int(la.timestamp())}:R>)\n"
+                        oldest_str += f"• <@{uid}> (Last active: <t:{int(la.timestamp())}:R>)\n"
                     else:
-                        oldest_str += f"<@{uid}> (Never tracked)\n"
-                embed.add_field(name="Sample Inactive Users", value=oldest_str, inline=False)
-                
-            await ctx.send(embed=embed)
+                        oldest_str += f"• <@{uid}> (Never tracked)\n"
+                        
+            desc = (
+                f"**Total Registered Users:** {total_users:,}\n"
+                f"**Active (Last {days} days):** {active_users:,}\n"
+                f"**Inactive (> {days} days):** {inactive_users:,}"
+                f"{oldest_str}"
+            )
+            
+            view = discord.ui.LayoutView()
+            section = discord.ui.Section(
+                discord.ui.TextDisplay("📊 Bot User Activity"),
+                discord.ui.TextDisplay(desc)
+            )
+            view.add_item(discord.ui.Container(section, accent_color=discord.Color.blue()))
+            await ctx.send(view=view)
 
     @commands.command(name="simulate_inactive")
     async def simulate_inactive(self, ctx, days: int = 54):
@@ -291,8 +301,6 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
     @commands.command(name="debug", aliases=["db"])
     async def debug_cmd(self, ctx):
-        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> System Debug Info", color=discord.Color.gold(), timestamp=discord.utils.utcnow())
-        
         # CPU & RAM
         import psutil
         cpu_usage = psutil.cpu_percent(interval=None)
@@ -313,23 +321,30 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             latency = round(self.bot.latency * 1000)
         except (OverflowError, ValueError, TypeError):
             latency = 0
-        
-        embed.add_field(name="Server Resources", value=f"**CPU:** {cpu_usage}%\n**RAM:** {ram_usage}%", inline=True)
-        embed.add_field(name="Database", value=db_status, inline=True)
-        embed.add_field(name="Web Socket IPC", value=socket_status, inline=True)
-        embed.add_field(name="Discord API", value=f"**Latency:** {latency}ms\n**Guilds:** {len(self.bot.guilds)}\n**Users:** {len(self.bot.users)}", inline=False)
-        
-        # Spotify Scanner
+            
+        spotify_status = "🟢 Active"
         try:
             from src.core.events import SPOTIFY_PREMIUM_ERROR
             if SPOTIFY_PREMIUM_ERROR:
-                embed.add_field(name="Spotify Scanner", value="🔴 Paused (Premium Required)", inline=False)
-            else:
-                embed.add_field(name="Spotify Scanner", value="🟢 Active", inline=False)
+                spotify_status = "🔴 Paused (Premium Required)"
         except Exception:
             pass
             
-        await ctx.send(embed=embed)
+        desc = (
+            f"**Server Resources:** CPU {cpu_usage}% | RAM {ram_usage}%\n"
+            f"**Database:** {db_status}\n"
+            f"**Web Socket IPC:** {socket_status}\n"
+            f"**Discord API:** Latency {latency}ms | Guilds {len(self.bot.guilds)} | Users {len(self.bot.users)}\n"
+            f"**Spotify Scanner:** {spotify_status}"
+        )
+        
+        view = discord.ui.LayoutView()
+        section = discord.ui.Section(
+            discord.ui.TextDisplay("<a:VinylRecord:1527125818713837701> System Debug Info"),
+            discord.ui.TextDisplay(desc)
+        )
+        view.add_item(discord.ui.Container(section, accent_color=discord.Color.gold()))
+        await ctx.send(view=view)
 
     @commands.command(name="updatetest", aliases=["ut"])
     async def update_test_bot(self, ctx):
