@@ -1584,7 +1584,7 @@ class FMActionsView(discord.ui.View):
             
         if song and artist and current_mode != "compact":
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📜", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
@@ -1681,7 +1681,7 @@ class ApplyAvatarView(discord.ui.View):
         self.album = album
         self.track_data = track_data
         
-    @discord.ui.button(label="Set as Bot Avatar", emoji="Γ£à", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Set as Bot Avatar", emoji="✅", style=discord.ButtonStyle.success)
     async def apply_avatar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         changed, cd = await update_bot_avatar_and_status(self.bot_instance, self.artist, self.img, self.track, self.album)
@@ -1699,7 +1699,7 @@ class ApplyAvatarView(discord.ui.View):
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
-                await interaction.followup.send(f"Γ£à Avatar updated successfully!", ephemeral=True)
+                await interaction.followup.send(f"✅ Avatar updated successfully!", ephemeral=True)
             self.stop()
             
             if self.original_msg and self.original_user:
@@ -1707,7 +1707,7 @@ class ApplyAvatarView(discord.ui.View):
                     await self.original_msg.delete()
                 except Exception as e:
                     if interaction.guild:
-                        await interaction.followup.send(f"ΓÜá∩╕Å Could not delete old msg: {e}", ephemeral=True)
+                        await interaction.followup.send(f"⚠️ Could not delete old msg: {e}", ephemeral=True)
                 
                 try:
                     mode = await get_user_fm_mode(self.original_user.id)
@@ -1726,22 +1726,22 @@ class ApplyAvatarView(discord.ui.View):
                             await channel.send(result)
                     else:
                         if interaction.guild:
-                            await interaction.followup.send(f"ΓÜá∩╕Å Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
+                            await interaction.followup.send(f"⚠️ Could not send new msg. Result: {bool(result)}, Channel: {bool(channel)}", ephemeral=True)
                 except Exception as e:
                     if interaction.guild:
-                        await interaction.followup.send(f"ΓÜá∩╕Å Error resending fm: {e}", ephemeral=True)
+                        await interaction.followup.send(f"⚠️ Error resending fm: {e}", ephemeral=True)
         else:
             if cd > 0:
                 m, s = divmod(cd, 60)
-                await interaction.followup.send(f"ΓÅ│ Avatar is on cooldown. Please wait {m}m {s}s.", ephemeral=True)
+                await interaction.followup.send(f"⏳ Avatar is on cooldown. Please wait {m}m {s}s.", ephemeral=True)
             else:
-                await interaction.followup.send("Γ¥î Failed to update avatar. It might already be set.", ephemeral=True)
+                await interaction.followup.send("❌ Failed to update avatar. It might already be set.", ephemeral=True)
 
 async def get_settings_embed(user_id, user):
     mode = await get_user_fm_mode(user_id)
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
-    embed = Theme.get_embed(title=f"ΓÜÖ∩╕Å Settings for {format_name(user)}", color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=f"⚙️ Settings for {format_name(user)}", color=LASTFM_COLOR)
     embed.add_field(name="/fm Display Mode", value=f"`{mode}`", inline=True)
     embed.add_field(name="Featured Artists", value=f"`{'ON' if feats else 'OFF'}`", inline=True)
     
@@ -1754,13 +1754,13 @@ async def get_settings_embed(user_id, user):
 class SettingsDropdown(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📜", value="fm_compact"),
+            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📝", value="fm_compact"),
             discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="🖼️", value="fm_full"),
-            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="≡ƒôè", value="fm_stats"),
-            discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="≡ƒÄñ", value="feat_on"),
-            discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="≡ƒÜ½", value="feat_off"),
-            discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="≡ƒöä", value="ds_combined"),
-            discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="≡ƒôª", value="ds_imported_only"),
+            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="📊", value="fm_stats"),
+            discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="🎤", value="feat_on"),
+            discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
+            discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
+            discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
         ]
         super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options, custom_id="settings_dropdown")
 
@@ -1927,7 +1927,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
                 content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
-                content += "\n*(ΓÜá∩╕Å Scrobbles frozen? Run `,outofsync`)*"
+                content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
             
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:

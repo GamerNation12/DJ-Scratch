@@ -210,6 +210,12 @@ class AdminIPC(commands.Cog):
                     if ts and ts.tzinfo is None:
                         ts = ts.replace(tzinfo=datetime.timezone.utc)
                     
+                    embed = discord.Embed(
+                        title="🌐 Website Activity",
+                        color=discord.Color.blue(),
+                        timestamp=ts
+                    )
+                    
                     user_id = str(row['user_id'])
                     username = str(row['username']) if row['username'] else user_id
                     
@@ -218,22 +224,11 @@ class AdminIPC(commands.Cog):
                     else:
                         user_val = f"{username} - <@{user_id}> (`{user_id}`)"
                         
-                    desc = (
-                        f"**User:** {user_val}\n"
-                        f"**Action:** {row['action']}\n"
-                        f"**Details:** {row['details'] or 'None'}\n\n"
-                        f"*Logged at <t:{int(ts.timestamp())}:F>*"
-                    )
+                    embed.add_field(name="User", value=user_val, inline=False)
+                    embed.add_field(name="Action", value=f"**{row['action']}**", inline=False)
+                    embed.add_field(name="Details", value=row['details'] or "None", inline=False)
                     
-                    view = discord.ui.LayoutView()
-                    section = discord.ui.Section(
-                        discord.ui.TextDisplay("🌐 Website Activity"),
-                        discord.ui.TextDisplay(desc),
-                        accessory=discord.ui.Thumbnail("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif")
-                    )
-                    view.add_item(discord.ui.Container(section, accent_color=discord.Color.blue()))
-                    
-                    await log_to_channel("website-log", view)
+                    await log_to_channel("website-log", embed)
                     
         except Exception as e:
             print(f"[IPC] Website logs poll error: {e}")
