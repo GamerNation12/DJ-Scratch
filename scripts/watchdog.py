@@ -77,6 +77,21 @@ def main():
                             print(f"Failed to update {message_id}. Status: {res.status_code} - {res.text}")
             else:
                 print("Missing status_messages in database.")
+                
+            print("Starting Dummy Bot failover for 4.5 minutes...")
+            import subprocess
+            import time
+            dummy_bot_path = os.path.join(os.path.dirname(__file__), '..', 'discord-bot', 'dummy_bot.py')
+            dummy_process = subprocess.Popen([sys.executable, dummy_bot_path])
+            
+            # Keep the GitHub action alive for 270 seconds (4.5 minutes) 
+            # so the dummy bot can respond to commands.
+            # Then it exits, and the next 5-minute cron job takes over!
+            time.sleep(270)
+            print("Shutting down Dummy Bot for next cron cycle...")
+            dummy_process.terminate()
+            dummy_process.wait()
+
         else:
             print("Bot is online. Heartbeat is recent.")
             
