@@ -1190,7 +1190,8 @@ async def notify_owner(ctx, err):
 @bot.event
 async def on_command(ctx):
     location = f"Server: {ctx.guild.name} | Channel: #{ctx.channel.name}" if ctx.guild else "DM"
-    print(f"{Log.CYAN}>>> [PREFIX COMMAND] {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
+    msg_info = f"[MsgID: {ctx.message.id} | Time: {ctx.message.created_at.strftime('%H:%M:%S')}]"
+    print(f"{Log.CYAN}>>> [PREFIX COMMAND] {msg_info} {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
     
     from .database import db_pool
     if db_pool:
@@ -1365,7 +1366,8 @@ async def global_login_check_prefix(ctx) -> bool:
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command | discord.app_commands.ContextMenu):
     location = f"Server: {interaction.guild.name} | Channel: #{interaction.channel.name}" if interaction.guild else "DM"
-    print(f"{Log.CYAN}>>> [SLASH COMMAND] {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
+    int_info = f"[IntID: {interaction.id} | Time: {interaction.created_at.strftime('%H:%M:%S')}]"
+    print(f"{Log.CYAN}>>> [SLASH COMMAND] {int_info} {interaction.user} ran '/{command.name}' in {location}{Log.RESET}")
     
     import time
     if not hasattr(bot, 'active_users_dict'):
