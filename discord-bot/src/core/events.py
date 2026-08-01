@@ -1787,7 +1787,13 @@ class SettingsView(discord.ui.View):
         self.add_item(SettingsDropdown())
 
 async def apply_features(session, artist, song, s_artists=None):
-    import re
+    if not artist or not song:
+        return artist, song
+        
+    import re, unicodedata
+    norm = lambda x: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8').lower())
+    n_artist = norm(artist)
+
     m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
@@ -1795,7 +1801,7 @@ async def apply_features(session, artist, song, s_artists=None):
         return f"{artist}, {features}", song
         
     if s_artists and len(s_artists) > 1:
-        features = [a for a in s_artists if a.lower() not in artist.lower()]
+        features = [a for a in s_artists if norm(a) != n_artist]
         if features:
             return f"{artist}, {', '.join(features)}", song
     
@@ -1809,7 +1815,7 @@ async def apply_features(session, artist, song, s_artists=None):
         if mb_data.get('recordings') and len(mb_data['recordings']) > 0:
             credits = mb_data['recordings'][0].get('artist-credit', [])
             if len(credits) > 1:
-                features = [ac.get('name', '') for ac in credits if ac.get('name', '').lower() not in artist.lower()]
+                features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
                 if features:
                     return f"{artist}, {', '.join(features)}", song
     except Exception:
@@ -1819,7 +1825,7 @@ async def apply_features(session, artist, song, s_artists=None):
         from src.core.spotify import get_spotify_track_info
         s_info = await get_spotify_track_info(session, artist, song)
         if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
-            features = [a for a in s_info["artists"] if a.lower() not in artist.lower()]
+            features = [a for a in s_info["artists"] if norm(a) not in n_artist]
             if features:
                 return f"{artist}, {', '.join(features)}", song
     except Exception:
@@ -1836,6 +1842,15 @@ async def apply_features(session, artist, song, s_artists=None):
                         it_track = result.get('trackName', '')
                         
                         if 'remix' in it_track.lower() and 'remix' not in song.lower():
+                            continue
+                        if 'live ' in it_track.lower() or '(live' in it_track.lower() or '[live' in it_track.lower():
+                            if 'live' not in song.lower():
+                                continue
+                        if 'acoustic' in it_track.lower() and 'acoustic' not in song.lower():
+                            continue
+                        if 'demo' in it_track.lower() and 'demo' not in song.lower():
+                            continue
+                        if 'version' in it_track.lower() and 'version' not in song.lower():
                             continue
                             
                         m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
