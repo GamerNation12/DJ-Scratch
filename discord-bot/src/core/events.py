@@ -1788,7 +1788,7 @@ class SettingsView(discord.ui.View):
 
 async def apply_features(session, artist, song, s_artists=None):
     import re
-    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
+    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
@@ -1799,6 +1799,32 @@ async def apply_features(session, artist, song, s_artists=None):
         if features:
             return f"{artist}, {', '.join(features)}", song
     
+    try:
+        import urllib.request, json
+        req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
+        mb_loop = asyncio.get_event_loop()
+        mb_resp = await mb_loop.run_in_executor(None, urllib.request.urlopen, req)
+        mb_data = json.loads(mb_resp.read())
+        
+        if mb_data.get('recordings') and len(mb_data['recordings']) > 0:
+            credits = mb_data['recordings'][0].get('artist-credit', [])
+            if len(credits) > 1:
+                features = [ac.get('name', '') for ac in credits if ac.get('name', '').lower() not in artist.lower()]
+                if features:
+                    return f"{artist}, {', '.join(features)}", song
+    except Exception:
+        pass
+
+    try:
+        from src.core.spotify import get_spotify_track_info
+        s_info = await get_spotify_track_info(session, artist, song)
+        if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
+            features = [a for a in s_info["artists"] if a.lower() not in artist.lower()]
+            if features:
+                return f"{artist}, {', '.join(features)}", song
+    except Exception:
+        pass
+        
     try:
         url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=5"
         async with session.get(url) as r:
@@ -1812,14 +1838,10 @@ async def apply_features(session, artist, song, s_artists=None):
                         if 'remix' in it_track.lower() and 'remix' not in song.lower():
                             continue
                             
-                        m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
-                        if m2:
+                        m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
+                        if m2 and artist.lower() in it_artist.lower():
                             features = m2.group(1).strip()
                             return f"{artist}, {features}", song
-                        elif it_artist.lower() != artist.lower() and ('&' in it_artist or ',' in it_artist or 'feat' in it_artist.lower() or ' and ' in it_artist.lower() or ' x ' in it_artist.lower() or '/' in it_artist):
-                            return it_artist, song
-                        else:
-                            return artist, song
     except Exception as e:
         pass
         
