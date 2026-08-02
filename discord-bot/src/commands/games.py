@@ -299,7 +299,9 @@ class GamesCog(commands.Cog):
                 await context.send(msg)
             return
 
-        data = await fetch_top_albums(username, 'overall', 50)
+        import random
+        period = random.choice(['overall', '12month', '6month', '3month'])
+        data = await fetch_top_albums(username, period, 200)
         if not data or 'topalbums' not in data or not data['topalbums']['album']:
             msg = "Not enough data to play guess!"
             if isinstance(context, discord.Interaction):
@@ -426,7 +428,9 @@ class GamesCog(commands.Cog):
             return
 
         # Fetch top artists
-        data = await fetch_top_artists(username, 'overall', 50)
+        import random
+        period = random.choice(['overall', '12month', '6month', '3month'])
+        data = await fetch_top_artists(username, period, 200)
         if not data or 'topartists' not in data or not data['topartists']['artist']:
             msg = "Not enough data to play scramble!"
             if isinstance(context, discord.Interaction):

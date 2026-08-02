@@ -64,7 +64,7 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
     }
     
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 tracks = data.get("tracks", {}).get("items", [])

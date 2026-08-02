@@ -1806,18 +1806,21 @@ async def apply_features(session, artist, song, s_artists=None):
             return f"{artist}, {', '.join(features)}", song
     
     try:
-        import urllib.request, json
+        import urllib.request, json, functools
         req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
         mb_loop = asyncio.get_event_loop()
-        mb_resp = await mb_loop.run_in_executor(None, urllib.request.urlopen, req)
+        mb_resp = await mb_loop.run_in_executor(None, functools.partial(urllib.request.urlopen, req, timeout=1.5))
         mb_data = json.loads(mb_resp.read())
         
-        if mb_data.get('recordings') and len(mb_data['recordings']) > 0:
-            credits = mb_data['recordings'][0].get('artist-credit', [])
-            if len(credits) > 1:
-                features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
-                if features:
-                    return f"{artist}, {', '.join(features)}", song
+        if mb_data.get('recordings'):
+            for rec in mb_data['recordings']:
+                if rec.get('title', '').lower() == song.lower():
+                    credits = rec.get('artist-credit', [])
+                    if len(credits) > 1:
+                        features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
+                        if features:
+                            return f"{artist}, {', '.join(features)}", song
+                    break
     except Exception:
         pass
 
@@ -1833,7 +1836,7 @@ async def apply_features(session, artist, song, s_artists=None):
         
     try:
         url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=5"
-        async with session.get(url) as r:
+        async with session.get(url, timeout=1.5) as r:
             if r.status == 200:
                 data = await r.json(content_type=None)
                 if data.get('resultCount', 0) > 0:
