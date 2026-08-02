@@ -1924,12 +1924,17 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             img = p['img']
             spotify_url = p['spotify_url']
             track_plays = p['track_plays']
+            t_info = p.get('t_info')
             
             # If we switch to stats mode but track_plays wasn't fetched previously, we need to fetch it
             if mode == "stats" and track_plays == -1:
                 t_info = await fetch_track_info(username, raw_artist, raw_song)
                 if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
                     track_plays = int(t_info['track']['userplaycount'])
+            else:
+                # If we switch to stats mode and track_plays was fetched but t_info wasn't cached somehow
+                if mode == "stats" and t_info is None:
+                    t_info = await fetch_track_info(username, raw_artist, raw_song)
         else:
             # Run independent DB and API tasks concurrently
             async def get_spotify_data():
@@ -2019,7 +2024,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -2099,7 +2104,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             else:
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
-            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             result = {"embed": embed, "view": view}
             return result, is_p
 
@@ -2124,7 +2129,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
+        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
