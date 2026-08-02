@@ -3180,6 +3180,15 @@ async def set_custom_fm_slash(interaction: discord.Interaction, layout: app_comm
 async def on_message(message):
     if message.author == bot.user: return
     
+    import re
+    if not message.author.bot and re.match(r'^\.[a-zA-Z]', message.content):
+        try:
+            await message.delete()
+        except discord.Forbidden:
+            print(f"Failed to auto-delete message from {message.author}: Missing permissions")
+        except discord.HTTPException as e:
+            print(f"Failed to auto-delete message from {message.author}: HTTP Exception {e}")
+            
     content_lower = message.content.lower()
     is_stats_bot = (message.author.name == "stats.fm")
     has_phrase = ("is currently listening to" in content_lower)
