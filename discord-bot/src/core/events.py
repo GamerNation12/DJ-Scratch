@@ -1562,8 +1562,11 @@ class FMActionsView(discord.ui.View):
         user_id = str(user.id) if user else "None"
         
         unique_id = uuid.uuid4().hex[:8]
-        if track_data is not None:
-            FM_TRACK_CACHE[unique_id] = track_data
+        if unique_id and track_data is not None:
+            if isinstance(track_data, dict) and 'raw_data' in track_data:
+                FM_TRACK_CACHE[unique_id] = track_data
+            else:
+                FM_TRACK_CACHE[unique_id] = track_data
             if len(FM_TRACK_CACHE) > 1000:
                 for k in list(FM_TRACK_CACHE.keys())[:100]:
                     FM_TRACK_CACHE.pop(k, None)
@@ -1881,7 +1884,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     username = await get_lastfm_username(user.id)
     if not username: return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`")}, False
     
-    if track_data is not None:
+    is_cached = False
+    if track_data is not None and isinstance(track_data, dict) and 'raw_data' in track_data:
+        data = track_data['raw_data']
+        is_cached = True
+    elif track_data is not None:
         data = track_data
     else:
         data = await fetch_now_playing(username, 2)
@@ -1899,56 +1906,75 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
         
         raw_artist, raw_song = artist, song
-
-        # Run independent DB and API tasks concurrently
-        async def get_spotify_data():
-            from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
-            u_token = await get_user_spotify_access_token(session, str(user.id))
-            s_inf = await get_spotify_track_info(session, artist, song, user_token=u_token)
-            if not s_inf and u_token:
-                s_inf = await get_spotify_track_info(session, artist, song)
-            return s_inf
-
-        async def get_track_data(show_pc, m):
-            if show_pc or m == "stats":
-                return await fetch_track_info(username, raw_artist, raw_song)
-            return None
-
-        # Gather user preferences first
-        from src.core.database import get_user_show_features, get_user_show_track_playcount
-        show_features_task = asyncio.create_task(get_user_show_features(user.id))
-        show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
         
-        show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
-
-        # Gather API data
-        spotify_task = asyncio.create_task(get_spotify_data())
-        track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
-
-        s_info = await spotify_task
-        t_info = await track_info_task
-
         spotify_url = None
-        s_artists = None
+        track_plays = -1
         
-        if s_info:
-            spotify_url = s_info.get("spotify_url")
-            s_img = s_info.get("image_url")
-            if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
-                img = s_img
-            s_artists = s_info.get("artists")
-
-        if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
-            try:
-                from src.utils.api import fetch_deezer_track_image
-                deezer_img = await fetch_deezer_track_image(session, song, artist)
-                if deezer_img:
-                    img = deezer_img
-            except Exception as e:
-                print(f"Deezer fallback error: {e}")
-
-        if show_features:
-            artist, song = await apply_features(session, artist, song, s_artists)
+        if is_cached:
+            p = track_data['processed']
+            artist = p['artist']
+            song = p['song']
+            img = p['img']
+            spotify_url = p['spotify_url']
+            track_plays = p['track_plays']
+            
+            # If we switch to stats mode but track_plays wasn't fetched previously, we need to fetch it
+            if mode == "stats" and track_plays == -1:
+                t_info = await fetch_track_info(username, raw_artist, raw_song)
+                if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+                    track_plays = int(t_info['track']['userplaycount'])
+        else:
+            # Run independent DB and API tasks concurrently
+            async def get_spotify_data():
+                from src.core.spotify import get_spotify_track_info, get_user_spotify_access_token
+                u_token = await get_user_spotify_access_token(session, str(user.id))
+                s_inf = await get_spotify_track_info(session, artist, song, user_token=u_token)
+                if not s_inf and u_token:
+                    s_inf = await get_spotify_track_info(session, artist, song)
+                return s_inf
+    
+            async def get_track_data(show_pc, m):
+                if show_pc or m == "stats":
+                    return await fetch_track_info(username, raw_artist, raw_song)
+                return None
+    
+            # Gather user preferences first
+            from src.core.database import get_user_show_features, get_user_show_track_playcount
+            show_features_task = asyncio.create_task(get_user_show_features(user.id))
+            show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
+            
+            show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
+    
+            # Gather API data
+            spotify_task = asyncio.create_task(get_spotify_data())
+            track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
+    
+            s_info = await spotify_task
+            t_info = await track_info_task
+    
+            s_artists = None
+            
+            if s_info:
+                spotify_url = s_info.get("spotify_url")
+                s_img = s_info.get("image_url")
+                if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
+                    img = s_img
+                s_artists = s_info.get("artists")
+    
+            if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+                try:
+                    from src.utils.api import fetch_deezer_track_image
+                    deezer_img = await fetch_deezer_track_image(session, song, artist)
+                    if deezer_img:
+                        img = deezer_img
+                except Exception as e:
+                    print(f"Deezer fallback error: {e}")
+    
+            if show_features:
+                artist, song = await apply_features(session, artist, song, s_artists)
+                
+            if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+                track_plays = int(t_info['track']['userplaycount'])
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
@@ -1990,7 +2016,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
             embed.set_footer(text=footer_text)
             
-            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data=data)
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
             return {"content": content, "view": view}, is_p
 
         if mode == "stats":
@@ -2070,7 +2096,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             else:
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
             
-            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data=data)
+            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
             result = {"embed": embed, "view": view}
             return result, is_p
 
@@ -2095,7 +2121,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_text += f" • Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
-        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data=data)
+        view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays}})
         result = {"embed": embed, "view": view}
         return result, is_p
     except Exception as e: 
