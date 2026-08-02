@@ -1803,10 +1803,12 @@ async def apply_features(session, artist, song, s_artists=None):
         song = song.replace(m.group(0), "").strip()
         return f"{artist}, {features}", song
         
-    if s_artists and len(s_artists) > 1:
-        features = [a for a in s_artists if norm(a) != n_artist]
-        if features:
-            return f"{artist}, {', '.join(features)}", song
+    if s_artists:
+        if len(s_artists) > 1:
+            features = [a for a in s_artists if norm(a) != n_artist]
+            if features:
+                return f"{artist}, {', '.join(features)}", song
+        return artist, song
     
     try:
         import urllib.request, json, functools
@@ -1961,17 +1963,22 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     img = s_img
                 s_artists = s_info.get("artists")
     
-            if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
-                try:
-                    from src.utils.api import fetch_deezer_track_image
-                    deezer_img = await fetch_deezer_track_image(session, song, artist)
-                    if deezer_img:
-                        img = deezer_img
-                except Exception as e:
-                    print(f"Deezer fallback error: {e}")
-    
-            if show_features:
-                artist, song = await apply_features(session, artist, song, s_artists)
+            async def do_deezer():
+                if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
+                    try:
+                        from src.utils.api import fetch_deezer_track_image
+                        deezer_img = await fetch_deezer_track_image(session, song, artist)
+                        if deezer_img: return deezer_img
+                    except Exception as e:
+                        print(f"Deezer fallback error: {e}")
+                return img
+                
+            async def do_features():
+                if show_features:
+                    return await apply_features(session, artist, song, s_artists)
+                return artist, song
+                
+            img, (artist, song) = await asyncio.gather(do_deezer(), do_features())
                 
             if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
                 track_plays = int(t_info['track']['userplaycount'])
