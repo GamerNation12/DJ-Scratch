@@ -3181,13 +3181,18 @@ async def on_message(message):
     if message.author == bot.user: return
     
     import re
+    import asyncio
     if not message.author.bot and re.match(r'^\.[a-zA-Z]', message.content):
-        try:
-            await message.delete()
-        except discord.Forbidden:
-            print(f"Failed to auto-delete message from {message.author}: Missing permissions")
-        except discord.HTTPException as e:
-            print(f"Failed to auto-delete message from {message.author}: HTTP Exception {e}")
+        async def delayed_delete():
+            await asyncio.sleep(5)  # 5-second delay
+            try:
+                await message.delete()
+            except discord.Forbidden:
+                print(f"Failed to auto-delete message from {message.author}: Missing permissions")
+            except discord.HTTPException as e:
+                print(f"Failed to auto-delete message from {message.author}: HTTP Exception {e}")
+                
+        asyncio.create_task(delayed_delete())
             
     content_lower = message.content.lower()
     is_stats_bot = (message.author.name == "stats.fm")
