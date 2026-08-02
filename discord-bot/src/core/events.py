@@ -1909,6 +1909,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         
         raw_artist, raw_song = artist, song
         
+        from src.core.database import get_user_show_features, get_user_show_track_playcount
+        show_features_task = asyncio.create_task(get_user_show_features(user.id))
+        show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
+        show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
+        
         spotify_url = None
         track_plays = -1
         
@@ -1940,13 +1945,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     return await fetch_track_info(username, raw_artist, raw_song)
                 return None
     
-            # Gather user preferences first
-            from src.core.database import get_user_show_features, get_user_show_track_playcount
-            show_features_task = asyncio.create_task(get_user_show_features(user.id))
-            show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
-            
-            show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
-    
+
             # Gather API data
             spotify_task = asyncio.create_task(get_spotify_data())
             track_info_task = asyncio.create_task(get_track_data(show_playcount, mode))
