@@ -6,15 +6,14 @@ from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 from src.core.database import format_name
 
 
-async def api_get(url):
-    from ..core.events import bot
+async def api_get(url, max_retries=2, timeout_s=5):
     import aiohttp
     import asyncio
-    
-    max_retries = 3
+    from ..core.events import bot
+
     for attempt in range(max_retries):
         try:
-            async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            async with bot.session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_s)) as r:
                 try:
                     data = await r.json()
                 except Exception:
@@ -114,7 +113,7 @@ async def fetch_deezer_artist_image(session, artist_name):
 async def fetch_deezer_track_image(session, track_name, artist_name):
     url = f"https://api.deezer.com/search/track?q={urllib.parse.quote(track_name + ' ' + artist_name)}"
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=1.5)) as r:
             if r.status == 200:
                 data = await r.json()
                 if data and 'data' in data and len(data['data']) > 0:

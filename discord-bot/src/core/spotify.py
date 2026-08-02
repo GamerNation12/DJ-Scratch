@@ -30,7 +30,7 @@ async def get_spotify_token(session: aiohttp.ClientSession):
     data = {"grant_type": "client_credentials"}
     
     try:
-        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data) as resp:
+        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=1.5) as resp:
             if resp.status == 200:
                 resp_data = await resp.json()
                 _access_token = resp_data.get("access_token")
@@ -107,7 +107,7 @@ async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id:
     }
     
     try:
-        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data) as resp:
+        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=1.5) as resp:
             if resp.status == 200:
                 resp_data = await resp.json()
                 return resp_data.get("access_token")
@@ -141,7 +141,7 @@ async def spotify_skip_to_next(session: aiohttp.ClientSession, user_id: str):
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post("https://api.spotify.com/v1/me/player/next", headers=headers) as resp:
+    async with session.post("https://api.spotify.com/v1/me/player/next", headers=headers, timeout=1.5) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -150,7 +150,7 @@ async def spotify_skip_to_previous(session: aiohttp.ClientSession, user_id: str)
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post("https://api.spotify.com/v1/me/player/previous", headers=headers) as resp:
+    async with session.post("https://api.spotify.com/v1/me/player/previous", headers=headers, timeout=1.5) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -159,7 +159,7 @@ async def spotify_add_to_queue(session: aiohttp.ClientSession, user_id: str, tra
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post(f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}", headers=headers) as resp:
+    async with session.post(f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}", headers=headers, timeout=1.5) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -188,7 +188,7 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
     headers = {"Authorization": f"Bearer {token}"}
     params = {"q": query, "type": "track", "limit": 1}
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 tracks = data.get("tracks", {}).get("items", [])
@@ -214,7 +214,7 @@ async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str
     headers = {"Authorization": f"Bearer {token}"}
     params = {"q": artist_name, "type": "artist", "limit": 1}
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 artists = data.get("artists", {}).get("items", [])
@@ -234,7 +234,7 @@ async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: s
     
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        async with session.get("https://api.spotify.com/v1/me/player/currently-playing", headers=headers) as resp:
+        async with session.get("https://api.spotify.com/v1/me/player/currently-playing", headers=headers, timeout=1.5) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 if not data or not data.get('item'):
