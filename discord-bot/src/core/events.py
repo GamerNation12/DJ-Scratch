@@ -1993,9 +1993,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         else:
             cd = 0
 
-        track_plays = -1
-        if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
-            track_plays = int(t_info['track']['userplaycount'])
 
         if mode == "compact":
             if is_p:
