@@ -15,8 +15,10 @@ class SpotifyAuth(commands.Cog):
         auth_url = f"https://dj-scratch.vercel.app/api/auth/spotify/login?discord_id={interaction.user.id}"
         
         embed = Theme.get_embed(
-            title="🎵 Link Your Spotify",
-            description="Connecting your Spotify account allows DJ Scratch to perfectly auto-sync Karaoke lyrics with the exact millisecond you are listening to!\n\nClick the button below to log in securely via the DJ Scratch website.",
+            title="🎵 Link Your Spotify (Karaoke Only)",
+            description="Connecting your Spotify account allows DJ Scratch to perfectly auto-sync Karaoke lyrics with the exact millisecond you are listening to!\n\n"
+                        "⚠️ **Important:** Linking Spotify does **not** track your listening stats. To track stats, you must use `/login` to link a Last.fm account!\n\n"
+                        "Click the button below to log in securely via the DJ Scratch website.",
             color=discord.Color.green()
         )
         
