@@ -1482,54 +1482,12 @@ class FMDetailsView(discord.ui.View):
         from src.core.lyrics import fetch_lyrics
         session = getattr(self.bot_instance, 'session', None)
         lyrics_data = await fetch_lyrics(session, self.artist, self.song)
-        if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
-            from src.core.karaoke import KaraokeLyricsView
-            
-            # WORKAROUND: Check Spotify OAuth first!
-            start_time = 0.0
-            real_duration = 0.0
-            from src.utils.spotify import fetch_user_currently_playing
-            spotify_progress, spotify_duration = await fetch_user_currently_playing(str(interaction.user.id))
-            
-            if spotify_progress > 0:
-                start_time = spotify_progress
-                real_duration = spotify_duration
-            else:
-                # Fallback: Check Discord Rich Presence
-                member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
-                if member and isinstance(member, discord.Member):
-                    for activity in member.activities:
-                        if isinstance(activity, discord.Spotify):
-                            # Verify it's the same song by comparing artist or title
-                            if self.artist.lower() in activity.artist.lower() or self.song.lower() in activity.title.lower():
-                                import datetime
-                                now = datetime.datetime.now(datetime.timezone.utc)
-                                elapsed = (now - activity.start).total_seconds()
-                                start_time = max(0.0, elapsed)
-                                real_duration = activity.duration.total_seconds() if activity.duration else 0.0
-                                break
-                                
-            # Auto-fix offset if lyrics track is longer than the real track
-            if real_duration > 0 and lyrics_data.get("synced"):
-                try:
-                    # Get the very last timestamp in the lyrics as the "lyrics duration"
-                    last_line = lyrics_data["synced"].strip().split('\n')[-1]
-                    import re
-                    match = re.search(r'\[(\d+):(\d+\.\d+)\]', last_line)
-                    if match:
-                        lyric_duration = int(match.group(1)) * 60 + float(match.group(2))
-                        offset = lyric_duration - real_duration
-                        # If the difference is between 2 and 30 seconds, apply the offset
-                        if 2.0 <= offset <= 30.0:
-                            start_time += offset
-                        elif -30.0 <= offset <= -2.0:
-                            start_time += offset
-                except Exception:
-                    pass
-                            
-            view = KaraokeLyricsView(self.artist, self.song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
-            embed = view._build_embed()
-            view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        if lyrics_data and lyrics_data.get("plain"):
+            desc = lyrics_data.get("plain")
+            if len(desc) > 4096:
+                desc = desc[:4093] + "..."
+            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=desc, color=Theme.PRIMARY)
+            await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
@@ -3532,51 +3490,12 @@ async def on_interaction(interaction: discord.Interaction):
                     session = aiohttp.ClientSession()
                     bot.session = session
                 lyrics_data = await fetch_lyrics(session, artist, song)
-                if lyrics_data and (lyrics_data.get("synced") or lyrics_data.get("plain")):
-                    from src.core.karaoke import KaraokeLyricsView
-                    
-                    # WORKAROUND: Check Spotify OAuth first!
-                    start_time = 0.0
-                    real_duration = 0.0
-                    from src.utils.spotify import fetch_user_currently_playing
-                    spotify_progress, spotify_duration = await fetch_user_currently_playing(str(interaction.user.id))
-                    
-                    if spotify_progress > 0:
-                        start_time = spotify_progress
-                        real_duration = spotify_duration
-                    else:
-                        # Fallback: Check Discord Rich Presence
-                        member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
-                        if member and isinstance(member, discord.Member):
-                            for activity in member.activities:
-                                if isinstance(activity, discord.Spotify):
-                                    if artist.lower() in activity.artist.lower() or song.lower() in activity.title.lower():
-                                        import datetime
-                                        now = datetime.datetime.now(datetime.timezone.utc)
-                                        elapsed = (now - activity.start).total_seconds()
-                                        start_time = max(0.0, elapsed)
-                                        real_duration = activity.duration.total_seconds() if activity.duration else 0.0
-                                        break
-                                        
-                    # Auto-fix offset if lyrics track is longer than the real track
-                    if real_duration > 0 and lyrics_data.get("synced"):
-                        try:
-                            last_line = lyrics_data["synced"].strip().split('\n')[-1]
-                            import re
-                            match = re.search(r'\[(\d+):(\d+\.\d+)\]', last_line)
-                            if match:
-                                lyric_duration = int(match.group(1)) * 60 + float(match.group(2))
-                                offset = lyric_duration - real_duration
-                                if 2.0 <= offset <= 30.0:
-                                    start_time += offset
-                                elif -30.0 <= offset <= -2.0:
-                                    start_time += offset
-                        except Exception:
-                            pass
-                                    
-                    view = KaraokeLyricsView(artist, song, lyrics_data.get("synced"), lyrics_data.get("plain"), start_time=start_time)
-                    embed = view._build_embed()
-                    view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                if lyrics_data and lyrics_data.get("plain"):
+                    desc = lyrics_data.get("plain")
+                    if len(desc) > 4096:
+                        desc = desc[:4093] + "..."
+                    embed = Theme.get_embed(title=f"Lyrics for {song} by {artist}", description=desc, color=Theme.PRIMARY)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
                 else:
                     await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
                     
