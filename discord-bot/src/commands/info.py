@@ -149,7 +149,7 @@ class InfoCog(commands.Cog):
         )
         embed.add_field(
             name="1️⃣ Link your Last.fm for Stats",
-            value="To track your stats, you need to link your Last.fm account. Use the `/login` command and click the link to authenticate safely.\n*(⚠️ Do **not** use `/spotify login` for this—that only syncs Karaoke!)*",
+            value="To track your stats, you need to link your Last.fm account. Use the `/login` command and click the link to authenticate safely.",
             inline=False
         )
         embed.add_field(

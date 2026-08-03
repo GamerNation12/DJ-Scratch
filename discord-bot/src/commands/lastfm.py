@@ -187,8 +187,7 @@ class LastFmCog(commands.Cog):
             title="🔗 Connect Last.fm",
             description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                         "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
-                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*\n\n"
-                        "💡 **Looking to link Spotify for Karaoke?** Use `/spotify login`",
+                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
             color=discord.Color.red()
         )
         import urllib.parse, os
@@ -487,8 +486,7 @@ class LastFmCog(commands.Cog):
             title="🔗 Connect Last.fm",
             description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                         "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
-                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*\n\n"
-                        "💡 **Looking to link Spotify for Karaoke?** Use `/spotify login`",
+                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
             color=discord.Color.red()
         )
         msg = await ctx.send(embed=embed)
