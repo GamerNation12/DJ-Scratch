@@ -39,10 +39,21 @@ class CustomTree(app_commands.CommandTree):
             allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
         )
 
-def get_prefix(client, message):
+async def get_prefix(client, message):
     if getattr(client, 'is_test_bot', False):
         return ",,"
-    return ","
+    default_prefix = [',']
+    if not message.guild: return default_prefix
+    from src.core.database import db_pool
+    if not db_pool: return default_prefix
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(message.guild.id))
+            if row and row['prefix']:
+                p = row['prefix']
+                if p != ',': return [p, ',']
+    except Exception: pass
+    return default_prefix
 
 bot = commands.Bot(command_prefix=get_prefix, intents=intents, tree_cls=CustomTree)
 bot.is_restarting = False
@@ -477,6 +488,16 @@ async def setup_hook():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to add show_track_playcount column: {e}{Log.RESET}")
+                
+                try:
+                    await conn.execute("""
+                        CREATE TABLE IF NOT EXISTS server_settings (
+                            guild_id TEXT PRIMARY KEY,
+                            prefix TEXT DEFAULT ','
+                        )
+                    """)
+                except Exception as e:
+                    print(f"{Log.RED}>>> Failed to create server_settings table: {e}{Log.RESET}")
 
                 # One-time migration
                 if os.path.exists("lastfm_users.json"):
@@ -494,6 +515,7 @@ async def setup_hook():
                         print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
 
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+            bot.db_pool = db_pool
             bot.get_avatar_cooldown = get_avatar_cooldown
             bot.get_user_fm_mode = get_user_fm_mode
             bot.process_fm = process_fm
