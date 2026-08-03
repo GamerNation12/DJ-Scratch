@@ -140,5 +140,50 @@ class SettingsCog(commands.Cog):
         embed = await get_settings_embed(ctx.author.id, ctx.author)
         await ctx.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view)
 
+class ServerSettingsCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="server", description="Configure server settings (Admin only)")
+    @app_commands.describe(prefix="Set a custom prefix for this server (default: ,)")
+    @app_commands.default_permissions(manage_guild=True)
+    async def server_settings_slash(self, interaction: discord.Interaction, prefix: str = None):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+        if not interaction.user.guild_permissions.manage_guild:
+            return await interaction.response.send_message("You need 'Manage Server' permissions to use this command.", ephemeral=True)
+            
+        await interaction.response.defer()
+        if prefix:
+            async with self.bot.db_pool.acquire() as conn:
+                await conn.execute("INSERT INTO server_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix=$2", str(interaction.guild.id), prefix)
+            embed = discord.Embed(title="Server Settings Updated", description=f"The command prefix for **{interaction.guild.name}** has been set to `{prefix}`", color=LASTFM_COLOR)
+            await interaction.followup.send(embed=embed)
+        else:
+            async with self.bot.db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(interaction.guild.id))
+            curr_prefix = row['prefix'] if row and row['prefix'] else ','
+            embed = discord.Embed(title=f"Server Settings: {interaction.guild.name}", description=f"**Current Prefix:** `{curr_prefix}`\n\nUse `/server prefix:<new_prefix>` to change it.", color=LASTFM_COLOR)
+            await interaction.followup.send(embed=embed)
+
+    @commands.command(name="server", aliases=["serverconfig", "serversettings", "prefix"])
+    @commands.has_permissions(manage_guild=True)
+    async def server_settings_prefix(self, ctx, *, prefix: str = None):
+        if not ctx.guild:
+            return await ctx.send("This command can only be used in a server.")
+            
+        if prefix:
+            async with self.bot.db_pool.acquire() as conn:
+                await conn.execute("INSERT INTO server_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix=$2", str(ctx.guild.id), prefix)
+            embed = discord.Embed(title="Server Settings Updated", description=f"The command prefix for **{ctx.guild.name}** has been set to `{prefix}`", color=LASTFM_COLOR)
+            await ctx.send(embed=embed)
+        else:
+            async with self.bot.db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(ctx.guild.id))
+            curr_prefix = row['prefix'] if row and row['prefix'] else ','
+            embed = discord.Embed(title=f"Server Settings: {ctx.guild.name}", description=f"**Current Prefix:** `{curr_prefix}`\n\nUse `.server <new_prefix>` to change it.", color=LASTFM_COLOR)
+            await ctx.send(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(SettingsCog(bot))
+    await bot.add_cog(ServerSettingsCog(bot))

@@ -10,6 +10,19 @@ from src.core.socket_server import start_socket_server
 
 
 class ScratchBot(commands.Bot):
+    async def get_dynamic_prefix(self, bot, message):
+        default_prefix = [',']
+        if not message.guild: return default_prefix
+        if not self.db_pool: return default_prefix
+        try:
+            async with self.db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(message.guild.id))
+                if row and row['prefix']:
+                    p = row['prefix']
+                    if p != ',': return [p, ',']
+        except Exception: pass
+        return default_prefix
+
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -19,7 +32,7 @@ class ScratchBot(commands.Bot):
         # 2. chunk_guilds_at_startup=False stops the bot from downloading member lists
         # 3. member_cache_flags.none() stops the bot from keeping users in RAM unless active
         super().__init__(
-            command_prefix=['.', ','],  
+            command_prefix=self.get_dynamic_prefix,  
             intents=intents,
             max_messages=None,
             chunk_guilds_at_startup=False,
@@ -44,11 +57,17 @@ class ScratchBot(commands.Bot):
                             data_source TEXT DEFAULT 'combined'
                         )
                     ''')
+                    await conn.execute('''
+                        CREATE TABLE IF NOT EXISTS server_settings (
+                            guild_id TEXT PRIMARY KEY,
+                            prefix TEXT DEFAULT ','
+                        )
+                    ''')
             except Exception as e:
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
         # Load extensions
-        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.local_remote', 'src.commands.status']
+        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.local_remote', 'src.commands.status', 'src.commands.settings']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
