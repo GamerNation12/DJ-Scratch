@@ -2100,12 +2100,16 @@ async def process_top_artists(user, input_period=None):
     d_source = await get_user_data_source(user.id)
 
 
-    lastfm_data = {}
+    combined = {}
+    original_names = {}
     if username and d_source != 'imported_only':
         if not (api_p.isdigit() and len(api_p) == 4):
             data = await fetch_top_artists(username, api_p, 1000)
             if data and 'topartists' in data:
-                lastfm_data = {a['name']: int(a['playcount']) for a in data['topartists']['artist']}
+                for a in data['topartists']['artist']:
+                    key = a['name'].lower()
+                    combined[key] = int(a['playcount'])
+                    original_names[key] = a['name']
 
     local_data = {}
     if d_source != 'lastfm_only':
@@ -2114,11 +2118,15 @@ async def process_top_artists(user, input_period=None):
     if not username and not local_data:
         return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
-    combined = dict(lastfm_data)
     for artist, count in local_data.items():
-        combined[artist] = max(combined.get(artist, 0), count)
+        key = artist.lower()
+        if key in combined:
+            combined[key] = max(combined[key], count)
+        else:
+            combined[key] = count
+            original_names[key] = artist
 
-    sorted_artists = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+    sorted_artists = sorted([(original_names[k], count) for k, count in combined.items()], key=lambda x: x[1], reverse=True)
     if not sorted_artists: return Theme.get_error_embed(description="No artist data found."), None, None
 
     view = TopItemsPaginator(user, sorted_artists, disp_p, username if d_source != 'imported_only' else None, 'ta')
@@ -2131,14 +2139,16 @@ async def process_top_tracks(user, input_period=None):
     d_source = await get_user_data_source(user.id)
 
 
-    lastfm_tracks = {}  # (track, artist) -> plays
+    combined = {}
+    original_names = {}
     if username and d_source != 'imported_only':
         if not (api_p.isdigit() and len(api_p) == 4):
             data = await fetch_top_tracks(username, api_p, 1000)
             if data and 'toptracks' in data:
                 for t in data['toptracks']['track']:
-                    key = (t['name'], t['artist']['name'])
-                    lastfm_tracks[key] = int(t['playcount'])
+                    k = (t['name'].lower(), t['artist']['name'].lower())
+                    combined[k] = int(t['playcount'])
+                    original_names[k] = (t['name'], t['artist']['name'])
 
     local_tracks = []
     if d_source != 'lastfm_only':
@@ -2147,12 +2157,15 @@ async def process_top_tracks(user, input_period=None):
     if not username and not local_tracks:
         return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
 
-    combined = dict(lastfm_tracks)
     for track_name, artist_name, plays in local_tracks:
-        key = (track_name, artist_name)
-        combined[key] = max(combined.get(key, 0), plays)
+        k = (track_name.lower(), artist_name.lower())
+        if k in combined:
+            combined[k] = max(combined[k], plays)
+        else:
+            combined[k] = plays
+            original_names[k] = (track_name, artist_name)
 
-    sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+    sorted_tracks = sorted([(original_names[k][0], original_names[k][1], count) for k, count in combined.items()], key=lambda x: x[2], reverse=True)
     if not sorted_tracks: return Theme.get_error_embed(description="No track data found."), None, None
 
     view = TopItemsPaginator(user, sorted_tracks, disp_p, username if d_source != 'imported_only' else None, 'tt')

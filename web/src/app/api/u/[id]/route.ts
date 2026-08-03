@@ -208,11 +208,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
         if (!albumsData.error && albumsData.topalbums?.album) {
           const topAlbums = Array.isArray(albumsData.topalbums.album) ? albumsData.topalbums.album : [albumsData.topalbums.album];
+          const albumMap = new Map();
           for (const a of topAlbums) {
             let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
             if (imageUrl && (imageUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") || imageUrl.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) imageUrl = null;
-            lastfmData.topAlbums.push({ name: a.name, artist: a.artist?.name, playcount: parseInt(a.playcount, 10), url: a.url, image: imageUrl });
+            const key = `${a.name.toLowerCase()}|${a.artist?.name?.toLowerCase() || ""}`;
+            if (!albumMap.has(key)) {
+              albumMap.set(key, { name: a.name, artist: a.artist?.name, playcount: parseInt(a.playcount, 10), url: a.url, image: imageUrl });
+            } else {
+              albumMap.get(key).playcount = Math.max(albumMap.get(key).playcount, parseInt(a.playcount, 10));
+            }
           }
+          lastfmData.topAlbums = Array.from(albumMap.values());
         }
       } catch (e) {
         console.error("Last.fm fetch error:", e);
@@ -234,7 +241,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const a of importedData.topArtists) {
         const key = a.name.toLowerCase();
         if (artistMap.has(key)) {
-          artistMap.get(key).playcount += a.playcount;
+          artistMap.get(key).playcount = Math.max(artistMap.get(key).playcount, a.playcount);
         } else {
           artistMap.set(key, { ...a });
         }
@@ -249,7 +256,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const t of importedData.topTracks) {
         const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
         if (trackMap.has(key)) {
-          trackMap.get(key).playcount += t.playcount;
+          trackMap.get(key).playcount = Math.max(trackMap.get(key).playcount, t.playcount);
         } else {
           trackMap.set(key, { ...t });
         }

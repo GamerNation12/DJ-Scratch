@@ -167,6 +167,10 @@ class StatusCog(commands.Cog):
                             updated_messages.append(item)
                         except discord.NotFound:
                             changed = True # Message deleted
+                        except discord.HTTPException as e:
+                            if e.status not in [500, 502, 503, 504]:
+                                print(f"Error updating status message {message_id}: {e}")
+                            updated_messages.append(item)
                         except Exception as e:
                             print(f"Error updating status message {message_id}: {e}")
                             updated_messages.append(item)
