@@ -271,6 +271,57 @@ class LastFmCog(commands.Cog):
         else:
             await interaction.edit_original_response(content=err)
 
+    @app_commands.command(name="topalbums", description="View your top played albums")
+    @app_commands.describe(period="The time frame to check")
+    @app_commands.choices(period=[
+        app_commands.Choice(name="7 Days", value="7d"), app_commands.Choice(name="1 Month", value="1m"),
+        app_commands.Choice(name="3 Months", value="3m"), app_commands.Choice(name="6 Months", value="6m"),
+        app_commands.Choice(name="1 Year", value="1y"), app_commands.Choice(name="All Time", value="all"),
+    ])
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def tab_slash(self, interaction: discord.Interaction, period: app_commands.Choice[str] = None):
+        await interaction.response.defer()
+        embed, view, err = await self.bot.process_top_albums(interaction.user, period.value if period else 'all')
+        if embed:
+            await interaction.edit_original_response(embed=embed, view=view)
+        else:
+            await interaction.edit_original_response(content=err)
+
+    @app_commands.command(name="artist", description="Detailed stats about an artist")
+    @app_commands.describe(artist="Artist name")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def artist_info_slash(self, interaction: discord.Interaction, artist: str = None):
+        await interaction.response.defer()
+        from src.core.info import process_artist_info
+        embed, err = await process_artist_info(interaction.user, artist)
+        if embed: await interaction.edit_original_response(embed=embed)
+        else: await interaction.edit_original_response(content=err)
+
+    @app_commands.command(name="album", description="Detailed stats about an album")
+    @app_commands.describe(album="Artist - Album")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def album_info_slash(self, interaction: discord.Interaction, album: str = None):
+        await interaction.response.defer()
+        from src.core.info import process_album_info
+        embed, err = await process_album_info(interaction.user, album)
+        if embed: await interaction.edit_original_response(embed=embed)
+        else: await interaction.edit_original_response(content=err)
+
+    @app_commands.command(name="track", description="Detailed stats about a track")
+    @app_commands.describe(track="Artist - Track")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def track_info_slash(self, interaction: discord.Interaction, track: str = None):
+        await interaction.response.defer()
+        from src.core.info import process_track_info
+        embed, err = await process_track_info(interaction.user, track)
+        if embed: await interaction.edit_original_response(embed=embed)
+        else: await interaction.edit_original_response(content=err)
+
+
     @app_commands.command(name="recent", description="View your recent listening history")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -649,6 +700,126 @@ class LastFmCog(commands.Cog):
             await self._reply_and_delete(ctx, embed=embed, file=file)
 
 
+
+    @commands.command(name="fm", aliases=["np"])
+    async def fm_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        m = await self.bot.get_user_fm_mode(ctx.author.id)
+        if not m: m = "full"
+        result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
+        if result is None:
+            await self._reply_and_delete(ctx, is_p)
+        elif isinstance(result, dict):
+            msg = await ctx.reply(**result, mention_author=False)
+            if is_p: await self.bot.add_custom_reactions(msg)
+
+    @commands.command(name="topartists", aliases=["ta"])
+    async def ta_prefix(self, ctx, *, args: str = None):
+        target_user, period = await get_target_user(ctx, args)
+        embed, view, err = await self.bot.process_top_artists(target_user, period if period else 'all')
+        if embed: await self._reply_and_delete(ctx, embed=embed, view=view)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="toptracks", aliases=["tt"])
+    async def tt_prefix(self, ctx, *, args: str = None):
+        target_user, period = await get_target_user(ctx, args)
+        embed, view, err = await self.bot.process_top_tracks(target_user, period if period else 'all')
+        if embed: await self._reply_and_delete(ctx, embed=embed, view=view)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="recent", aliases=["r", "recents"])
+    async def rt_prefix(self, ctx, *, args: str = None):
+        target_user, _ = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_recent(target_user)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="whoknows", aliases=["w", "wk"])
+    async def whoknows_prefix(self, ctx, *, args: str = None):
+        if not args:
+            embed, err = await self.bot.process_whoknows(ctx.author, ctx.guild, None)
+        else:
+            embed, err = await self.bot.process_whoknows(ctx.author, ctx.guild, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="fm", aliases=["np"])
+    async def fm_prefix(self, ctx, *, args: str = None):
+        target_user = await get_target_user(ctx, args)
+        if isinstance(target_user, tuple): target_user = target_user[0] # handle if get_target_user returns a tuple
+        m = await self.bot.get_user_fm_mode(ctx.author.id)
+        if not m: m = "full"
+        result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
+        if result is None:
+            await self._reply_and_delete(ctx, is_p)
+        elif isinstance(result, dict):
+            msg = await ctx.reply(**result, mention_author=False)
+            if is_p: await self.bot.add_custom_reactions(msg)
+
+    @commands.command(name="topartists", aliases=["ta"])
+    async def ta_prefix(self, ctx, *, args: str = None):
+        target_user = await get_target_user(ctx, args)
+        period = None
+        if isinstance(target_user, tuple): target_user, period = target_user
+        embed, view, err = await self.bot.process_top_artists(target_user, period if period else 'all')
+        if embed: await self._reply_and_delete(ctx, embed=embed, view=view)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="toptracks", aliases=["tt"])
+    async def tt_prefix(self, ctx, *, args: str = None):
+        target_user = await get_target_user(ctx, args)
+        period = None
+        if isinstance(target_user, tuple): target_user, period = target_user
+        embed, view, err = await self.bot.process_top_tracks(target_user, period if period else 'all')
+        if embed: await self._reply_and_delete(ctx, embed=embed, view=view)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="recent", aliases=["r", "recents"])
+    async def rt_prefix(self, ctx, *, args: str = None):
+        target_user = await get_target_user(ctx, args)
+        if isinstance(target_user, tuple): target_user = target_user[0]
+        embed, err = await self.bot.process_recent(target_user)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="whoknows", aliases=["w", "wk"])
+    async def whoknows_prefix(self, ctx, *, args: str = None):
+        if not args:
+            embed, err = await self.bot.process_whoknows(ctx.author, ctx.guild, None)
+        else:
+            embed, err = await self.bot.process_whoknows(ctx.author, ctx.guild, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="topalbums", aliases=["tab", "tal"])
+    async def tab_prefix(self, ctx, *, args: str = None):
+        target_user = await get_target_user(ctx, args)
+        period = None
+        if isinstance(target_user, tuple): target_user, period = target_user
+        embed, view, err = await self.bot.process_top_albums(target_user, period if period else 'all')
+        if embed: await self._reply_and_delete(ctx, embed=embed, view=view)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="artist", aliases=["a"])
+    async def artist_info_prefix(self, ctx, *, args: str = None):
+        from src.core.info import process_artist_info
+        embed, err = await process_artist_info(ctx.author, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="album", aliases=["al"])
+    async def album_info_prefix(self, ctx, *, args: str = None):
+        from src.core.info import process_album_info
+        embed, err = await process_album_info(ctx.author, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="track", aliases=["tr"])
+    async def track_info_prefix(self, ctx, *, args: str = None):
+        from src.core.info import process_track_info
+        embed, err = await process_track_info(ctx.author, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
 
 async def setup(bot):
     await bot.add_cog(LastFmCog(bot))

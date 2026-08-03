@@ -556,6 +556,21 @@ export default function AdminClient() {
     }
   };
 
+  const formatMentions = (text: string) => {
+    if (!text) return text;
+    const parts = text.split(/(<@\d+>)/g);
+    return parts.map((part, i) => {
+      const match = part.match(/<@(\d+)>/);
+      if (match) {
+        const id = match[1];
+        const user = usersList.find((u: any) => u.user_id === id);
+        const name = user?.discord_username || user?.display_name || id;
+        return <span key={i} className="bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded text-xs font-bold">@{name}</span>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#09090b] text-white flex flex-col md:flex-row font-sans selection:bg-indigo-500/30 pt-16">
       {/* Sidebar Layout */}
@@ -956,13 +971,13 @@ export default function AdminClient() {
                       </div>
                       
                       <div className="bg-black/20 border border-white/5 p-4 rounded-xl text-zinc-300 text-sm mb-4">
-                        {s.description}
+                        {formatMentions(s.description)}
                       </div>
 
                       {s.admin_feedback && editingSuggestion !== s.id && (
                         <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl">
                           <h5 className="text-indigo-400 text-[10px] font-bold uppercase tracking-wider mb-1">Admin Reply</h5>
-                          <p className="text-indigo-100 text-sm">{s.admin_feedback}</p>
+                          <p className="text-indigo-100 text-sm">{formatMentions(s.admin_feedback)}</p>
                         </div>
                       )}
 

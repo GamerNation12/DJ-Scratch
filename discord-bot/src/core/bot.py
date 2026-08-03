@@ -19,7 +19,7 @@ class ScratchBot(commands.Bot):
         # 2. chunk_guilds_at_startup=False stops the bot from downloading member lists
         # 3. member_cache_flags.none() stops the bot from keeping users in RAM unless active
         super().__init__(
-            command_prefix=',', 
+            command_prefix=['.', ','],  
             intents=intents,
             max_messages=None,
             chunk_guilds_at_startup=False,

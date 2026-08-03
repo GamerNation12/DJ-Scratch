@@ -2172,6 +2172,49 @@ async def process_top_tracks(user, input_period=None):
     embed = view.generate_embed()
     return embed, view, None
 
+async def process_top_albums(user, input_period=None):
+    from .database import get_local_top_albums
+    from src.utils.api import fetch_top_albums
+    
+    username = await get_lastfm_username(user.id)
+    api_p, disp_p = get_period_data(input_period)
+
+    d_source = await get_user_data_source(user.id)
+
+    combined = {}
+    original_names = {}
+    if username and d_source != 'imported_only':
+        if not (api_p.isdigit() and len(api_p) == 4):
+            data = await fetch_top_albums(username, api_p, 1000)
+            if data and 'topalbums' in data:
+                for a in data['topalbums']['album']:
+                    artist_name = a['artist']['name'] if isinstance(a.get('artist'), dict) else (a.get('artist') or "Unknown")
+                    k = (a['name'].lower(), artist_name.lower())
+                    combined[k] = int(a['playcount'])
+                    original_names[k] = (a['name'], artist_name)
+
+    local_albums = []
+    if d_source != 'lastfm_only':
+        local_albums = await get_local_top_albums(user.id, 100000, api_p, before_dt=None)
+
+    if not username and not local_albums:
+        return Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login` or import history on the web portal."), None, None
+
+    for album_name, artist_name, plays in local_albums:
+        k = (album_name.lower(), artist_name.lower())
+        if k in combined:
+            combined[k] = max(combined[k], plays)
+        else:
+            combined[k] = plays
+            original_names[k] = (album_name, artist_name)
+
+    sorted_albums = sorted([(original_names[k][0], original_names[k][1], count) for k, count in combined.items()], key=lambda x: x[2], reverse=True)
+    if not sorted_albums: return Theme.get_error_embed(description="No album data found."), None, None
+
+    view = TopItemsPaginator(user, sorted_albums, disp_p, username if d_source != 'imported_only' else None, 'tab')
+    embed = view.generate_embed()
+    return embed, view, None
+
 class TopItemsPaginator(discord.ui.View):
     def __init__(self, user, sorted_items, disp_p, username, cmd_type='tt'):
         super().__init__(timeout=180)
@@ -2195,8 +2238,11 @@ class TopItemsPaginator(discord.ui.View):
         page_items = self.sorted_items[start:end]
 
         if self.cmd_type == 'tt':
-            lines = [f"{get_medal(start + idx)} **{a}** — **{t}** `[{c:,}]`" for idx, ((t, a), c) in enumerate(page_items)]
+            lines = [f"{get_medal(start + idx)} **{a}** — **{t}** `[{c:,}]`" for idx, (t, a, c) in enumerate(page_items)]
             title = f"🏆 {format_name(self.user)}'s Top Tracks ({self.disp_p})"
+        elif self.cmd_type == 'tab':
+            lines = [f"{get_medal(start + idx)} **{a}** — **{t}** `[{c:,}]`" for idx, (t, a, c) in enumerate(page_items)]
+            title = f"🏆 {format_name(self.user)}'s Top Albums ({self.disp_p})"
         else:
             lines = [f"{get_medal(start + idx)} **{name}** `[{count:,}]`" for idx, (name, count) in enumerate(page_items)]
             title = f"🏆 {format_name(self.user)}'s Top Artists ({self.disp_p})"

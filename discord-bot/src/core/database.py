@@ -467,6 +467,35 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
         *args
     )
     return {r['artist_name']: r['plays'] for r in rows}
+
+async def get_local_top_albums(user_id, limit=10, api_period='overall', before_dt=None):
+    days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id=$1", "album_name IS NOT NULL"]
+    args = [str(user_id)]
+    
+    if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
+        tz = await get_user_timezone(user_id)
+        year = int(api_period)
+        args.append(float(year))
+        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
+    elif days:
+        since = datetime.utcnow() - timedelta(days=days)
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    if before_dt:
+        args.append(before_dt)
+        query_parts.append(f"played_at < ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT album_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY album_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
+    return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
 async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
