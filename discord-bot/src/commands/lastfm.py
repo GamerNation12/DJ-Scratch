@@ -444,6 +444,63 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_judge(interaction.user)
         await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
+    @app_commands.command(name="chart", description="Generate a visual chart of your top albums")
+    @app_commands.describe(user="The user to view the chart for", size="Size of the grid (e.g. 3x3, 5x5)", period="Time period (7day, 1month, 3month, 6month, 12month, overall)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @app_commands.choices(period=[
+        app_commands.Choice(name="7 Days", value="7day"),
+        app_commands.Choice(name="1 Month", value="1month"),
+        app_commands.Choice(name="3 Months", value="3month"),
+        app_commands.Choice(name="6 Months", value="6month"),
+        app_commands.Choice(name="12 Months", value="12month"),
+        app_commands.Choice(name="Overall", value="overall"),
+    ])
+    async def chart_slash(self, interaction: discord.Interaction, user: discord.User = None, size: str = '3x3', period: app_commands.Choice[str] = None):
+        period_val = period.value if period else 'overall'
+        await interaction.response.defer()
+        status_embed, task = await self.bot.process_chart(interaction.user, user, size, period_val)
+        if task is None:
+            await interaction.edit_original_response(embed=status_embed)
+            return
+            
+        await interaction.edit_original_response(embed=status_embed)
+        embed, file, _ = await task()
+        await interaction.edit_original_response(embed=embed, attachments=[file] if file else [])
+
+    @app_commands.command(name="artistchart", description="Generate a visual chart of your top artists")
+    @app_commands.describe(user="The user to view the chart for", size="Size of the grid (e.g. 3x3, 5x5)", period="Time period (7day, 1month, 3month, 6month, 12month, overall)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @app_commands.choices(period=[
+        app_commands.Choice(name="7 Days", value="7day"),
+        app_commands.Choice(name="1 Month", value="1month"),
+        app_commands.Choice(name="3 Months", value="3month"),
+        app_commands.Choice(name="6 Months", value="6month"),
+        app_commands.Choice(name="12 Months", value="12month"),
+        app_commands.Choice(name="Overall", value="overall"),
+    ])
+    async def artistchart_slash(self, interaction: discord.Interaction, user: discord.User = None, size: str = '3x3', period: app_commands.Choice[str] = None):
+        period_val = period.value if period else 'overall'
+        await interaction.response.defer()
+        status_embed, task = await self.bot.process_artist_chart(interaction.user, user, size, period_val)
+        if task is None:
+            await interaction.edit_original_response(embed=status_embed)
+            return
+            
+        await interaction.edit_original_response(embed=status_embed)
+        embed, file, _ = await task()
+        await interaction.edit_original_response(embed=embed, attachments=[file] if file else [])
+
+    @app_commands.command(name="streak", description="Check your current consecutive play streak for an artist")
+    @app_commands.describe(artist="The artist to check (defaults to currently playing)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def streak_slash(self, interaction: discord.Interaction, artist: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_streak(interaction.user, artist)
+        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
+
     # --- PREFIX COMMANDS ---
 
     @commands.command(name="cd", aliases=["cooldown"])
@@ -774,6 +831,36 @@ class LastFmCog(commands.Cog):
     async def track_info_prefix(self, ctx, *, args: str = None):
         from src.core.info import process_track_info
         embed, err = await process_track_info(ctx.author, args)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="chart", aliases=["c"])
+    async def chart_prefix(self, ctx, size: str = '3x3', period: str = 'overall', user: discord.Member = None):
+        target = user or ctx.author
+        status_embed, task = await self.bot.process_chart(ctx.author, target, size, period)
+        if task is None:
+            await ctx.send(embed=status_embed)
+            return
+            
+        msg = await ctx.send(embed=status_embed)
+        embed, file, _ = await task()
+        await msg.edit(embed=embed, attachments=[file] if file else [])
+
+    @commands.command(name="artistchart", aliases=["ac"])
+    async def artistchart_prefix(self, ctx, size: str = '3x3', period: str = 'overall', user: discord.Member = None):
+        target = user or ctx.author
+        status_embed, task = await self.bot.process_artist_chart(ctx.author, target, size, period)
+        if task is None:
+            await ctx.send(embed=status_embed)
+            return
+            
+        msg = await ctx.send(embed=status_embed)
+        embed, file, _ = await task()
+        await msg.edit(embed=embed, attachments=[file] if file else [])
+
+    @commands.command(name="streak", aliases=["str"])
+    async def streak_prefix(self, ctx, *, artist: str = None):
+        embed, err = await self.bot.process_streak(ctx.author, artist)
         if embed: await self._reply_and_delete(ctx, embed=embed)
         else: await self._reply_and_delete(ctx, err)
 

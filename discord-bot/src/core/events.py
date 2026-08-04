@@ -2832,6 +2832,46 @@ async def get_combined_top_artists(uid, lname, limit=100):
                 
     sorted_artists = sorted(list(combined.values()), key=lambda x: x['plays'], reverse=True)[:limit]
     return sorted_artists
+
+async def get_combined_top_albums(uid, lname, limit=100, period='overall'):
+    from src.core.database import get_user_data_source, get_local_top_albums
+    from src.utils.api import fetch_top_albums
+    d_source = await get_user_data_source(uid)
+    
+    combined = {}
+    if d_source != 'imported_only' and lname:
+        data = await fetch_top_albums(lname, period, limit)
+        if data and 'topalbums' in data and data['topalbums']['album']:
+            for a in data['topalbums']['album']:
+                key = f"{a['artist']['name']} - {a['name']}".lower()
+                
+                # Fetch image if available
+                img_url = None
+                if 'image' in a:
+                    for img in a['image']:
+                        if img['size'] in ('extralarge', 'large'):
+                            img_url = img['#text']
+                            if img_url: break
+                            
+                combined[key] = {
+                    'artist': a['artist']['name'],
+                    'name': a['name'],
+                    'plays': int(a['playcount']),
+                    'image': img_url
+                }
+                
+    if d_source != 'lastfm_only':
+        local_data = await get_local_top_albums(uid, limit * 2, period, before_dt=None)
+        # local_data format: {(artist, album): count}
+        for (artist, album), count in local_data.items():
+            key = f"{artist} - {album}".lower()
+            if key in combined:
+                combined[key]['plays'] = max(combined[key]['plays'], count)
+            else:
+                combined[key] = {'artist': artist, 'name': album, 'plays': count, 'image': None}
+                
+    sorted_albums = sorted(list(combined.values()), key=lambda x: x['plays'], reverse=True)[:limit]
+    return sorted_albums
 async def process_whoknows(guild, user, artist_name):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
@@ -3879,3 +3919,157 @@ async def on_interaction(interaction: discord.Interaction):
                 
                 apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None, track_data=track_data)
                 await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+
+async def process_chart(user, target_user, size: str = '3x3', period: str = 'overall'):
+    import re
+    from src.core.database import get_local_total_plays
+    
+    # Parse size
+    match = re.match(r'^(\d+)x(\d+)$', size.lower())
+    if not match:
+        return Theme.get_error_embed(description="Invalid size. Try `3x3`, `5x5`, etc. Max is `10x10`."), None
+        
+    cols, rows = int(match.group(1)), int(match.group(2))
+    if cols * rows > 100 or cols > 10 or rows > 10:
+        return Theme.get_error_embed(description="Grid is too large! Maximum is `10x10`."), None
+        
+    target_uid = target_user.id if target_user else user.id
+    username = await get_lastfm_username(target_uid)
+    
+    if not username and (await get_local_total_plays(target_uid)) == 0:
+        return Theme.get_error_embed(description=f"{format_name(target_user or user)} has not linked their Last.fm account or imported data."), None
+        
+    limit = cols * rows
+    
+    status_embed = Theme.get_embed(description=f"🎨 Generating {size} album chart for **{format_name(target_user or user)}**... Please wait.")
+    
+    async def generate_chart_task():
+        albums = await get_combined_top_albums(target_uid, username, limit, period)
+        if not albums:
+            return Theme.get_error_embed(description="No albums found for this period."), None, None
+            
+        from src.utils.image_generator import generate_chart
+        
+        items = []
+        for a in albums:
+            items.append({
+                'image_url': a.get('image'),
+                'primary_text': a['name'],
+                'secondary_text': f"{a['artist']} • {a['plays']} plays"
+            })
+            
+        buffer = await generate_chart(items, cols, rows, show_text=True)
+        
+        file = discord.File(fp=buffer, filename="chart.jpg")
+        embed = Theme.get_embed(color=LASTFM_COLOR)
+        embed.set_author(name=f"{format_name(target_user or user)}'s {period} top albums", icon_url=(target_user or user).display_avatar.url)
+        embed.set_image(url="attachment://chart.jpg")
+        
+        return embed, file, None
+        
+    return status_embed, generate_chart_task
+
+async def process_artist_chart(user, target_user, size: str = '3x3', period: str = 'overall'):
+    import re
+    from src.core.database import get_local_total_plays
+    
+    # Parse size
+    match = re.match(r'^(\d+)x(\d+)$', size.lower())
+    if not match:
+        return Theme.get_error_embed(description="Invalid size. Try `3x3`, `5x5`, etc. Max is `10x10`."), None
+        
+    cols, rows = int(match.group(1)), int(match.group(2))
+    if cols * rows > 100 or cols > 10 or rows > 10:
+        return Theme.get_error_embed(description="Grid is too large! Maximum is `10x10`."), None
+        
+    target_uid = target_user.id if target_user else user.id
+    username = await get_lastfm_username(target_uid)
+    
+    if not username and (await get_local_total_plays(target_uid)) == 0:
+        return Theme.get_error_embed(description=f"{format_name(target_user or user)} has not linked their Last.fm account or imported data."), None
+        
+    limit = cols * rows
+    
+    status_embed = Theme.get_embed(description=f"🎨 Generating {size} artist chart for **{format_name(target_user or user)}**... Please wait.")
+    
+    async def generate_chart_task():
+        artists = await get_combined_top_artists(target_uid, username, limit)
+        if not artists:
+            return Theme.get_error_embed(description="No artists found for this period."), None, None
+            
+        from src.utils.image_generator import generate_chart
+        
+        items = []
+        for a in artists:
+            items.append({
+                'image_url': None, # Fallback, no Last.fm artist images available currently without another API
+                'primary_text': a['name'],
+                'secondary_text': f"{a['plays']} plays"
+            })
+            
+        buffer = await generate_chart(items, cols, rows, show_text=True)
+        
+        file = discord.File(fp=buffer, filename="artist_chart.jpg")
+        embed = Theme.get_embed(color=LASTFM_COLOR)
+        embed.set_author(name=f"{format_name(target_user or user)}'s {period} top artists", icon_url=(target_user or user).display_avatar.url)
+        embed.set_image(url="attachment://artist_chart.jpg")
+        
+        return embed, file, None
+        
+    return status_embed, generate_chart_task
+
+async def process_streak(user, query: str = None):
+    from src.core.database import get_streak, get_user_data_source, format_name
+    from src.utils.api import fetch_recent_tracks, fetch_now_playing
+    
+    username = await get_lastfm_username(user.id)
+    d_source = await get_user_data_source(user.id)
+    
+    artist_name = None
+    if not query:
+        if not username:
+            return Theme.get_error_embed(description="Link account or provide an artist name."), None
+        np_data = await fetch_now_playing(username, 1)
+        try:
+            artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
+        except:
+            return Theme.get_error_embed(description="You aren't playing anything right now!"), None
+    else:
+        artist_name = query
+
+    streak = 0
+    if d_source != 'lastfm_only':
+        streak = await get_streak(str(user.id), artist_name)
+    
+    if d_source != 'imported_only' and username:
+        # Check API streak
+        api_streak = 0
+        page = 1
+        limit = 200
+        found_break = False
+        
+        while not found_break:
+            data = await fetch_recent_tracks(username, limit, page)
+            if not data or 'recenttracks' not in data or not data['recenttracks']['track']:
+                break
+                
+            tracks = data['recenttracks']['track']
+            for t in tracks:
+                if t['artist']['#text'].lower() == artist_name.lower():
+                    api_streak += 1
+                else:
+                    found_break = True
+                    break
+                    
+            if len(tracks) < limit:
+                break
+            page += 1
+            
+        streak = max(streak, api_streak)
+        
+    if streak == 0:
+        return Theme.get_error_embed(description=f"You are not currently on a streak for **{artist_name}**."), None
+        
+    embed = Theme.get_embed(description=f"You are on a **{streak}** play streak for **{artist_name}**! 🔥", color=LASTFM_COLOR)
+    embed.set_author(name=f"{format_name(user)}'s streak", icon_url=user.display_avatar.url)
+    return embed, None

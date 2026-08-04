@@ -777,4 +777,54 @@ async def set_global_setting(key: str, value: str):
         async with db_pool.acquire() as conn:
             await conn.execute("INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, str(value))
     except Exception as e:
-        print(f"{Log.RED}>>> Error setting global setting {key}: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Error setting global setting {key}: {e}{Log.RESET}")
+
+async def get_streak(user_id: str, artist: str, track: str = None, album: str = None):
+    """
+    Calculate the current uninterrupted streak for a specific entity.
+    """
+    if not db_pool: return 0
+    
+    # We will get the most recent listens ordered by time descending.
+    # We will count how many consecutive rows match the entity.
+    # To optimize, we fetch in chunks so we don't load 100,000 rows if the streak is only 3.
+    
+    try:
+        async with db_pool.acquire() as conn:
+            streak = 0
+            offset = 0
+            chunk_size = 50
+            
+            while True:
+                rows = await conn.fetch(f"SELECT artist_name, track_name, album_name FROM listens WHERE user_id=$1 ORDER BY listened_at DESC LIMIT {chunk_size} OFFSET {offset}", str(user_id))
+                
+                if not rows:
+                    break
+                    
+                for row in rows:
+                    r_artist = row['artist_name'].lower() if row['artist_name'] else ""
+                    r_track = row['track_name'].lower() if row['track_name'] else ""
+                    r_album = row['album_name'].lower() if row['album_name'] else ""
+                    
+                    if track:
+                        if r_artist == artist.lower() and r_track == track.lower():
+                            streak += 1
+                        else:
+                            return streak
+                    elif album:
+                        if r_artist == artist.lower() and r_album == album.lower():
+                            streak += 1
+                        else:
+                            return streak
+                    else:
+                        if r_artist == artist.lower():
+                            streak += 1
+                        else:
+                            return streak
+                            
+                offset += chunk_size
+                
+            return streak
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting streak: {e}{Log.RESET}")
+        return 0
