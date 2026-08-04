@@ -2865,8 +2865,8 @@ async def get_combined_top_albums(uid, lname, limit=100, period='overall'):
                 
     if d_source != 'lastfm_only':
         local_data = await get_local_top_albums(uid, limit * 2, period, before_dt=None)
-        # local_data format: {(artist, album): count}
-        for (artist, album), count in local_data.items():
+        # local_data format: [(album, artist, count)]
+        for album, artist, count in local_data:
             key = f"{artist} - {album}".lower()
             if key in combined:
                 combined[key]['plays'] = max(combined[key]['plays'], count)
