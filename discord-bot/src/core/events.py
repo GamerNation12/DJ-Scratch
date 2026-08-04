@@ -2776,14 +2776,70 @@ async def process_profile(user):
         embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/login`", inline=True)
 
     return embed, view, None
+
+async def get_all_valid_users(guild):
+    users_db = await load_users()
+    valid = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+    
+    from src.core.database import db_fetch
+    imported_ids = await db_fetch("SELECT id FROM imported_users")
+    for row in imported_ids:
+        uid = row['id']
+        if uid not in valid and guild.get_member(int(uid)):
+            valid[uid] = None
+    return valid
+
+async def get_combined_playcount(session, uid, lname, artist, track=None, album=None):
+    from src.core.database import get_user_data_source, get_local_artist_playcount, get_local_track_playcount, get_local_album_playcount
+    from src.utils.api import fetch_artist_playcount, fetch_track_playcount, fetch_album_playcount
+    d_source = await get_user_data_source(uid)
+    
+    lastfm = 0
+    local = 0
+    
+    if d_source != 'imported_only' and lname:
+        if track: lastfm = await fetch_track_playcount(session, lname, artist, track)
+        elif album: lastfm = await fetch_album_playcount(session, lname, artist, album)
+        else: lastfm = await fetch_artist_playcount(session, lname, artist)
+        
+    if d_source != 'lastfm_only':
+        if track: local = await get_local_track_playcount(uid, artist, track)
+        elif album: local = await get_local_album_playcount(uid, artist, album)
+        else: local = await get_local_artist_playcount(uid, artist)
+        
+    return max(lastfm, local)
+
+async def get_combined_top_artists(uid, lname, limit=100):
+    from src.core.database import get_user_data_source, get_local_top_artists
+    from src.utils.api import fetch_top_artists
+    d_source = await get_user_data_source(uid)
+    
+    combined = {}
+    if d_source != 'imported_only' and lname:
+        data = await fetch_top_artists(lname, 'overall', limit)
+        if data and 'topartists' in data and data['topartists']['artist']:
+            for a in data['topartists']['artist']:
+                combined[a['name'].lower()] = {'name': a['name'], 'plays': int(a['playcount'])}
+                
+    if d_source != 'lastfm_only':
+        local_data = await get_local_top_artists(uid, limit * 2, 'overall', before_dt=None)
+        for artist, count in local_data.items():
+            key = artist.lower()
+            if key in combined:
+                combined[key]['plays'] = max(combined[key]['plays'], count)
+            else:
+                combined[key] = {'name': artist, 'plays': count}
+                
+    sorted_artists = sorted(list(combined.values()), key=lambda x: x['plays'], reverse=True)[:limit]
+    return sorted_artists
 async def process_whoknows(guild, user, artist_name):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
     if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
-    users_db = await load_users()
-    display_names = await load_display_names()
-    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
+    
+    linked = await get_all_valid_users(guild)
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account or imported data."), None
+    
     if not artist_name:
         username = await get_lastfm_username(user.id)
         if not username: return Theme.get_error_embed(description="Link account or provide an artist name."), None
@@ -2792,7 +2848,8 @@ async def process_whoknows(guild, user, artist_name):
         except: return Theme.get_error_embed(description="You aren't playing anything right now!"), None
 
     lb = []
-    tasks = [(uid, lname, fetch_artist_playcount(session, lname, artist_name)) for uid, lname in linked.items()]
+    display_names = await load_display_names()
+    tasks = [(uid, lname, get_combined_playcount(session, uid, lname, artist_name)) for uid, lname in linked.items()]
     results = await asyncio.gather(*(t[2] for t in tasks))
     for idx, pc in enumerate(results):
         if pc > 0:
@@ -2848,10 +2905,9 @@ async def process_whoknowstrack(guild, user, query):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
     if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
-    users_db = await load_users()
-    display_names = await load_display_names()
-    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
+    
+    linked = await get_all_valid_users(guild)
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account or imported data."), None
     
     artist_name = None
     track_name = None
@@ -2871,7 +2927,8 @@ async def process_whoknowstrack(guild, user, query):
         artist_name, track_name = parts[0].strip(), parts[1].strip()
 
     lb = []
-    tasks = [(uid, lname, fetch_track_playcount(session, lname, artist_name, track_name)) for uid, lname in linked.items()]
+    display_names = await load_display_names()
+    tasks = [(uid, lname, get_combined_playcount(session, uid, lname, artist_name, track=track_name)) for uid, lname in linked.items()]
     results = await asyncio.gather(*(t[2] for t in tasks))
     for idx, pc in enumerate(results):
         if pc > 0:
@@ -2901,10 +2958,9 @@ async def process_whoknowsalbum(guild, user, query):
     bot_instance = bot
     session = getattr(bot_instance, 'session', None)
     if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
-    users_db = await load_users()
-    display_names = await load_display_names()
-    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
-    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
+    
+    linked = await get_all_valid_users(guild)
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account or imported data."), None
     
     artist_name = None
     album_name = None
@@ -2917,16 +2973,17 @@ async def process_whoknowsalbum(guild, user, query):
             artist_name = track['artist']['#text']
             album_name = track['album']['#text']
             if not album_name:
-                return Theme.get_error_embed(description="You are playing a track with no album data!"), None
+                return Theme.get_error_embed(description="The current track has no album tagged!"), None
         except: return Theme.get_error_embed(description="You aren't playing anything right now!"), None
     else:
         parts = query.split(' - ', 1)
         if len(parts) != 2:
-            return Theme.get_error_embed(description="Please provide `Artist - Album` or be playing an album."), None
+            return Theme.get_error_embed(description="Please provide `Artist - Album` or be playing a track with an album."), None
         artist_name, album_name = parts[0].strip(), parts[1].strip()
 
     lb = []
-    tasks = [(uid, lname, fetch_album_playcount(session, lname, artist_name, album_name)) for uid, lname in linked.items()]
+    display_names = await load_display_names()
+    tasks = [(uid, lname, get_combined_playcount(session, uid, lname, artist_name, album=album_name)) for uid, lname in linked.items()]
     results = await asyncio.gather(*(t[2] for t in tasks))
     for idx, pc in enumerate(results):
         if pc > 0:
@@ -2960,33 +3017,35 @@ async def process_taste(guild, user1, user2):
         return Theme.get_error_embed(description="You can't compare taste with yourself!"), None
         
     username1 = await get_lastfm_username(user1.id)
+    username1 = await get_lastfm_username(user1.id)
     username2 = await get_lastfm_username(user2.id)
     
-    if not username1: return Theme.get_error_embed(description=f"{format_name(user1)} has not linked their Last.fm account."), None
-    if not username2: return Theme.get_error_embed(description=f"{format_name(user2)} has not linked their Last.fm account."), None
+    from src.core.database import get_local_total_plays
+    if not username1 and (await get_local_total_plays(user1.id)) == 0:
+        return Theme.get_error_embed(description=f"{format_name(user1)} has not linked their Last.fm account or imported data."), None
+    if not username2 and (await get_local_total_plays(user2.id)) == 0:
+        return Theme.get_error_embed(description=f"{format_name(user2)} has not linked their Last.fm account or imported data."), None
 
-    from src.utils.api import fetch_top_artists
-    
     tasks = [
-        fetch_top_artists(username1, 'overall', 100),
-        fetch_top_artists(username2, 'overall', 100)
+        get_combined_top_artists(user1.id, username1, 100),
+        get_combined_top_artists(user2.id, username2, 100)
     ]
     results = await asyncio.gather(*tasks)
     
-    if not results[0] or 'topartists' not in results[0] or not results[0]['topartists']['artist']:
+    if not results[0]:
         return Theme.get_error_embed(description=f"Could not fetch top artists for {format_name(user1)}."), None
-    if not results[1] or 'topartists' not in results[1] or not results[1]['topartists']['artist']:
+    if not results[1]:
         return Theme.get_error_embed(description=f"Could not fetch top artists for {format_name(user2)}."), None
         
-    artists1 = {a['name'].lower(): (int(a['playcount']), i) for i, a in enumerate(results[0]['topartists']['artist'])}
-    artists2 = {a['name'].lower(): (int(a['playcount']), i) for i, a in enumerate(results[1]['topartists']['artist'])}
+    artists1 = {a['name'].lower(): (int(a['plays']), i) for i, a in enumerate(results[0])}
+    artists2 = {a['name'].lower(): (int(a['plays']), i) for i, a in enumerate(results[1])}
     
     common = []
     score = 0
     for name, (pc1, rank1) in artists1.items():
         if name in artists2:
             pc2, rank2 = artists2[name]
-            common.append({'name': results[0]['topartists']['artist'][rank1]['name'], 'pc1': pc1, 'pc2': pc2})
+            common.append({'name': results[0][rank1]['name'], 'pc1': pc1, 'pc2': pc2})
             score += (100 - abs(rank1 - rank2)) * (min(pc1, pc2))
             
     common = sorted(common, key=lambda x: x['pc1'] + x['pc2'], reverse=True)

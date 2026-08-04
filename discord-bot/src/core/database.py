@@ -430,6 +430,30 @@ async def get_local_total_plays(user_id):
     except Exception:
         return 0
 
+async def get_local_artist_playcount(user_id, artist_name):
+    if not db_pool: return 0
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2)", str(user_id), artist_name)
+            return row['count'] if row else 0
+    except Exception: return 0
+
+async def get_local_track_playcount(user_id, artist_name, track_name):
+    if not db_pool: return 0
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2) AND LOWER(track_name)=LOWER($3)", str(user_id), artist_name, track_name)
+            return row['count'] if row else 0
+    except Exception: return 0
+
+async def get_local_album_playcount(user_id, artist_name, album_name):
+    if not db_pool: return 0
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2) AND LOWER(album_name)=LOWER($3)", str(user_id), artist_name, album_name)
+            return row['count'] if row else 0
+    except Exception: return 0
+
 async def db_fetch(query, *args):
     """Run a query on the pool and return records, or [] if no pool."""
     if not db_pool: return []
