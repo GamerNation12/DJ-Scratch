@@ -535,6 +535,9 @@ async def setup_hook():
             bot.process_crowns = process_crowns
             bot.process_crownseeder = process_crownseeder
             bot.process_killallcrowns = process_killallcrowns
+            bot.process_chart = process_chart
+            bot.process_artist_chart = process_artist_chart
+            bot.process_streak = process_streak
             bot.handle_discord_import = handle_discord_import
             bot.PurgeConfirmView = PurgeConfirmView
             bot.add_custom_reactions = add_custom_reactions
