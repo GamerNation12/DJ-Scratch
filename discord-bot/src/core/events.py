@@ -2994,21 +2994,37 @@ async def process_taste(guild, user1, user2):
     if score == 0: percentage = 0
     else: percentage = min(100, round((score / 15000) * 100))
     
-    if percentage >= 90: level = "Super!"
-    elif percentage >= 75: level = "Excellent"
-    elif percentage >= 50: level = "Good"
-    elif percentage >= 25: level = "Fair"
-    else: level = "Poor"
-    
-    desc = f"Taste compatibility between **{format_name(user1)}** and **{format_name(user2)}** is **{level}** (**{percentage}%**).\\n\\n"
+    desc = f"**{len(common)}** matches (**{percentage}%**) out of top **100** overall\n\n"
     if common:
-        desc += "**Common Artists:**\\n"
-        for idx, a in enumerate(common[:10]):
-            desc += f"{idx+1}. **{a['name']}** ({a['pc1']} plays / {a['pc2']} plays)\\n"
+        u1_name = format_name(user1)[:15]
+        u2_name = format_name(user2)[:15]
+        
+        max_artist_len = 19
+        u1_width = max(len(u1_name), 6)
+        u2_width = max(len(u2_name), 6)
+        
+        table = f"```\nArtist{' ' * (max_artist_len - 6)} {u1_name:>{u1_width}}   {u2_name:<{u2_width}}\n"
+        table += "-" * (max_artist_len + u1_width + u2_width + 4) + "\n"
+        
+        for a in common[:15]:
+            artist_name = a['name'][:max_artist_len-1].ljust(max_artist_len)
+            
+            if a['pc1'] > a['pc2']: comp = ">"
+            elif a['pc1'] < a['pc2']: comp = "<"
+            else: comp = "="
+            
+            pc1_str = str(a['pc1']).rjust(u1_width)
+            pc2_str = str(a['pc2'])
+            
+            table += f"{artist_name} {pc1_str} {comp} {pc2_str}\n"
+            
+        table += "```"
+        desc += table
     else:
         desc += "You have no common artists in your top 100!"
         
     embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
+    embed.set_author(name=f"Top artist comparison — {format_name(user1)} vs {format_name(user2)}")
     return embed, None
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
