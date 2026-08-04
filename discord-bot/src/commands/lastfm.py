@@ -358,12 +358,36 @@ class LastFmCog(commands.Cog):
             await interaction.edit_original_response(content=err)
 
     @app_commands.command(name="whoknows", description="See who in the server listens to an artist most")
-    @app_commands.allowed_installs(guilds=True, users=False)
-    @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
-    async def wk_slash(self, interaction: discord.Interaction, artist: str = None):
+    @app_commands.describe(artist="The artist name (leave blank to use your current playing artist)")
+    async def whoknows(self, interaction: discord.Interaction, artist: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_whoknows(interaction.guild, interaction.user, artist)
-        await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @app_commands.command(name="whoknowstrack", description="See who in the server listens to a track most")
+    @app_commands.describe(query="Format: Artist - Track (leave blank to use your current playing track)")
+    async def whoknowstrack(self, interaction: discord.Interaction, query: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_whoknowstrack(interaction.guild, interaction.user, query)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @app_commands.command(name="whoknowsalbum", description="See who in the server listens to an album most")
+    @app_commands.describe(query="Format: Artist - Album (leave blank to use your current playing album)")
+    async def whoknowsalbum(self, interaction: discord.Interaction, query: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_whoknowsalbum(interaction.guild, interaction.user, query)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @app_commands.command(name="taste", description="Compare your music taste with another user")
+    @app_commands.describe(user="The user to compare with")
+    async def taste(self, interaction: discord.Interaction, user: discord.Member):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_taste(interaction.guild, interaction.user, user)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
 
     @app_commands.command(name="suggest", description="Send a suggestion directly to the developer")
     @app_commands.describe(suggestion="Your idea or feedback for the bot")
@@ -628,10 +652,31 @@ class LastFmCog(commands.Cog):
             await self._reply_and_delete(ctx, err)
 
     @commands.command(name="wk", aliases=["whoknows", "who", "w"])
-    async def wk_prefix(self, ctx, *, args: str = None):
+    async def whoknows_prefix(self, ctx, *, args: str = None):
         target_user, artist = await get_target_user(ctx, args)
         embed, err = await self.bot.process_whoknows(ctx.guild, target_user, artist)
-        await self._reply_and_delete(ctx, embed=embed) if embed else await self._reply_and_delete(ctx, err)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="wkt", aliases=["whoknowstrack", "wt"])
+    async def whoknowstrack_prefix(self, ctx, *, args: str = None):
+        target_user, query = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_whoknowstrack(ctx.guild, target_user, query)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="wka", aliases=["whoknowsalbum", "wa"])
+    async def whoknowsalbum_prefix(self, ctx, *, args: str = None):
+        target_user, query = await get_target_user(ctx, args)
+        embed, err = await self.bot.process_whoknowsalbum(ctx.guild, target_user, query)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="taste", aliases=["t"])
+    async def taste_prefix(self, ctx, user: discord.Member = None):
+        embed, err = await self.bot.process_taste(ctx.guild, ctx.author, user)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):

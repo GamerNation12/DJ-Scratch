@@ -527,6 +527,9 @@ async def setup_hook():
             bot.process_receipt = process_receipt
             bot.process_profile = process_profile
             bot.process_whoknows = process_whoknows
+            bot.process_whoknowstrack = process_whoknowstrack
+            bot.process_whoknowsalbum = process_whoknowsalbum
+            bot.process_taste = process_taste
             bot.process_suggestion = process_suggestion
             bot.get_help_embed = get_help_embed
             bot.process_crowns = process_crowns
@@ -1877,7 +1880,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
     if isinstance(data, dict) and 'error' in data:
         err_msg = data.get('message', 'Unknown error')
-        return {"embed": Theme.get_error_embed(description=f"Last.fm API Error: {err_msg}")}, False
+        return {"embed": Theme.get_error_embed(description=f"Last.fm API Error: {err_msg}\\n\\n*Note: This is an issue with Last.fm's servers, not DJ Scratch. Please try again later.*")}, False
         
     if not data or 'recenttracks' not in data or not data['recenttracks']['track']: 
         return {"embed": Theme.get_error_embed(description="Could not find recent tracks.")}, False
@@ -2839,6 +2842,173 @@ async def process_whoknows(guild, user, artist_name):
     footer_text = f"Requested by {format_name(user)}"
     if lb[0]['name'] == format_name(user): footer_text = "👑 You hold the crown! • " + footer_text
     embed.set_footer(text=footer_text)
+    return embed, None
+
+async def process_whoknowstrack(guild, user, query):
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+    if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
+    users_db = await load_users()
+    display_names = await load_display_names()
+    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
+    
+    artist_name = None
+    track_name = None
+    if not query:
+        username = await get_lastfm_username(user.id)
+        if not username: return Theme.get_error_embed(description="Link account or provide an `Artist - Track`."), None
+        np_data = await fetch_now_playing(username, 1)
+        try:
+            track = np_data['recenttracks']['track'][0]
+            artist_name = track['artist']['#text']
+            track_name = track['name']
+        except: return Theme.get_error_embed(description="You aren't playing anything right now!"), None
+    else:
+        parts = query.split(' - ', 1)
+        if len(parts) != 2:
+            return Theme.get_error_embed(description="Please provide `Artist - Track` or be playing a track."), None
+        artist_name, track_name = parts[0].strip(), parts[1].strip()
+
+    lb = []
+    tasks = [(uid, lname, fetch_track_playcount(session, lname, artist_name, track_name)) for uid, lname in linked.items()]
+    results = await asyncio.gather(*(t[2] for t in tasks))
+    for idx, pc in enumerate(results):
+        if pc > 0:
+            uid = tasks[idx][0]
+            custom_name = display_names.get(uid)
+            if custom_name:
+                name = custom_name
+            else:
+                member = guild.get_member(int(uid))
+                name = member.display_name if member else tasks[idx][1]
+            lb.append({"name": name, "plays": pc, "uid": uid})
+
+    if not lb: return Theme.get_error_embed(description=f"No one here listens to **{artist_name} - {track_name}**."), None
+    lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+    
+    lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed.set_author(name=f"Who knows {artist_name} - {track_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
+    embed.set_thumbnail(url=user.display_avatar.url)
+    
+    footer_text = f"Requested by {format_name(user)}"
+    if lb[0]['name'] == format_name(user): footer_text = "👑 You hold the crown! • " + footer_text
+    embed.set_footer(text=footer_text)
+    return embed, None
+
+async def process_whoknowsalbum(guild, user, query):
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+    if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
+    users_db = await load_users()
+    display_names = await load_display_names()
+    linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+    if not linked: return Theme.get_error_embed(description="No one in this server has linked their account."), None
+    
+    artist_name = None
+    album_name = None
+    if not query:
+        username = await get_lastfm_username(user.id)
+        if not username: return Theme.get_error_embed(description="Link account or provide an `Artist - Album`."), None
+        np_data = await fetch_now_playing(username, 1)
+        try:
+            track = np_data['recenttracks']['track'][0]
+            artist_name = track['artist']['#text']
+            album_name = track['album']['#text']
+            if not album_name:
+                return Theme.get_error_embed(description="You are playing a track with no album data!"), None
+        except: return Theme.get_error_embed(description="You aren't playing anything right now!"), None
+    else:
+        parts = query.split(' - ', 1)
+        if len(parts) != 2:
+            return Theme.get_error_embed(description="Please provide `Artist - Album` or be playing an album."), None
+        artist_name, album_name = parts[0].strip(), parts[1].strip()
+
+    lb = []
+    tasks = [(uid, lname, fetch_album_playcount(session, lname, artist_name, album_name)) for uid, lname in linked.items()]
+    results = await asyncio.gather(*(t[2] for t in tasks))
+    for idx, pc in enumerate(results):
+        if pc > 0:
+            uid = tasks[idx][0]
+            custom_name = display_names.get(uid)
+            if custom_name:
+                name = custom_name
+            else:
+                member = guild.get_member(int(uid))
+                name = member.display_name if member else tasks[idx][1]
+            lb.append({"name": name, "plays": pc, "uid": uid})
+
+    if not lb: return Theme.get_error_embed(description=f"No one here listens to **{artist_name} - {album_name}**."), None
+    lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+    
+    lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed.set_author(name=f"Who knows {artist_name} - {album_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
+    embed.set_thumbnail(url=user.display_avatar.url)
+    
+    footer_text = f"Requested by {format_name(user)}"
+    if lb[0]['name'] == format_name(user): footer_text = "👑 You hold the crown! • " + footer_text
+    embed.set_footer(text=footer_text)
+    return embed, None
+
+async def process_taste(guild, user1, user2):
+    if not user2:
+        return Theme.get_error_embed(description="You must specify a user to compare taste with."), None
+    
+    if user1.id == user2.id:
+        return Theme.get_error_embed(description="You can't compare taste with yourself!"), None
+        
+    username1 = await get_lastfm_username(user1.id)
+    username2 = await get_lastfm_username(user2.id)
+    
+    if not username1: return Theme.get_error_embed(description=f"{format_name(user1)} has not linked their Last.fm account."), None
+    if not username2: return Theme.get_error_embed(description=f"{format_name(user2)} has not linked their Last.fm account."), None
+
+    from src.utils.api import fetch_top_artists
+    
+    tasks = [
+        fetch_top_artists(username1, 'overall', 100),
+        fetch_top_artists(username2, 'overall', 100)
+    ]
+    results = await asyncio.gather(*tasks)
+    
+    if not results[0] or 'topartists' not in results[0] or not results[0]['topartists']['artist']:
+        return Theme.get_error_embed(description=f"Could not fetch top artists for {format_name(user1)}."), None
+    if not results[1] or 'topartists' not in results[1] or not results[1]['topartists']['artist']:
+        return Theme.get_error_embed(description=f"Could not fetch top artists for {format_name(user2)}."), None
+        
+    artists1 = {a['name'].lower(): (int(a['playcount']), i) for i, a in enumerate(results[0]['topartists']['artist'])}
+    artists2 = {a['name'].lower(): (int(a['playcount']), i) for i, a in enumerate(results[1]['topartists']['artist'])}
+    
+    common = []
+    score = 0
+    for name, (pc1, rank1) in artists1.items():
+        if name in artists2:
+            pc2, rank2 = artists2[name]
+            common.append({'name': results[0]['topartists']['artist'][rank1]['name'], 'pc1': pc1, 'pc2': pc2})
+            score += (100 - abs(rank1 - rank2)) * (min(pc1, pc2))
+            
+    common = sorted(common, key=lambda x: x['pc1'] + x['pc2'], reverse=True)
+    
+    if score == 0: percentage = 0
+    else: percentage = min(100, round((score / 15000) * 100))
+    
+    if percentage >= 90: level = "Super!"
+    elif percentage >= 75: level = "Excellent"
+    elif percentage >= 50: level = "Good"
+    elif percentage >= 25: level = "Fair"
+    else: level = "Poor"
+    
+    desc = f"Taste compatibility between **{format_name(user1)}** and **{format_name(user2)}** is **{level}** (**{percentage}%**).\\n\\n"
+    if common:
+        desc += "**Common Artists:**\\n"
+        for idx, a in enumerate(common[:10]):
+            desc += f"{idx+1}. **{a['name']}** ({a['pc1']} plays / {a['pc2']} plays)\\n"
+    else:
+        desc += "You have no common artists in your top 100!"
+        
+    embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
     return embed, None
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
