@@ -10,9 +10,13 @@ from src.core.database import format_name
 def extract_artist_from_embed(embed: discord.Embed) -> str:
     import re
     
-    # 1. Check Author Name
+    texts_to_check = []
     if embed.author and embed.author.name:
-        text = embed.author.name
+        texts_to_check.append(embed.author.name)
+    if embed.title:
+        texts_to_check.append(embed.title)
+        
+    for text in texts_to_check:
         m = re.search(r'Who knows (.+?) in ', text)
         if m: return m.group(1).strip()
         
@@ -20,15 +24,6 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
         if m: return m.group(1).strip()
         
         if ' - ' in text and not text.endswith("playing"):
-            return text.split(' - ', 1)[0].strip()
-            
-    # 2. Check Title
-    if embed.title:
-        text = embed.title
-        m = re.search(r'Who knows (.+?) in ', text)
-        if m: return m.group(1).strip()
-        
-        if ' - ' in text:
             return text.split(' - ', 1)[0].strip()
             
     # 3. Check Description (Now Playing)
