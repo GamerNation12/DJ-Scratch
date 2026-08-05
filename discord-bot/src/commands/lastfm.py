@@ -73,11 +73,16 @@ async def get_target_user(ctx, arg_string: str = None):
 
     if ctx.message.mentions:
         for m in ctx.message.mentions:
-            if not m.bot or m.id == ctx.bot.user.id:
+            # If the mention is the bot we're replying to, ignore it
+            is_reply_target = False
+            if hasattr(ctx.message, 'reference') and ctx.message.reference and ctx.message.reference.resolved:
+                if ctx.message.reference.resolved.author.id == m.id:
+                    is_reply_target = True
+                    
+            if not is_reply_target and (not m.bot or m.id == ctx.bot.user.id):
                 target_user = m
                 break
 
-    cleaned_args = arg_string
     if cleaned_args and ctx.message.mentions:
         for m in ctx.message.mentions:
             cleaned_args = cleaned_args.replace(f'<@{m.id}>', '').replace(f'<@!{m.id}>', '').strip()
