@@ -8,24 +8,42 @@ from src.core.database import format_name
 
 
 def extract_artist_from_embed(embed: discord.Embed) -> str:
+    import re
+    
+    # 1. Check Author Name
     if embed.author and embed.author.name:
-        if ' - ' in embed.author.name and not embed.author.name.endswith("playing"):
-            return embed.author.name.split(' - ', 1)[0].strip()
-            
-    if embed.title and ' - ' in embed.title:
-        return embed.title.split(' - ', 1)[0].strip()
+        text = embed.author.name
+        m = re.search(r'Who knows (.+?) in ', text)
+        if m: return m.group(1).strip()
         
+        m = re.search(r"top \w+ for '([^']+)'", text)
+        if m: return m.group(1).strip()
+        
+        if ' - ' in text and not text.endswith("playing"):
+            return text.split(' - ', 1)[0].strip()
+            
+    # 2. Check Title
+    if embed.title:
+        text = embed.title
+        m = re.search(r'Who knows (.+?) in ', text)
+        if m: return m.group(1).strip()
+        
+        if ' - ' in text:
+            return text.split(' - ', 1)[0].strip()
+            
+    # 3. Check Description (Now Playing)
     if embed.description:
         lines = embed.description.split('\n')
         if len(lines) >= 2:
-            import re
-            match = re.search(r'\*\*([^*]+)\*\*', lines[1])
-            if match:
-                return match.group(1).strip()
-            # fallback for other bot formats
-            parts = lines[1].replace('**', '').split(' | ')
-            if len(parts) > 0:
-                return parts[0].split(' — ')[0].strip()
+            m = re.search(r'\*\*([^*]+)\*\*', lines[1])
+            if m:
+                return m.group(1).strip()
+            # fallback
+            line2 = lines[1].replace('**', '')
+            for separator in [' | ', ' — ', ' - ']:
+                if separator in line2:
+                    return line2.split(separator)[0].strip()
+                    
     return None
 
 async def get_target_user(ctx, arg_string: str = None):
