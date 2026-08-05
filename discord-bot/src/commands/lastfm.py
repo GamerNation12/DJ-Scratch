@@ -834,9 +834,38 @@ class LastFmCog(commands.Cog):
         if embed: await self._reply_and_delete(ctx, embed=embed)
         else: await self._reply_and_delete(ctx, err)
 
+    async def _parse_chart_args(self, ctx, args):
+        size = '3x3'
+        period = 'overall'
+        target = ctx.author
+        
+        period_map = {
+            '7day': '7day', 'w': '7day', 'week': '7day',
+            '1month': '1month', 'm': '1month', 'month': '1month',
+            '3month': '3month', 'q': '3month', 'quarter': '3month',
+            '6month': '6month', 'h': '6month', 'half': '6month',
+            '12month': '12month', 'y': '12month', 'year': '12month',
+            'overall': 'overall', 'a': 'overall', 'all': 'overall'
+        }
+        
+        for arg in args:
+            arg_lower = arg.lower()
+            if 'x' in arg_lower and len(arg_lower.split('x')) == 2 and arg_lower.replace('x', '').isdigit():
+                size = arg_lower
+            elif arg_lower in period_map:
+                period = period_map[arg_lower]
+            else:
+                try:
+                    target = await commands.MemberConverter().convert(ctx, arg)
+                except commands.MemberNotFound:
+                    pass
+                    
+        return size, period, target
+
     @commands.command(name="chart", aliases=["c"])
-    async def chart_prefix(self, ctx, size: str = '3x3', period: str = 'overall', user: discord.Member = None):
-        target = user or ctx.author
+    async def chart_prefix(self, ctx, *args):
+        size, period, target = await self._parse_chart_args(ctx, args)
+        
         status_embed, task = await self.bot.process_chart(ctx.author, target, size, period)
         if task is None:
             await ctx.send(embed=status_embed)
@@ -847,8 +876,9 @@ class LastFmCog(commands.Cog):
         await msg.edit(embed=embed, attachments=[file] if file else [])
 
     @commands.command(name="artistchart", aliases=["ac"])
-    async def artistchart_prefix(self, ctx, size: str = '3x3', period: str = 'overall', user: discord.Member = None):
-        target = user or ctx.author
+    async def artistchart_prefix(self, ctx, *args):
+        size, period, target = await self._parse_chart_args(ctx, args)
+        
         status_embed, task = await self.bot.process_artist_chart(ctx.author, target, size, period)
         if task is None:
             await ctx.send(embed=status_embed)
