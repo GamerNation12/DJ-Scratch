@@ -5,7 +5,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from typing import List, Tuple
 
 async def download_image(session: aiohttp.ClientSession, url: str, artist: str = None, album: str = None) -> Image.Image:
-    if not url and artist and album:
+    is_missing = not url or '2a96cbd8' in url or '4128a6eb' in url
+    if is_missing and artist and album:
         try:
             import urllib.parse
             query = urllib.parse.quote(f"{artist} {album}")
@@ -17,7 +18,7 @@ async def download_image(session: aiohttp.ClientSession, url: str, artist: str =
         except Exception:
             pass
 
-    if not url:
+    if is_missing:
         url = "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
     try:
         async with session.get(url, timeout=10) as resp:
