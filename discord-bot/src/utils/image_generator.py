@@ -4,9 +4,21 @@ import aiohttp
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from typing import List, Tuple
 
-async def download_image(session: aiohttp.ClientSession, url: str) -> Image.Image:
+async def download_image(session: aiohttp.ClientSession, url: str, artist: str = None, album: str = None) -> Image.Image:
+    if not url and artist and album:
+        try:
+            import urllib.parse
+            query = urllib.parse.quote(f"{artist} {album}")
+            async with session.get(f"https://itunes.apple.com/search?term={query}&entity=album&limit=1", timeout=5) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    if data.get('results'):
+                        url = data['results'][0].get('artworkUrl100', '').replace('100x100bb', '600x600bb')
+        except Exception:
+            pass
+
     if not url:
-        return Image.new('RGBA', (300, 300), color=(30, 30, 30, 255))
+        url = "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
     try:
         async with session.get(url, timeout=10) as resp:
             if resp.status == 200:
@@ -27,7 +39,7 @@ async def generate_chart(items: List[dict], columns: int, rows: int, show_text: 
     chart = Image.new('RGB', (width, height), color=(20, 20, 20))
     
     async with aiohttp.ClientSession() as session:
-        tasks = [download_image(session, item.get('image_url')) for item in items]
+        tasks = [download_image(session, item.get('image_url'), item.get('fallback_artist'), item.get('fallback_album')) for item in items]
         images = await asyncio.gather(*tasks)
 
     try:

@@ -3957,6 +3957,8 @@ async def process_chart(user, target_user, size: str = '3x3', period: str = 'ove
         for a in albums:
             items.append({
                 'image_url': a.get('image'),
+                'fallback_artist': a['artist'],
+                'fallback_album': a['name'],
                 'primary_text': a['name'],
                 'secondary_text': f"{a['artist']} • {a['plays']} plays"
             })
