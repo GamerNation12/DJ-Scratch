@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 async def download_image(session: aiohttp.ClientSession, url: str) -> Image.Image:
     if not url:
-        return Image.new('RGB', (300, 300), color=(30, 30, 30))
+        return Image.new('RGBA', (300, 300), color=(30, 30, 30, 255))
     try:
         async with session.get(url, timeout=10) as resp:
             if resp.status == 200:
@@ -14,7 +14,7 @@ async def download_image(session: aiohttp.ClientSession, url: str) -> Image.Imag
                 return Image.open(io.BytesIO(data)).convert('RGBA')
     except Exception:
         pass
-    return Image.new('RGB', (300, 300), color=(30, 30, 30))
+    return Image.new('RGBA', (300, 300), color=(30, 30, 30, 255))
 
 async def generate_chart(items: List[dict], columns: int, rows: int, show_text: bool = True) -> io.BytesIO:
     """
