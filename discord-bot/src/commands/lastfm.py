@@ -20,7 +20,7 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
         m = re.search(r'Who knows (.+?) in ', text)
         if m: return m.group(1).strip()
         
-        m = re.search(r"top \w+ for '([^']+)'", text)
+        m = re.search(r"top \w+ for ['`‘]([^'`’]+)['`’]", text)
         if m: return m.group(1).strip()
         
         if ' - ' in text and not text.endswith("playing"):
@@ -38,6 +38,17 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
             for separator in [' | ', ' — ', ' - ']:
                 if separator in line2:
                     return line2.split(separator)[0].strip()
+                    
+    # 4. Bulletproof fallback: search the raw embed JSON string
+    try:
+        raw_embed = str(embed.to_dict())
+        m = re.search(r"top \w+ for ['`‘]([^'`’]+)['`’]", raw_embed)
+        if m: return m.group(1).strip()
+        
+        m = re.search(r'Who knows (.+?) in ', raw_embed)
+        if m: return m.group(1).strip()
+    except:
+        pass
                     
     return None
 
