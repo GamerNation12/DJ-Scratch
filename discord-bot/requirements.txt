@@ -7,3 +7,5 @@ PyNaCl
 Pillow
 psutil
 python-socketio
+
+psycopg2-binary
