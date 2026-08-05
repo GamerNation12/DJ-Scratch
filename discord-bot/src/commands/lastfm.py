@@ -7,18 +7,49 @@ from discord import app_commands
 from src.core.database import format_name
 
 
+def extract_artist_from_embed(embed: discord.Embed) -> str:
+    if embed.author and embed.author.name:
+        if ' - ' in embed.author.name and not embed.author.name.endswith("playing"):
+            return embed.author.name.split(' - ', 1)[0].strip()
+            
+    if embed.title and ' - ' in embed.title:
+        return embed.title.split(' - ', 1)[0].strip()
+        
+    if embed.description:
+        lines = embed.description.split('\n')
+        if len(lines) >= 2:
+            import re
+            match = re.search(r'\*\*([^*]+)\*\*', lines[1])
+            if match:
+                return match.group(1).strip()
+            # fallback for other bot formats
+            parts = lines[1].replace('**', '').split(' | ')
+            if len(parts) > 0:
+                return parts[0].split(' — ')[0].strip()
+    return None
+
 async def get_target_user(ctx, arg_string: str = None):
     target_user = ctx.author
+    cleaned_args = arg_string
     
     if hasattr(ctx.message, 'reference') and ctx.message.reference and ctx.message.reference.message_id:
         try:
             if hasattr(ctx.message.reference, 'resolved') and isinstance(ctx.message.reference.resolved, discord.Message):
-                target_user = ctx.message.reference.resolved.author
+                msg = ctx.message.reference.resolved
             elif ctx.message.reference.cached_message:
-                target_user = ctx.message.reference.cached_message.author
+                msg = ctx.message.reference.cached_message
             else:
                 msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                
+            if not msg.author.bot:
                 target_user = msg.author
+            else:
+                # If replying to a bot (e.g. .fmbot or DJ Scratch), target user is still ctx.author
+                # BUT we want to extract the artist from the embed if no args were provided!
+                if (not cleaned_args or not cleaned_args.strip()) and msg.embeds:
+                    extracted = extract_artist_from_embed(msg.embeds[0])
+                    if extracted:
+                        cleaned_args = extracted
         except Exception:
             pass
 
