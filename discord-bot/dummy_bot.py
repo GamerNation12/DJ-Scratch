@@ -14,7 +14,7 @@ class DummyBot(discord.Client):
         print(f"Logged in as {self.user} (Dummy Mode)")
         await self.change_presence(
             status=discord.Status.dnd,
-            activity=discord.Game(name="Host is offline ⚠️")
+            activity=discord.Game(name="DJ Scratch is offline ⚠️")
         )
         try:
             owner = await self.fetch_user(217874027543265280)
@@ -25,11 +25,12 @@ class DummyBot(discord.Client):
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type == discord.InteractionType.application_command:
             try:
-                await interaction.response.send_message(
-                    "⚠️ **DJ Scratch is currently down!**\n"
-                    "Our hosting provider is experiencing an outage or the bot has crashed. Commands will not work until the server is back online. Thanks for your patience!",
-                    ephemeral=True
+                embed = discord.Embed(
+                    title="⚠️ DJ Scratch is currently down!",
+                    description="Our hosting provider is experiencing an outage or the bot has crashed. Commands will not work until the server is back online. Thanks for your patience!",
+                    color=discord.Color.red()
                 )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
             except Exception as e:
                 print(f"Failed to reply to interaction: {e}")
 
@@ -39,11 +40,12 @@ class DummyBot(discord.Client):
             
         if message.content.startswith(","):
             try:
-                await message.reply(
-                    "⚠️ **DJ Scratch is currently down!**\n"
-                    "Our hosting provider is experiencing an outage or the bot has crashed. Commands will not work until the server is back online. Thanks for your patience!",
-                    delete_after=10
+                embed = discord.Embed(
+                    title="⚠️ DJ Scratch is currently down!",
+                    description="Our hosting provider is experiencing an outage or the bot has crashed. Commands will not work until the server is back online. Thanks for your patience!",
+                    color=discord.Color.red()
                 )
+                await message.reply(embed=embed)
             except Exception:
                 pass
 
