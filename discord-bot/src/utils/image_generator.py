@@ -18,8 +18,10 @@ async def download_image(session: aiohttp.ClientSession, url: str, artist: str =
         except Exception:
             pass
 
-    if is_missing:
+    # If it's still missing or the iTunes search failed, use the default star
+    if not url or '2a96cbd8' in url or '4128a6eb' in url:
         url = "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
+        
     try:
         async with session.get(url, timeout=10) as resp:
             if resp.status == 200:
