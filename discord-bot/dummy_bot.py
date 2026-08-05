@@ -17,7 +17,7 @@ class DummyBot(discord.Client):
             activity=discord.Game(name="DJ Scratch is offline ⚠️")
         )
         try:
-            owner = await self.fetch_user(217874027543265280)
+            owner = await self.fetch_user(759433582107426816)
             await owner.send("🚨 **CRITICAL ALERT:** The main DJ Scratch bot has crashed or gone offline! The fallback Dummy Bot has now taken over.")
         except Exception as e:
             print(f"Could not DM owner: {e}")
