@@ -14,79 +14,77 @@ async def get_settings_embed(user_id, user):
     feats = await get_user_show_features(user_id)
     d_source = await get_user_data_source(user_id)
     playcount = await get_user_show_track_playcount(user_id)
+    notifs = await get_user_update_notifs(user_id)
+    tz = await get_user_timezone(user_id)
     
     embed = discord.Embed(
         title="⚙️ Personal Preferences",
-        description="Customize your experience with the bot below. These settings apply globally across all servers.",
+        description="Customize how DJ Scratch interacts with you.\n*Changes here apply globally across all servers.*",
         color=LASTFM_COLOR
     )
-    embed.set_author(name=f"{format_name(user)}'s Settings", icon_url=user.display_avatar.url)
+    embed.set_author(name=f"{format_name(user)}", icon_url=user.display_avatar.url)
     
-    # Mode description
-    mode_desc = "📝 Compact" if mode == "compact" else ("📊 Stats" if mode == "stats" else "🖼️ Full Embed")
-    embed.add_field(name="**Display Mode (`/fm`)**", value=f"> {mode_desc}\n*Changes how your now-playing track looks.*", inline=False)
+    # 1. Appearance
+    mode_desc = "📝 **Compact**" if mode == "compact" else ("📊 **Stats**" if mode == "stats" else "🖼️ **Full Embed**")
+    pc_desc = "👀 **Visible**" if playcount else "🙈 **Hidden**"
     
-    # Featured Artists
-    feat_desc = "🟢 Enabled" if feats else "🔴 Disabled"
-    embed.add_field(name="**Featured Artists**", value=f"> {feat_desc}\n*Extracts features from song names to show them in the artist field.*", inline=False)
+    embed.add_field(
+        name="🎨 Appearance", 
+        value=f"**Display Mode:** {mode_desc}\n*Controls the layout of the `/fm` command.*\n\n"
+              f"**Track Playcount:** {pc_desc}\n*Shows your total plays for the current track on `/fm`.*", 
+        inline=False
+    )
     
-    # Data source
-    ds_desc = "📦 Imported Only" if d_source == "imported_only" else ("🎧 Last.fm Only" if d_source == "lastfm_only" else "🔄 Last.fm + Imported")
-    embed.add_field(name="**Data Source**", value=f"> {ds_desc}\n*Choose whether to include your live Last.fm data along with your imported history.*", inline=False)
+    # 2. Data & Tracking
+    ds_desc = "📦 **Imported Only**" if d_source == "imported_only" else ("🎧 **Last.fm Only**" if d_source == "lastfm_only" else "🔄 **Last.fm + Imported**")
+    feat_desc = "🟢 **Enabled**" if feats else "🔴 **Disabled**"
     
-    # Track Playcount
-    pc_desc = "👀 Visible" if playcount else "🙈 Hidden"
-    embed.add_field(name="**Track Playcount (`/fm`)**", value=f"> {pc_desc}\n*Shows how many times you've played the track (or if it's your first time).* \n*(Requires Last.fm integration to be accurate)*", inline=False)
+    embed.add_field(
+        name="⚙️ Data & Tracking", 
+        value=f"**Data Source:** {ds_desc}\n*Which data pool to use for your stats.*\n\n"
+              f"**Featured Artists:** {feat_desc}\n*Extracts features from song names into the artist field.*", 
+        inline=False
+    )
     
-    # Update Notifications
-    notifs = await get_user_update_notifs(user_id)
-    notifs_desc = "🔔 Enabled" if notifs else "🔕 Disabled"
-    embed.add_field(name="**Update Notifications**", value=f"> {notifs_desc}\n*Receive a one-time message about new features after an update.*", inline=False)
+    # 3. General
+    notifs_desc = "🔔 **Enabled**" if notifs else "🔕 **Disabled**"
     
-    # Timezone
-    tz = await get_user_timezone(user_id)
-    embed.add_field(name="**Timezone**", value=f"> 🌍 {tz}\n*Used to accurately calculate your yearly top tracks/artists.*", inline=False)
+    embed.add_field(
+        name="🌍 General", 
+        value=f"**Timezone:** 🌍 {tz}\n*Used to accurately calculate yearly top tracks.*\n\n"
+              f"**Update Notifs:** {notifs_desc}\n*Receive a DM about new features after major updates.*", 
+        inline=False
+    )
     
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="Select an option from the dropdowns below to update your settings")
+    embed.set_footer(text="Use the dropdowns and buttons below to update your settings")
     return embed
 
-class SettingsDropdown(discord.ui.Select):
+class ModeDropdown(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📝", value="fm_compact"),
-            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="🖼️", value="fm_full"),
-            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="📊", value="fm_stats"),
-            discord.SelectOption(label="Enable Featured Artists", description="Show featured artists in /fm", emoji="🎤", value="feat_on"),
-            discord.SelectOption(label="Disable Featured Artists", description="Hide featured artists in /fm", emoji="🚫", value="feat_off"),
-            discord.SelectOption(label="Data: Combined", description="Use Last.fm + Imported Data", emoji="🔄", value="ds_combined"),
-            discord.SelectOption(label="Data: Imported Only", description="Use strictly your Imported Data", emoji="📦", value="ds_imported_only"),
-            discord.SelectOption(label="Data: Last.fm Only", description="Use strictly your Last.fm Data", emoji="🎧", value="ds_lastfm_only"),
-            discord.SelectOption(label="Show Track Playcount", description="Show playcount on /fm", emoji="👀", value="pc_on"),
-            discord.SelectOption(label="Hide Track Playcount", description="Hide playcount on /fm", emoji="🙈", value="pc_off"),
-            discord.SelectOption(label="Enable Update Notifs", description="Turn on update alerts", emoji="🔔", value="notifs_on"),
-            discord.SelectOption(label="Disable Update Notifs", description="Turn off update alerts", emoji="🔕", value="notifs_off"),
+            discord.SelectOption(label="Compact Text Mode", description="1-line plain text for /fm", emoji="📝", value="compact"),
+            discord.SelectOption(label="Full Embed Mode", description="Detailed embed for /fm", emoji="🖼️", value="full"),
+            discord.SelectOption(label="Stats View Mode", description="stats.fm style embed for /fm", emoji="📊", value="stats"),
         ]
-        super().__init__(placeholder="Select a setting to change...", min_values=1, max_values=1, options=options, custom_id="settings_dropdown")
+        super().__init__(placeholder="🎨 Select Display Mode...", min_values=1, max_values=1, options=options, custom_id="mode_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
-        val = self.values[0]
-        if val.startswith("fm_"):
-            mode = val.split("_")[1]
-            await set_user_fm_mode(interaction.user.id, mode)
-        elif val.startswith("feat_"):
-            on = (val == "feat_on")
-            await set_user_show_features(interaction.user.id, on)
-        elif val.startswith("ds_"):
-            source = val[3:]
-            await set_user_data_source(interaction.user.id, source)
-        elif val.startswith("pc_"):
-            on = (val == "pc_on")
-            await set_user_show_track_playcount(interaction.user.id, on)
-        elif val.startswith("notifs_"):
-            on = (val == "notifs_on")
-            await set_user_update_notifs(interaction.user.id, on)
-            
+        await set_user_fm_mode(interaction.user.id, self.values[0])
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class DataSourceDropdown(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Combined (Last.fm + Imported)", description="Use all available data", emoji="🔄", value="combined"),
+            discord.SelectOption(label="Imported Only", description="Strictly use Spotify imported data", emoji="📦", value="imported_only"),
+            discord.SelectOption(label="Last.fm Only", description="Strictly use Last.fm scrobbles", emoji="🎧", value="lastfm_only"),
+        ]
+        super().__init__(placeholder="⚙️ Select Data Source...", min_values=1, max_values=1, options=options, custom_id="ds_dropdown")
+
+    async def callback(self, interaction: discord.Interaction):
+        await set_user_data_source(interaction.user.id, self.values[0])
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)
 
@@ -104,7 +102,7 @@ class TimezoneDropdown(discord.ui.Select):
             discord.SelectOption(label="Tokyo", description="Asia/Tokyo", value="Asia/Tokyo"),
             discord.SelectOption(label="Sydney", description="Australia/Sydney", value="Australia/Sydney"),
         ]
-        super().__init__(placeholder="Select your timezone...", min_values=1, max_values=1, options=options, custom_id="timezone_dropdown")
+        super().__init__(placeholder="🌍 Select your timezone...", min_values=1, max_values=1, options=options, custom_id="timezone_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         await set_user_timezone(interaction.user.id, self.values[0])
@@ -112,10 +110,58 @@ class TimezoneDropdown(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class SettingsView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, user_id, feats, playcount, notifs):
         super().__init__(timeout=None)
-        self.add_item(SettingsDropdown())
-        self.add_item(TimezoneDropdown())
+        
+        # Row 1: Toggles (Buttons)
+        self.btn_feats = discord.ui.Button(label="Featured Artists", style=discord.ButtonStyle.green if feats else discord.ButtonStyle.secondary, emoji="🎤", custom_id="toggle_feats", row=0)
+        self.btn_pc = discord.ui.Button(label="Track Playcount", style=discord.ButtonStyle.green if playcount else discord.ButtonStyle.secondary, emoji="👀", custom_id="toggle_pc", row=0)
+        self.btn_notifs = discord.ui.Button(label="Update Notifs", style=discord.ButtonStyle.green if notifs else discord.ButtonStyle.secondary, emoji="🔔", custom_id="toggle_notifs", row=0)
+        
+        self.btn_feats.callback = self.toggle_feats
+        self.btn_pc.callback = self.toggle_pc
+        self.btn_notifs.callback = self.toggle_notifs
+        
+        self.add_item(self.btn_feats)
+        self.add_item(self.btn_pc)
+        self.add_item(self.btn_notifs)
+        
+        # Row 2, 3, 4: Dropdowns
+        mode_dd = ModeDropdown()
+        mode_dd.row = 1
+        self.add_item(mode_dd)
+        
+        ds_dd = DataSourceDropdown()
+        ds_dd.row = 2
+        self.add_item(ds_dd)
+        
+        tz_dd = TimezoneDropdown()
+        tz_dd.row = 3
+        self.add_item(tz_dd)
+
+    async def toggle_feats(self, interaction: discord.Interaction):
+        current = await get_user_show_features(interaction.user.id)
+        new_val = not current
+        await set_user_show_features(interaction.user.id, new_val)
+        self.btn_feats.style = discord.ButtonStyle.green if new_val else discord.ButtonStyle.secondary
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def toggle_pc(self, interaction: discord.Interaction):
+        current = await get_user_show_track_playcount(interaction.user.id)
+        new_val = not current
+        await set_user_show_track_playcount(interaction.user.id, new_val)
+        self.btn_pc.style = discord.ButtonStyle.green if new_val else discord.ButtonStyle.secondary
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def toggle_notifs(self, interaction: discord.Interaction):
+        current = await get_user_update_notifs(interaction.user.id)
+        new_val = not current
+        await set_user_update_notifs(interaction.user.id, new_val)
+        self.btn_notifs.style = discord.ButtonStyle.green if new_val else discord.ButtonStyle.secondary
+        embed = await get_settings_embed(interaction.user.id, interaction.user)
+        await interaction.response.edit_message(embed=embed, view=self)
 
 
 
@@ -130,15 +176,21 @@ class SettingsCog(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def settings_slash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        view = SettingsView()
+        feats = await get_user_show_features(interaction.user.id)
+        playcount = await get_user_show_track_playcount(interaction.user.id)
+        notifs = await get_user_update_notifs(interaction.user.id)
+        view = SettingsView(interaction.user.id, feats, playcount, notifs)
         embed = await get_settings_embed(interaction.user.id, interaction.user)
-        await interaction.followup.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send("⚙️ **Settings Menu**\nUse the buttons and dropdowns below to customize your experience.", embed=embed, view=view, ephemeral=True)
 
     @commands.command(name="settings", aliases=["set", "se", "s"])
     async def settings_prefix(self, ctx):
-        view = SettingsView()
+        feats = await get_user_show_features(ctx.author.id)
+        playcount = await get_user_show_track_playcount(ctx.author.id)
+        notifs = await get_user_update_notifs(ctx.author.id)
+        view = SettingsView(ctx.author.id, feats, playcount, notifs)
         embed = await get_settings_embed(ctx.author.id, ctx.author)
-        await ctx.send("⚙️ **Settings Menu**\nUse the dropdown below to customize your experience.", embed=embed, view=view)
+        await ctx.send("⚙️ **Settings Menu**\nUse the buttons and dropdowns below to customize your experience.", embed=embed, view=view)
 
 class ServerSettingsCog(commands.Cog):
     def __init__(self, bot):
