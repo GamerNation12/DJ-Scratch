@@ -3947,30 +3947,36 @@ async def process_chart(user, target_user, size: str = '3x3', period: str = 'ove
     status_embed = Theme.get_embed(description=f"🎨 Generating {size} album chart for **{format_name(target_user or user)}**... Please wait.")
     
     async def generate_chart_task():
-        albums = await get_combined_top_albums(target_uid, username, limit, period)
-        if not albums:
-            return Theme.get_error_embed(description="No albums found for this period."), None, None
+        try:
+            albums = await get_combined_top_albums(target_uid, username, limit, period)
+            if not albums:
+                return Theme.get_error_embed(description="No albums found for this period."), None, None
+                
+            from src.utils.image_generator import generate_chart
             
-        from src.utils.image_generator import generate_chart
-        
-        items = []
-        for a in albums:
-            items.append({
-                'image_url': a.get('image'),
-                'fallback_artist': a['artist'],
-                'fallback_album': a['name'],
-                'primary_text': a['name'],
-                'secondary_text': f"{a['artist']} • {a['plays']} plays"
-            })
+            items = []
+            for a in albums:
+                items.append({
+                    'image_url': a.get('image'),
+                    'fallback_artist': a['artist'],
+                    'fallback_album': a['name'],
+                    'primary_text': a['name'],
+                    'secondary_text': f"{a['artist']} • {a['plays']} plays"
+                })
+                
+            buffer = await generate_chart(items, cols, rows, show_text=True)
             
-        buffer = await generate_chart(items, cols, rows, show_text=True)
-        
-        file = discord.File(fp=buffer, filename="chart.jpg")
-        embed = Theme.get_embed(color=LASTFM_COLOR)
-        embed.set_author(name=f"{format_name(target_user or user)}'s {period} top albums", icon_url=(target_user or user).display_avatar.url)
-        embed.set_image(url="attachment://chart.jpg")
-        
-        return embed, file, None
+            file = discord.File(fp=buffer, filename="chart.jpg")
+            embed = Theme.get_embed(color=LASTFM_COLOR)
+            embed.set_author(name=f"{format_name(target_user or user)}'s {period} top albums", icon_url=(target_user or user).display_avatar.url)
+            embed.set_image(url="attachment://chart.jpg")
+            
+            return embed, file, None
+        except Exception as e:
+            import traceback
+            trace = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            err_embed = Theme.get_error_embed(description=f"An internal error occurred while generating the chart:\n```py\n{trace[-1000:]}\n```")
+            return err_embed, None, None
         
     return status_embed, generate_chart_task
 
