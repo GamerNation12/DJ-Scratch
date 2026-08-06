@@ -39,9 +39,9 @@ export async function POST(req: Request) {
       INSERT INTO disabled_commands (command_name, reason, disabled_by) 
       VALUES (${command_name}, ${reason}, ${disabledBy})
       ON CONFLICT (command_name) DO UPDATE SET 
-      reason = ${reason}, 
+      reason = EXCLUDED.reason, 
       disabled_at = CURRENT_TIMESTAMP, 
-      disabled_by = ${disabledBy}
+      disabled_by = EXCLUDED.disabled_by
     `;
 
     return NextResponse.json({ success: true });
