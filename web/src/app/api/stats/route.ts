@@ -5,9 +5,9 @@ export async function GET() {
   try {
     // 1. Top Artists (across the whole platform)
     const topArtists = await sql`
-      SELECT artist_name, COUNT(*) as playcount
-      FROM listens
-      GROUP BY artist_name
+      SELECT t.artist_name, COUNT(*) as playcount
+      FROM listens l JOIN tracks t ON l.track_id = t.id
+      GROUP BY t.artist_name
       ORDER BY playcount DESC
       LIMIT 10
     `;

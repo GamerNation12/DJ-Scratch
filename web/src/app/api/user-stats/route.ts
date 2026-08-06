@@ -70,10 +70,10 @@ export async function GET(req: Request) {
       userStats.spotify = { playcount: spotifyPlaycount, topArtist: "None", topArtistPlays: 0 };
       
       const spotifyTopArtistRow = await sql`
-        SELECT artist_name, COUNT(*) as playcount
-        FROM listens
-        WHERE user_id = ${userId}
-        GROUP BY artist_name
+        SELECT t.artist_name, COUNT(*) as playcount
+        FROM listens l JOIN tracks t ON l.track_id = t.id
+        WHERE l.user_id = ${userId}
+        GROUP BY t.artist_name
         ORDER BY playcount DESC
         LIMIT 1
       `;

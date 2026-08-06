@@ -146,9 +146,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       try {
         const [playcountRes, topArtistsRes, topTracksRes, recentTracksRes] = await Promise.all([
           sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId}`,
-          sql`SELECT artist_name, COUNT(*) as playcount FROM listens WHERE user_id = ${uId} GROUP BY artist_name ORDER BY playcount DESC LIMIT 50`,
-          sql`SELECT track_name, artist_name, COUNT(*) as playcount FROM listens WHERE user_id = ${uId} GROUP BY track_name, artist_name ORDER BY playcount DESC LIMIT 50`,
-          sql`SELECT track_name, artist_name, played_at FROM listens WHERE user_id = ${uId} ORDER BY played_at DESC LIMIT 50`
+          sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`,
+          sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`,
+          sql`SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} ORDER BY l.played_at DESC LIMIT 50`
         ]);
 
         importedData.playcount = parseInt(playcountRes[0]?.count || "0", 10);
