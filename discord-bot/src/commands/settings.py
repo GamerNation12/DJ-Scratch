@@ -111,8 +111,10 @@ class TimezoneDropdown(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class SettingsView(discord.ui.View):
-    def __init__(self, user_id, feats, playcount, notifs):
+    def __init__(self, user_id=None, feats=False, playcount=False, notifs=False):
         super().__init__(timeout=None)
+        
+        self.user_id = user_id
         
         # Row 1: Toggles (Buttons)
         self.btn_feats = discord.ui.Button(label="Featured Artists", style=discord.ButtonStyle.green if feats else discord.ButtonStyle.secondary, emoji="🎤", custom_id="toggle_feats", row=0)
