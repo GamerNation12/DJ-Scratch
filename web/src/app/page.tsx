@@ -8,7 +8,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 
-const ActivityDMPage = dynamic(() => import("./activity/dm/page"), { ssr: false });
 
 const INVITE_LINK = "/invite";
 
@@ -22,9 +21,6 @@ function HomeContent() {
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<{ totalUsers: number, activeMembers: number, serverCount: number, topAvatars?: string[] }>({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] });
 
-  if (frameId || instanceId) {
-    return <ActivityDMPage />;
-  }
 
   useEffect(() => {
     setMounted(true);

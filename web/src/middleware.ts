@@ -9,7 +9,6 @@ export function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-discord-activity', 'true');
 
-    // If Discord hits the root URL, rewrite it to /activity/dm
     return NextResponse.next({
       request: {
         headers: requestHeaders,
