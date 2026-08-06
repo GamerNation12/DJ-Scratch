@@ -159,9 +159,7 @@ export default function FriendsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => router.push(`/messages?u=${f.friend_id}`)} className="p-2.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:scale-105 rounded-xl transition-all" title="Message">
-                      <MessageSquare className="w-5 h-5" />
-                    </button>
+
                     <button onClick={() => {
                       if(confirm("Are you sure you want to remove this friend?")) {
                         handleAction("remove", f.friend_id);

@@ -169,17 +169,7 @@ export default function Navbar() {
                 >
                   <Users className="w-4 h-4" />
                 </Link>
-                <Link
-                  href="/messages"
-                  className={`p-2 rounded-lg transition-all ${
-                    pathname === "/messages"
-                      ? "bg-white/10 text-white"
-                      : "text-zinc-400 hover:text-white hover:bg-white/5"
-                  }`}
-                  title="Messages"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </Link>
+
                 <a 
                   href="/invite"
                   target="_blank" 
@@ -305,16 +295,7 @@ export default function Navbar() {
                 >
                   Friends
                 </Link>
-                <Link
-                  href="/messages"
-                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    pathname === "/messages"
-                      ? "bg-white/10 text-white"
-                      : "text-zinc-400 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Messages
-                </Link>
+
               </>
             )}
             {isAdmin && (
