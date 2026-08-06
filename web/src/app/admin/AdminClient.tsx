@@ -377,6 +377,7 @@ export default function AdminClient() {
     if (activeTab === "suggestions") fetchSuggestions();
     if (activeTab === "users" || activeTab === "permissions") fetchUsersList();
     if (activeTab === "permissions") fetchPermissionsList();
+    if (activeTab === "command-locks") fetchLockedCommands();
   }, [activeTab]);
 
   // Permissions State
