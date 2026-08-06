@@ -698,14 +698,14 @@ async def get_global_whoknows_album(artist_name: str, album_name: str, limit: in
     return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_local_total_plays(user_id):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id l WHERE l.user_id=$1", str(user_id))
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1", str(user_id))
     return rows[0]['total'] if rows else 0
 async def get_local_plays_before(user_id, before_dt):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id l WHERE l.user_id=$1 AND played_at < $2", str(user_id), before_dt)
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND played_at < $2", str(user_id), before_dt)
     return rows[0]['total'] if rows else 0
 async def get_local_recent_tracks(user_id, limit=10):
     rows = await db_fetch(
-        "SELECT track_name, artist_name, played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE user_id=$1 ORDER BY played_at DESC LIMIT $2",
+        "SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 ORDER BY l.played_at DESC LIMIT $2",
         str(user_id), limit
     )
     return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]
@@ -912,7 +912,7 @@ async def get_streak(user_id: str, artist: str, track: str = None, album: str = 
             chunk_size = 50
             
             while True:
-                rows = await conn.fetch(f"SELECT artist_name, track_name, album_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE user_id=$1 ORDER BY listened_at DESC LIMIT {chunk_size} OFFSET {offset}", str(user_id))
+                rows = await conn.fetch(f"SELECT t.artist_name, t.track_name, t.album_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 ORDER BY l.played_at DESC LIMIT {chunk_size} OFFSET {offset}", str(user_id))
                 
                 if not rows:
                     break
