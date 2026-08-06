@@ -1867,13 +1867,14 @@ async def apply_features(session, artist, song, s_artists=None):
         song = song.replace(m.group(0), "").strip()
         return f"{artist}, {features}", song
         
-    if s_artists:
-        if len(s_artists) > 1:
-            features = [a for a in s_artists if norm(a) != n_artist]
-            if features:
-                return f"{artist}, {', '.join(features)}", song
+    if s_artists and len(s_artists) > 0:
+        # If Last.fm gives us "Artist, Feature", but Spotify knows the primary artist is "Artist"
+        # We can fix the Last.fm string by replacing it with the Spotify primary artist!
+        primary = s_artists[0]
+        if norm(primary) in n_artist and len(primary) < len(artist):
+            # It's likely a concatenation like "Gramatik, Eric Krasno"
+            return primary, song
         return artist, song
-    
     try:
         import urllib.request, json, functools
         req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
