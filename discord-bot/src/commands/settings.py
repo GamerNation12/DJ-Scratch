@@ -110,24 +110,56 @@ class TimezoneDropdown(discord.ui.Select):
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self.view)
 
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class ColorModal(discord.ui.Modal, title="Set Custom Embed Color"):
+    color_input = discord.ui.TextInput(
+        label="Hex Color Code",
+        style=discord.TextStyle.short,
+        placeholder="#ff0000 or 'reset'",
+        required=True,
+        max_length=7
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        hex_code = self.color_input.value
+        
+        if hex_code.lower() == 'reset':
+            await set_user_embed_color(interaction.user.id, None)
+            embed = discord.Embed(title="Color Reset", description="Your embed color has been reset to default.", color=LASTFM_COLOR)
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        import re
+        match = re.match(r'^#?(?:[0-9a-fA-F]{3}){1,2}$', hex_code)
+        if not match:
+            return await interaction.response.send_message("Invalid hex code. Please provide a valid hex color like `#ff0000`.", ephemeral=True)
+            
+        color_val = hex_code if hex_code.startswith('#') else f"#{hex_code}"
+        await set_user_embed_color(interaction.user.id, color_val)
+        
+        embed = discord.Embed(title="Color Updated", description=f"Your embed color has been updated to **{color_val}**.", color=discord.Color(int(color_val.strip('#'), 16)))
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class SettingsView(discord.ui.View):
     def __init__(self, user_id=None, feats=False, playcount=False, notifs=False):
         super().__init__(timeout=None)
         
         self.user_id = user_id
         
-        # Row 1: Toggles (Buttons)
         self.btn_feats = discord.ui.Button(label="Featured Artists", style=discord.ButtonStyle.green if feats else discord.ButtonStyle.secondary, emoji="🎤", custom_id="toggle_feats", row=0)
         self.btn_pc = discord.ui.Button(label="Track Playcount", style=discord.ButtonStyle.green if playcount else discord.ButtonStyle.secondary, emoji="👀", custom_id="toggle_pc", row=0)
         self.btn_notifs = discord.ui.Button(label="Update Notifs", style=discord.ButtonStyle.green if notifs else discord.ButtonStyle.secondary, emoji="🔔", custom_id="toggle_notifs", row=0)
+        self.btn_color = discord.ui.Button(label="Embed Color", style=discord.ButtonStyle.primary, emoji="🎨", custom_id="set_color", row=0)
         
         self.btn_feats.callback = self.toggle_feats
         self.btn_pc.callback = self.toggle_pc
         self.btn_notifs.callback = self.toggle_notifs
+        self.btn_color.callback = self.open_color_modal
         
         self.add_item(self.btn_feats)
         self.add_item(self.btn_pc)
         self.add_item(self.btn_notifs)
+        self.add_item(self.btn_color)
         
         # Row 2, 3, 4: Dropdowns
         mode_dd = ModeDropdown()
@@ -166,6 +198,8 @@ class SettingsView(discord.ui.View):
         embed = await get_settings_embed(interaction.user.id, interaction.user)
         await interaction.response.edit_message(embed=embed, view=self)
 
+    async def open_color_modal(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(ColorModal())
 
 
 # --- CORE LOGIC ---
@@ -194,45 +228,6 @@ class SettingsCog(commands.Cog):
         view = SettingsView(ctx.author.id, feats, playcount, notifs)
         embed = await get_settings_embed(ctx.author.id, ctx.author)
         await ctx.send("⚙️ **Settings Menu**\nUse the buttons and dropdowns below to customize your experience.", embed=embed, view=view)
-
-    @app_commands.command(name="color", description="Set a custom embed color for your profile (e.g. #ff0000)")
-    @app_commands.describe(hex_code="A hex color code (e.g. #ff0000) or 'reset' to clear it")
-    async def color_slash(self, interaction: discord.Interaction, hex_code: str):
-        if hex_code.lower() == 'reset':
-            await set_user_embed_color(interaction.user.id, None)
-            embed = discord.Embed(title="Color Reset", description="Your embed color has been reset to default.", color=LASTFM_COLOR)
-            return await interaction.response.send_message(embed=embed)
-        
-        match = re.match(r'^#?(?:[0-9a-fA-F]{3}){1,2}$', hex_code)
-        if not match:
-            return await interaction.response.send_message("Invalid hex code. Please provide a valid hex color like `#ff0000`.", ephemeral=True)
-            
-        color_val = hex_code if hex_code.startswith('#') else f"#{hex_code}"
-        await set_user_embed_color(interaction.user.id, color_val)
-        
-        embed = discord.Embed(title="Color Updated", description=f"Your embed color has been updated to **{color_val}**.", color=discord.Color(int(color_val.strip('#'), 16)))
-        await interaction.response.send_message(embed=embed)
-
-    @commands.command(name="color", aliases=["embedcolor", "c"])
-    async def color_prefix(self, ctx, hex_code: str = None):
-        if not hex_code:
-            embed = discord.Embed(title="Custom Embed Color", description="Use `.color <hex>` to set a custom color for your embeds.\nExample: `.color #ff0000`\nUse `.color reset` to clear it.", color=LASTFM_COLOR)
-            return await ctx.send(embed=embed)
-            
-        if hex_code.lower() == 'reset':
-            await set_user_embed_color(ctx.author.id, None)
-            embed = discord.Embed(title="Color Reset", description="Your embed color has been reset to default.", color=LASTFM_COLOR)
-            return await ctx.send(embed=embed)
-            
-        match = re.match(r'^#?(?:[0-9a-fA-F]{3}){1,2}$', hex_code)
-        if not match:
-            return await ctx.send("Invalid hex code. Please provide a valid hex color like `#ff0000`.")
-            
-        color_val = hex_code if hex_code.startswith('#') else f"#{hex_code}"
-        await set_user_embed_color(ctx.author.id, color_val)
-        
-        embed = discord.Embed(title="Color Updated", description=f"Your embed color has been updated to **{color_val}**.", color=discord.Color(int(color_val.strip('#'), 16)))
-        await ctx.send(embed=embed)
 
 class ServerSettingsCog(commands.Cog):
     def __init__(self, bot):
