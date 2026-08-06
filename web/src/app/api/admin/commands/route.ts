@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
+import { getAdminRole } from "@/lib/admin";
 
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     const token = authHeader?.split(" ")[1];
     const user = token ? await verifyToken(token) : null;
-    if (!user || (user as any).role !== 'owner' && (user as any).role !== 'admin') {
+    const role = user ? await getAdminRole((user as any)?.id) : null;
+    if (!role || (role !== 'owner' && role !== 'admin')) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
