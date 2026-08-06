@@ -107,13 +107,10 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
                 return
                 
             async with self.bot.db_pool.acquire() as conn:
-                await conn.execute("DELETE FROM listens WHERE album_name = '' OR album_name IS NULL")
-                
                 result = await conn.execute("""
                     DELETE FROM listens a USING listens b
                     WHERE a.user_id = b.user_id 
-                      AND a.artist_name = b.artist_name 
-                      AND a.track_name = b.track_name 
+                      AND a.track_id = b.track_id
                       AND a.ctid > b.ctid 
                       AND a.played_at >= b.played_at - interval '2 minutes' 
                       AND a.played_at <= b.played_at + interval '2 minutes'
@@ -162,7 +159,7 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
                 return
             
             async with db_pool.acquire() as conn:
-                await conn.execute("TRUNCATE TABLE listens;")
+                await conn.execute("TRUNCATE TABLE listens, tracks CASCADE;")
                 await conn.execute("TRUNCATE TABLE imported_users;")
                 
                 await conn.execute("TRUNCATE TABLE user_settings;")

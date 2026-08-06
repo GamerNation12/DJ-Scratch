@@ -448,7 +448,7 @@ async def get_local_total_plays(user_id):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1", str(user_id))
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE user_id=$1", str(user_id))
             return row['count'] if row else 0
     except Exception:
         return 0
@@ -457,7 +457,7 @@ async def get_local_artist_playcount(user_id, artist_name):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2)", str(user_id), artist_name)
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2)", str(user_id), artist_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -465,7 +465,7 @@ async def get_local_track_playcount(user_id, artist_name, track_name):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2) AND LOWER(track_name)=LOWER($3)", str(user_id), artist_name, track_name)
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3)", str(user_id), artist_name, track_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -473,7 +473,7 @@ async def get_local_album_playcount(user_id, artist_name, album_name):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens WHERE user_id=$1 AND LOWER(artist_name)=LOWER($2) AND LOWER(album_name)=LOWER($3)", str(user_id), artist_name, album_name)
+            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3)", str(user_id), artist_name, album_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -489,28 +489,28 @@ async def db_fetch(query, *args):
 async def get_local_top_artists(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id=$1"]
+    query_parts = ["l.user_id=$1"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
         tz = await get_user_timezone(user_id)
         year = int(api_period)
         args.append(float(year))
-        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
+        query_parts.append(f"EXTRACT(YEAR FROM l.played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     if before_dt:
         args.append(before_dt)
-        query_parts.append(f"played_at < ${len(args)}")
+        query_parts.append(f"l.played_at < ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return {r['artist_name']: r['plays'] for r in rows}
@@ -518,57 +518,57 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
 async def get_local_top_albums(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id=$1", "album_name IS NOT NULL"]
+    query_parts = ["l.user_id=$1", "t.album_name IS NOT NULL AND t.album_name != ''"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
         tz = await get_user_timezone(user_id)
         year = int(api_period)
         args.append(float(year))
-        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
+        query_parts.append(f"EXTRACT(YEAR FROM l.played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     if before_dt:
         args.append(before_dt)
-        query_parts.append(f"played_at < ${len(args)}")
+        query_parts.append(f"l.played_at < ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT album_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY album_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
 async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id=$1"]
+    query_parts = ["l.user_id=$1"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
         year = int(api_period)
         args.append(datetime(year, 1, 1))
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         args.append(datetime(year + 1, 1, 1))
-        query_parts.append(f"played_at < ${len(args)}")
+        query_parts.append(f"l.played_at < ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     if before_dt:
         args.append(before_dt)
-        query_parts.append(f"played_at < ${len(args)}")
+        query_parts.append(f"l.played_at < ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
@@ -578,28 +578,28 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
     from .config import PERIOD_TO_DAYS
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id=$1", "LOWER(artist_name)=LOWER($2)"]
+    query_parts = ["l.user_id=$1", "LOWER(t.artist_name)=LOWER($2)"]
     args = [str(user_id), artist_name]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
         tz = await get_user_timezone(user_id)
         year = int(api_period)
         args.append(float(year))
-        query_parts.append(f"EXTRACT(YEAR FROM played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
+        query_parts.append(f"EXTRACT(YEAR FROM l.played_at AT TIME ZONE 'UTC' AT TIME ZONE '{tz}') = ${len(args)}")
     elif days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     if before_dt:
         args.append(before_dt)
-        query_parts.append(f"played_at < ${len(args)}")
+        query_parts.append(f"l.played_at < ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT track_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['plays']) for r in rows]
@@ -613,13 +613,13 @@ async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
     if days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['artist_name'], r['plays']) for r in rows]
@@ -627,19 +627,19 @@ async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
 async def get_server_top_albums(member_ids, limit=10, api_period='overall'):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id = ANY($1)", "album_name IS NOT NULL"]
+    query_parts = ["user_id = ANY($1)", "t.album_name IS NOT NULL AND t.album_name != ''"]
     args = [member_ids]
     
     if days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT album_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY album_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
@@ -653,13 +653,13 @@ async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
     if days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
-        query_parts.append(f"played_at >= ${len(args)}")
+        query_parts.append(f"l.played_at >= ${len(args)}")
         
     where_clause = " AND ".join(query_parts)
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
@@ -667,8 +667,8 @@ async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
 async def get_global_whoknows(artist_name: str, limit: int = 15):
     rows = await db_fetch("""
         SELECT user_id, COUNT(*) as plays 
-        FROM listens 
-        WHERE LOWER(artist_name) = LOWER($1) 
+        FROM listens l JOIN tracks t ON l.track_id = t.id 
+        WHERE LOWER(t.artist_name) = LOWER($1) 
         GROUP BY user_id 
         ORDER BY plays DESC 
         LIMIT $2
@@ -678,8 +678,8 @@ async def get_global_whoknows(artist_name: str, limit: int = 15):
 async def get_global_whoknows_track(artist_name: str, track_name: str, limit: int = 15):
     rows = await db_fetch("""
         SELECT user_id, COUNT(*) as plays 
-        FROM listens 
-        WHERE LOWER(artist_name) = LOWER($1) AND LOWER(track_name) = LOWER($2)
+        FROM listens l JOIN tracks t ON l.track_id = t.id 
+        WHERE LOWER(t.artist_name) = LOWER($1) AND LOWER(t.track_name) = LOWER($2)
         GROUP BY user_id 
         ORDER BY plays DESC 
         LIMIT $3
@@ -689,8 +689,8 @@ async def get_global_whoknows_track(artist_name: str, track_name: str, limit: in
 async def get_global_whoknows_album(artist_name: str, album_name: str, limit: int = 15):
     rows = await db_fetch("""
         SELECT user_id, COUNT(*) as plays 
-        FROM listens 
-        WHERE LOWER(artist_name) = LOWER($1) AND LOWER(album_name) = LOWER($2)
+        FROM listens l JOIN tracks t ON l.track_id = t.id 
+        WHERE LOWER(t.artist_name) = LOWER($1) AND LOWER(t.album_name) = LOWER($2)
         GROUP BY user_id 
         ORDER BY plays DESC 
         LIMIT $3
@@ -698,14 +698,14 @@ async def get_global_whoknows_album(artist_name: str, album_name: str, limit: in
     return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_local_total_plays(user_id):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1", str(user_id))
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id l WHERE l.user_id=$1", str(user_id))
     return rows[0]['total'] if rows else 0
 async def get_local_plays_before(user_id, before_dt):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1 AND played_at < $2", str(user_id), before_dt)
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id l WHERE l.user_id=$1 AND played_at < $2", str(user_id), before_dt)
     return rows[0]['total'] if rows else 0
 async def get_local_recent_tracks(user_id, limit=10):
     rows = await db_fetch(
-        "SELECT track_name, artist_name, played_at FROM listens WHERE user_id=$1 ORDER BY played_at DESC LIMIT $2",
+        "SELECT track_name, artist_name, played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE user_id=$1 ORDER BY played_at DESC LIMIT $2",
         str(user_id), limit
     )
     return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]
@@ -912,7 +912,7 @@ async def get_streak(user_id: str, artist: str, track: str = None, album: str = 
             chunk_size = 50
             
             while True:
-                rows = await conn.fetch(f"SELECT artist_name, track_name, album_name FROM listens WHERE user_id=$1 ORDER BY listened_at DESC LIMIT {chunk_size} OFFSET {offset}", str(user_id))
+                rows = await conn.fetch(f"SELECT artist_name, track_name, album_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE user_id=$1 ORDER BY listened_at DESC LIMIT {chunk_size} OFFSET {offset}", str(user_id))
                 
                 if not rows:
                     break
@@ -943,4 +943,4 @@ async def get_streak(user_id: str, artist: str, track: str = None, album: str = 
             return streak
     except Exception as e:
         print(f"{Log.RED}>>> Error getting streak: {e}{Log.RESET}")
-        return 0
+        return 0
