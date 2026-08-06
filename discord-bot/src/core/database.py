@@ -944,3 +944,11 @@ async def get_streak(user_id: str, artist: str, track: str = None, album: str = 
     except Exception as e:
         print(f"{Log.RED}>>> Error getting streak: {e}{Log.RESET}")
         return 0
+
+
+async def is_command_disabled(command_name: str) -> str:
+    rows = await db_fetch("SELECT reason FROM disabled_commands WHERE command_name = $1", command_name)
+    if rows:
+        return rows[0]['reason']
+    return None
+

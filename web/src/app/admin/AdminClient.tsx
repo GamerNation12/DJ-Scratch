@@ -295,6 +295,55 @@ export default function AdminClient() {
   const [adminUsers, setAdminUsers] = useState<any>({ admins: [], moderators: [] });
   const [newAdminId, setNewAdminId] = useState("");
   const [newAdminRole, setNewAdminRole] = useState("admin");
+
+  const [lockedCommands, setLockedCommands] = useState<any[]>([]);
+  const [lockCommandName, setLockCommandName] = useState("");
+  const [lockReason, setLockReason] = useState("");
+  
+  const fetchLockedCommands = async () => {
+    try {
+      const res = await fetchApi("/api/admin/commands");
+      if (res.ok) setLockedCommands(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  
+  const handleLockCommand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lockCommandName || !lockReason) return toast.error("Missing fields");
+    try {
+      const res = await fetchApi("/api/admin/commands", {
+        method: "POST",
+        body: JSON.stringify({ command_name: lockCommandName, reason: lockReason })
+      });
+      if (res.ok) {
+        toast.success("Command locked!");
+        setLockCommandName("");
+        setLockReason("");
+        fetchLockedCommands();
+      } else {
+        toast.error("Failed to lock command");
+      }
+    } catch (e) {
+      toast.error("Error locking command");
+    }
+  };
+  
+  const handleUnlockCommand = async (command_name: string) => {
+    try {
+      const res = await fetchApi(`/api/admin/commands?command=${command_name}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Command unlocked!");
+        fetchLockedCommands();
+      } else {
+        toast.error("Failed to unlock");
+      }
+    } catch (e) {
+      toast.error("Error unlocking command");
+    }
+  };
+
   const [loadingAdmins, setLoadingAdmins] = useState(false);
 
   // Suggestions State
@@ -622,6 +671,13 @@ export default function AdminClient() {
                 Chat Activity
               </button>
             )}
+          
+            {(role === 'owner' || role === 'admin') && (
+              <button onClick={() => setActiveTab('command-locks')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'command-locks' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                Command Locks
+              </button>
+            )}
           </nav>
         </div>
       </aside>
@@ -635,6 +691,7 @@ export default function AdminClient() {
         <button onClick={() => setActiveTab('suggestions')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'suggestions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Feedback</button>
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('system')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'system' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>System Tools</button>}
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('terminal')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'terminal' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Terminal</button>}
+        {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('command-locks')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'command-locks' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Command Locks</button>}
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('chat-logs')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'chat-logs' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Chat Logs</button>}
       </div>
 

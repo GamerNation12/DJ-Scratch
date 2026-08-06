@@ -1370,6 +1370,28 @@ async def global_ban_check_prefix(ctx) -> bool:
         print(f"{Log.RED}>>> Error checking ban status: {e}{Log.RESET}")
     return True
 
+
+@bot.tree.interaction_check
+async def global_disabled_command_check_slash(interaction: discord.Interaction) -> bool:
+    if interaction.type != discord.InteractionType.application_command:
+        return True
+    if not interaction.command: return True
+    
+    from src.core.database import is_command_disabled
+    reason = await is_command_disabled(interaction.command.name)
+    if reason:
+        embed = Theme.get_embed(
+            title="🔒 Command Locked",
+            description=f"This command has been disabled by the owner.\n\n**Reason:** {reason}",
+            color=discord.Color.red()
+        )
+        try:
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except:
+            pass
+        return False
+    return True
+
 @bot.tree.interaction_check
 async def check_if_logged_in(interaction: discord.Interaction) -> bool:
     if interaction.type != discord.InteractionType.application_command:
@@ -1392,6 +1414,25 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
         )
         try:
             await interaction.response.send_message(embed=embed, ephemeral=True)
+        except:
+            pass
+        return False
+    return True
+
+
+@bot.check
+async def global_disabled_command_check_prefix(ctx) -> bool:
+    if not ctx.command: return True
+    from src.core.database import is_command_disabled
+    reason = await is_command_disabled(ctx.command.name)
+    if reason:
+        embed = Theme.get_embed(
+            title="🔒 Command Locked",
+            description=f"This command has been disabled by the owner.\n\n**Reason:** {reason}",
+            color=discord.Color.red()
+        )
+        try:
+            await ctx.send(embed=embed)
         except:
             pass
         return False
