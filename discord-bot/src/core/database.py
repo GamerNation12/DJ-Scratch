@@ -510,7 +510,7 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return {r['artist_name']: r['plays'] for r in rows}
@@ -539,7 +539,7 @@ async def get_local_top_albums(user_id, limit=10, api_period='overall', before_d
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
@@ -568,7 +568,7 @@ async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_d
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
@@ -599,7 +599,7 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.track_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['plays']) for r in rows]
@@ -619,7 +619,7 @@ async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['artist_name'], r['plays']) for r in rows]
@@ -639,7 +639,7 @@ async def get_server_top_albums(member_ids, limit=10, api_period='overall'):
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.album_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
@@ -659,7 +659,7 @@ async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
     args.append(limit)
     
     rows = await db_fetch(
-        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.track_name, t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
