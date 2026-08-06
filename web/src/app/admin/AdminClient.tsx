@@ -315,6 +315,7 @@ export default function AdminClient() {
     try {
       const res = await fetchApi("/api/admin/commands", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command_name: lockCommandName, reason: lockReason })
       });
       if (res.ok) {
