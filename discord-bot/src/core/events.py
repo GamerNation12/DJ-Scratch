@@ -137,6 +137,14 @@ async def run_inactive_purge():
                 
             if to_delete:
                 print(f"Purged {len(to_delete)} inactive users.")
+                
+            # Clear completed suggestions and bugs
+            res = await conn.execute("DELETE FROM suggestions WHERE status = 'completed'")
+            # res usually looks like "DELETE X"
+            deleted_count = int(res.split()[1]) if res.startswith("DELETE") else 0
+            if deleted_count > 0:
+                print(f"Purged {deleted_count} completed suggestions/bugs.")
+                
     except Exception as e:
         print(f"Error in run_inactive_purge: {e}")
 
