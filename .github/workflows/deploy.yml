@@ -11,6 +11,7 @@ on:
       - '.github/**'
       - '*.apk'
       - '*.zip'
+  workflow_dispatch:
 
 jobs:
   deploy:

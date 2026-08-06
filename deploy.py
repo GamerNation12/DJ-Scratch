@@ -13,9 +13,9 @@ def deploy():
         print("ERROR: PTERO_PASSWORD is not set in .env")
         return
 
-    print(f"Connecting to {host}:{port} as {username}...")
-    transport = paramiko.Transport((host, port))
+    import sys
     try:
+        transport = paramiko.Transport((host, port))
         transport.connect(username=username, password=password)
         sftp = paramiko.SFTPClient.from_transport(transport)
         print("Connected! Syncing files...")
@@ -68,8 +68,10 @@ def deploy():
         print("Deployment successful!")
     except Exception as e:
         print(f"Deployment failed: {e}")
+        sys.exit(1)
     finally:
-        transport.close()
+        if 'transport' in locals():
+            transport.close()
 
 if __name__ == "__main__":
     deploy()
