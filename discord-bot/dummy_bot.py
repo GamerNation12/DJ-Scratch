@@ -57,12 +57,6 @@ class DummyBot(discord.Client):
                         activity=discord.Game(name="DJ Scratch is offline ⚠️")
                     )
                     
-                    try:
-                        owner = await self.fetch_user(759433582107426816)
-                        await owner.send("🚨 **CRITICAL ALERT:** The main DJ Scratch bot has crashed or gone offline! The Smart Watchdog has taken over.")
-                    except Exception:
-                        pass
-                        
                     # Update status messages
                     cur.execute("SELECT value FROM global_settings WHERE key = 'status_messages'")
                     messages_row = cur.fetchone()
