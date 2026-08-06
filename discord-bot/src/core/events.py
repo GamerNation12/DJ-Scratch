@@ -174,6 +174,18 @@ OWNER_ID = 759433582107426816
 COOLDOWN_FILE = "avatar_cooldown.txt"
 from src.core.theme import Theme
 LASTFM_COLOR = Theme.PRIMARY 
+
+async def get_color(user_id):
+    from src.core.database import get_user_embed_color
+    c = await get_user_embed_color(user_id)
+    if c:
+        import discord
+        try:
+            return discord.Color(int(c.strip('#'), 16))
+        except:
+            pass
+    return LASTFM_COLOR
+    
 avatar_cooldown_time = None
 
 PERIOD_MAP = {
@@ -538,6 +550,16 @@ async def setup_hook():
             bot.process_chart = process_chart
             bot.process_artist_chart = process_artist_chart
             bot.process_streak = process_streak
+            
+            from src.core.server_leaderboards import process_server_artists, process_server_albums, process_server_tracks
+            bot.process_server_artists = process_server_artists
+            bot.process_server_albums = process_server_albums
+            bot.process_server_tracks = process_server_tracks
+            
+            from src.core.global_whoknows import process_global_whoknows, process_global_whoknowstrack, process_global_whoknowsalbum
+            bot.process_global_whoknows = process_global_whoknows
+            bot.process_global_whoknowstrack = process_global_whoknowstrack
+            bot.process_global_whoknowsalbum = process_global_whoknowsalbum
             bot.handle_discord_import = handle_discord_import
             bot.PurgeConfirmView = PurgeConfirmView
             bot.add_custom_reactions = add_custom_reactions
@@ -574,13 +596,7 @@ async def setup_hook():
                                 print(f"{Log.MAGENTA}>>> Loaded TEST feature {test_cog}{Log.RESET}")
                             except Exception as e:
                                 print(f"{Log.RED}>>> Failed to load TEST feature {test_cog}: {e}{Log.RESET}")
-            
-            if not getattr(bot, 'is_test_bot', False):
-                try:
-                    from src.core.socket_server import start_socket_server
-                    await start_socket_server()
-                except Exception as e:
-                    pass
+
             
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
@@ -1976,7 +1992,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         status = "Now Playing" if is_p else "Last Played"
-        color = LASTFM_COLOR if is_p else discord.Color.dark_gray()
+        
+        user_color = await get_color(user.id)
+        color = user_color if is_p else discord.Color.dark_gray()
 
         if is_p:
             cd = await get_avatar_cooldown()
@@ -2935,7 +2953,8 @@ async def process_whoknows(guild, user, artist_name):
                         ''', str(guild.id), str(top_uid), artist_name, lb[0]['plays'])
 
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
-    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    user_color = await get_color(user.id)
+    embed = Theme.get_embed(description=chr(10).join(lines), color=user_color, timestamp=datetime.now())
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     

@@ -6,8 +6,6 @@ import asyncpg
 from .config import POSTGRES_URL, DATABASE_URL, Log
 
 from src.core.database import format_name
-from src.core.socket_server import start_socket_server
-
 
 class ScratchBot(commands.Bot):
     async def get_dynamic_prefix(self, bot, message):
@@ -67,7 +65,7 @@ class ScratchBot(commands.Bot):
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
         # Load extensions
-        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.local_remote', 'src.commands.status', 'src.commands.settings']
+        cogs = ['src.commands.admin', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.settings']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
@@ -75,8 +73,6 @@ class ScratchBot(commands.Bot):
             except Exception as e:
                 print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
                 
-        # Start Python Socket.io server
-        await start_socket_server()
 
     async def close(self):
         if self.session:

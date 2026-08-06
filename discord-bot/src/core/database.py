@@ -150,6 +150,10 @@ async def init_db():
                 except Exception:
                     pass
                 try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS embed_color TEXT")
+                except Exception:
+                    pass
+                try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN update_notifs BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass
@@ -244,6 +248,25 @@ async def get_user_show_track_playcount(user_id):
     except Exception:
         return True
 
+async def get_user_embed_color(user_id):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT embed_color FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['embed_color'] if row else None
+    except Exception:
+        return None
+
+async def set_user_embed_color(user_id, color_hex: str):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, embed_color) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET embed_color = $2
+            """, str(user_id), color_hex)
+    except Exception as e:
+        print(f"Error setting embed_color: {e}")
 async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
     if not db_pool: return
     try:
@@ -580,6 +603,99 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
         *args
     )
     return [(r['track_name'], r['plays']) for r in rows]
+
+async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
+    days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id = ANY($1)"]
+    args = [member_ids]
+    
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
+    return [(r['artist_name'], r['plays']) for r in rows]
+
+async def get_server_top_albums(member_ids, limit=10, api_period='overall'):
+    days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id = ANY($1)", "album_name IS NOT NULL"]
+    args = [member_ids]
+    
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT album_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY album_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
+    return [(r['album_name'], r['artist_name'], r['plays']) for r in rows]
+
+async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
+    days = PERIOD_TO_DAYS.get(api_period)
+    
+    query_parts = ["user_id = ANY($1)"]
+    args = [member_ids]
+    
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        args.append(since)
+        query_parts.append(f"played_at >= ${len(args)}")
+        
+    where_clause = " AND ".join(query_parts)
+    args.append(limit)
+    
+    rows = await db_fetch(
+        f"SELECT track_name, artist_name, COUNT(*) as plays FROM listens WHERE {where_clause} GROUP BY track_name, artist_name ORDER BY plays DESC LIMIT ${len(args)}",
+        *args
+    )
+    return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
+
+async def get_global_whoknows(artist_name: str, limit: int = 15):
+    rows = await db_fetch("""
+        SELECT user_id, COUNT(*) as plays 
+        FROM listens 
+        WHERE LOWER(artist_name) = LOWER($1) 
+        GROUP BY user_id 
+        ORDER BY plays DESC 
+        LIMIT $2
+    """, artist_name, limit)
+    return [(r['user_id'], r['plays']) for r in rows]
+
+async def get_global_whoknows_track(artist_name: str, track_name: str, limit: int = 15):
+    rows = await db_fetch("""
+        SELECT user_id, COUNT(*) as plays 
+        FROM listens 
+        WHERE LOWER(artist_name) = LOWER($1) AND LOWER(track_name) = LOWER($2)
+        GROUP BY user_id 
+        ORDER BY plays DESC 
+        LIMIT $3
+    """, artist_name, track_name, limit)
+    return [(r['user_id'], r['plays']) for r in rows]
+
+async def get_global_whoknows_album(artist_name: str, album_name: str, limit: int = 15):
+    rows = await db_fetch("""
+        SELECT user_id, COUNT(*) as plays 
+        FROM listens 
+        WHERE LOWER(artist_name) = LOWER($1) AND LOWER(album_name) = LOWER($2)
+        GROUP BY user_id 
+        ORDER BY plays DESC 
+        LIMIT $3
+    """, artist_name, album_name, limit)
+    return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_local_total_plays(user_id):
     rows = await db_fetch("SELECT COUNT(*) as total FROM listens WHERE user_id=$1", str(user_id))

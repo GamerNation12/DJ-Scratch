@@ -954,5 +954,86 @@ class LastFmCog(commands.Cog):
         if embed: await self._reply_and_delete(ctx, embed=embed)
         else: await self._reply_and_delete(ctx, err)
 
+    @commands.command(name="serverartists", aliases=["sart"])
+    async def serverartists_prefix(self, ctx, period: str = 'overall'):
+        embed, err = await self.bot.process_server_artists(ctx.guild, ctx.author, period)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="serverartists", description="View the top artists across the entire server")
+    async def serverartists_slash(self, interaction: discord.Interaction, period: str = 'overall'):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_server_artists(interaction.guild, interaction.user, period)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @commands.command(name="serveralbums", aliases=["salb"])
+    async def serveralbums_prefix(self, ctx, period: str = 'overall'):
+        embed, err = await self.bot.process_server_albums(ctx.guild, ctx.author, period)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="serveralbums", description="View the top albums across the entire server")
+    async def serveralbums_slash(self, interaction: discord.Interaction, period: str = 'overall'):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_server_albums(interaction.guild, interaction.user, period)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @commands.command(name="servertracks", aliases=["strk"])
+    async def servertracks_prefix(self, ctx, period: str = 'overall'):
+        embed, err = await self.bot.process_server_tracks(ctx.guild, ctx.author, period)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="servertracks", description="View the top tracks across the entire server")
+    async def servertracks_slash(self, interaction: discord.Interaction, period: str = 'overall'):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_server_tracks(interaction.guild, interaction.user, period)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @commands.command(name="globalwhoknows", aliases=["gwk"])
+    async def globalwhoknows_prefix(self, ctx, *, artist: str = None):
+        embed, err = await self.bot.process_global_whoknows(ctx.author, artist, self.bot)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="globalwhoknows", description="See who listens to an artist globally across all servers")
+    @app_commands.describe(artist="Leave blank to use your currently playing artist")
+    async def globalwhoknows_slash(self, interaction: discord.Interaction, artist: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_global_whoknows(interaction.user, artist, self.bot)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @commands.command(name="globalwhoknowstrack", aliases=["gwkt"])
+    async def globalwhoknowstrack_prefix(self, ctx, *, query: str = None):
+        embed, err = await self.bot.process_global_whoknowstrack(ctx.author, query, self.bot)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="globalwhoknowstrack", description="See who listens to a track globally across all servers")
+    @app_commands.describe(query="Format: 'Artist | Track' (or leave blank to use your currently playing track)")
+    async def globalwhoknowstrack_slash(self, interaction: discord.Interaction, query: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_global_whoknowstrack(interaction.user, query, self.bot)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
+    @commands.command(name="globalwhoknowsalbum", aliases=["gwka"])
+    async def globalwhoknowsalbum_prefix(self, ctx, *, query: str = None):
+        embed, err = await self.bot.process_global_whoknowsalbum(ctx.author, query, self.bot)
+        if embed: await self._reply_and_delete(ctx, embed=embed)
+        else: await self._reply_and_delete(ctx, err)
+
+    @app_commands.command(name="globalwhoknowsalbum", description="See who listens to an album globally across all servers")
+    @app_commands.describe(query="Format: 'Artist | Album' (or leave blank to use your currently playing album)")
+    async def globalwhoknowsalbum_slash(self, interaction: discord.Interaction, query: str = None):
+        await interaction.response.defer()
+        embed, err = await self.bot.process_global_whoknowsalbum(interaction.user, query, self.bot)
+        if embed: await interaction.followup.send(embed=embed)
+        else: await interaction.followup.send(embed=err)
+
 async def setup(bot):
     await bot.add_cog(LastFmCog(bot))

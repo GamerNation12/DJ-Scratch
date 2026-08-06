@@ -301,13 +301,6 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         # Database
         from src.core.database import db_pool
         db_status = "🟢 Connected" if db_pool else "🔴 Disconnected"
-        
-        # Web Socket
-        from src.core.socket_server import user_sockets
-        socket_status = f"🟢 Online ({len(user_sockets)} connected)"
-        if getattr(self.bot, 'is_test_bot', False):
-            socket_status = "⚪ Disabled (Test Bot)"
-        
         # Discord API
         try:
             latency = round(self.bot.latency * 1000)
@@ -316,7 +309,6 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         
         embed.add_field(name="Server Resources", value=f"**CPU:** {cpu_usage}%\n**RAM:** {ram_usage}%", inline=True)
         embed.add_field(name="Database", value=db_status, inline=True)
-        embed.add_field(name="Web Socket IPC", value=socket_status, inline=True)
         embed.add_field(name="Discord API", value=f"**Latency:** {latency}ms\n**Guilds:** {len(self.bot.guilds)}\n**Users:** {len(self.bot.users)}", inline=False)
         
         # Spotify Scanner
