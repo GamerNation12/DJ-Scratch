@@ -17,10 +17,13 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
         texts_to_check.append(embed.title)
         
     for text in texts_to_check:
-        m = re.search(r'Who knows (.+?) in ', text)
+        m = re.search(r'(?i)Who knows (.+?) in ', text)
         if m: return m.group(1).strip()
         
-        m = re.search(r"top \w+ for ['`‘]([^'`’]+)['`’]", text)
+        m = re.search(r"(?i)top \w+ for ['`‘\"]([^'`’”\"]+)['`’”\"]", text)
+        if m: return m.group(1).strip()
+        
+        m = re.search(r"(?i)top \w+ for (.*)", text)
         if m: return m.group(1).strip()
         
         if ' - ' in text and not text.endswith("playing"):
@@ -42,10 +45,10 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
     # 4. Bulletproof fallback: search the raw embed JSON string
     try:
         raw_embed = str(embed.to_dict())
-        m = re.search(r"top \w+ for ['`‘]([^'`’]+)['`’]", raw_embed)
+        m = re.search(r"(?i)top \w+ for ['`‘\"]([^'`’”\"]+)['`’”\"]", raw_embed)
         if m: return m.group(1).strip()
         
-        m = re.search(r'Who knows (.+?) in ', raw_embed)
+        m = re.search(r'(?i)Who knows (.+?) in ', raw_embed)
         if m: return m.group(1).strip()
     except:
         pass
