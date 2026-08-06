@@ -289,7 +289,18 @@ export default function AdminClient() {
   const [statsData, setStatsData] = useState<any>({ totalPlays: 0, totalUsers: 0, botStats: null, commandUsage: [] });
   const [loadingStats, setLoadingStats] = useState(true);
   
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("adminActiveTab") || "overview";
+    }
+    return "overview";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminActiveTab", activeTab);
+    }
+  }, [activeTab]);
 
   // Access Control State
   const [adminUsers, setAdminUsers] = useState<any>({ admins: [], moderators: [] });
