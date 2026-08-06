@@ -1134,7 +1134,7 @@ export default function AdminClient() {
                   <form onSubmit={handleLockCommand} className="space-y-4">
                     <div>
                       <label className="block text-xs font-medium text-zinc-400 mb-1">Command</label>
-                      <select 
+                                            <select 
                         value={lockCommandName} 
                         onChange={(e) => setLockCommandName(e.target.value)}
                         className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
@@ -1143,24 +1143,56 @@ export default function AdminClient() {
                         <option value="" disabled>Select a command...</option>
                         <optgroup label="Core Music">
                           <option value="fm">fm (Now Playing)</option>
-                          <option value="playcount">playcount</option>
-                          <option value="recent">recent</option>
-                          <option value="topartists">topartists</option>
-                          <option value="toptracks">toptracks</option>
+                          <option value="recent">recent / rt</option>
+                          <option value="track">track</option>
+                          <option value="album">album</option>
+                          <option value="artist">artist</option>
+                          <option value="toptracks">toptracks / tt</option>
                           <option value="topalbums">topalbums</option>
+                          <option value="topartists">topartists / ta</option>
+                          <option value="artisttracks">artisttracks / at</option>
+                          <option value="artistchart">artistchart</option>
+                          <option value="chart">chart</option>
                         </optgroup>
                         <optgroup label="Social & Stats">
                           <option value="profile">profile</option>
-                          <option value="whoknows">whoknows</option>
+                          <option value="whoknows">whoknows / wk</option>
+                          <option value="whoknowsalbum">whoknowsalbum / wka</option>
+                          <option value="whoknowstrack">whoknowstrack / wkt</option>
                           <option value="globalwhoknows">globalwhoknows</option>
+                          <option value="globalwhoknowsalbum">globalwhoknowsalbum</option>
+                          <option value="globalwhoknowstrack">globalwhoknowstrack</option>
                           <option value="crowns">crowns</option>
                           <option value="streak">streak</option>
-                          <option value="compare">compare</option>
-                          <option value="serverplaycount">serverplaycount</option>
+                          <option value="taste">taste (compare)</option>
+                          <option value="server">server</option>
+                          <option value="serveralbums">serveralbums</option>
+                          <option value="serverartists">serverartists</option>
+                          <option value="servertracks">servertracks</option>
                         </optgroup>
-                        <optgroup label="System">
+                        <optgroup label="Games">
+                          <option value="guess">guess</option>
+                          <option value="scramble">scramble</option>
+                          <option value="judge">judge</option>
+                        </optgroup>
+                        <optgroup label="System & Help">
                           <option value="login">login</option>
                           <option value="logout">logout</option>
+                          <option value="help">help</option>
+                          <option value="guide">guide</option>
+                          <option value="settings">settings</option>
+                          <option value="premium">premium</option>
+                          <option value="import">import</option>
+                          <option value="outofsync">outofsync</option>
+                          <option value="deletedata">deletedata</option>
+                          <option value="receipt">receipt</option>
+                          <option value="bug">bug</option>
+                          <option value="suggest">suggest</option>
+                          <option value="updates">updates</option>
+                          <option value="status">status</option>
+                          <option value="privacy">privacy</option>
+                          <option value="cd">cd</option>
+                          <option value="cd2">cd2</option>
                         </optgroup>
                       </select>
                     </div>
