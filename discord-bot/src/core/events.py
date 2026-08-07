@@ -148,7 +148,7 @@ async def run_inactive_purge():
     except Exception as e:
         print(f"Error in run_inactive_purge: {e}")
 
-@bot.tree.interaction_check
+
 async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     asyncio.create_task(update_user_activity(interaction.user.id))
     if getattr(bot, 'is_restarting', False):
@@ -1150,7 +1150,7 @@ async def global_test_bot_check(ctx):
             raise commands.CheckFailure("This is the test bot. Only the developer can use it!")
     return True
 
-@bot.tree.interaction_check
+
 async def global_test_bot_interaction_check(interaction: discord.Interaction):
     if getattr(bot, 'is_test_bot', False):
         if interaction.user.id != 759433582107426816:
@@ -1350,7 +1350,7 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
         try: await interaction.followup.send(fallback_msg, ephemeral=True)
         except: pass
 
-@bot.tree.interaction_check
+
 async def check_if_banned(interaction: discord.Interaction) -> bool:
     from .database import db_pool
     if not db_pool: return True
@@ -1396,7 +1396,7 @@ async def global_ban_check_prefix(ctx) -> bool:
     return True
 
 
-@bot.tree.interaction_check
+
 async def global_disabled_command_check_slash(interaction: discord.Interaction) -> bool:
     if interaction.type != discord.InteractionType.application_command:
         return True
@@ -1417,7 +1417,7 @@ async def global_disabled_command_check_slash(interaction: discord.Interaction) 
         return False
     return True
 
-@bot.tree.interaction_check
+
 async def check_if_logged_in(interaction: discord.Interaction) -> bool:
     if interaction.type != discord.InteractionType.application_command:
         return True
