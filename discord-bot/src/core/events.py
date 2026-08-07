@@ -1237,19 +1237,36 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
     except Exception as e:
         print(f"{Log.RED}>>> Failed to log to {channel_name}: {e}{Log.RESET}")
 
+LAST_ERROR_TRACEBACK = None
+
 # --- HELPER: ERROR DM ---
 async def notify_owner(ctx, err):
+    import traceback
+    import io
+    global LAST_ERROR_TRACEBACK
     print(f"ERROR in {ctx}: {err}")
     try:
         await bot.wait_until_ready()
         owner = await bot.fetch_user(OWNER_ID)
         tick = chr(96)
         code_block = tick + tick + tick
-        msg_lines = [f"An error occurred in **{str(ctx)}**:", f"{code_block}py", str(err)[:1800], code_block]
-        embed = Theme.get_embed(title="⚠️ Bot Error", description=chr(10).join(msg_lines), color=discord.Color.red())
+        
+        err_to_trace = getattr(err, 'original', err)
+        tb = "".join(traceback.format_exception(type(err_to_trace), err_to_trace, err_to_trace.__traceback__))
+        LAST_ERROR_TRACEBACK = tb
+        
+        embed = Theme.get_embed(title="⚠️ Bot Error", color=discord.Color.red())
         embed.timestamp = datetime.now()
-        await owner.send(embed=embed)
-        await log_to_channel("errors", embed)
+        
+        if len(tb) > 3800:
+            embed.description = f"An error occurred in **{str(ctx)}**:\n*Traceback too long, attaching as file.*"
+            file = discord.File(io.BytesIO(tb.encode('utf-8')), filename="traceback.txt")
+            await owner.send(embed=embed, file=file)
+            await log_to_channel("errors", embed)
+        else:
+            embed.description = f"An error occurred in **{str(ctx)}**:\n{code_block}py\n{tb}\n{code_block}"
+            await owner.send(embed=embed)
+            await log_to_channel("errors", embed)
     except Exception as e: print(f"FAILED to notify owner: {e}")
 
 @bot.event

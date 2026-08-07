@@ -14,6 +14,138 @@ class Log:
     CYAN = '\033[96m'
     MAGENTA = '\033[95m'
 
+import contextlib
+import io
+import traceback
+import textwrap
+
+class EvalModal(discord.ui.Modal, title="Execute Python Code"):
+    code_input = discord.ui.TextInput(
+        label="Code",
+        style=discord.TextStyle.paragraph,
+        placeholder="print('Hello')\n# or\nreturn await bot.fetch_user(id)",
+        required=True
+    )
+    
+    def __init__(self, bot):
+        super().__init__()
+        self.bot = bot
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        code = self.code_input.value
+        
+        env = {
+            'bot': self.bot,
+            'interaction': interaction,
+            'discord': discord,
+            'os': os,
+            'sys': sys
+        }
+        
+        stdout = io.StringIO()
+        wrapped_code = f"async def _func():\n{textwrap.indent(code, '    ')}"
+        
+        try:
+            exec(wrapped_code, env)
+            func = env['_func']
+            with contextlib.redirect_stdout(stdout):
+                ret = await func()
+        except Exception as e:
+            value = stdout.getvalue()
+            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            return await interaction.followup.send(f"❌ **Error**\n```py\n{value}{tb}\n```"[:2000])
+            
+        value = stdout.getvalue()
+        if ret is None:
+            if value:
+                await interaction.followup.send(f"✅ **Executed**\n```py\n{value}\n```"[:2000])
+            else:
+                await interaction.followup.send("✅ Executed successfully with no output.")
+        else:
+            await interaction.followup.send(f"✅ **Executed**\n```py\n{value}{ret}\n```"[:2000])
+
+class SQLModal(discord.ui.Modal, title="Execute Raw SQL"):
+    query_input = discord.ui.TextInput(
+        label="SQL Query",
+        style=discord.TextStyle.paragraph,
+        placeholder="SELECT COUNT(*) FROM listens;",
+        required=True
+    )
+
+    def __init__(self, bot):
+        super().__init__()
+        self.bot = bot
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        query = self.query_input.value
+        
+        if not getattr(self.bot, 'db_pool', None):
+            return await interaction.followup.send("❌ Database not connected.")
+            
+        try:
+            async with self.bot.db_pool.acquire() as conn:
+                if query.strip().upper().startswith("SELECT") or "RETURNING" in query.upper():
+                    records = await conn.fetch(query)
+                    if not records:
+                        return await interaction.followup.send("✅ Query executed successfully. 0 rows returned.")
+                        
+                    lines = []
+                    for r in records[:20]:
+                        lines.append(str(dict(r)))
+                    
+                    res_str = "\n".join(lines)
+                    if len(records) > 20:
+                        res_str += f"\n...and {len(records)-20} more rows."
+                        
+                    await interaction.followup.send(f"✅ **Result:**\n```json\n{res_str}\n```"[:2000])
+                else:
+                    status = await conn.execute(query)
+                    await interaction.followup.send(f"✅ **Executed:** {status}")
+        except Exception as e:
+            await interaction.followup.send(f"❌ **Error:**\n```\n{e}\n```")
+
+class DebugDashboardView(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Execute Python", style=discord.ButtonStyle.primary, emoji="🐍")
+    async def btn_python(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(EvalModal(self.bot))
+
+    @discord.ui.button(label="Execute SQL", style=discord.ButtonStyle.primary, emoji="🗄️")
+    async def btn_sql(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SQLModal(self.bot))
+        
+    @discord.ui.button(label="Hot-Reload", style=discord.ButtonStyle.success, emoji="🔄")
+    async def btn_reload(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=False)
+        try:
+            await self.bot.reload_extension("cogs.admin")
+            import src.core.events
+            import importlib
+            importlib.reload(src.core.events)
+            await interaction.followup.send("✅ Hot-Reloaded `cogs.admin` and `src.core.events`!")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error during reload:\n```py\n{e}\n```")
+
+    @discord.ui.button(label="Fetch Last Error", style=discord.ButtonStyle.danger, emoji="📜")
+    async def btn_error(self, interaction: discord.Interaction, button: discord.ui.Button):
+        import src.core.events
+        tb = getattr(src.core.events, 'LAST_ERROR_TRACEBACK', None)
+        if not tb:
+            await interaction.response.send_message("❌ No recent errors found in memory.", ephemeral=True)
+            return
+            
+        import io
+        if len(tb) > 1900:
+            file = discord.File(io.BytesIO(tb.encode('utf-8')), filename="traceback.txt")
+            await interaction.response.send_message("Here is the last error:", file=file, ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Here is the last error:\n```py\n{tb}\n```", ephemeral=True)
+
 class OwnerCommands(commands.Cog, name="Owner Commands"):
     def __init__(self, bot):
         self.bot = bot
@@ -326,37 +458,14 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
     @commands.command(name="debug", aliases=["db"])
     async def debug_cmd(self, ctx):
-        embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> System Debug Info", color=discord.Color.gold(), timestamp=discord.utils.utcnow())
-        
-        # CPU & RAM
-        import psutil
-        cpu_usage = psutil.cpu_percent(interval=None)
-        ram_usage = psutil.virtual_memory().percent
-        
-        # Database
-        from src.core.database import db_pool
-        db_status = "🟢 Connected" if db_pool else "🔴 Disconnected"
-        # Discord API
-        try:
-            latency = round(self.bot.latency * 1000)
-        except (OverflowError, ValueError, TypeError):
-            latency = 0
-        
-        embed.add_field(name="Server Resources", value=f"**CPU:** {cpu_usage}%\n**RAM:** {ram_usage}%", inline=True)
-        embed.add_field(name="Database", value=db_status, inline=True)
-        embed.add_field(name="Discord API", value=f"**Latency:** {latency}ms\n**Guilds:** {len(self.bot.guilds)}\n**Users:** {len(self.bot.users)}", inline=False)
-        
-        # Spotify Scanner
-        try:
-            from src.core.events import SPOTIFY_PREMIUM_ERROR
-            if SPOTIFY_PREMIUM_ERROR:
-                embed.add_field(name="Spotify Scanner", value="🔴 Paused (Premium Required)", inline=False)
-            else:
-                embed.add_field(name="Spotify Scanner", value="🟢 Active", inline=False)
-        except Exception:
-            pass
-            
-        await ctx.send(embed=embed)
+        embed = discord.Embed(
+            title="🛠️ Interactive Debug Dashboard",
+            description="Welcome to the Debug Hub! Use the buttons below to evaluate code, query the database, or fetch error tracebacks live.",
+            color=discord.Color.gold(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_footer(text="Owner Only Tools")
+        await ctx.send(embed=embed, view=DebugDashboardView(self.bot))
 
     @commands.command(name="updatetest", aliases=["ut"])
     async def update_test_bot(self, ctx):
