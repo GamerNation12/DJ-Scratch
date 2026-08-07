@@ -3937,6 +3937,10 @@ async def on_interaction(interaction: discord.Interaction):
                     
                 await interaction.response.defer()
                 cached_data = FM_TRACK_CACHE.get(unique_id) if unique_id else None
+                if not cached_data:
+                    if not interaction.response.is_done():
+                        await interaction.followup.send("⚠️ This message is too old to interact with (the bot restarted or cache cleared). Please run `,fm` again!", ephemeral=True)
+                    return
                 result, _ = await process_fm(interaction, target_user, mode=new_mode, track_data=cached_data)
                 if result:
                     content = result.get('content')
