@@ -219,6 +219,15 @@ async def set_user_fm_mode(user_id, mode):
     except Exception as e:
         print(f"{Log.RED}>>> Error setting fm_mode: {e}{Log.RESET}")
 
+async def get_user_private_mode(user_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT private_mode FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['private_mode'] if row and row['private_mode'] is not None else False
+    except Exception:
+        return False
+
 async def get_user_show_features(user_id):
     if not db_pool: return False
     try:
