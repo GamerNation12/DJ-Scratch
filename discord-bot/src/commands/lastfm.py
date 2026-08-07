@@ -48,11 +48,24 @@ def extract_artist_from_embed(embed: discord.Embed) -> str:
     # 3. Check Description (Now Playing)
     if embed.description:
         lines = embed.description.split('\n')
+        for line in lines:
+            line = line.strip()
+            
+            # Match DJ Scratch and Chuu style: by **Artist**
+            m = re.search(r'by \*\*([^*]+)\*\*', line, re.IGNORECASE)
+            if m: return m.group(1).strip()
+            
+            # Match .fmbot and DJ Scratch stats style: **Artist** • *Album* or just **Artist**
+            if line.startswith('**') and not line.startswith('**['):
+                m = re.search(r'^\*\*([^*]+)\*\*', line)
+                if m: return m.group(1).strip()
+                
+        # fallback to original logic for legacy formats
         if len(lines) >= 2:
             m = re.search(r'\*\*([^*]+)\*\*', lines[1])
             if m:
                 return m.group(1).strip()
-            # fallback
+            
             line2 = lines[1].replace('**', '')
             for separator in [' | ', ' — ', ' - ']:
                 if separator in line2:
