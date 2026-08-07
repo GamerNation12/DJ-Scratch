@@ -7,6 +7,22 @@ from discord import app_commands
 from src.core.database import format_name
 
 
+def extract_artist_from_message(msg: discord.Message) -> str:
+    import re
+    
+    if msg.embeds:
+        extracted = extract_artist_from_embed(msg.embeds[0])
+        if extracted: return extracted
+        
+    if msg.content:
+        m = re.search(r'by \*\*([^*]+)\*\*', msg.content)
+        if m: return m.group(1).strip()
+        
+        m = re.search(r'is listening to (?:(?:(?:.*?\]\(<.*?>\))|.*?)) by (.*)', msg.content)
+        if m: return m.group(1).strip()
+        
+    return None
+
 def extract_artist_from_embed(embed: discord.Embed) -> str:
     import re
     
@@ -73,8 +89,8 @@ async def get_target_user(ctx, arg_string: str = None):
             else:
                 # If replying to a bot (e.g. .fmbot or DJ Scratch), target user is still ctx.author
                 # BUT we want to extract the artist from the embed if no args were provided!
-                if (not cleaned_args or not cleaned_args.strip()) and msg.embeds:
-                    extracted = extract_artist_from_embed(msg.embeds[0])
+                if (not cleaned_args or not cleaned_args.strip()):
+                    extracted = extract_artist_from_message(msg)
                     if extracted:
                         cleaned_args = extracted
         except Exception:
