@@ -12,16 +12,17 @@ from dotenv import load_dotenv
 async def memory_monitor():
     if getattr(bot, 'is_test_bot', False): return
     try:
-        # Check overall system RAM usage percentage
-        ram_percent = psutil.virtual_memory().percent
+        # Check the bot process's RAM usage in MB
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().rss / 1024 / 1024
         
-        # If RAM usage is 90% or higher, auto-restart to prevent crashing
-        if ram_percent >= 90.0:
-            print(f"CRITICAL: System RAM usage is at {ram_percent}%. Auto-restarting bot...")
+        # If the bot itself is using more than 500MB, auto-restart to prevent OOM
+        if mem_mb >= 500.0:
+            print(f"CRITICAL: Bot RAM usage is high ({mem_mb:.1f} MB). Auto-restarting...")
             try:
                 owner = await bot.fetch_user(759433582107426816)
                 if owner:
-                    await owner.send(f"🚨 **CRITICAL ALERT:** System RAM usage reached **{ram_percent}%**.\\nThe bot is now auto-restarting to prevent a crash.")
+                    await owner.send(f"⚠️ **CRITICAL ALERT:** Bot RAM usage reached **{mem_mb:.1f} MB**.\nThe bot is now auto-restarting to prevent a crash.")
             except Exception as e:
                 print(f"Failed to DM owner: {e}")
             os._exit(0)
