@@ -124,10 +124,7 @@ class DebugDashboardView(discord.ui.View):
         await interaction.response.defer(ephemeral=False)
         try:
             await self.bot.reload_extension("cogs.admin")
-            import src.core.events
-            import importlib
-            importlib.reload(src.core.events)
-            await interaction.followup.send("✅ Hot-Reloaded `cogs.admin` and `src.core.events`!")
+            await interaction.followup.send("✅ Hot-Reloaded `cogs.admin` successfully!")
         except Exception as e:
             await interaction.followup.send(f"❌ Error during reload:\n```py\n{e}\n```")
 
