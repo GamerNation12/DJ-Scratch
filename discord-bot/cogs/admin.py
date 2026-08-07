@@ -81,11 +81,11 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         total_members = sum(g.member_count for g in guilds if g.member_count)
         
         desc_lines = []
-        for idx, guild in enumerate(guilds[:25], 1):
-            desc_lines.append(f"**{idx}. {guild.name}**\n   └ ID: `{guild.id}` | Members: **{guild.member_count}**")
+        for idx, guild in enumerate(guilds[:15], 1):
+            desc_lines.append(f"`{idx:02}.` **{guild.name}** • `{guild.id}` • 👥 **{guild.member_count:,}**")
             
-        if len(guilds) > 25:
-            desc_lines.append(f"\n*...and {len(guilds) - 25} more servers.*")
+        if len(guilds) > 15:
+            desc_lines.append(f"\n*...and {len(guilds) - 15} more servers.*")
             
         from src.core.theme import Theme
         embed = discord.Embed(
