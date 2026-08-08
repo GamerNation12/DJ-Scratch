@@ -1591,12 +1591,12 @@ class FMDetailsView(discord.ui.View):
             
         if song and artist:
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            btn_lyrics = discord.ui.Button(label="", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0:
             custom_prev = f"fm_preview:{artist[:80]}"
-            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
+            btn2 = discord.ui.Button(label="", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             self.add_item(btn2)
 
     async def show_lyrics(self, interaction: discord.Interaction):
@@ -1669,13 +1669,13 @@ class FMActionsView(discord.ui.View):
             
         if song and artist and current_mode != "compact":
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
-            btn_lyrics = discord.ui.Button(label="Lyrics", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            btn_lyrics = discord.ui.Button(label="", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0 and current_mode != "compact":
             user_id_str = str(self.user.id) if self.user else "None"
             custom_prev = f"fm_preview:{user_id_str}:{unique_id}:{artist[:80]}"
-            btn2 = discord.ui.Button(label="Preview Avatar", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
+            btn2 = discord.ui.Button(label="", emoji="🖼️", style=discord.ButtonStyle.primary, custom_id=custom_prev)
             self.add_item(btn2)
 
     async def go_down(self, interaction: discord.Interaction):
