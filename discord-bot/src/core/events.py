@@ -1879,7 +1879,7 @@ async def apply_features(session, artist, song, s_artists=None):
     original_artist = artist
 
     # 1. Extract from title
-    m = re.search(r"(?:[\(\[\-]\s*)?(?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+?)(?:[\)\]]|$)", song, flags=re.IGNORECASE)
+    m = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
@@ -1963,7 +1963,7 @@ async def apply_features(session, artist, song, s_artists=None):
                         if 'version' in it_track.lower() and 'version' not in song.lower():
                             continue
                             
-                        m2 = re.search(r"(?:[\(\[\-]\s*)?(?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
+                        m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
                         if m2 and original_artist.lower() in it_artist.lower():
                             it_features = m2.group(1).strip()
                             if norm(it_features) not in n_artist:
