@@ -71,6 +71,7 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                 if tracks:
                     track = tracks[0]
                     return {
+                        "name": track.get("name"),
                         "spotify_url": track.get("external_urls", {}).get("spotify"),
                         "preview_url": track.get("preview_url"),
                         "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,

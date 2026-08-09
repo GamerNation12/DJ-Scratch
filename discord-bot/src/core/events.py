@@ -1936,11 +1936,13 @@ async def apply_features(session, artist, song, s_artists=None):
         from src.core.spotify import get_spotify_track_info
         s_info = await get_spotify_track_info(session, original_artist, song)
         if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
-            primary_artist = s_info["artists"][0]
-            if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
-                api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
-                if api_features:
-                    return f"{artist}, {', '.join(api_features)}", song
+            track_name = s_info.get("name", "")
+            if norm(song) in norm(track_name) or norm(track_name) in norm(song):
+                primary_artist = s_info["artists"][0]
+                if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
+                    api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
+                    if api_features:
+                        return f"{artist}, {', '.join(api_features)}", song
     except Exception:
         pass
         
@@ -1954,6 +1956,9 @@ async def apply_features(session, artist, song, s_artists=None):
                     for result in data['results']:
                         it_artist = result.get('artistName', '')
                         it_track = result.get('trackName', '')
+                        
+                        if norm(song) not in norm(it_track) and norm(it_track) not in norm(song):
+                            continue
                         
                         if 'remix' in it_track.lower() and 'remix' not in song.lower():
                             continue
