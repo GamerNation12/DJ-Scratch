@@ -346,7 +346,8 @@ async def setup_hook():
                     """
                     CREATE TABLE IF NOT EXISTS user_settings (
                         user_id VARCHAR(255) PRIMARY KEY,
-                        fm_mode VARCHAR(50) DEFAULT 'full'
+                        fm_mode VARCHAR(50) DEFAULT 'full',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                     """
                 )
@@ -416,8 +417,11 @@ async def setup_hook():
 
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE")
-                except Exception as e:
-                    pass
+                except Exception: pass
+                
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+                except Exception: pass
                     
                 await conn.execute(
                     """
@@ -2841,6 +2845,9 @@ async def process_profile(user):
     username = await get_lastfm_username(user.id)
     local_total = await get_local_total_plays(user.id)
 
+    from src.core.database import get_user_created_at
+    created_at = await get_user_created_at(user.id)
+    
     d_source = await get_user_data_source(user.id)
 
     if not username and d_source == 'lastfm_only':
@@ -2893,9 +2900,15 @@ async def process_profile(user):
             if local_total > 0 and d_source != 'imported_only':
                 overlap = (lastfm_plays + local_total) - total
                 embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles using MAX deduplication.")
+            
+            if created_at:
+                embed.add_field(name="📅 Joined", value=discord.utils.format_dt(created_at, style='D'), inline=True)
+                
     elif local_total > 0:
         embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
         embed.add_field(name="ℹ️ Last.fm", value="Not linked — use `/login`", inline=True)
+        if created_at:
+            embed.add_field(name="📅 Joined", value=discord.utils.format_dt(created_at, style='D'), inline=True)
 
     return embed, view, None
 

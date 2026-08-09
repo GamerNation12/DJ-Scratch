@@ -70,7 +70,8 @@ async def init_db():
                         fm_mode TEXT,
                         show_features BOOLEAN DEFAULT FALSE,
                         data_source TEXT DEFAULT 'combined',
-                        timezone TEXT DEFAULT 'UTC'
+                        timezone TEXT DEFAULT 'UTC',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
                 await conn.execute('''
@@ -166,12 +167,10 @@ async def init_db():
                 except Exception:
                     pass
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
-                except Exception:
-                    pass
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN purge_warning_sent BOOLEAN DEFAULT FALSE")
-                except Exception:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE")
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+                except Exception as e:
                     pass
                 try:
                     await conn.execute("ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT")
@@ -247,6 +246,15 @@ async def set_user_show_features(user_id, show_features: bool):
             """, str(user_id), show_features)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting show_features: {e}{Log.RESET}")
+
+async def get_user_created_at(user_id):
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT created_at FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['created_at'] if row and row['created_at'] is not None else None
+    except Exception:
+        return None
 
 async def get_user_show_track_playcount(user_id):
     if not db_pool: return True
