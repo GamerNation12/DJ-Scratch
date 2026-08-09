@@ -1875,25 +1875,41 @@ async def apply_features(session, artist, song, s_artists=None):
         
     import re, unicodedata
     norm = lambda x: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8').lower())
-    n_artist = norm(artist)
+    
+    original_artist = artist
 
-    m = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", song, flags=re.IGNORECASE)
+    # 1. Extract from title
+    m = re.search(r"(?:[\(\[\-]\s*)?(?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+?)(?:[\)\]]|$)", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
         song = song.replace(m.group(0), "").strip()
-        return f"{artist}, {features}", song
-        
+        artist = f"{artist}, {features}"
+
+    n_artist = norm(artist)
+
+    # 2. Check s_artists
     if s_artists and len(s_artists) > 0:
-        # If Last.fm gives us "Artist, Feature", but Spotify knows the primary artist is "Artist"
-        # We can fix the Last.fm string by replacing it with the Spotify primary artist!
         primary = s_artists[0]
-        if norm(primary) in n_artist and len(primary) < len(artist):
-            # It's likely a concatenation like "Gramatik, Eric Krasno"
-            return primary, song
+        # Clean Last.fm concatenated artist if applicable
+        if norm(primary) in norm(original_artist) and len(primary) < len(original_artist):
+            if m:
+                artist = f"{primary}, {features}"
+            else:
+                artist = primary
+            n_artist = norm(artist)
+            
+        # Add remaining Spotify features
+        if len(s_artists) > 1 and (norm(original_artist) in norm(primary) or norm(primary) in norm(original_artist)):
+            api_features = [a for a in s_artists if norm(a) not in n_artist]
+            if api_features:
+                artist = f"{artist}, {', '.join(api_features)}"
+        
         return artist, song
+
+    # 3. Fallback to Musicbrainz
     try:
         import urllib.request, json, functools
-        req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
+        req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(original_artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
         mb_loop = asyncio.get_event_loop()
         mb_resp = await mb_loop.run_in_executor(None, functools.partial(urllib.request.urlopen, req, timeout=1.5))
         mb_data = json.loads(mb_resp.read())
@@ -1902,26 +1918,31 @@ async def apply_features(session, artist, song, s_artists=None):
             for rec in mb_data['recordings']:
                 if rec.get('title', '').lower() == song.lower():
                     credits = rec.get('artist-credit', [])
-                    if len(credits) > 1:
-                        features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
-                        if features:
-                            return f"{artist}, {', '.join(features)}", song
+                    if credits and (norm(original_artist) in norm(credits[0].get('name', '')) or norm(credits[0].get('name', '')) in norm(original_artist)):
+                        if len(credits) > 1:
+                            api_features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
+                            if api_features:
+                                return f"{artist}, {', '.join(api_features)}", song
                     break
     except Exception:
         pass
 
+    # 4. Fallback to Spotify API
     try:
         from src.core.spotify import get_spotify_track_info
-        s_info = await get_spotify_track_info(session, artist, song)
+        s_info = await get_spotify_track_info(session, original_artist, song)
         if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
-            features = [a for a in s_info["artists"] if norm(a) not in n_artist]
-            if features:
-                return f"{artist}, {', '.join(features)}", song
+            primary_artist = s_info["artists"][0]
+            if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
+                api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
+                if api_features:
+                    return f"{artist}, {', '.join(api_features)}", song
     except Exception:
         pass
         
+    # 5. Fallback to iTunes API
     try:
-        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(artist + ' ' + song)}&entity=song&limit=5"
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(original_artist + ' ' + song)}&entity=song&limit=5"
         async with session.get(url, timeout=1.5) as r:
             if r.status == 200:
                 data = await r.json(content_type=None)
@@ -1942,11 +1963,12 @@ async def apply_features(session, artist, song, s_artists=None):
                         if 'version' in it_track.lower() and 'version' not in song.lower():
                             continue
                             
-                        m2 = re.search(r"[\(\[](?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+)[\)\]]", it_track, flags=re.IGNORECASE)
-                        if m2 and artist.lower() in it_artist.lower():
-                            features = m2.group(1).strip()
-                            return f"{artist}, {features}", song
-    except Exception as e:
+                        m2 = re.search(r"(?:[\(\[\-]\s*)?(?:feat\.?|ft\.?|featuring|with)\s+([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
+                        if m2 and original_artist.lower() in it_artist.lower():
+                            it_features = m2.group(1).strip()
+                            if norm(it_features) not in n_artist:
+                                return f"{artist}, {it_features}", song
+    except Exception:
         pass
         
     return artist, song
