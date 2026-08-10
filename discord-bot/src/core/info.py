@@ -1,5 +1,5 @@
 import discord
-from src.core.theme import Theme, LASTFM_COLOR
+from src.core.theme import Theme
 from src.core.database import db_fetch, db_fetchval, format_name
 from src.core.events import get_lastfm_username, fetch_now_playing
 from src.utils.api import fetch_artist_info, fetch_album_info, fetch_track_info
@@ -40,7 +40,7 @@ async def process_artist_info(user, artist_name=None):
     
     tags = [t['name'] for t in a.get('tags', {}).get('tag', [])] if isinstance(a.get('tags', {}).get('tag'), list) else []
     
-    embed = Theme.get_embed(title=actual_name, url=url, color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=actual_name, url=url, color=Theme.PRIMARY)
     embed.set_author(name=f"Artist Info for {format_name(user)}", icon_url=user.display_avatar.url)
     
     desc = f"**Your Plays:** `{user_plays:,}`\n"
@@ -88,7 +88,7 @@ async def process_album_info(user, args=None):
     
     tags = [t['name'] for t in a.get('tags', {}).get('tag', [])] if isinstance(a.get('tags', {}).get('tag'), list) else []
     
-    embed = Theme.get_embed(title=f"{actual_artist} - {actual_album}", url=url, color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=f"{actual_artist} - {actual_album}", url=url, color=Theme.PRIMARY)
     embed.set_author(name=f"Album Info for {format_name(user)}", icon_url=user.display_avatar.url)
     
     desc = f"**Your Plays:** `{user_plays:,}`\n"
@@ -134,7 +134,7 @@ async def process_track_info(user, args=None):
     
     tags = [t['name'] for t in a.get('toptags', {}).get('tag', [])] if isinstance(a.get('toptags', {}).get('tag'), list) else []
     
-    embed = Theme.get_embed(title=f"{actual_artist} - {actual_track}", url=url, color=LASTFM_COLOR)
+    embed = Theme.get_embed(title=f"{actual_artist} - {actual_track}", url=url, color=Theme.PRIMARY)
     embed.set_author(name=f"Track Info for {format_name(user)}", icon_url=user.display_avatar.url)
     
     desc = f"**Your Plays:** `{user_plays:,}`\n"
