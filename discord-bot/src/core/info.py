@@ -1,6 +1,6 @@
 import discord
 from src.core.theme import Theme
-from src.core.database import db_fetch, db_fetchval, format_name
+from src.core.database import db_fetch, format_name
 from src.core.events import get_lastfm_username, fetch_now_playing
 from src.utils.api import fetch_artist_info, fetch_album_info, fetch_track_info
 
