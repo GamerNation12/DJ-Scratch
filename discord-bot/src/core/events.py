@@ -1938,11 +1938,24 @@ async def apply_features(session, artist, song, s_artists=None):
         if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
             track_name = s_info.get("name", "")
             if norm(song) in norm(track_name) or norm(track_name) in norm(song):
-                primary_artist = s_info["artists"][0]
-                if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
-                    api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
-                    if api_features:
-                        return f"{artist}, {', '.join(api_features)}", song
+                skip = False
+                if 'remix' in track_name.lower() and 'remix' not in song.lower():
+                    skip = True
+                if ('live ' in track_name.lower() or '(live' in track_name.lower() or '[live' in track_name.lower()) and 'live' not in song.lower():
+                    skip = True
+                if 'acoustic' in track_name.lower() and 'acoustic' not in song.lower():
+                    skip = True
+                if 'demo' in track_name.lower() and 'demo' not in song.lower():
+                    skip = True
+                if 'version' in track_name.lower() and 'version' not in song.lower():
+                    skip = True
+                    
+                if not skip:
+                    primary_artist = s_info["artists"][0]
+                    if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
+                        api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
+                        if api_features:
+                            return f"{artist}, {', '.join(api_features)}", song
     except Exception:
         pass
         
