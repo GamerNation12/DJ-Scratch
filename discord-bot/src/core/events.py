@@ -4240,3 +4240,90 @@ async def process_streak(user, query: str = None):
     embed = Theme.get_embed(description=f"You are on a **{streak}** play streak for **{artist_name}**! 🔥", color=LASTFM_COLOR)
     embed.set_author(name=f"{format_name(user)}'s streak", icon_url=user.display_avatar.url)
     return embed, None
+
+
+class StreakHistoryPaginator(discord.ui.View):
+    def __init__(self, user, history):
+        super().__init__(timeout=60.0)
+        self.user = user
+        self.history = history
+        self.current_page = 0
+        self.items_per_page = 15
+        self.max_pages = max(1, (len(history) + self.items_per_page - 1) // self.items_per_page)
+        
+        self.first_button.disabled = True
+        self.prev_button.disabled = True
+        self.next_button.disabled = self.max_pages <= 1
+        self.last_button.disabled = self.max_pages <= 1
+
+    def generate_embed(self):
+        from src.core.database import format_name
+        
+        start = self.current_page * self.items_per_page
+        end = start + self.items_per_page
+        page_items = self.history[start:end]
+        
+        desc = ""
+        for i, streak in enumerate(page_items, start=start+1):
+            artist = streak['artist_name']
+            count = streak['streak_count']
+            s_time = streak['started_at'].strftime("%B %d, %Y %I:%M %p") if streak['started_at'] else "Unknown"
+            
+            desc += f"`{i}` **{artist}** - **{count}** plays\n└ *Started: {s_time}*\n"
+            
+        if not desc:
+            desc = "No streak history found."
+            
+        embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
+        embed.set_author(name=f"{format_name(self.user)}'s Streak History", icon_url=self.user.display_avatar.url)
+        embed.set_footer(text=f"Page {self.current_page + 1}/{self.max_pages} • Total: {len(self.history)}")
+        return embed
+
+    async def update_message(self, interaction: discord.Interaction):
+        self.first_button.disabled = self.current_page == 0
+        self.prev_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page >= self.max_pages - 1
+        self.last_button.disabled = self.current_page >= self.max_pages - 1
+        await interaction.response.edit_message(embed=self.generate_embed(), view=self)
+
+    @discord.ui.button(label="", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="first")
+    async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page = 0
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="", emoji="◀️", style=discord.ButtonStyle.secondary, custom_id="prev")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page -= 1
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="", emoji="▶️", style=discord.ButtonStyle.secondary, custom_id="next")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page += 1
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="last")
+    async def last_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This isn't your menu!", ephemeral=True)
+        self.current_page = self.max_pages - 1
+        await self.update_message(interaction)
+
+
+async def process_streak_history(user):
+    from src.core.database import get_streak_history, format_name
+    
+    history = await get_streak_history(user.id)
+    if not history:
+        embed = Theme.get_embed(description=f"You don't have any past streaks >= 25 plays recorded.", color=LASTFM_COLOR)
+        embed.set_author(name=f"{format_name(user)}'s Streak History", icon_url=user.display_avatar.url)
+        return embed, None
+        
+    view = StreakHistoryPaginator(user, history)
+    embed = view.generate_embed()
+    return embed, view
