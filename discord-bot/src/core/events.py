@@ -4237,8 +4237,9 @@ async def process_streak(user, query: str = None):
     if streak == 0:
         return Theme.get_error_embed(description=f"You are not currently on a streak for **{artist_name}**."), None
         
-    embed = Theme.get_embed(description=f"You are on a **{streak}** play streak for **{artist_name}**! 🔥", color=LASTFM_COLOR)
-    embed.set_author(name=f"{format_name(user)}'s streak", icon_url=user.display_avatar.url)
+    desc = f"`Artist:` **{artist_name}** - {streak} plays\n\nOnly streaks with 25 plays or higher are saved."
+    embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
+    embed.set_author(name=f"Streak overview for {format_name(user)}", icon_url=user.display_avatar.url)
     return embed, None
 
 
