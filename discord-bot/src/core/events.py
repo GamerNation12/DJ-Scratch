@@ -4235,7 +4235,9 @@ async def process_streak(user, query: str = None):
         streak = max(streak, api_streak)
         
     if streak == 0:
-        return Theme.get_error_embed(description=f"You are not currently on a streak for **{artist_name}**."), None
+        embed = Theme.get_embed(description="No active streak found.\nTry scrobbling multiple of the same artist, album, track or genre in a row to get started.", color=LASTFM_COLOR)
+        embed.set_author(name=f"Streak overview for {format_name(user)}", icon_url=user.display_avatar.url)
+        return embed, None
         
     desc = f"`Artist:` **{artist_name}** - {streak} plays\n\nOnly streaks with 25 plays or higher are saved."
     embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
@@ -4267,7 +4269,7 @@ class StreakHistoryPaginator(discord.ui.View):
         desc = ""
         for i, streak in enumerate(page_items, start=start+1):
             artist = streak['artist_name']
-            count = streak['streak_count']
+            count = streak['streak_length']
             s_time = streak['started_at'].strftime("%B %d, %Y %I:%M %p") if streak['started_at'] else "Unknown"
             
             desc += f"`{i}` **{artist}** - **{count}** plays\n└ *Started: {s_time}*\n"
