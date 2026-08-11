@@ -562,6 +562,7 @@ async def setup_hook():
             bot.process_chart = process_chart
             bot.process_artist_chart = process_artist_chart
             bot.process_streak = process_streak
+            bot.process_streak_history = process_streak_history
             
             from src.core.server_leaderboards import process_server_artists, process_server_albums, process_server_tracks
             bot.process_server_artists = process_server_artists

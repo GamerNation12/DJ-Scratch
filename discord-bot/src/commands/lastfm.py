@@ -593,6 +593,16 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_streak(interaction.user, artist)
         await interaction.edit_original_response(embed=embed) if embed else await interaction.edit_original_response(content=err)
 
+    @app_commands.command(name="streakhistory", description="Check your past artist streaks (>= 25 plays)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def streakhistory_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed, view = await self.bot.process_streak_history(interaction.user)
+        if view:
+            await interaction.edit_original_response(embed=embed, view=view)
+        else:
+            await interaction.edit_original_response(embed=embed)
     # --- PREFIX COMMANDS ---
 
     @commands.command(name="cd", aliases=["cooldown"])
@@ -985,6 +995,14 @@ class LastFmCog(commands.Cog):
         embed, err = await self.bot.process_streak(ctx.author, artist)
         if embed: await self._reply_and_delete(ctx, embed=embed)
         else: await self._reply_and_delete(ctx, err)
+
+    @commands.command(name="streakhistory", aliases=["strs"])
+    async def streakhistory_prefix(self, ctx):
+        embed, view = await self.bot.process_streak_history(ctx.author)
+        if view:
+            await ctx.reply(embed=embed, view=view, mention_author=False)
+        else:
+            await ctx.reply(embed=embed, mention_author=False)
 
     @commands.command(name="serverartists", aliases=["sart"])
     async def serverartists_prefix(self, ctx, period: str = 'overall'):

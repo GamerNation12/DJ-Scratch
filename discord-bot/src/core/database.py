@@ -963,6 +963,44 @@ async def get_streak(user_id: str, artist: str, track: str = None, album: str = 
         return 0
 
 
+async def get_streak_history(user_id: str, min_plays: int = 25):
+    """
+    Get streak history for a user using a gaps and islands query.
+    Returns a list of dicts with keys: artist_name, streak_length, started_at, ended_at
+    """
+    if not db_pool: return []
+    try:
+        async with db_pool.acquire() as conn:
+            res = await conn.fetch(f'''
+                WITH numbered_listens AS (
+                    SELECT 
+                        l.user_id,
+                        t.artist_name,
+                        l.played_at,
+                        ROW_NUMBER() OVER(PARTITION BY l.user_id ORDER BY l.played_at) as rn,
+                        ROW_NUMBER() OVER(PARTITION BY l.user_id, t.artist_name ORDER BY l.played_at) as artist_rn
+                    FROM listens l
+                    JOIN tracks t ON l.track_id = t.id
+                    WHERE l.user_id = $1
+                ),
+                grouped_streaks AS (
+                    SELECT 
+                        artist_name,
+                        COUNT(*) as streak_length,
+                        MIN(played_at) as started_at,
+                        MAX(played_at) as ended_at
+                    FROM numbered_listens
+                    GROUP BY user_id, artist_name, (rn - artist_rn)
+                )
+                SELECT * FROM grouped_streaks 
+                WHERE streak_length >= $2 
+                ORDER BY ended_at DESC;
+            ''', str(user_id), min_plays)
+            return [dict(r) for r in res]
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting streak history: {e}{Log.RESET}")
+        return []
+
 async def is_command_disabled(command_name: str) -> str:
     rows = await db_fetch("SELECT reason FROM disabled_commands WHERE command_name = $1", command_name)
     if rows:
