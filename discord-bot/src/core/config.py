@@ -22,12 +22,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 COOLDOWN_FILE = "cooldowns.json"
 
-CURRENT_UPDATE_VERSION = "v1.3.0"
-CURRENT_UPDATE_MESSAGE = """🎉 **DJ Scratch Update `v1.3.0`** 🎉
+CURRENT_UPDATE_VERSION = "v1.4.0"
+CURRENT_UPDATE_MESSAGE = """🎉 **DJ Scratch Update `v1.4.0`** 🎉
 
-✨ **New Feature:** Premium UI Overhaul with Dynamic Theming Engine, bringing a fresh and professional look to the platform, including dynamic theming for all embeds, a new premium teaser command, and polished help center and paginators. 
+✨ **New Feature:** Added `.streakhistory` (and `/streakhistory`) commands! You can now view all your past artist streaks across multiple pages. Aliases: `.strs` and `.strh`.
 
-🔧 **Update:** Standardized error embeds for a more consistent user experience.
+🔧 **Update:** The `.streak` system now perfectly mimics `.fmbot`! Your streak history is now only saved and recorded if you reach a streak of **25 or more consecutive plays**.
 
 *(You can disable these update notifications in `/settings`)*"""
 
