@@ -1894,20 +1894,13 @@ async def apply_features(session, artist, song, s_artists=None):
 
     # 2. Check s_artists
     if s_artists and len(s_artists) > 0:
-        primary = s_artists[0]
-        # Clean Last.fm concatenated artist if applicable
-        if norm(primary) in norm(original_artist) and len(primary) < len(original_artist):
-            if m:
-                artist = f"{primary}, {features}"
-            else:
-                artist = primary
-            n_artist = norm(artist)
-            
-        # Add remaining Spotify features
-        if len(s_artists) > 1 and (norm(original_artist) in norm(primary) or norm(primary) in norm(original_artist)):
+        # 2. Add features from Spotify/Last.fm if available
+        if any(norm(original_artist) in norm(a) or norm(a) in norm(original_artist) for a in s_artists):
             api_features = [a for a in s_artists if norm(a) not in n_artist]
             if api_features:
                 artist = f"{artist}, {', '.join(api_features)}"
+                for a in api_features:
+                    n_artist += norm(a)
         
         return artist, song
 
@@ -1922,12 +1915,14 @@ async def apply_features(session, artist, song, s_artists=None):
         if mb_data.get('recordings'):
             for rec in mb_data['recordings']:
                 if rec.get('title', '').lower() == song.lower():
-                    credits = rec.get('artist-credit', [])
-                    if credits and (norm(original_artist) in norm(credits[0].get('name', '')) or norm(credits[0].get('name', '')) in norm(original_artist)):
-                        if len(credits) > 1:
-                            api_features = [ac.get('name', '') for ac in credits if norm(ac.get('name', '')) not in n_artist]
-                            if api_features:
-                                return f"{artist}, {', '.join(api_features)}", song
+                    credits = [c.get('artist', {}).get('name', '') for c in rec['artist-credit']]
+                    if any(norm(original_artist) in norm(c) or norm(c) in norm(original_artist) for c in credits if c):
+                        api_features = []
+                        for credit_name in credits:
+                            if credit_name and norm(credit_name) not in n_artist:
+                                api_features.append(credit_name)
+                        if api_features:
+                            return f"{artist}, {', '.join(api_features)}", song
                     break
     except Exception:
         pass
@@ -1952,8 +1947,7 @@ async def apply_features(session, artist, song, s_artists=None):
                     skip = True
                     
                 if not skip:
-                    primary_artist = s_info["artists"][0]
-                    if norm(original_artist) in norm(primary_artist) or norm(primary_artist) in norm(original_artist):
+                    if any(norm(original_artist) in norm(a) or norm(a) in norm(original_artist) for a in s_info["artists"]):
                         api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
                         if api_features:
                             return f"{artist}, {', '.join(api_features)}", song
@@ -1986,11 +1980,25 @@ async def apply_features(session, artist, song, s_artists=None):
                         if 'version' in it_track.lower() and 'version' not in song.lower():
                             continue
                             
-                        m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
-                        if m2 and original_artist.lower() in it_artist.lower():
-                            it_features = m2.group(1).strip()
-                            if norm(it_features) not in n_artist:
-                                return f"{artist}, {it_features}", song
+                        if original_artist.lower() in it_artist.lower():
+                            api_features = []
+                            # Check track name for features
+                            m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
+                            if m2:
+                                it_features = m2.group(1).strip()
+                                for f in re.split(r',|&', it_features):
+                                    f = f.strip()
+                                    if f and norm(f) not in n_artist:
+                                        api_features.append(f)
+                                        n_artist += norm(f)
+                            # Check artist string for extra artists
+                            it_artists = [a.strip() for a in re.split(r',|&| feat\. | ft\. | featuring | with ', it_artist, flags=re.IGNORECASE)]
+                            for a in it_artists:
+                                if a and norm(a) not in n_artist:
+                                    api_features.append(a)
+                                    n_artist += norm(a)
+                            if api_features:
+                                return f"{artist}, {', '.join(api_features)}", song
     except Exception:
         pass
         
