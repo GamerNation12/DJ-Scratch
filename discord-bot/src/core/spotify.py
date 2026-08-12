@@ -30,14 +30,14 @@ async def get_spotify_token(session: aiohttp.ClientSession):
     data = {"grant_type": "client_credentials"}
     
     try:
-        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=1.5) as resp:
+        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=3.0) as resp:
             if resp.status == 200:
                 resp_data = await resp.json()
                 _access_token = resp_data.get("access_token")
                 _token_expiry = time.time() + resp_data.get("expires_in", 3600) - 60
                 return _access_token
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to get Spotify token: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to get Spotify token: {type(e).__name__}: {e}{Log.RESET}")
         
     return None
 
@@ -64,7 +64,7 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
     }
     
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=3.0) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 tracks = data.get("tracks", {}).get("items", [])
@@ -77,8 +77,10 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                         "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,
                         "artists": [a.get("name") for a in track.get("artists", [])]
                     }
+            elif resp.status == 403:
+                print(f"{Log.RED}>>> 403 Forbidden: Spotify Premium may be required for this integration (Development Mode).{Log.RESET}")
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to fetch Spotify track: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to fetch Spotify track: {type(e).__name__}: {e}{Log.RESET}")
         
     return None
 
@@ -108,12 +110,12 @@ async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id:
     }
     
     try:
-        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=1.5) as resp:
+        async with session.post("https://accounts.spotify.com/api/token", headers=headers, data=data, timeout=3.0) as resp:
             if resp.status == 200:
                 resp_data = await resp.json()
                 return resp_data.get("access_token")
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to refresh Spotify user token: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to refresh Spotify user token: {type(e).__name__}: {e}{Log.RESET}")
         
     return None
 
@@ -142,7 +144,7 @@ async def spotify_skip_to_next(session: aiohttp.ClientSession, user_id: str):
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post("https://api.spotify.com/v1/me/player/next", headers=headers, timeout=1.5) as resp:
+    async with session.post("https://api.spotify.com/v1/me/player/next", headers=headers, timeout=3.0) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -151,7 +153,7 @@ async def spotify_skip_to_previous(session: aiohttp.ClientSession, user_id: str)
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post("https://api.spotify.com/v1/me/player/previous", headers=headers, timeout=1.5) as resp:
+    async with session.post("https://api.spotify.com/v1/me/player/previous", headers=headers, timeout=3.0) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -160,7 +162,7 @@ async def spotify_add_to_queue(session: aiohttp.ClientSession, user_id: str, tra
     if not token: return "no_token"
     
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.post(f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}", headers=headers, timeout=1.5) as resp:
+    async with session.post(f"https://api.spotify.com/v1/me/player/queue?uri={track_uri}", headers=headers, timeout=3.0) as resp:
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
@@ -189,7 +191,7 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
     headers = {"Authorization": f"Bearer {token}"}
     params = {"q": query, "type": "track", "limit": 1}
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=3.0) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 tracks = data.get("tracks", {}).get("items", [])
@@ -205,7 +207,7 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
                         "album_images": track.get("album", {}).get("images", [])
                     }
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to search Spotify track: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to search Spotify track: {type(e).__name__}: {e}{Log.RESET}")
     return None
 
 async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str):
@@ -215,7 +217,7 @@ async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str
     headers = {"Authorization": f"Bearer {token}"}
     params = {"q": artist_name, "type": "artist", "limit": 1}
     try:
-        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=1.5) as resp:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=3.0) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 artists = data.get("artists", {}).get("items", [])
@@ -226,7 +228,7 @@ async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str
                         "genres": artist.get("genres", [])
                     }
     except Exception as e:
-        print(f"{Log.RED}>>> Failed to search Spotify artist: {e}{Log.RESET}")
+        print(f"{Log.RED}>>> Failed to search Spotify artist: {type(e).__name__}: {e}{Log.RESET}")
     return None
 
 async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: str):
@@ -235,7 +237,7 @@ async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: s
     
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        async with session.get("https://api.spotify.com/v1/me/player/currently-playing", headers=headers, timeout=1.5) as resp:
+        async with session.get("https://api.spotify.com/v1/me/player/currently-playing", headers=headers, timeout=3.0) as resp:
             if resp.status == 200:
                 data = await resp.json()
                 if not data or not data.get('item'):
