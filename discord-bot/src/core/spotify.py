@@ -77,8 +77,6 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                         "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,
                         "artists": [a.get("name") for a in track.get("artists", [])]
                     }
-            elif resp.status == 403:
-                print(f"{Log.RED}>>> 403 Forbidden: Spotify Premium may be required for this integration (Development Mode).{Log.RESET}")
     except Exception as e:
         print(f"{Log.RED}>>> Failed to fetch Spotify track: {type(e).__name__}: {e}{Log.RESET}")
         
