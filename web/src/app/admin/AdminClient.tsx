@@ -394,7 +394,7 @@ export default function AdminClient() {
   // Permissions State
   const [permissionsList, setPermissionsList] = useState<any[]>([]);
   const [permUserId, setPermUserId] = useState("");
-  const [permCommand, setPermCommand] = useState("restart");
+  const [permCommand, setPermCommand] = useState("");
   const [permDuration, setPermDuration] = useState("permanent");
   const [loadingPerms, setLoadingPerms] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState("");
@@ -897,20 +897,70 @@ export default function AdminClient() {
                   )}
                 </div>
 
-                <select 
-                  value={permCommand} 
-                  onChange={(e) => setPermCommand(e.target.value)}
-                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
-                >
-                  <option value="" disabled>Select Command...</option>
-                  <option value="restart">restart</option>
-                  <option value="sync">sync</option>
-                  <option value="stats">stats</option>
-                  <option value="cleanduplicates">cleanduplicates</option>
-                  <option value="testautorestart">testautorestart</option>
-                  <option value="wipedata">wipedata</option>
-                  <option value="resetcd">resetcd</option>
-                </select>
+                <div className="flex-1">
+                  <input 
+                    type="text"
+                    list="command-list"
+                    value={permCommand}
+                    onChange={(e) => setPermCommand(e.target.value.toLowerCase())}
+                    placeholder="Command name..."
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                  />
+                  <datalist id="command-list">
+                    <option value="fm">fm (Now Playing)</option>
+                    <option value="recent">recent / rt</option>
+                    <option value="track">track</option>
+                    <option value="album">album</option>
+                    <option value="artist">artist</option>
+                    <option value="toptracks">toptracks / tt</option>
+                    <option value="topalbums">topalbums</option>
+                    <option value="topartists">topartists / ta</option>
+                    <option value="artisttracks">artisttracks / at</option>
+                    <option value="artistchart">artistchart</option>
+                    <option value="chart">chart</option>
+                    <option value="profile">profile</option>
+                    <option value="whoknows">whoknows / wk</option>
+                    <option value="whoknowsalbum">whoknowsalbum / wka</option>
+                    <option value="whoknowstrack">whoknowstrack / wkt</option>
+                    <option value="globalwhoknows">globalwhoknows</option>
+                    <option value="globalwhoknowsalbum">globalwhoknowsalbum</option>
+                    <option value="globalwhoknowstrack">globalwhoknowstrack</option>
+                    <option value="crowns">crowns</option>
+                    <option value="streak">streak</option>
+                    <option value="taste">taste (compare)</option>
+                    <option value="server">server</option>
+                    <option value="serveralbums">serveralbums</option>
+                    <option value="serverartists">serverartists</option>
+                    <option value="servertracks">servertracks</option>
+                    <option value="guess">guess</option>
+                    <option value="scramble">scramble</option>
+                    <option value="judge">judge</option>
+                    <option value="login">login</option>
+                    <option value="logout">logout</option>
+                    <option value="help">help</option>
+                    <option value="guide">guide</option>
+                    <option value="settings">settings</option>
+                    <option value="premium">premium</option>
+                    <option value="import">import</option>
+                    <option value="outofsync">outofsync</option>
+                    <option value="deletedata">deletedata</option>
+                    <option value="receipt">receipt</option>
+                    <option value="bug">bug</option>
+                    <option value="suggest">suggest</option>
+                    <option value="updates">updates</option>
+                    <option value="status">status</option>
+                    <option value="privacy">privacy</option>
+                    <option value="cd">cd</option>
+                    <option value="cd2">cd2</option>
+                    <option value="restart">restart</option>
+                    <option value="sync">sync</option>
+                    <option value="stats">stats</option>
+                    <option value="cleanduplicates">cleanduplicates</option>
+                    <option value="testautorestart">testautorestart</option>
+                    <option value="wipedata">wipedata</option>
+                    <option value="resetcd">resetcd</option>
+                  </datalist>
+                </div>
                 <select 
                   value={permDuration} 
                   onChange={(e) => setPermDuration(e.target.value)}
