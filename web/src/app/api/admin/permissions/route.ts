@@ -19,6 +19,24 @@ async function sendDiscordIPC(content: string) {
 
 export async function GET() {
   try {
+    // Ensure table exists (fixes 500 errors if bot hasn't run migrations)
+    await sql`
+      CREATE TABLE IF NOT EXISTS command_permissions (
+          user_id TEXT,
+          command_name TEXT,
+          granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP,
+          PRIMARY KEY (user_id, command_name)
+      )
+    `;
+    
+    // Add expires_at if it's an old table
+    try {
+      await sql`ALTER TABLE command_permissions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP`;
+    } catch (e) {
+      // Ignore error if column already exists or syntax not supported
+    }
+
     const permissions = await sql`
       SELECT user_id, command_name, granted_at, expires_at 
       FROM command_permissions 
