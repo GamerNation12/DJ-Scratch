@@ -315,9 +315,6 @@ async def fetch_user_avatar(user_id):
 
 async def has_command_permission(user_id: str, command_name: str) -> bool:
     if not db_pool: return False
-    from src.core.config import OWNER_ID
-    if str(user_id) == str(OWNER_ID):
-        return True
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
