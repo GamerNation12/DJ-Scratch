@@ -20,7 +20,7 @@ async function sendDiscordIPC(content: string) {
 export async function GET() {
   try {
     const permissions = await sql`
-      SELECT user_id, command_name, granted_at 
+      SELECT user_id, command_name, granted_at, expires_at 
       FROM command_permissions 
       ORDER BY granted_at DESC
     `;
@@ -34,19 +34,37 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, commandName } = body;
+    const { userId, commandName, duration } = body;
 
     if (!userId || !commandName) {
       return NextResponse.json({ error: 'userId and commandName are required' }, { status: 400 });
     }
 
-    await sql`
-      INSERT INTO command_permissions (user_id, command_name) 
-      VALUES (${userId}, ${commandName})
-      ON CONFLICT DO NOTHING
-    `;
+    let expiresAt = null;
+    if (duration && duration !== 'permanent') {
+      const now = new Date();
+      if (duration === '1h') now.setHours(now.getHours() + 1);
+      else if (duration === '1d') now.setDate(now.getDate() + 1);
+      else if (duration === '1w') now.setDate(now.getDate() + 7);
+      else if (duration === '1m') now.setMonth(now.getMonth() + 1);
+      expiresAt = now;
+    }
+
+    if (expiresAt) {
+      await sql`
+        INSERT INTO command_permissions (user_id, command_name, expires_at) 
+        VALUES (${userId}, ${commandName}, ${expiresAt})
+        ON CONFLICT (user_id, command_name) DO UPDATE SET expires_at = EXCLUDED.expires_at
+      `;
+    } else {
+      await sql`
+        INSERT INTO command_permissions (user_id, command_name) 
+        VALUES (${userId}, ${commandName})
+        ON CONFLICT (user_id, command_name) DO UPDATE SET expires_at = NULL
+      `;
+    }
     
-    await sendDiscordIPC(`[WEBSITE] PERMISSION_GRANT|${userId}|${commandName}`);
+    await sendDiscordIPC(`[WEBSITE] PERMISSION_GRANT|${userId}|${commandName}|${duration || 'permanent'}`);
     
     return NextResponse.json({ success: true });
   } catch (error) {

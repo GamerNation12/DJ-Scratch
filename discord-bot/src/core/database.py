@@ -92,6 +92,10 @@ async def init_db():
                         PRIMARY KEY (user_id, command_name)
                     )
                 ''')
+                try:
+                    await conn.execute("ALTER TABLE command_permissions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
+                except Exception:
+                    pass
                 await conn.execute('''
                     CREATE TABLE IF NOT EXISTS friends (
                         user_id VARCHAR(255),
@@ -317,10 +321,15 @@ async def has_command_permission(user_id: str, command_name: str) -> bool:
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT 1 FROM command_permissions WHERE user_id=$1 AND command_name=$2",
+                "SELECT expires_at FROM command_permissions WHERE user_id=$1 AND command_name=$2",
                 str(user_id), command_name
             )
-            return bool(row)
+            if row:
+                if row['expires_at'] and row['expires_at'] < datetime.utcnow():
+                    await conn.execute("DELETE FROM command_permissions WHERE user_id=$1 AND command_name=$2", str(user_id), command_name)
+                    return False
+                return True
+            return False
     except Exception as e:
         print(f"{Log.RED}>>> Error checking command permission: {e}{Log.RESET}")
         return False
@@ -329,20 +338,26 @@ async def get_all_command_permissions():
     if not db_pool: return []
     try:
         async with db_pool.acquire() as conn:
-            rows = await conn.fetch("SELECT user_id, command_name, granted_at FROM command_permissions ORDER BY granted_at DESC")
+            rows = await conn.fetch("SELECT user_id, command_name, granted_at, expires_at FROM command_permissions ORDER BY granted_at DESC")
             return [dict(row) for row in rows]
     except Exception as e:
         print(f"{Log.RED}>>> Error fetching command permissions: {e}{Log.RESET}")
         return []
 
-async def add_command_permission(user_id: str, command_name: str):
+async def add_command_permission(user_id: str, command_name: str, expires_at: datetime = None):
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO command_permissions (user_id, command_name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                str(user_id), command_name
-            )
+            if expires_at:
+                await conn.execute(
+                    "INSERT INTO command_permissions (user_id, command_name, expires_at) VALUES ($1, $2, $3) ON CONFLICT (user_id, command_name) DO UPDATE SET expires_at = EXCLUDED.expires_at",
+                    str(user_id), command_name, expires_at
+                )
+            else:
+                await conn.execute(
+                    "INSERT INTO command_permissions (user_id, command_name) VALUES ($1, $2) ON CONFLICT (user_id, command_name) DO UPDATE SET expires_at = NULL",
+                    str(user_id), command_name
+                )
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error adding command permission: {e}{Log.RESET}")

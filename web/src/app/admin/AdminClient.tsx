@@ -395,6 +395,7 @@ export default function AdminClient() {
   const [permissionsList, setPermissionsList] = useState<any[]>([]);
   const [permUserId, setPermUserId] = useState("");
   const [permCommand, setPermCommand] = useState("restart");
+  const [permDuration, setPermDuration] = useState("permanent");
   const [loadingPerms, setLoadingPerms] = useState(false);
   
   const fetchPermissionsList = async () => {
@@ -416,7 +417,7 @@ export default function AdminClient() {
       const res = await fetchApi("/api/admin/permissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: permUserId, commandName: permCommand })
+        body: JSON.stringify({ userId: permUserId, commandName: permCommand, duration: permDuration })
       });
       if (res.ok) {
         toast.success("Permission granted!");
@@ -876,6 +877,17 @@ export default function AdminClient() {
                   <option value="wipedata">wipedata</option>
                   <option value="resetcd">resetcd</option>
                 </select>
+                <select 
+                  value={permDuration} 
+                  onChange={(e) => setPermDuration(e.target.value)}
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
+                >
+                  <option value="permanent">Permanent</option>
+                  <option value="1h">1 Hour</option>
+                  <option value="1d">1 Day</option>
+                  <option value="1w">1 Week</option>
+                  <option value="1m">1 Month</option>
+                </select>
                 <button 
                   onClick={handleGrantPermission}
                   className="bg-indigo-500 hover:bg-indigo-600 shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] text-white px-8 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap"
@@ -895,6 +907,7 @@ export default function AdminClient() {
                   <tr className="border-b border-white/5 bg-black/20">
                     <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider">User ID</th>
                     <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider">Command</th>
+                    <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider">Expires</th>
                     <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
@@ -919,6 +932,9 @@ export default function AdminClient() {
                           <span className="inline-flex items-center rounded-md bg-indigo-500/10 px-2.5 py-1 text-sm font-medium text-indigo-400 border border-indigo-500/20">
                             .{perm.command_name}
                           </span>
+                        </td>
+                        <td className="p-4 text-sm text-zinc-400">
+                          {perm.expires_at ? new Date(perm.expires_at).toLocaleString() : "Permanent"}
                         </td>
                         <td className="p-4 text-right">
                           <button 

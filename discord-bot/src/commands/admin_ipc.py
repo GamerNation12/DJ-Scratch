@@ -88,14 +88,26 @@ class AdminIPC(commands.Cog):
                 await message.add_reaction("❌")
                 
         elif action_payload.startswith("PERMISSION_GRANT|"):
-            parts = action_payload.split("|", 2)
-            if len(parts) == 3:
+            parts = action_payload.split("|", 3)
+            if len(parts) >= 3:
                 user_id = int(parts[1])
                 command_name = parts[2]
+                duration_str = parts[3] if len(parts) == 4 else "permanent"
+                
+                duration_map = {
+                    "1h": "1 hour",
+                    "1d": "1 day",
+                    "1w": "1 week",
+                    "1m": "1 month",
+                    "permanent": "permanently"
+                }
+                friendly_duration = duration_map.get(duration_str, duration_str)
+                duration_msg = f" You have it {friendly_duration}." if duration_str == "permanent" else f" Your access will expire in {friendly_duration}."
+                
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        await user.send(f"✅ **Permission Granted!**\\nYou have been granted access to use the `.{command_name}` command by an administrator.")
+                        await user.send(f"✅ **Permission Granted!**\\nYou have been granted access to use the `.{command_name}` command by an administrator.{duration_msg}")
                         await message.add_reaction("✅")
                 except Exception as e:
                     print(f"Failed to DM user {user_id} for permission grant: {e}")
