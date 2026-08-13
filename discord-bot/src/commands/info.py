@@ -20,6 +20,62 @@ class InfoCog(commands.Cog):
     async def status(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)
         
+        is_owner = await self.bot.is_owner(interaction.user)
+        if is_owner:
+            msg = await interaction.followup.send("📊 Fetching global database metrics... (this may take a few seconds)", wait=True)
+            
+            guilds = sorted(self.bot.guilds, key=lambda g: g.member_count or 0, reverse=True)
+            total_servers = len(guilds)
+            total_members = sum(g.member_count for g in guilds if g.member_count)
+            
+            db_size = "Unknown"
+            scrobbles = 0
+            users = 0
+            crowns = 0
+            
+            if getattr(self.bot, 'db_pool', None):
+                async with self.bot.db_pool.acquire() as conn:
+                    try:
+                        scrobbles = await conn.fetchval("SELECT reltuples::bigint FROM pg_class WHERE relname = 'listens'")
+                        users = await conn.fetchval("SELECT COUNT(*) FROM user_settings")
+                        crowns = await conn.fetchval("SELECT COUNT(*) FROM server_crowns")
+                        db_size = await conn.fetchval("SELECT pg_size_pretty(pg_database_size(current_database()))")
+                    except Exception as e:
+                        print(f"Stats DB Error: {e}")
+                        
+            cpu_usage = self.process.cpu_percent()
+            ram_usage = psutil.virtual_memory().percent
+            
+            uptime_seconds = int(time.time() - self.process.create_time())
+            uptime_str = str(timedelta(seconds=uptime_seconds))
+            
+            try:
+                ping = round(self.bot.latency * 1000)
+            except:
+                ping = 0
+                
+            desc_lines = []
+            for idx, guild in enumerate(guilds[:10], 1):
+                desc_lines.append(f"`{idx:02}.` **{guild.name}** • 👥 **{guild.member_count:,}**")
+                
+            if len(guilds) > 10:
+                desc_lines.append(f"\n*...and {len(guilds) - 10} more servers.*")
+                
+            embed = discord.Embed(
+                title="📊 Global System & Database Dashboard",
+                color=Theme.PRIMARY
+            )
+            
+            embed.add_field(name="🗄️ Database Metrics", value=f"**Scrobbles:** `{scrobbles:,}`\n**Crowns:** `{crowns:,}`\n**DB Size:** `{db_size}`", inline=True)
+            embed.add_field(name="👥 User Statistics", value=f"**Users Tracked:** `{users:,}`\n**Total Servers:** `{total_servers:,}`\n**Total Reach:** `{total_members:,}`", inline=True)
+            embed.add_field(name="🤖 Bot Health", value=f"**Uptime:** `{uptime_str}`\n**Ping:** `{ping}ms`\n**CPU/RAM:** `{cpu_usage}% / {ram_usage}%`", inline=True)
+            
+            embed.add_field(name="🌐 Top 10 Largest Servers", value=chr(10).join(desc_lines) if desc_lines else "None", inline=False)
+            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+            
+            await msg.edit(content=None, embed=embed)
+            return
+
         # Ping
         ping = round(self.bot.latency * 1000)
         
