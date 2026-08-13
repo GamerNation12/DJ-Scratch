@@ -61,6 +61,10 @@ class ScratchBot(commands.Bot):
                             prefix TEXT DEFAULT ','
                         )
                     ''')
+                    try:
+                        await conn.execute("ALTER TABLE command_permissions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
+                    except Exception:
+                        pass
             except Exception as e:
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
