@@ -62,9 +62,18 @@ class ScratchBot(commands.Bot):
                         )
                     ''')
                     try:
+                        await conn.execute('''
+                            CREATE TABLE IF NOT EXISTS command_permissions (
+                                user_id TEXT,
+                                command_name TEXT,
+                                granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                expires_at TIMESTAMP,
+                                PRIMARY KEY (user_id, command_name)
+                            )
+                        ''')
                         await conn.execute("ALTER TABLE command_permissions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"Error migrating command_permissions: {e}")
             except Exception as e:
                 print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
         
