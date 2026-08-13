@@ -397,6 +397,8 @@ export default function AdminClient() {
   const [permCommand, setPermCommand] = useState("restart");
   const [permDuration, setPermDuration] = useState("permanent");
   const [loadingPerms, setLoadingPerms] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   
   const fetchPermissionsList = async () => {
     setLoadingPerms(true);
@@ -423,6 +425,7 @@ export default function AdminClient() {
         toast.success("Permission granted!");
         fetchPermissionsList();
         setPermUserId("");
+        setUserSearchTerm("");
       } else toast.error("Failed to grant");
     } catch {
       toast.error("Error granting permission");
@@ -850,18 +853,49 @@ export default function AdminClient() {
                 Grant Command Permission
               </h3>
               <div className="flex flex-col md:flex-row gap-4">
-                <select 
-                  value={permUserId} 
-                  onChange={(e) => setPermUserId(e.target.value)}
-                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
-                >
-                  <option value="" disabled>Select User...</option>
-                  {usersList.map((u: any) => (
-                    <option key={u.user_id} value={u.user_id}>
-                      {u.discord_username ? `@${u.discord_username}` : u.display_name || 'Unknown'} ({u.user_id})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1 relative">
+                  <input 
+                    type="text"
+                    value={userSearchTerm}
+                    onChange={(e) => {
+                      setUserSearchTerm(e.target.value);
+                      setUserDropdownOpen(true);
+                      if (!e.target.value) setPermUserId("");
+                    }}
+                    onFocus={() => setUserDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setUserDropdownOpen(false), 200)}
+                    placeholder="Search User ID or Name..."
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                  />
+                  {userDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-full max-h-60 overflow-y-auto bg-zinc-900 border border-white/10 rounded-lg shadow-xl z-50 styled-scrollbar">
+                      {usersList
+                        .filter((u: any) => 
+                          (u.discord_username && u.discord_username.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
+                          (u.display_name && u.display_name.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
+                          u.user_id.includes(userSearchTerm)
+                        )
+                        .slice(0, 50)
+                        .map((u: any) => (
+                        <button
+                          key={u.user_id}
+                          className="w-full text-left px-4 py-2 hover:bg-indigo-500/20 text-sm focus:bg-indigo-500/20 focus:outline-none border-b border-white/5 last:border-0"
+                          onMouseDown={() => {
+                            setPermUserId(u.user_id);
+                            setUserSearchTerm(u.discord_username ? `@${u.discord_username}` : (u.display_name || u.user_id));
+                            setUserDropdownOpen(false);
+                          }}
+                        >
+                          <div className="font-bold text-white">{u.discord_username ? `@${u.discord_username}` : (u.display_name || 'Unknown')}</div>
+                          <div className="text-xs text-zinc-500 font-mono">{u.user_id}</div>
+                        </button>
+                      ))}
+                      {usersList.filter((u: any) => (u.discord_username && u.discord_username.toLowerCase().includes(userSearchTerm.toLowerCase())) || (u.display_name && u.display_name.toLowerCase().includes(userSearchTerm.toLowerCase())) || u.user_id.includes(userSearchTerm)).length === 0 && (
+                        <div className="px-4 py-3 text-sm text-zinc-500 text-center">No users found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <select 
                   value={permCommand} 
