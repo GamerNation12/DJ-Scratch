@@ -115,10 +115,30 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
       .catch(console.error);
   };
 
+  const fetchLockedCommands = async () => {
+    try {
+      const res = await fetchApi("/api/admin/locked-commands");
+      if (res.ok) {
+        const data = await res.json();
+        setLockedCommands(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch locked commands");
+    }
+  };
+
   useEffect(() => {
     fetchCommits();
     const interval = setInterval(fetchCommits, 10000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchRole();
+    fetchStats();
+    fetchPermissionsList();
+    fetchLockedCommands();
   }, []);
 
   useEffect(() => {
@@ -397,6 +417,7 @@ export default function AdminClient() {
   const [permCommand, setPermCommand] = useState("");
   const [permDuration, setPermDuration] = useState("permanent");
   const [loadingPerms, setLoadingPerms] = useState(false);
+  const [lockedCommands, setLockedCommands] = useState<string[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   
@@ -898,23 +919,19 @@ export default function AdminClient() {
                 </div>
 
                 <div className="flex-1">
-                  <input 
-                    type="text"
-                    list="command-list"
+                  <select
                     value={permCommand}
-                    onChange={(e) => setPermCommand(e.target.value.toLowerCase())}
-                    placeholder="Command name..."
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                  />
-                  <datalist id="command-list">
-                    <option value="restart">restart</option>
-                    <option value="sync">sync</option>
-                    <option value="stats">stats</option>
-                    <option value="cleanduplicates">cleanduplicates</option>
-                    <option value="testautorestart">testautorestart</option>
-                    <option value="wipedata">wipedata</option>
-                    <option value="resetcd">resetcd</option>
-                  </datalist>
+                    onChange={(e) => setPermCommand(e.target.value)}
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
+                  >
+                    <option value="" disabled>Select Command...</option>
+                    {lockedCommands.map(cmd => (
+                      <option key={cmd} value={cmd}>{cmd}</option>
+                    ))}
+                    {lockedCommands.length === 0 && (
+                      <option value="" disabled>(No disabled commands found)</option>
+                    )}
+                  </select>
                 </div>
                 <select 
                   value={permDuration} 

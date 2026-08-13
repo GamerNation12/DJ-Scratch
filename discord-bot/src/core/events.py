@@ -1406,9 +1406,11 @@ async def global_disabled_command_check_slash(interaction: discord.Interaction) 
         return True
     if not interaction.command: return True
     
-    from src.core.database import is_command_disabled
+    from src.core.database import is_command_disabled, has_command_permission
     reason = await is_command_disabled(interaction.command.name)
     if reason:
+        if interaction.user.id == OWNER_ID or await has_command_permission(str(interaction.user.id), interaction.command.name):
+            return True
         embed = Theme.get_embed(
             title="🔒 Command Locked",
             description=f"This command has been disabled by the owner.\n\n**Reason:** {reason}",
@@ -1452,9 +1454,12 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
 @bot.check
 async def global_disabled_command_check_prefix(ctx) -> bool:
     if not ctx.command: return True
-    from src.core.database import is_command_disabled
+    from src.core.database import is_command_disabled, has_command_permission
     reason = await is_command_disabled(ctx.command.name)
     if reason:
+        from src.core.events import OWNER_ID
+        if ctx.author.id == OWNER_ID or await has_command_permission(str(ctx.author.id), ctx.command.name):
+            return True
         embed = Theme.get_embed(
             title="🔒 Command Locked",
             description=f"This command has been disabled by the owner.\n\n**Reason:** {reason}",
