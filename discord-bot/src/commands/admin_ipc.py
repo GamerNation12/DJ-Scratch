@@ -101,13 +101,13 @@ class AdminIPC(commands.Cog):
                     "1m": "1 month",
                     "permanent": "permanently"
                 }
-                friendly_duration = duration_map.get(duration_str, duration_str)
-                duration_msg = f" You have it {friendly_duration}." if duration_str == "permanent" else f" Your access will expire in {friendly_duration}."
+                duration = parts[3] if len(parts) == 4 else "permanent"
                 
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        await user.send(f"✅ **Permission Granted!**\\nYou have been granted access to use the `.{command_name}` command by an administrator.{duration_msg}")
+                        expire_str = "permanently" if duration == "permanent" else f"in {duration}"
+                        await user.send(f"✅ **Permission Granted!**\nYou have been granted access to use the `.{command_name}` command by an administrator. Your access will expire {expire_str}.")
                         await message.add_reaction("✅")
                 except Exception as e:
                     print(f"Failed to DM user {user_id} for permission grant: {e}")
@@ -121,7 +121,7 @@ class AdminIPC(commands.Cog):
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        await user.send(f"❌ **Permission Revoked!**\\nYour access to use the `.{command_name}` command has been revoked.")
+                        await user.send(f"❌ **Permission Revoked!**\nYour access to use the `.{command_name}` command has been revoked.")
                         await message.add_reaction("✅")
                 except Exception as e:
                     print(f"Failed to DM user {user_id} for permission revoke: {e}")
