@@ -3490,7 +3490,7 @@ class HelpPaginationView(discord.ui.View):
             "Last.fm Commands": {
                 "emoji": "🎵",
                 "desc": "Commands for tracking and viewing your Last.fm stats.",
-                "commands": ["fm", "ta", "tt", "rt", "at", "profile", "taste", "streak", "streakhistory", "chart", "artistchart", "topalbums", "serverartists", "serveralbums", "servertracks", "login", "logout", "privacy", "cd", "cd2"]
+                "commands": ["fm", "ta", "tt", "rt", "at", "profile", "taste", "streak", "streakhistory", "chart", "artistchart", "topalbums", "serverartists", "serveralbums", "servertracks", "login", "logout", "privacy", "cd", "cd2", "import"]
             },
             "Server Stats": {
                 "emoji": "📊",
@@ -3500,13 +3500,13 @@ class HelpPaginationView(discord.ui.View):
             "Utility & Fun": {
                 "emoji": "⚙️",
                 "desc": "Settings, games, and other utility commands.",
-                "commands": ["settings", "server", "guess", "scramble", "judge", "receipt", "suggest", "bug", "status", "updates", "guide", "premium", "dms", "social"]
+                "commands": ["settings", "server", "guess", "scramble", "judge", "receipt", "suggest", "bug", "status", "updates", "guide", "premium", "dms", "social", "deletedata"]
             },
             "Restricted Commands": {
                 "emoji": "🔒",
                 "desc": "Admin restricted commands.",
                 "admin": True,
-                "commands": ["import", "deletedata", "wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]
+                "commands": ["wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]
             }
         }
         
