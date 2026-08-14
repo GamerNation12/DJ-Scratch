@@ -164,6 +164,7 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
 @bot.check
 async def check_restarting_prefix(ctx) -> bool:
     if not ctx.command: return True
+    if ctx.command.name == "cancel": return True
     asyncio.create_task(update_user_activity(ctx.author.id))
     if getattr(bot, 'is_restarting', False):
         try:
