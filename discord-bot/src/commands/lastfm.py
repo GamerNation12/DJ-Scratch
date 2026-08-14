@@ -499,7 +499,7 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def help_slash(self, interaction: discord.Interaction):
-        embed, view = await self.bot.get_help_embed(interaction.user, self.bot.user)
+        embed, view = await self.bot.get_help_embed(interaction.user, self.bot)
         await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name="crowns", description="See which of your top artists you have the most plays for")
@@ -861,7 +861,7 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="help", aliases=["h"])
     async def help_prefix(self, ctx):
-        embed, view = await self.bot.get_help_embed(ctx.author, self.bot.user)
+        embed, view = await self.bot.get_help_embed(ctx.author, self.bot)
         await ctx.send(embed=embed, view=view)
 
     @commands.command(name="crowns", aliases=["cr", "cw"])

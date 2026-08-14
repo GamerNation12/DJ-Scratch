@@ -3464,100 +3464,131 @@ async def process_killallcrowns(guild, user):
 
 
 
-class HelpDropdown(discord.ui.Select):
-    def __init__(self, is_admin=False):
-        options = [
-            discord.SelectOption(label="🚀 Getting Started", description="Quick guide on how to set up the bot", emoji="🚀"),
-            discord.SelectOption(label="🎧 Last.fm Commands", description="Commands for tracking and viewing your Last.fm stats", emoji="🎧"),
-            discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="🔒"),
-            discord.SelectOption(label="💡 Utility & Fun", description="Settings, games, and other utility commands", emoji="💡")
-        ]
-        if is_admin:
-            options.append(discord.SelectOption(label="🛡️ Owner Commands", description="Admin restricted commands", emoji="🛡️"))
-            
-        super().__init__(placeholder="Choose a command category...", min_values=1, max_values=1, options=options)
 
-    async def callback(self, interaction: discord.Interaction):
+class HelpPaginationView(discord.ui.View):
+    def __init__(self, user, bot, is_admin=False):
+        super().__init__(timeout=180)
+        self.user = user
+        self.bot = bot
+        self.is_admin = is_admin
+        self.pages = self.build_pages()
+        self.current_page = 0
+        self.update_buttons()
+
+    def build_pages(self):
         from src.core.theme import Theme
+        import discord
         
-        embed = Theme.get_embed(user=interaction.user)
-        embed.set_author(name=f"Help: {self.values[0]}", icon_url=interaction.user.display_avatar.url)
-        embed.set_thumbnail(url=interaction.client.user.display_avatar.url)
+        COMMANDS_DATA = {
+            "Getting Started": {
+                "emoji": "💡",
+                "commands": []
+            },
+            "Last.fm Commands": {
+                "emoji": "🎵",
+                "desc": "Commands for tracking and viewing your Last.fm stats.",
+                "commands": ["fm", "ta", "tt", "rt", "at", "profile", "taste", "streak", "streakhistory", "chart", "artistchart", "topalbums", "serverartists", "serveralbums", "servertracks", "login", "logout", "privacy", "cd", "cd2"]
+            },
+            "Server Stats": {
+                "emoji": "📊",
+                "desc": "See who listens to what the most in the server.",
+                "commands": ["whoknows", "whoknowstrack", "whoknowsalbum", "globalwhoknows", "globalwhoknowstrack", "globalwhoknowsalbum", "crowns", "crownseeder", "killallcrowns"]
+            },
+            "Utility & Fun": {
+                "emoji": "⚙️",
+                "desc": "Settings, games, and other utility commands.",
+                "commands": ["settings", "server", "guess", "scramble", "judge", "receipt", "suggest", "bug", "status", "updates", "guide", "premium", "dms", "social"]
+            },
+            "Restricted Commands": {
+                "emoji": "🔒",
+                "desc": "Admin restricted commands.",
+                "admin": True,
+                "commands": ["import", "deletedata", "wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]
+            }
+        }
         
-        if self.values[0] == "🚀 Getting Started":
-            embed.description = (
-                "**Welcome to DJ Scratch!**\n\n"
-                "**1️⃣ Link your Last.fm**\n"
-                "Use `/login` to securely link your Last.fm account.\n\n"
-                "**2️⃣ Listen to Music**\n"
-                "Start playing music on Spotify or Apple Music (ensure they are connected in your Last.fm settings).\n\n"
-                "**3️⃣ View your Current Song**\n"
-                "Type `,fm` or `/fm` in any channel to display the song you are currently listening to.\n\n"
-                "**4️⃣ Explore More Commands**\n"
-                "Try `,ta` to see your top artists, `,tt` for top tracks, or `,wk <artist>` to see who in the server listens to an artist the most!"
-            )
-        elif self.values[0] == "🎧 Last.fm Commands":
-            embed.description = (
-                "`/login` - Link your Last.fm account\n"
-                "`/fm` (or `,fm`, `,np`) - View your currently playing track\n"
-                "`/topartists` (or `,ta`) - View your top played artists\n"
-                "`/toptracks` (or `,tt`) - View your top played tracks\n"
-                "`/artisttracks` (or `,at`) - View your top played tracks for an artist\n"
-                "`/recent` (or `,rt`) - View your recent listening history\n"
-                "`/profile` (or `,s`) - View your Last.fm stats\n"
-                "`/import` (or `,import`) - Upload your Spotify ZIP or JSON directly"
-            )
-        elif self.values[0] == "👑 Server Stats":
-            embed.description = (
-                "`/whoknows` (or `,wk`) - See who listens to an artist most in the server\n"
-                "`/crowns` (or `,crowns`) - See which of your top artists you have the most plays for in the server\n"
-                "`/crownseeder` (or `,crownseeder`) - Seed crowns for all users in the server (Admin only)\n"
-                "`/killallcrowns` (or `,killallcrowns`) - Remove all seeded crowns for the server (Admin only)"
-            )
-        elif self.values[0] == "💡 Utility & Fun":
-            embed.description = (
-                "`/settings` (or `,settings`) - Customize your bot preferences\n"
-                "`/status` (or `,status`) - View the bot's health and server stats\n"
-                "`/updates` (or `,updates`) - Read the latest bot news\n"
-                "`/suggest` (or `,suggest`) - Send a suggestion directly to the developer\n"
-                "`/deletedata` (or `,deletedata`) - Permanently delete all your database data\n"
-                "`/guess` (or `,guess`) - Play a game guessing a pixelated album cover\n"
-                "`/scramble` (or `,scramble`) - Play a game unscrambling an artist's name"
-            )
-        elif self.values[0] == "🛡️ Owner Commands":
-            embed.description = (
-                "`,sync` - Sync slash commands globally\n"
-                "`,stats` (or `,guilds`, `,servers`) - View server usage statistics\n"
-                "`,cleanduplicates` - Scan and clean duplicate database entries\n"
-                "`,wipedata` - Wipe all imported user data\n"
-                "`,testautorestart` - Simulate high RAM auto-restart\n"
-                "`,restart` - Manually restart the bot\n"
-                "`,resetcd` - Bypass the global avatar cooldown"
-            )
+        # Pre-compute command info mapping
+        cmd_info = {}
+        # Fetch prefix commands
+        for cmd in self.bot.commands:
+            slash_cmd = discord.utils.get(self.bot.tree.get_commands(), name=cmd.name)
+            desc = slash_cmd.description if slash_cmd else (cmd.help or "No description provided.")
             
-        await interaction.response.edit_message(embed=embed, view=self.view)
+            prefix_usage = f"`/{cmd.name}`" if slash_cmd else f"`.{cmd.name}`"
+            alias_str = f" (or `.{'`, `.'.join(cmd.aliases)}`)" if cmd.aliases else ""
+            
+            cmd_info[cmd.name] = f"{prefix_usage}{alias_str} - {desc}"
+            
+        # Fetch slash commands that have no prefix version
+        for slash_cmd in self.bot.tree.get_commands():
+            if slash_cmd.name not in cmd_info:
+                if isinstance(slash_cmd, discord.app_commands.Group):
+                    cmd_info[slash_cmd.name] = f"`/{slash_cmd.name}` - {slash_cmd.description}"
+                else:
+                    cmd_info[slash_cmd.name] = f"`/{slash_cmd.name}` - {slash_cmd.description}"
 
-class HelpView(discord.ui.View):
-    def __init__(self, is_admin=False):
-        super().__init__(timeout=None)
-        self.add_item(HelpDropdown(is_admin))
+        pages = []
+        for cat_name, cat_data in COMMANDS_DATA.items():
+            if cat_data.get("admin") and not self.is_admin:
+                continue
+                
+            embed = Theme.get_embed(user=self.user, title=f"{cat_data['emoji']} Help: {cat_name}")
+            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+            
+            lines = []
+            if cat_name == "Getting Started":
+                lines.append("**Welcome to DJ Scratch!**\n")
+                lines.append("**1️⃣ Link your Last.fm**\nUse `/login` to securely link your Last.fm account.\n")
+                lines.append("**2️⃣ Listen to Music**\nStart playing music on Spotify or Apple Music (ensure they are connected in your Last.fm settings).\n")
+                lines.append("**3️⃣ View your Current Song**\nType `,fm` or `/fm` in any channel to display the song you are currently listening to.\n")
+                lines.append("**4️⃣ Explore More Commands**\nTry `,ta` to see your top artists, `,tt` for top tracks, or `,wk <artist>` to see who in the server listens to an artist the most!")
+            else:
+                if "desc" in cat_data:
+                    lines.append(f"*{cat_data['desc']}*\n")
+                
+                for cmd_name in cat_data["commands"]:
+                    if cmd_name in cmd_info:
+                        lines.append(cmd_info[cmd_name])
+                    else:
+                        lines.append(f"`/{cmd_name}` - Unknown command")
+                        
+            embed.description = "\n".join(lines)
+            embed.set_footer(text=f"Page {len(pages)+1} of {len(COMMANDS_DATA) - (1 if not self.is_admin else 0)} | Use the buttons below to navigate")
+            pages.append(embed)
+            
+        return pages
 
-async def get_help_embed(user, bot_user):
+    def update_buttons(self):
+        self.prev_btn.disabled = self.current_page == 0
+        self.next_btn.disabled = self.current_page == len(self.pages) - 1
+
+    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
+        self.current_page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
+        self.current_page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+async def get_help_embed(user, bot):
     from src.core.theme import Theme
     from src.core.database import has_any_command_permission
     from src.core.config import OWNER_ID
     
     is_admin = user.id == OWNER_ID or await has_any_command_permission(str(user.id))
-    embed = Theme.get_embed(
-        title="🤖 DJ Scratch | Command Center", 
-        description="Welcome to **DJ Scratch**!\nSelect a category from the dropdown menu below to see available commands.",
-        user=user
-    )
-    embed.set_thumbnail(url=bot_user.display_avatar.url)
-    embed.set_author(name=format_name(user), icon_url=user.display_avatar.url)
-    return embed, HelpView(is_admin)
-
-# --- ADMIN COMMAND ---
+    
+    view = HelpPaginationView(user, bot, is_admin)
+    embed = view.pages[0]
+    return embed, view
+\n# --- ADMIN COMMAND ---
 
 
 
