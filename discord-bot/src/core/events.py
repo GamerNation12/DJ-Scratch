@@ -1411,7 +1411,6 @@ async def global_disabled_command_check_slash(interaction: discord.Interaction) 
     if interaction.type != discord.InteractionType.application_command:
         return True
     if not interaction.command: return True
-    if interaction.user.id == OWNER_ID: return True
     
     from src.core.database import is_command_disabled, has_command_permission
     reason = await is_command_disabled(interaction.command.name)
@@ -1461,7 +1460,6 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
 @bot.check
 async def global_disabled_command_check_prefix(ctx) -> bool:
     if not ctx.command: return True
-    if ctx.author.id == OWNER_ID: return True
     from src.core.database import is_command_disabled, has_command_permission
     reason = await is_command_disabled(ctx.command.name)
     if reason:
