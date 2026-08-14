@@ -3524,6 +3524,8 @@ class HelpPaginationView(discord.ui.View):
             
         # Fetch slash commands that have no prefix version
         for slash_cmd in self.bot.tree.get_commands():
+            if isinstance(slash_cmd, discord.app_commands.ContextMenu):
+                continue
             if slash_cmd.name not in cmd_info:
                 if isinstance(slash_cmd, discord.app_commands.Group):
                     cmd_info[slash_cmd.name] = f"`/{slash_cmd.name}` - {slash_cmd.description}"
