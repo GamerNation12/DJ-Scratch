@@ -331,6 +331,20 @@ async def has_command_permission(user_id: str, command_name: str) -> bool:
         print(f"{Log.RED}>>> Error checking command permission: {e}{Log.RESET}")
         return False
 
+async def has_any_command_permission(user_id: str) -> bool:
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            from datetime import datetime
+            row = await conn.fetchrow(
+                "SELECT 1 FROM command_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at > $2) LIMIT 1",
+                str(user_id), datetime.utcnow()
+            )
+            return bool(row)
+    except Exception as e:
+        print(f"{Log.RED}>>> Error checking any command permission: {e}{Log.RESET}")
+        return False
+
 async def get_all_command_permissions():
     if not db_pool: return []
     try:

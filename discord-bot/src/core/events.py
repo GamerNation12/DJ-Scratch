@@ -1296,6 +1296,9 @@ async def on_command(ctx):
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
+    
+    if isinstance(error, commands.NotOwner):
+        return await ctx.send("❌ You do not have permission to use this command.")
     if isinstance(error, commands.CheckFailure): return
     
     # Handle common user-facing errors
@@ -1322,11 +1325,11 @@ async def on_command_error(ctx, error):
 
 @bot.tree.error
 async def on_app_command_error_tree(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-    if isinstance(error, discord.app_commands.CheckFailure): return
-    
     msg = None
     if isinstance(error, discord.app_commands.CommandOnCooldown):
         msg = f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**."
+    elif isinstance(error, discord.app_commands.CheckFailure):
+        msg = "❌ You do not have permission to use this command."
     elif isinstance(error, discord.app_commands.MissingPermissions):
         msg = "🚫 You don't have the required permissions to use this command."
     elif isinstance(error, discord.app_commands.BotMissingPermissions):
@@ -3462,14 +3465,14 @@ async def process_killallcrowns(guild, user):
 
 
 class HelpDropdown(discord.ui.Select):
-    def __init__(self, is_owner=False):
+    def __init__(self, is_admin=False):
         options = [
             discord.SelectOption(label="🚀 Getting Started", description="Quick guide on how to set up the bot", emoji="🚀"),
             discord.SelectOption(label="🎧 Last.fm Commands", description="Commands for tracking and viewing your Last.fm stats", emoji="🎧"),
-            discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="👑"),
+            discord.SelectOption(label="👑 Server Stats", description="See who listens to what the most in the server", emoji="🔒"),
             discord.SelectOption(label="💡 Utility & Fun", description="Settings, games, and other utility commands", emoji="💡")
         ]
-        if is_owner:
+        if is_admin:
             options.append(discord.SelectOption(label="🛡️ Owner Commands", description="Admin restricted commands", emoji="🛡️"))
             
         super().__init__(placeholder="Choose a command category...", min_values=1, max_values=1, options=options)
@@ -3535,13 +3538,16 @@ class HelpDropdown(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class HelpView(discord.ui.View):
-    def __init__(self, is_owner=False):
+    def __init__(self, is_admin=False):
         super().__init__(timeout=None)
-        self.add_item(HelpDropdown(is_owner))
+        self.add_item(HelpDropdown(is_admin))
 
-def get_help_embed(user, bot_user):
+async def get_help_embed(user, bot_user):
     from src.core.theme import Theme
-    is_owner = user.id == 759433582107426816
+    from src.core.database import has_any_command_permission
+    from src.core.config import OWNER_ID
+    
+    is_admin = user.id == OWNER_ID or await has_any_command_permission(str(user.id))
     embed = Theme.get_embed(
         title="🤖 DJ Scratch | Command Center", 
         description="Welcome to **DJ Scratch**!\nSelect a category from the dropdown menu below to see available commands.",
@@ -3549,7 +3555,7 @@ def get_help_embed(user, bot_user):
     )
     embed.set_thumbnail(url=bot_user.display_avatar.url)
     embed.set_author(name=format_name(user), icon_url=user.display_avatar.url)
-    return embed, HelpView(is_owner)
+    return embed, HelpView(is_admin)
 
 # --- ADMIN COMMAND ---
 
