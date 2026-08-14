@@ -384,14 +384,17 @@ class GamesCog(commands.Cog):
 
         winner = getattr(view, 'winner', None) or (msg_out.author if msg_out else None)
 
-        if winner:
-            embed.color = Theme.SUCCESS
-            embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! It was **{album_name}** by **{artist_name}**!"
-            await message.edit(embed=embed, view=view, attachments=[final_file])
-        else:
-            embed.color = Theme.ERROR
-            embed.description = f"❌ Nobody got it right! It was **{album_name}** by **{artist_name}**."
-            await message.edit(embed=embed, view=view, attachments=[final_file])
+        try:
+            if winner:
+                embed.color = Theme.SUCCESS
+                embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! It was **{album_name}** by **{artist_name}**!"
+                await message.edit(embed=embed, view=view, attachments=[final_file])
+            else:
+                embed.color = Theme.ERROR
+                embed.description = f"❌ Nobody got it right! It was **{album_name}** by **{artist_name}**."
+                await message.edit(embed=embed, view=view, attachments=[final_file])
+        except discord.NotFound:
+            pass
 
     @app_commands.command(name="guess", description="Play a game guessing a pixelated album cover")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -501,14 +504,17 @@ class GamesCog(commands.Cog):
             
         winner = getattr(view, 'winner', None) or (msg_out.author if msg_out else None)
             
-        if winner:
-            embed.color = Theme.SUCCESS
-            embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! The artist was **{target}**!"
-            await message.edit(embed=embed, view=view)
-        else:
-            embed.color = Theme.ERROR
-            embed.description = f"❌ Nobody got it right! The artist was **{target}**."
-            await message.edit(embed=embed, view=view)
+        try:
+            if winner:
+                embed.color = Theme.SUCCESS
+                embed.description = f"<a:celebrate:1531835618013876326> **{winner.display_name}** got it right! The artist was **{target}**!"
+                await message.edit(embed=embed, view=view)
+            else:
+                embed.color = Theme.ERROR
+                embed.description = f"❌ Nobody got it right! The artist was **{target}**."
+                await message.edit(embed=embed, view=view)
+        except discord.NotFound:
+            pass
 
     @app_commands.command(name="scramble", description="Play a game unscrambling an artist's name")
     @app_commands.allowed_installs(guilds=True, users=True)
