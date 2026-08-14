@@ -1301,7 +1301,8 @@ async def on_command_error(ctx, error):
     
     if isinstance(error, commands.NotOwner):
         return await ctx.send("❌ You do not have permission to use this command.")
-    if isinstance(error, commands.CheckFailure): return
+    if isinstance(error, commands.CheckFailure):
+        return await ctx.send("❌ You do not have permission to use this command.")
     
     # Handle common user-facing errors
     usage = f"`{ctx.prefix}{ctx.command.name} {ctx.command.signature}`" if ctx.command else ""

@@ -148,6 +148,8 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         self.bot = bot
 
     async def cog_check(self, ctx):
+        if ctx.command.name == "cancel" and ctx.author.id == OWNER_ID:
+            return True
         from src.core.database import has_command_permission
         return await has_command_permission(str(ctx.author.id), ctx.command.name)
 
