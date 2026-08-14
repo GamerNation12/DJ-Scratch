@@ -106,8 +106,11 @@ class AdminIPC(commands.Cog):
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        expire_str = "permanently" if duration == "permanent" else f"in {duration}"
-                        await user.send(f"✅ **Permission Granted!**\nYou have been granted access to use the `.{command_name}` command by an administrator. Your access will expire {expire_str}.")
+                        if duration == "permanent":
+                            msg = f"✅ **Permission Granted!**\nYou have been granted access to use the `.{command_name}` command by an administrator. This permission does not expire."
+                        else:
+                            msg = f"✅ **Permission Granted!**\nYou have been granted access to use the `.{command_name}` command by an administrator. Your access will expire in {duration}."
+                        await user.send(msg)
                         await message.add_reaction("✅")
                 except Exception as e:
                     print(f"Failed to DM user {user_id} for permission grant: {e}")
