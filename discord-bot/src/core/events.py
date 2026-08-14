@@ -3588,7 +3588,7 @@ async def get_help_embed(user, bot):
     view = HelpPaginationView(user, bot, is_admin)
     embed = view.pages[0]
     return embed, view
-\n# --- ADMIN COMMAND ---
+# --- ADMIN COMMAND ---
 
 
 
