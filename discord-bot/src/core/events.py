@@ -281,7 +281,7 @@ class SuggestionFeedbackModal(discord.ui.Modal, title="Admin Feedback"):
                 pass
         try:
             log_title = "Bug Report Updated (Admin)" if self.is_bug else "Suggestion Updated (Admin)"
-            log_embed = Theme.get_embed(title=log_title, description=embed.description, color=self.action_color, timestamp=datetime.now())
+            log_embed = Theme.get_embed(title=log_title, description=embed.description, color=self.action_color)
             log_embed.add_field(name="Status", value=f"{self.action_emoji} **{self.action_status}**", inline=False)
             if feedback_text:
                 log_embed.add_field(name="Reply", value=feedback_text, inline=False)
@@ -834,7 +834,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                         title="❌ Invalid Export Package",
                         description="You uploaded the **Account Data** package, which is missing album names and contains duplicates.\\n\\nPlease go to Spotify Privacy settings and request the **Extended streaming history** instead.",
                         color=discord.Color.red(),
-                        timestamp=datetime.now()
+
                     )
                     await user.send(embed=embed)
                     return
@@ -896,7 +896,7 @@ async def process_discord_import_in_background(user, temp_filepath, is_zip, resp
                 f"You can now use bot commands like `/profile` or `/topartists`!"
             ),
             color=0x2ecc71,
-            timestamp=datetime.now()
+
         )
         await user.send(embed=embed)
 
@@ -1262,7 +1262,7 @@ async def notify_owner(ctx, err):
         LAST_ERROR_TRACEBACK = tb
         
         embed = Theme.get_embed(title="⚠️ Bot Error", color=discord.Color.red())
-        embed.timestamp = datetime.now()
+
         
         if len(tb) > 3800:
             embed.description = f"An error occurred in **{str(ctx)}**:\n*Traceback too long, attaching as file.*"
@@ -2435,7 +2435,7 @@ class TopItemsPaginator(discord.ui.View):
             lines = [f"{get_medal(start + idx)} **{name}** `[{count:,}]`" for idx, (name, count) in enumerate(page_items)]
             title = f"🏆 {format_name(self.user)}'s Top Artists ({self.disp_p})"
             
-        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now(), user=self.user)
+        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, user=self.user)
         embed.set_author(name=title, icon_url=self.user.display_avatar.url)
         embed.set_thumbnail(url=self.user.display_avatar.url)
         
@@ -2635,7 +2635,7 @@ class ArtistTracksPaginator(discord.ui.View):
 
         lines = [f"{get_medal(start + idx)} **{t}** `[{c:,}]`" for idx, (t, c) in enumerate(page_tracks)]
         
-        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now(), user=self.user)
+        embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, user=self.user)
         embed.set_author(name=f"🏆 Your top tracks for '{self.artist_name}'", icon_url=self.user.display_avatar.url)
         
         footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_tracks)} different tracks\n{format_name(self.user)} has {self.total_plays:,} total artist plays"
@@ -2729,7 +2729,7 @@ async def process_recent(user):
                 track_formatted = f"**{track_name}**{ts}"
                 lines.append(f"{prefix} {track_formatted} — *{artist_name}*")
                 
-            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR)
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks", icon_url=user.display_avatar.url)
             
             # Use album art for thumbnail if available
@@ -2749,7 +2749,7 @@ async def process_recent(user):
         local = await get_local_recent_tracks(user.id, 10)
         if local:
             lines = [f"` {i+1}. ` **{t}**" + (f" <t:{int(ts.timestamp())}:R>" if ts else "") + f" — *{a}*" for i, (t, a, ts) in enumerate(local)]
-            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+            embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR)
             embed.set_author(name=f"{format_name(user)}'s Recent Tracks *(Imported)*", icon_url=user.display_avatar.url)
             embed.set_thumbnail(url=user.display_avatar.url)
             embed.set_footer(text=f"Requested by {format_name(user)} • Using Imported Data", icon_url=user.display_avatar.url)
@@ -2866,7 +2866,7 @@ async def process_judge(user):
         embed = Theme.get_embed(
             description=roast_text,
             color=0xFF7A01,
-            timestamp=datetime.now()
+
         )
         embed.set_author(name=f"{format_name(user)}'s .fmbot AI judgement - Roast 🔥", icon_url=user.display_avatar.url)
         embed.set_footer(text="Powered by Groq")
@@ -2900,7 +2900,7 @@ async def process_profile(user):
 
     view = None
 
-    embed = Theme.get_embed(color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(color=LASTFM_COLOR)
     embed.set_author(name=f"{format_name(user)}'s Profile", icon_url=user.display_avatar.url)
 
     if username:
@@ -3105,7 +3105,7 @@ async def process_whoknows(guild, user, artist_name):
 
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
     user_color = await get_color(user.id)
-    embed = Theme.get_embed(description=chr(10).join(lines), color=user_color, timestamp=datetime.now())
+    embed = Theme.get_embed(description=chr(10).join(lines), color=user_color)
     embed.set_author(name=f"Who knows {artist_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
@@ -3158,7 +3158,7 @@ async def process_whoknowstrack(guild, user, query):
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
     
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
-    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR)
     embed.set_author(name=f"Who knows {artist_name} - {track_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
@@ -3213,7 +3213,7 @@ async def process_whoknowsalbum(guild, user, query):
     lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
     
     lines = [f"{get_medal(i)} **{u['name']}** — **{u['plays']:,}** plays" for i, u in enumerate(lb[:15])]
-    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR, timestamp=datetime.now())
+    embed = Theme.get_embed(description=chr(10).join(lines), color=LASTFM_COLOR)
     embed.set_author(name=f"Who knows {artist_name} - {album_name} in {guild.name}?", icon_url=guild.icon.url if guild.icon else None)
     embed.set_thumbnail(url=user.display_avatar.url)
     
@@ -3320,7 +3320,7 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
         embed_title = "🐛 New Bug Report" if is_bug else "💡 New Bot Suggestion"
         embed_color = discord.Color.red() if is_bug else discord.Color.gold()
         
-        embed = Theme.get_embed(title=embed_title, description=suggestion_text, color=embed_color, timestamp=datetime.now())
+        embed = Theme.get_embed(title=embed_title, description=suggestion_text, color=embed_color)
         embed.set_author(name=f"{format_name(user)} ({user.id})", icon_url=user.display_avatar.url)
         guild_name = ctx_int.guild.name if getattr(ctx_int, 'guild', None) else "DMs / User App"
         embed.set_footer(text=f"Sent from: {guild_name} | Saved to Dashboard")
@@ -3669,7 +3669,7 @@ class PurgeConfirmView(discord.ui.View):
                 f"All your data has been completely and permanently erased!"
             ),
             color=discord.Color.red(),
-            timestamp=datetime.now()
+
         )
         await interaction.edit_original_response(embed=embed, view=None)
 

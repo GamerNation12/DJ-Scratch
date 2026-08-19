@@ -78,7 +78,7 @@ async def process_global_whoknows(user, artist_name, bot):
     lines, final_lb = await enhance_global_leaderboard(bot, lb, user, artist_name)
     
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Global Who Knows {artist_name}?", icon_url=user.display_avatar.url)
     
     footer_text = f"Requested by {format_name(user)}"
@@ -109,7 +109,7 @@ async def process_global_whoknowstrack(user, query, bot):
     lines, final_lb = await enhance_global_leaderboard(bot, lb, user, artist_name, track_name=track_name)
         
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Global Who Knows {track_name} by {artist_name}?", icon_url=user.display_avatar.url)
     embed.set_footer(text=f"Requested by {format_name(user)}")
     return embed, None
@@ -137,7 +137,7 @@ async def process_global_whoknowsalbum(user, query, bot):
     lines, final_lb = await enhance_global_leaderboard(bot, lb, user, artist_name, album_name=album_name)
         
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Global Who Knows {album_name} by {artist_name}?", icon_url=user.display_avatar.url)
     embed.set_footer(text=f"Requested by {format_name(user)}")
     return embed, None

@@ -15,7 +15,7 @@ async def process_server_artists(guild, user, period='overall'):
     
     lines = [f"` {i+1}. ` **{artist}** — **{plays:,}** plays" for i, (artist, plays) in enumerate(lb)]
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Top Artists in {guild.name}", icon_url=guild.icon.url if guild.icon else None)
     embed.set_footer(text=f"Requested by {format_name(user)}")
     return embed, None
@@ -32,7 +32,7 @@ async def process_server_albums(guild, user, period='overall'):
     
     lines = [f"` {i+1}. ` **{album}** by **{artist}** — **{plays:,}** plays" for i, (album, artist, plays) in enumerate(lb)]
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Top Albums in {guild.name}", icon_url=guild.icon.url if guild.icon else None)
     embed.set_footer(text=f"Requested by {format_name(user)}")
     return embed, None
@@ -49,7 +49,7 @@ async def process_server_tracks(guild, user, period='overall'):
     
     lines = [f"` {i+1}. ` **{track}** by **{artist}** — **{plays:,}** plays" for i, (track, artist, plays) in enumerate(lb)]
     color = await get_color(user.id)
-    embed = Theme.get_embed(description="\n".join(lines), color=color, timestamp=datetime.now())
+    embed = Theme.get_embed(description="\n".join(lines), color=color)
     embed.set_author(name=f"Top Tracks in {guild.name}", icon_url=guild.icon.url if guild.icon else None)
     embed.set_footer(text=f"Requested by {format_name(user)}")
     return embed, None

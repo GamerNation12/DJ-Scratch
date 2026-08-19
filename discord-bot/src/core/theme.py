@@ -27,8 +27,8 @@ class Theme:
             **kwargs
         )
         
-        if include_timestamp:
-            embed.timestamp = datetime.utcnow()
+        if include_timestamp and 'timestamp' not in kwargs:
+            embed.timestamp = discord.utils.utcnow()
             
         embed.set_footer(text=cls.FOOTER_TEXT)
         return embed

@@ -91,7 +91,7 @@ class InfoCog(commands.Cog):
         server_count = len(self.bot.guilds)
         total_members = sum(g.member_count for g in self.bot.guilds if g.member_count)
         
-        embed = Theme.get_embed(title="🤖 Bot Status", user=interaction.user, timestamp=datetime.utcnow())
+        embed = Theme.get_embed(title="🤖 Bot Status", user=interaction.user)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         
         embed.add_field(name="🟢 Uptime", value=f"`{uptime_str}`", inline=True)
