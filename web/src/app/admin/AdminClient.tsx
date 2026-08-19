@@ -115,30 +115,11 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
       .catch(console.error);
   };
 
-  const fetchLockedCommands = async () => {
-    try {
-      const res = await fetchApi("/api/admin/locked-commands");
-      if (res.ok) {
-        const data = await res.json();
-        setLockedCommands(data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch locked commands");
-    }
-  };
 
   useEffect(() => {
     fetchCommits();
     const interval = setInterval(fetchCommits, 10000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchUsersList();
-    fetchRole();
-    fetchStats();
-    fetchPermissionsList();
-    fetchLockedCommands();
   }, []);
 
   useEffect(() => {
