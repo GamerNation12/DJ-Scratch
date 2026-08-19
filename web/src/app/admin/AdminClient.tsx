@@ -417,7 +417,6 @@ export default function AdminClient() {
   const [permCommand, setPermCommand] = useState("");
   const [permDuration, setPermDuration] = useState("permanent");
   const [loadingPerms, setLoadingPerms] = useState(false);
-  const [lockedCommands, setLockedCommands] = useState<string[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   
