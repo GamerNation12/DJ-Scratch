@@ -134,7 +134,7 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
   }, []);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsersList();
     fetchRole();
     fetchStats();
     fetchPermissionsList();
