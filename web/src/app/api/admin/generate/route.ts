@@ -61,9 +61,10 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
+      let errorData;
+      try { errorData = await res.json(); } catch(e) { errorData = await res.text(); }
       console.error("Groq API Error:", errorData);
-      return NextResponse.json({ error: "Failed to generate AI message" }, { status: res.status });
+      return NextResponse.json({ error: "Groq API Failed", details: errorData }, { status: 502 });
     }
 
     const data = await res.json();
