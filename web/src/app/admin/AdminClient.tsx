@@ -118,7 +118,7 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
 
   useEffect(() => {
     fetchCommits();
-    const interval = setInterval(fetchCommits, 10000);
+    const interval = setInterval(fetchCommits, 60000);
     return () => clearInterval(interval);
   }, []);
 
