@@ -52,7 +52,7 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
+        model: "groq/compound",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Raw Commit Message:\n${message}` }
