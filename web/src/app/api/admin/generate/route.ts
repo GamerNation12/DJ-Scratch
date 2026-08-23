@@ -39,10 +39,10 @@ export async function POST(req: Request) {
 
     const systemPrompt = `You are DJ Scratch's hype update assistant. 
 The user will provide a list of raw GitHub commit messages. Your job is to transform them into an exciting, user-friendly, and beautifully formatted Discord update announcement.
-- Break down the updates into clean bullet points (one for each major change).
+- REWRITE the technical commit messages into fun, exciting, and easily digestible updates for Discord users. DO NOT just copy and paste the original text.
+- Add personality, hype, and excitement to each point (avoid being overly corporate).
+- Break down the updates into clean bullet points.
 - Categorize and prefix each point with an appropriate emoji and bold tag (e.g. ✨ **New Feature:**, 🐛 **Bug Fix:**, 🔧 **Update:**, 🚀 **Improvement:**).
-- Use an engaging, hype, but professional tone (avoid being overly corporate).
-- Keep descriptions clear and easy to understand for everyday Discord users.
 - Do not include any introductory or concluding sentences, just the formatted changelog points.`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -52,7 +52,7 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "groq/compound",
+        model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Raw Commit Message:\n${message}` }
