@@ -29,6 +29,26 @@ def deploy():
             ".env" # Keep .env in root for local testing
         ]
         
+        def upload_file_with_retry(local_path, remote_path, retries=3):
+            nonlocal transport, sftp
+            for attempt in range(retries):
+                try:
+                    sftp.put(local_path, remote_path)
+                    return
+                except Exception as e:
+                    print(f"Upload failed for {local_path}: {e}. Retrying ({attempt+1}/{retries})...")
+                    import time
+                    time.sleep(2)
+                    try:
+                        # Reconnect if connection dropped
+                        transport.close()
+                        transport = paramiko.Transport((host, port))
+                        transport.connect(username=username, password=password)
+                        sftp = paramiko.SFTPClient.from_transport(transport)
+                    except:
+                        pass
+            raise Exception(f"Failed to upload {local_path} after {retries} attempts.")
+
         def upload_dir(local_dir, remote_dir):
             try:
                 sftp.mkdir(remote_dir)
@@ -43,7 +63,7 @@ def deploy():
                 
                 if os.path.isfile(local_path):
                     print(f"Uploading {local_path} -> {remote_path}")
-                    sftp.put(local_path, remote_path)
+                    upload_file_with_retry(local_path, remote_path)
                 elif os.path.isdir(local_path):
                     upload_dir(local_path, remote_path)
 
@@ -53,11 +73,12 @@ def deploy():
             remote_path = f"/{item.replace('discord-bot/', '')}"
             if os.path.isfile(local_path):
                 print(f"Uploading {local_path} -> {remote_path}")
-                sftp.put(local_path, remote_path)
+                upload_file_with_retry(local_path, remote_path)
             elif os.path.isdir(local_path):
                 upload_dir(local_path, remote_path)
                 
         # Write restart flag to tell the bot to restart
+
         try:
             with sftp.file('/.restart_flag', 'w') as f:
                 f.write('restart')
