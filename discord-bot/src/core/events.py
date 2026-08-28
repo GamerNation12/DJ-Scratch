@@ -1629,16 +1629,25 @@ class FMDetailsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         preview_embed = Theme.get_embed(
             title="Bot Avatar Preview", 
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
         preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
-        preview_embed.set_image(url=self.img)
+        
+        from src.utils.images import get_circular_pfp_file
+        pfp_file = await get_circular_pfp_file(self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=self.original_msg, original_user=self.user, track=self.song)
-        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+        
+        if pfp_file:
+            preview_embed.set_image(url="attachment://pfp_preview.png")
+            await interaction.followup.send(file=pfp_file, embed=preview_embed, view=apply_view, ephemeral=True)
+        else:
+            preview_embed.set_image(url=self.img)
+            await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
 
 class FMActionsView(discord.ui.View):
     def __init__(self, bot_instance, artist, img, is_p=False, cd=0, user=None, spotify_url=None, song=None, current_mode="full", track_data=None):
@@ -1729,16 +1738,25 @@ class FMActionsView(discord.ui.View):
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
     async def preview_avatar(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         preview_embed = Theme.get_embed(
             title="Bot Avatar Preview", 
             description=f"This is how the bot will look if you apply the album art for **{self.artist}**.", 
             color=LASTFM_COLOR
         )
         preview_embed.set_author(name=format_name(self.user), icon_url=self.img)
-        preview_embed.set_image(url=self.img)
+        
+        from src.utils.images import get_circular_pfp_file
+        pfp_file = await get_circular_pfp_file(self.img)
         
         apply_view = ApplyAvatarView(self.bot_instance, self.artist, self.img, original_msg=interaction.message, original_user=self.user, track=self.song)
-        await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+        
+        if pfp_file:
+            preview_embed.set_image(url="attachment://pfp_preview.png")
+            await interaction.followup.send(file=pfp_file, embed=preview_embed, view=apply_view, ephemeral=True)
+        else:
+            preview_embed.set_image(url=self.img)
+            await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
 
 async def update_bot_avatar_and_status(bot_instance, artist, img, track=None, album=None):
     try:
@@ -4117,6 +4135,8 @@ async def on_interaction(interaction: discord.Interaction):
                     await interaction.response.send_message(f"Please re-run the `/fm` command to preview the avatar for **{artist}** (Image not found).", ephemeral=True)
                     return
                 
+                await interaction.response.defer(ephemeral=True)
+                
                 preview_embed = Theme.get_embed(
                     title="Bot Avatar Preview", 
                     description=f"This is how the bot will look if you apply the album art for **{artist}**.", 
@@ -4124,14 +4144,22 @@ async def on_interaction(interaction: discord.Interaction):
                 )
                 from src.core.database import format_name
                 preview_embed.set_author(name=format_name(target_user), icon_url=img_url)
-                preview_embed.set_image(url=img_url)
+                
+                from src.utils.images import get_circular_pfp_file
+                pfp_file = await get_circular_pfp_file(img_url)
                 
                 track_data = None
                 if unique_id:
                     track_data = FM_TRACK_CACHE.get(unique_id)
                 
                 apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None, track_data=track_data)
-                await interaction.response.send_message(embed=preview_embed, view=apply_view, ephemeral=True)
+                
+                if pfp_file:
+                    preview_embed.set_image(url="attachment://pfp_preview.png")
+                    await interaction.followup.send(file=pfp_file, embed=preview_embed, view=apply_view, ephemeral=True)
+                else:
+                    preview_embed.set_image(url=img_url)
+                    await interaction.followup.send(embed=preview_embed, view=apply_view, ephemeral=True)
 
 async def process_chart(user, target_user, size: str = '3x3', period: str = 'overall'):
     import re

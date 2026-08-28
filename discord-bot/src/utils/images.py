@@ -108,3 +108,35 @@ def process_profile_images(image_bytes):
         print(f"{Log.RED}>>> Error processing profile images: {e}{Log.RESET}")
         return image_bytes
 
+async def get_circular_pfp_file(url):
+    """Downloads image from url, processes it as pfp, applies circular mask, returns discord.File."""
+    import discord
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    image_bytes = await resp.read()
+                    
+                    avatar_bytes = process_profile_images(image_bytes)
+                    
+                    with Image.open(io.BytesIO(avatar_bytes)) as img:
+                        img = img.convert("RGBA")
+                        
+                        # Create anti-aliased circular mask
+                        mask = Image.new('L', (img.size[0] * 3, img.size[1] * 3), 0)
+                        draw = ImageDraw.Draw(mask)
+                        draw.ellipse((0, 0, mask.size[0], mask.size[1]), fill=255)
+                        mask = mask.resize(img.size, Image.Resampling.LANCZOS)
+                        
+                        result = img.copy()
+                        result.putalpha(mask)
+                        
+                        buf = io.BytesIO()
+                        result.save(buf, format='PNG')
+                        buf.seek(0)
+                        
+                        return discord.File(buf, filename="pfp_preview.png")
+    except Exception as e:
+        print(f"{Log.RED}>>> Error getting circular pfp: {e}{Log.RESET}")
+    return None

@@ -212,10 +212,19 @@ class LastFmCog(commands.Cog):
                                 color=LASTFM_COLOR
                             )
                             preview_embed.set_author(name=format_name(interaction.user), icon_url=img)
-                            preview_embed.set_image(url=img)
+                            
+                            from src.utils.images import get_circular_pfp_file
+                            pfp_file = await get_circular_pfp_file(img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=interaction.user, track=song, album=album)
-                            msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True, wait=True)
+                            
+                            if pfp_file:
+                                preview_embed.set_image(url="attachment://pfp_preview.png")
+                                msg = await interaction.followup.send(content=status_msg, file=pfp_file, embed=preview_embed, view=view, ephemeral=True, wait=True)
+                            else:
+                                preview_embed.set_image(url=img)
+                                msg = await interaction.followup.send(content=status_msg, embed=preview_embed, view=view, ephemeral=True, wait=True)
+                                
                             view.original_msg = msg
                             return
         except Exception as e:
@@ -640,10 +649,19 @@ class LastFmCog(commands.Cog):
                                 color=LASTFM_COLOR
                             )
                             preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
-                            preview_embed.set_image(url=img)
+                            
+                            from src.utils.images import get_circular_pfp_file
+                            pfp_file = await get_circular_pfp_file(img)
                             
                             view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song, album=album)
-                            msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                            
+                            if pfp_file:
+                                preview_embed.set_image(url="attachment://pfp_preview.png")
+                                msg = await ctx.send(content=status_msg, file=pfp_file, embed=preview_embed, view=view)
+                            else:
+                                preview_embed.set_image(url=img)
+                                msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                                
                             view.original_msg = msg
                             return
         except Exception as e:
@@ -693,10 +711,19 @@ class LastFmCog(commands.Cog):
                             color=LASTFM_COLOR
                         )
                         preview_embed.set_author(name=format_name(ctx.author), icon_url=img)
-                        preview_embed.set_image(url=img)
+                        
+                        from src.utils.images import get_circular_pfp_file
+                        pfp_file = await get_circular_pfp_file(img)
                         
                         view = ApplyAvatarView(self.bot, artist, img, original_user=ctx.author, track=song, album=album)
-                        msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                        
+                        if pfp_file:
+                            preview_embed.set_image(url="attachment://pfp_preview.png")
+                            msg = await ctx.send(content=status_msg, file=pfp_file, embed=preview_embed, view=view)
+                        else:
+                            preview_embed.set_image(url=img)
+                            msg = await ctx.send(content=status_msg, embed=preview_embed, view=view)
+                            
                         view.original_msg = msg
                         return
         except Exception as e:
