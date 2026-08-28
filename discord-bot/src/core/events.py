@@ -28,7 +28,7 @@ class Log:
 load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True  
-intents.presences = True  
+intents.presences = False  
 intents.members = True    
 
 class CustomTree(app_commands.CommandTree):
@@ -55,7 +55,7 @@ async def get_prefix(client, message):
     except Exception: pass
     return default_prefix
 
-bot = commands.Bot(command_prefix=get_prefix, intents=intents, tree_cls=CustomTree)
+bot = commands.Bot(command_prefix=get_prefix, intents=intents, tree_cls=CustomTree, max_messages=50)
 bot.is_restarting = False
 bot.remove_command('help')
 
