@@ -1,5 +1,7 @@
 import os
 import paramiko
+import time
+import random
 from dotenv import load_dotenv
 
 def deploy():
@@ -15,8 +17,10 @@ def deploy():
 
     import sys
     try:
+        # Initial connection with timeout
         transport = paramiko.Transport((host, port))
-        transport.connect(username=username, password=password)
+        transport.set_gss_auth(False)
+        transport.connect(username=username, password=password, timeout=30)
         sftp = paramiko.SFTPClient.from_transport(transport)
         print("Connected! Syncing files...")
         
@@ -29,25 +33,51 @@ def deploy():
             ".env" # Keep .env in root for local testing
         ]
         
-        def upload_file_with_retry(local_path, remote_path, retries=3):
+        def reconnect():
+            """Attempt to reconnect to the server"""
             nonlocal transport, sftp
-            for attempt in range(retries):
+            try:
+                transport.close()
+            except:
+                pass
+            
+            time.sleep(1)
+            transport = paramiko.Transport((host, port))
+            transport.set_gss_auth(False)
+            transport.connect(username=username, password=password, timeout=30)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            print("Reconnected to server")
+        
+        def upload_file_with_retry(local_path, remote_path, max_retries=5):
+            """Upload file with exponential backoff retry logic"""
+            base_delay = 1
+            
+            for attempt in range(max_retries):
                 try:
+                    # Check connection health before upload
+                    try:
+                        sftp.stat('/')
+                    except:
+                        print(f"Connection lost, reconnecting...")
+                        reconnect()
+                    
                     sftp.put(local_path, remote_path)
+                    print(f"✓ Uploaded {local_path}")
                     return
                 except Exception as e:
-                    print(f"Upload failed for {local_path}: {e}. Retrying ({attempt+1}/{retries})...")
-                    import time
-                    time.sleep(2)
-                    try:
-                        # Reconnect if connection dropped
-                        transport.close()
-                        transport = paramiko.Transport((host, port))
-                        transport.connect(username=username, password=password)
-                        sftp = paramiko.SFTPClient.from_transport(transport)
-                    except:
-                        pass
-            raise Exception(f"Failed to upload {local_path} after {retries} attempts.")
+                    if attempt < max_retries - 1:
+                        # Exponential backoff with jitter
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"✗ Upload failed for {local_path}: {str(e)[:80]}. Retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        time.sleep(delay)
+                        
+                        # Try to reconnect before next attempt
+                        try:
+                            reconnect()
+                        except Exception as reconnect_err:
+                            print(f"Reconnection failed: {reconnect_err}")
+                    else:
+                        raise Exception(f"Failed to upload {local_path} after {max_retries} attempts.")
 
         def upload_dir(local_dir, remote_dir):
             try:
@@ -78,21 +108,23 @@ def deploy():
                 upload_dir(local_path, remote_path)
                 
         # Write restart flag to tell the bot to restart
-
         try:
             with sftp.file('/.restart_flag', 'w') as f:
                 f.write('restart')
-            print("Wrote .restart_flag to remote server.")
+            print("✓ Wrote .restart_flag to remote server.")
         except Exception as e:
-            print(f"Could not write .restart_flag: {e}")
+            print(f"⚠ Could not write .restart_flag: {e}")
 
-        print("Deployment successful!")
+        print("✓ Deployment successful!")
     except Exception as e:
-        print(f"Deployment failed: {e}")
+        print(f"✗ Deployment failed: {e}")
         sys.exit(1)
     finally:
         if 'transport' in locals():
-            transport.close()
+            try:
+                transport.close()
+            except:
+                pass
 
 if __name__ == "__main__":
     deploy()
