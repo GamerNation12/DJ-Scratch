@@ -1053,23 +1053,22 @@ async def spotify_track_length_scanner():
                         # Split URIs into chunks of 50 for Spotify API
                         chunks = [uris[i:i + 50] for i in range(0, len(uris), 50)]
                         
-                        # Fetch all chunks concurrently
-                        tasks = [fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID)) for chunk in chunks]
-                        results = await asyncio.gather(*tasks, return_exceptions=True)
-                        
-                        # Merge durations
                         durations = {}
                         api_failed = False
-                        for res in results:
+                        
+                        for chunk in chunks:
+                            res = await fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID))
                             if res is None or isinstance(res, Exception):
                                 api_failed = True
                                 break
                             if isinstance(res, dict):
                                 durations.update(res)
+                            await asyncio.sleep(0.5)
                                 
                         if api_failed:
-                            print(f"{Log.RED}>>> [BACKGROUND SCANNER] Spotify API requires Premium! Scanner is permanently paused until bot is restarted.{Log.RESET}")
-                            break
+                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API fetch failed (403/429). Scanner is temporarily pausing for 60s.{Log.RESET}")
+                            await asyncio.sleep(60)
+                            continue
                         
                         delete_ctids = []
                         update_ctids = []
