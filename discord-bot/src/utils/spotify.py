@@ -46,17 +46,136 @@ async def get_spotify_token():
                     _spotify_access_token = json_data['access_token']
                     expires_in = json_data['expires_in']
                     _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
+import aiohttp
+import asyncio
+import os
+import base64
+from datetime import datetime, timedelta
+
+_spotify_access_token = None
+_spotify_token_expires = None
+_spotify_lock = asyncio.Lock()
+_spotify_session = None
+
+async def get_spotify_session():
+    global _spotify_session
+    if _spotify_session is None or _spotify_session.closed:
+        _spotify_session = aiohttp.ClientSession()
+    return _spotify_session
+
+async def get_spotify_token():
+    global _spotify_access_token, _spotify_token_expires
+    
+    async with _spotify_lock:
+        if _spotify_access_token and _spotify_token_expires and datetime.now() < _spotify_token_expires:
+            return _spotify_access_token
+            
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            return None
+            
+        auth_string = f"{client_id}:{client_secret}"
+        auth_bytes = auth_string.encode('utf-8')
+        auth_base64 = str(base64.b64encode(auth_bytes), 'utf-8')
+        
+        url = "https://accounts.spotify.com/api/token"
+        headers = {
+            "Authorization": f"Basic {auth_base64}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        data = {"grant_type": "client_credentials"}
+        
+        try:
+            session = await get_spotify_session()
+            async with session.post(url, headers=headers, data=data) as resp:
+                if resp.status == 200:
+                    json_data = await resp.json()
+                    _spotify_access_token = json_data['access_token']
+                    expires_in = json_data['expires_in']
+                    _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
                     return _spotify_access_token
         except Exception as e:
             print(f"Error fetching Spotify token: {e}")
             
         return None
 
-async def fetch_spotify_track_durations(uris: list):
+async def get_user_spotify_token(user_id: str):
+    from src.core.database import db_pool
+    if not db_pool:
+        return None
+        
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow('''
+            SELECT spotify_access_token, spotify_refresh_token, spotify_token_expires_at 
+            FROM user_settings 
+            WHERE user_id = $1
+        ''', str(user_id))
+        
+        if not row or not row['spotify_access_token']:
+            return None
+            
+        access_token = row['spotify_access_token']
+        refresh_token = row['spotify_refresh_token']
+        expires_at = row['spotify_token_expires_at']
+        
+        # Check if token is expired (or expires in the next 10 seconds)
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        # Convert naive expires_at to UTC aware for comparison
+        if expires_at:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+        
+        if expires_at and now >= expires_at - datetime.timedelta(seconds=10):
+            # Token is expired, we must refresh it!
+            import os
+            client_id = os.getenv('SPOTIFY_CLIENT_ID')
+            client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
+            if not client_id or not client_secret:
+                return None
+                
+            import aiohttp
+            import base64
+            auth_str = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+            
+            session = await get_spotify_session()
+            async with session.post('https://accounts.spotify.com/api/token', headers={
+                'Authorization': f'Basic {auth_str}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }, data={
+                'grant_type': 'refresh_token',
+                'refresh_token': refresh_token
+            }) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    access_token = data['access_token']
+                    new_refresh = data.get('refresh_token', refresh_token)
+                    new_expires = now + datetime.timedelta(seconds=data['expires_in'])
+                        
+                    await conn.execute('''
+                        UPDATE user_settings 
+                        SET spotify_access_token = $1, 
+                            spotify_refresh_token = $2, 
+                            spotify_token_expires_at = $3 
+                        WHERE user_id = $4
+                    ''', access_token, new_refresh, new_expires.replace(tzinfo=None), str(user_id))
+                else:
+                    # Refresh failed, user needs to login again
+                    return None
+                    
+    return access_token
+
+async def fetch_spotify_track_durations(uris: list, user_id: str = None):
     """Fetches durations for a list of Spotify track URIs (max 50). Returns dict of {uri: duration_ms}"""
     if not uris: return {}
     
-    token = await get_spotify_token()
+    token = None
+    if user_id:
+        token = await get_user_spotify_token(user_id)
+    
+    if not token:
+        token = await get_spotify_token()
+        
     if not token: return {}
     
     # Extract IDs from URIs (spotify:track:ID)
@@ -109,80 +228,22 @@ async def fetch_user_currently_playing(user_id: str):
     Handles token refreshing automatically.
     Returns: (progress_sec, duration_sec) (float seconds) or (0.0, 0.0) if not playing or not linked.
     """
-    from src.core.database import db_pool
-    if not db_pool:
+    access_token = await get_user_spotify_token(user_id)
+    if not access_token:
         return (0.0, 0.0)
         
-    async with db_pool.acquire() as conn:
-        row = await conn.fetchrow('''
-            SELECT spotify_access_token, spotify_refresh_token, spotify_token_expires_at 
-            FROM user_settings 
-            WHERE user_id = $1
-        ''', str(user_id))
-        
-        if not row or not row['spotify_access_token']:
-            return (0.0, 0.0)
-            
-        access_token = row['spotify_access_token']
-        refresh_token = row['spotify_refresh_token']
-        expires_at = row['spotify_token_expires_at']
-        
-        # Check if token is expired (or expires in the next 10 seconds)
-        import datetime
-        now = datetime.datetime.now(datetime.timezone.utc)
-        # Convert naive expires_at to UTC aware for comparison
-        if expires_at:
-            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
-        
-        if expires_at and now >= expires_at - datetime.timedelta(seconds=10):
-            # Token is expired, we must refresh it!
-            import os
-            client_id = os.getenv('SPOTIFY_CLIENT_ID')
-            client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
-            if not client_id or not client_secret:
-                return (0.0, 0.0)
-                
-            import aiohttp
-            import base64
-            auth_str = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-            
-            session = await get_spotify_session()
-            async with session.post('https://accounts.spotify.com/api/token', headers={
-                'Authorization': f'Basic {auth_str}',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }, data={
-                'grant_type': 'refresh_token',
-                'refresh_token': refresh_token
-            }) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    access_token = data['access_token']
-                    new_refresh = data.get('refresh_token', refresh_token)
-                    new_expires = now + datetime.timedelta(seconds=data['expires_in'])
-                        
-                    await conn.execute('''
-                        UPDATE user_settings 
-                        SET spotify_access_token = $1, 
-                            spotify_refresh_token = $2, 
-                            spotify_token_expires_at = $3 
-                        WHERE user_id = $4
-                    ''', access_token, new_refresh, new_expires.replace(tzinfo=None), str(user_id))
-                else:
-                    # Refresh failed, user needs to login again
-                    return (0.0, 0.0)
-                        
-        # Now fetch the currently playing track!
-        session = await get_spotify_session()
-        async with session.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
-            'Authorization': f'Bearer {access_token}'
-        }) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                if data and data.get('is_playing') and 'progress_ms' in data:
-                    progress = data['progress_ms'] / 1000.0
-                    duration = 0.0
-                    if 'item' in data and data['item'] and 'duration_ms' in data['item']:
-                        duration = data['item']['duration_ms'] / 1000.0
-                    return (progress, duration)
-                        
+    # Now fetch the currently playing track!
+    session = await get_spotify_session()
+    async with session.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
+        'Authorization': f'Bearer {access_token}'
+    }) as resp:
+        if resp.status == 200:
+            data = await resp.json()
+            if data and data.get('is_playing') and 'progress_ms' in data:
+                progress = data['progress_ms'] / 1000.0
+                duration = 0.0
+                if 'item' in data and data['item'] and 'duration_ms' in data['item']:
+                    duration = data['item']['duration_ms'] / 1000.0
+                return (progress, duration)
+                    
     return (0.0, 0.0)

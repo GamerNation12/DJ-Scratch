@@ -1054,7 +1054,7 @@ async def spotify_track_length_scanner():
                         chunks = [uris[i:i + 50] for i in range(0, len(uris), 50)]
                         
                         # Fetch all chunks concurrently
-                        tasks = [fetch_spotify_track_durations(chunk) for chunk in chunks]
+                        tasks = [fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID)) for chunk in chunks]
                         results = await asyncio.gather(*tasks, return_exceptions=True)
                         
                         # Merge durations
