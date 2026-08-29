@@ -1613,11 +1613,11 @@ class FMDetailsView(discord.ui.View):
         self.original_msg = original_msg
         
         if spotify_url:
-            self.add_item(discord.ui.Button(label="Listen on Spotify", url=spotify_url, emoji="🎧", style=discord.ButtonStyle.link))
+            self.add_item(discord.ui.Button(label="", url=spotify_url, emoji="<a:movingnotes:1476084305229910159>", style=discord.ButtonStyle.link))
             
         if song and artist:
             custom_lyric = f"fm_lyrics:{artist[:40]}:{song[:40]}"
-            btn_lyrics = discord.ui.Button(label="", emoji="📝", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
+            btn_lyrics = discord.ui.Button(label="", emoji="<:lyrics:1543145005357604895>", style=discord.ButtonStyle.secondary, custom_id=custom_lyric)
             self.add_item(btn_lyrics)
             
         if is_p and img and cd <= 0:
