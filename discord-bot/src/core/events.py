@@ -1101,8 +1101,14 @@ async def spotify_track_length_scanner():
                             print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {processed_this_batch} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
                         
                         if hit_rate_limit:
-                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API rate-limited (429). Pausing for 30s to let limit reset...{Log.RESET}")
-                            await asyncio.sleep(30)
+                            from src.utils.spotify import _spotify_rate_limit_until
+                            if _spotify_rate_limit_until and datetime.now() < _spotify_rate_limit_until:
+                                wait_secs = int((_spotify_rate_limit_until - datetime.now()).total_seconds()) + 1
+                                print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API rate-limited (429). Pausing for {wait_secs}s to let limit reset...{Log.RESET}")
+                                await asyncio.sleep(wait_secs)
+                            else:
+                                print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API request or auth refresh failed. Re-link Spotify if this persists. Pausing for 30s...{Log.RESET}")
+                                await asyncio.sleep(30)
                         else:
                             await asyncio.sleep(0.1)
                     else:

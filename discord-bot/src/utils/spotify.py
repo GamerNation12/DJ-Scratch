@@ -112,7 +112,8 @@ async def get_user_spotify_token(user_id: str):
                         WHERE user_id = $4
                     ''', access_token, new_refresh, new_expires.replace(tzinfo=None), str(user_id))
                 else:
-                    # Refresh failed, user needs to login again
+                    err_body = await resp.text()
+                    print(f"Spotify token refresh failed ({resp.status}): {err_body}")
                     return None
                     
     return access_token
@@ -120,7 +121,7 @@ async def get_user_spotify_token(user_id: str):
 _spotify_rate_limit_until = None
 
 async def fetch_spotify_track_durations(uris: list, user_id: str = None):
-    """Fetches durations for a list of Spotify track URIs (max 50). Returns dict of {uri: duration_ms}"""
+    """Fetches durations for a list of Spotify track URIs (max 50). Returns dict of {uri: duration_ms} or None on error"""
     global _spotify_rate_limit_until
     if not uris: return {}
     
@@ -134,7 +135,8 @@ async def fetch_spotify_track_durations(uris: list, user_id: str = None):
     if not token:
         token = await get_spotify_token()
         
-    if not token: return {}
+    if not token:
+        return None
     
     # Extract IDs from URIs (spotify:track:ID)
     ids = []
