@@ -19,7 +19,6 @@ def deploy():
     try:
         # Initial connection with timeout
         transport = paramiko.Transport((host, port))
-        transport.set_gss_auth(False)
         transport.connect(username=username, password=password, timeout=30)
         sftp = paramiko.SFTPClient.from_transport(transport)
         print("Connected! Syncing files...")
@@ -43,7 +42,6 @@ def deploy():
             
             time.sleep(1)
             transport = paramiko.Transport((host, port))
-            transport.set_gss_auth(False)
             transport.connect(username=username, password=password, timeout=30)
             sftp = paramiko.SFTPClient.from_transport(transport)
             print("Reconnected to server")
