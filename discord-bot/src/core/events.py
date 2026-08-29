@@ -1044,8 +1044,8 @@ async def spotify_track_length_scanner():
         try:
             if db_pool: # Dummy comment to trigger webhook
                 async with db_pool.acquire() as conn:
-                    # Fetch up to 1000 unique tracks to process
-                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 1000")
+                    # Fetch up to 2500 unique tracks to process
+                    rows = await conn.fetch("SELECT ctid, spotify_uri, ms_played FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%' LIMIT 2500")
                     if rows:
                         was_processing = True
                         uris = [row['spotify_uri'] for row in rows]
@@ -1054,22 +1054,24 @@ async def spotify_track_length_scanner():
                         chunks = [uris[i:i + 50] for i in range(0, len(uris), 50)]
                         
                         durations = {}
-                        api_failed = False
+                        sem = asyncio.Semaphore(5)
                         
-                        for chunk in chunks:
-                            res = await fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID))
-                            if res is None or isinstance(res, Exception):
-                                api_failed = True
-                                break
+                        async def process_chunk(chunk):
+                            async with sem:
+                                res = await fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID))
+                                await asyncio.sleep(0.05)
+                                return res
+
+                        tasks = [process_chunk(chunk) for chunk in chunks]
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        
+                        hit_rate_limit = False
+                        for res in results:
                             if isinstance(res, dict):
                                 durations.update(res)
-                            await asyncio.sleep(0.5)
+                            elif res is None:
+                                hit_rate_limit = True
                                 
-                        if api_failed:
-                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API fetch failed (403/429). Scanner is temporarily pausing for 60s.{Log.RESET}")
-                            await asyncio.sleep(60)
-                            continue
-                        
                         delete_ctids = []
                         update_ctids = []
                         
@@ -1078,28 +1080,30 @@ async def spotify_track_length_scanner():
                             ctid = row['ctid']
                             ms_played = row['ms_played']
                             
-                            duration_ms = durations.get(uri)
-                            if duration_ms:
+                            if uri in durations:
+                                duration_ms = durations[uri]
                                 # Apply 50% rule or 4 minutes
                                 if ms_played < duration_ms / 2 and ms_played < 240000:
                                     delete_ctids.append(ctid)
                                 else:
                                     update_ctids.append(ctid)
-                            else:
-                                # Not found on Spotify, mark as valid to skip future checks
-                                update_ctids.append(ctid)
-                                
+                            # If not found or chunk failed, we leave it to retry later
+                        
                         if delete_ctids:
                             await conn.execute("DELETE FROM listens WHERE ctid = ANY($1::tid[])", delete_ctids)
                         if update_ctids:
                             await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = ANY($1::tid[])", update_ctids)
                             
                         # Log progress to console
-                        total_processed += len(rows)
+                        total_processed += (len(delete_ctids) + len(update_ctids))
                         total_remaining = await conn.fetchval("SELECT count(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
-                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
+                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(delete_ctids) + len(update_ctids)} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
                         
-                        await asyncio.sleep(0.1)
+                        if hit_rate_limit:
+                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API had errors or was rate-limited. Pausing for 10s...{Log.RESET}")
+                            await asyncio.sleep(10)
+                        else:
+                            await asyncio.sleep(0.1)
                     else:
                         if was_processing:
                             print(f"{Log.GREEN}>>> [BACKGROUND SCANNER] Queue completely empty! All tracks have been validated and filtered.{Log.RESET}")
