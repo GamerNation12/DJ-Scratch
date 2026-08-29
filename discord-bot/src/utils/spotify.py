@@ -117,9 +117,15 @@ async def get_user_spotify_token(user_id: str):
                     
     return access_token
 
+_spotify_rate_limit_until = None
+
 async def fetch_spotify_track_durations(uris: list, user_id: str = None):
     """Fetches durations for a list of Spotify track URIs (max 50). Returns dict of {uri: duration_ms}"""
+    global _spotify_rate_limit_until
     if not uris: return {}
+    
+    if _spotify_rate_limit_until and datetime.now() < _spotify_rate_limit_until:
+        return None
     
     token = None
     if user_id:
@@ -163,7 +169,13 @@ async def fetch_spotify_track_durations(uris: list, user_id: str = None):
                 # Silently return None to let events.py pause the scanner without spamming console
                 return None
             elif resp.status == 429:
-                print(f"Spotify API 429 Rate Limited!")
+                retry_header = resp.headers.get("Retry-After")
+                try:
+                    retry_seconds = int(retry_header) if retry_header else 30
+                except (ValueError, TypeError):
+                    retry_seconds = 30
+                retry_seconds = max(retry_seconds, 15)
+                _spotify_rate_limit_until = datetime.now() + timedelta(seconds=retry_seconds)
                 return None
             else:
                 print(f"Spotify API error: {resp.status}")

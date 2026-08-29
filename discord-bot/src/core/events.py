@@ -1059,7 +1059,7 @@ async def spotify_track_length_scanner():
                         async def process_chunk(chunk):
                             async with sem:
                                 res = await fetch_spotify_track_durations(chunk, user_id=str(OWNER_ID))
-                                await asyncio.sleep(0.05)
+                                await asyncio.sleep(0.15)
                                 return res
 
                         tasks = [process_chunk(chunk) for chunk in chunks]
@@ -1094,14 +1094,15 @@ async def spotify_track_length_scanner():
                         if update_ctids:
                             await conn.execute("UPDATE listens SET spotify_uri = 'VALID_' || spotify_uri WHERE ctid = ANY($1::tid[])", update_ctids)
                             
-                        # Log progress to console
-                        total_processed += (len(delete_ctids) + len(update_ctids))
-                        total_remaining = await conn.fetchval("SELECT count(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
-                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(delete_ctids) + len(update_ctids)} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
+                        processed_this_batch = len(delete_ctids) + len(update_ctids)
+                        if processed_this_batch > 0:
+                            total_processed += processed_this_batch
+                            total_remaining = await conn.fetchval("SELECT count(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
+                            print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {processed_this_batch} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
                         
                         if hit_rate_limit:
-                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API had errors or was rate-limited. Pausing for 10s...{Log.RESET}")
-                            await asyncio.sleep(10)
+                            print(f"{Log.YELLOW}>>> [BACKGROUND SCANNER] Spotify API rate-limited (429). Pausing for 30s to let limit reset...{Log.RESET}")
+                            await asyncio.sleep(30)
                         else:
                             await asyncio.sleep(0.1)
                     else:
