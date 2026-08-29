@@ -46,54 +46,6 @@ async def get_spotify_token():
                     _spotify_access_token = json_data['access_token']
                     expires_in = json_data['expires_in']
                     _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
-import aiohttp
-import asyncio
-import os
-import base64
-from datetime import datetime, timedelta
-
-_spotify_access_token = None
-_spotify_token_expires = None
-_spotify_lock = asyncio.Lock()
-_spotify_session = None
-
-async def get_spotify_session():
-    global _spotify_session
-    if _spotify_session is None or _spotify_session.closed:
-        _spotify_session = aiohttp.ClientSession()
-    return _spotify_session
-
-async def get_spotify_token():
-    global _spotify_access_token, _spotify_token_expires
-    
-    async with _spotify_lock:
-        if _spotify_access_token and _spotify_token_expires and datetime.now() < _spotify_token_expires:
-            return _spotify_access_token
-            
-        client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-        if not client_id or not client_secret:
-            return None
-            
-        auth_string = f"{client_id}:{client_secret}"
-        auth_bytes = auth_string.encode('utf-8')
-        auth_base64 = str(base64.b64encode(auth_bytes), 'utf-8')
-        
-        url = "https://accounts.spotify.com/api/token"
-        headers = {
-            "Authorization": f"Basic {auth_base64}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        data = {"grant_type": "client_credentials"}
-        
-        try:
-            session = await get_spotify_session()
-            async with session.post(url, headers=headers, data=data) as resp:
-                if resp.status == 200:
-                    json_data = await resp.json()
-                    _spotify_access_token = json_data['access_token']
-                    expires_in = json_data['expires_in']
-                    _spotify_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
                     return _spotify_access_token
         except Exception as e:
             print(f"Error fetching Spotify token: {e}")
