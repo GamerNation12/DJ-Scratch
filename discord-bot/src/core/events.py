@@ -1096,7 +1096,8 @@ async def spotify_track_length_scanner():
                             
                         # Log progress to console
                         total_processed += len(rows)
-                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Total processed this session: {total_processed}{Log.RESET}")
+                        total_remaining = await conn.fetchval("SELECT count(*) FROM listens WHERE spotify_uri IS NOT NULL AND spotify_uri NOT LIKE 'VALID_%'")
+                        print(f"{Log.CYAN}>>> [BACKGROUND SCANNER] Processed {len(rows)} tracks. Total this session: {total_processed} | Remaining globally: {total_remaining}{Log.RESET}")
                         
                         await asyncio.sleep(0.1)
                     else:
