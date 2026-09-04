@@ -172,11 +172,12 @@ class LastFmCog(commands.Cog):
         cd = await self.bot.get_avatar_cooldown()
         status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
         from src.core.events import get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
-        from src.utils.api import api_get, LASTFM_API_KEY
+        from src.utils.api import api_get
+        from src.core.config import LASTFM_API_KEY
         try:
             username = await get_lastfm_username(interaction.user.id)
             if username:
-                url = f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
+                url = f"https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
                 data = await api_get(url)
                 if data and 'recenttracks' in data and data['recenttracks']['track']:
                     tracks = data['recenttracks']['track']
@@ -291,10 +292,10 @@ class LastFmCog(commands.Cog):
                         "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
             color=discord.Color.red()
         )
-        import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
+        import urllib.parse
+        from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
-        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
         
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
@@ -675,12 +676,13 @@ class LastFmCog(commands.Cog):
         status_msg = f"⏳ Avatar is on cooldown for **{cd//60}m {cd%60}s**." if cd > 0 else "✅ Avatar is **ready** to be updated!"
 
         from src.core.events import get_lastfm_username, ApplyAvatarView, LASTFM_COLOR
-        from src.utils.api import api_get, LASTFM_API_KEY
+        from src.utils.api import api_get
+        from src.core.config import LASTFM_API_KEY
         try:
             username = await get_lastfm_username(ctx.author.id)
             if username:
                 # Fetch limit=2 to ensure we get the last completed song even if one is currently playing
-                url = f"http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
+                url = f"https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={username}&api_key={LASTFM_API_KEY}&format=json&limit=2"
                 data = await api_get(url)
                 if data and 'recenttracks' in data and data['recenttracks']['track']:
                     tracks = data['recenttracks']['track']
@@ -752,10 +754,10 @@ class LastFmCog(commands.Cog):
         )
         msg = await ctx.send(embed=embed)
         
-        import urllib.parse, os
-        api_key = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
+        import urllib.parse
+        from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
-        auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&cb={urllib.parse.quote(cb_url)}"
+        auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
         
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))

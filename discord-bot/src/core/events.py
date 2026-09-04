@@ -208,9 +208,8 @@ async def check_restarting_prefix(ctx) -> bool:
     return True
 
 
-# === LAST.FM CONFIG ===
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae")
-OWNER_ID = 759433582107426816
+# === LAST.FM CONFIG (centralized in src.core.config — no hardcoded fallbacks) ===
+from src.core.config import LASTFM_API_KEY, OWNER_ID
 
 COOLDOWN_FILE = "avatar_cooldown.txt"
 from src.core.theme import Theme
@@ -450,7 +449,7 @@ async def setup_hook():
         try:
             if "pooler.supabase.com" in db_url and ":5432" in db_url:
                 db_url = db_url.replace(":5432", ":6543")
-            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=3, statement_cache_size=0)
+            db_pool = await asyncpg.create_pool(dsn=db_url, ssl="require", min_size=1, max_size=5, statement_cache_size=0)
             
             import src.core.database as db_module
             db_module.db_pool = db_pool
@@ -638,6 +637,19 @@ async def setup_hook():
                     """)
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to create server_settings table: {e}{Log.RESET}")
+
+                # Hot-path indexes (IF NOT EXISTS = safe to run every boot).
+                # listens(user_id, played_at) powers /fm, tops, streaks, whoknows.
+                for _idx_sql in (
+                    "CREATE INDEX IF NOT EXISTS idx_listens_user_played ON listens (user_id, played_at DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_listens_track ON listens (track_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_tracks_names ON tracks (artist_name, track_name, album_name)",
+                    "CREATE INDEX IF NOT EXISTS idx_server_crowns_guild ON server_crowns (guild_id)",
+                ):
+                    try:
+                        await conn.execute(_idx_sql)
+                    except Exception:
+                        pass
 
                 # One-time migration
                 if os.path.exists("lastfm_users.json"):
@@ -1277,14 +1289,14 @@ async def on_ready():
 @bot.check
 async def global_test_bot_check(ctx):
     if getattr(bot, 'is_test_bot', False):
-        if ctx.author.id != 759433582107426816:
+        if ctx.author.id != OWNER_ID:
             raise commands.CheckFailure("This is the test bot. Only the developer can use it!")
     return True
 
 
 async def global_test_bot_interaction_check(interaction: discord.Interaction):
     if getattr(bot, 'is_test_bot', False):
-        if interaction.user.id != 759433582107426816:
+        if interaction.user.id != OWNER_ID:
             await interaction.response.send_message("❌ This is the beta test bot. Only the developer can use it!", ephemeral=True)
             return False
     return True

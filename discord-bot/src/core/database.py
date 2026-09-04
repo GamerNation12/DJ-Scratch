@@ -128,7 +128,7 @@ async def init_db():
             db_pool = await asyncpg.create_pool(
                 db_conn_string,
                 min_size=1,
-                max_size=3,
+                max_size=5,
                 max_inactive_connection_lifetime=30.0
             )
             print(f"{Log.GREEN}>>> Database pool created successfully{Log.RESET}")
@@ -254,6 +254,16 @@ async def init_db():
                     await conn.execute("ALTER TABLE listens ADD COLUMN IF NOT EXISTS ms_played BIGINT DEFAULT 0")
                 except Exception:
                     pass
+                for _idx_sql in (
+                    "CREATE INDEX IF NOT EXISTS idx_listens_user_played ON listens (user_id, played_at DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_listens_track ON listens (track_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_tracks_names ON tracks (artist_name, track_name, album_name)",
+                    "CREATE INDEX IF NOT EXISTS idx_server_crowns_guild ON server_crowns (guild_id)",
+                ):
+                    try:
+                        await conn.execute(_idx_sql)
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
     else:

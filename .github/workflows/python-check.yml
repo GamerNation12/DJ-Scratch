@@ -1,0 +1,24 @@
+name: Python syntax check
+
+on:
+  push:
+    paths:
+      - 'discord-bot/**'
+      - 'deploy.py'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - 'discord-bot/**'
+      - 'deploy.py'
+      - 'scripts/**'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile all bot sources
+        run: python -m compileall -q discord-bot deploy.py scripts

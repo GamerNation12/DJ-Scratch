@@ -100,6 +100,15 @@ def deploy():
                 upload_dir(local_path, remote_path)
                 
         try:
+            # Restrict remote .env so other users on the host can't read secrets.
+            try:
+                sftp.chmod('/.env', 0o600)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        try:
             with sftp.file('/.restart_flag', 'w') as f:
                 f.write('restart')
             print("? Wrote .restart_flag to remote server.")

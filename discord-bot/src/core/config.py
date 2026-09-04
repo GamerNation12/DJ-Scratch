@@ -1,7 +1,15 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the most likely locations (local CWD first, then repo root).
+# This keeps `python main.py` working whether you run it from discord-bot/ or the repo root.
+_HERE = os.path.dirname(os.path.abspath(__file__))  # .../discord-bot/src/core
+_BOT_DIR = os.path.dirname(os.path.dirname(_HERE))  # .../discord-bot
+_ROOT_DIR = os.path.dirname(_BOT_DIR)                # repo root
+for _p in (os.path.join(os.getcwd(), ".env"), os.path.join(_BOT_DIR, ".env"), os.path.join(_ROOT_DIR, ".env")):
+    if os.path.isfile(_p):
+        load_dotenv(_p, override=False)
+load_dotenv(override=False)
 
 class Log:
     RESET = '\033[0m'
@@ -11,13 +19,21 @@ class Log:
     CYAN = '\033[96m'
     MAGENTA = '\033[95m'
 
-OWNER_ID = 759433582107426816
+OWNER_ID = int(os.getenv("OWNER_ID", "759433582107426816").strip() or "759433582107426816")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 POSTGRES_URL = os.getenv("POSTGRES_URL", "").strip()
 
-LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "eee299142ac5fe73e5eb5dcd1c29bcae").strip()
-LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "e566dd2098e65ed746edc1a4a5ef62f0").strip()
+# No hardcoded fallbacks: secrets must come from the environment (.env locally,
+# server env vars in production). Fail fast with a clear message instead of
+# silently running with someone else's key.
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "").strip().strip('"').strip("'")
+LASTFM_API_SECRET = os.getenv("LASTFM_API_SECRET", "").strip().strip('"').strip("'")
+if not LASTFM_API_KEY or not LASTFM_API_SECRET:
+    raise RuntimeError(
+        "LASTFM_API_KEY / LASTFM_API_SECRET are not set. "
+        "Add them to your .env (see .env.example) or server environment."
+    )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 COOLDOWN_FILE = "cooldowns.json"

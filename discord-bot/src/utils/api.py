@@ -250,7 +250,7 @@ async def scrobble_bot_track(session, artist, track, album=None):
 
     try:
         # Scrobble
-        async with session.post("http://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
+        async with session.post("https://ws.audioscrobbler.com/2.0/", data=sc_params) as r_sc:
             if r_sc.status == 200:
                 data = await r_sc.json()
                 if 'scrobbles' in data:

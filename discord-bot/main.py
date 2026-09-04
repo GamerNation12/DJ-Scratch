@@ -25,7 +25,8 @@ async def memory_monitor():
         if mem_mb >= 500.0:
             print(f"CRITICAL: Bot RAM usage is high ({mem_mb:.1f} MB). Auto-restarting...")
             try:
-                owner = await bot.fetch_user(759433582107426816)
+                from src.core.config import OWNER_ID
+                owner = await bot.fetch_user(OWNER_ID)
                 if owner:
                     await owner.send(f"⚠️ **CRITICAL ALERT:** Bot RAM usage reached **{mem_mb:.1f} MB**.\nThe bot is now auto-restarting to prevent a crash.")
             except Exception as e:
