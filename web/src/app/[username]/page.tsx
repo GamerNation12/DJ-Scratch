@@ -35,11 +35,38 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<"idle" | "uploading" | "complete" | "error">("idle");
   const [importError, setImportError] = useState<string | null>(null);
+  const [importLocked, setImportLocked] = useState(false);
+  const [importLockReason, setImportLockReason] = useState<string | null>(null);
+
+  // Reflect the bot owner's import lock (disabled_commands) in the UI.
+  // Server routes enforce it regardless; this just avoids a doomed upload.
+  useEffect(() => {
+    if (activeTab !== "import" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/import/status");
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setImportLocked(!!data.locked);
+          setImportLockReason(data.reason ?? null);
+        }
+      } catch {
+        /* fail open: the API routes still enforce the lock */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, isOwner]);
 
   const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
 
   const handleImportUpload = async () => {
     if (!importFile) return;
+    if (importLocked) {
+      setImportError(importLockReason ? `Imports are currently disabled. ${importLockReason}` : "Imports are currently disabled by the bot owner.");
+      setImportStatus("error");
+      return;
+    }
     setImportStatus("uploading");
     setImportProgress(0);
     setImportError(null);
@@ -911,12 +938,23 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <p className="text-zinc-400 mb-8 max-w-2xl">
               Upload your Spotify Extended Streaming History or Apple Music Play Activity here. The data will be chunked and securely processed by the bot in the background.
             </p>
-            
+
+            {importLocked && (
+              <div className="mb-6 p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">🔒</div>
+                <div>
+                  <h3 className="text-red-400 font-bold text-lg mb-1">Imports Disabled</h3>
+                  <p className="text-red-300/80 text-sm">{importLockReason || "The bot owner has temporarily disabled history imports."}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-6">
               <div className="p-6 bg-zinc-900 border border-white/5 rounded-2xl">
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   accept=".zip,.json,.csv"
+                  disabled={importLocked}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) setImportFile(file);
@@ -932,10 +970,10 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 <div className="mt-6">
                   <button
                     onClick={handleImportUpload}
-                    disabled={!importFile || importStatus === "uploading" || importStatus === "complete"}
-                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${!importFile || importStatus === "uploading" || importStatus === "complete" ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]"}`}
+                    disabled={!importFile || importStatus === "uploading" || importStatus === "complete" || importLocked}
+                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${!importFile || importStatus === "uploading" || importStatus === "complete" || importLocked ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]"}`}
                   >
-                    {importStatus === "uploading" ? "Uploading..." : "Start Import"}
+                    {importLocked ? "Imports Disabled" : importStatus === "uploading" ? "Uploading..." : "Start Import"}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 import { verifyToken } from "@/lib/jwt";
+import { getDisabledCommandReason } from "@/lib/commandLock";
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +15,11 @@ export async function POST(req: Request) {
     const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const lockReason = await getDisabledCommandReason("import");
+    if (lockReason) {
+      return NextResponse.json({ error: `Imports are currently disabled. ${lockReason}` }, { status: 403 });
     }
 
     const formData = await req.formData();

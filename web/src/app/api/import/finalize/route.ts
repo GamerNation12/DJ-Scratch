@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 import { verifyToken } from "@/lib/jwt";
+import { getDisabledCommandReason } from "@/lib/commandLock";
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +21,13 @@ export async function POST(req: Request) {
 
     if (!jobId) {
       return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+    }
+
+    // Critical gate: 'ready' is what triggers the bot import worker,
+    // so a lock here stops web uploads from ever growing the database.
+    const lockReason = await getDisabledCommandReason("import");
+    if (lockReason) {
+      return NextResponse.json({ error: `Imports are currently disabled. ${lockReason}` }, { status: 403 });
     }
 
     const sql = postgres(process.env.DATABASE_URL || "");

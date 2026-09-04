@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // NOTE: Next 16 removed the `eslint` key (and `next lint`); builds no
+  // longer run ESLint, so there is nothing to ignore here anymore.
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -42,10 +41,12 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // NOTE: "*" + Allow-Credentials is an invalid combo browsers reject.
+        // Same scoped origin as vercel.json; same-origin frontend needs no CORS.
         source: "/api/:path*",
         headers: [
-          { key: "Access-Control-Allow-Credentials", value: "true" },
-          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Origin", value: "https://dj-scratch.vercel.app" },
+          { key: "Vary", value: "Origin" },
           { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
           { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" },
         ]

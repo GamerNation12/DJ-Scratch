@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 import { verifyToken } from "@/lib/jwt";
+import { getDisabledCommandReason } from "@/lib/commandLock";
 import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: Request) {
@@ -21,6 +22,11 @@ export async function POST(req: Request) {
 
     if (!filename || typeof totalChunks !== "number") {
       return NextResponse.json({ error: "Missing filename or totalChunks" }, { status: 400 });
+    }
+
+    const lockReason = await getDisabledCommandReason("import");
+    if (lockReason) {
+      return NextResponse.json({ error: `Imports are currently disabled. ${lockReason}` }, { status: 403 });
     }
 
     const sql = postgres(process.env.DATABASE_URL || "");
