@@ -190,11 +190,17 @@ export default function Navbar() {
                   title="My Dashboard"
                   className="flex items-center gap-2 px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all"
                 >
-                  <img
-                    src={displayImage}
-                    alt="Avatar"
-                    className="w-6 h-6 rounded-full border border-zinc-700"
-                  />
+                  <span className="relative w-6 h-6 rounded-full border border-zinc-700 bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-[10px] font-black overflow-hidden shrink-0">
+                    {(displayName || "?").charAt(0).toUpperCase()}
+                    {displayImage && (
+                      <img
+                        src={displayImage}
+                        alt="Avatar"
+                        className="absolute inset-0 w-full h-full object-cover rounded-full"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    )}
+                  </span>
                   <span className="text-xs font-medium text-zinc-300 hidden sm:block pr-2">
                     {displayName}
                   </span>
