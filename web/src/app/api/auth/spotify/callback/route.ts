@@ -74,7 +74,8 @@ export async function GET(req: Request) {
       console.error('Failed to refresh login message:', e);
     }
 
-    // Give the user a nice success page
+    // Give the user a nice success page (site-styled, no dead features).
+    const discordUpdated = !!(channelId && messageId);
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -83,34 +84,69 @@ export async function GET(req: Request) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Spotify Linked!</title>
           <style>
+              * { box-sizing: border-box; }
               body {
-                  font-family: 'Inter', sans-serif;
-                  background-color: #121212;
+                  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+                  background-color: #09090b;
                   color: white;
                   display: flex;
                   justify-content: center;
                   align-items: center;
-                  height: 100vh;
+                  min-height: 100vh;
                   margin: 0;
+                  padding: 24px;
               }
               .card {
-                  background-color: #181818;
-                  padding: 40px;
-                  border-radius: 12px;
+                  background: rgba(24, 24, 27, 0.6);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  padding: 40px 48px;
+                  border-radius: 24px;
                   text-align: center;
-                  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+                  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+                  max-width: 520px;
+                  width: 100%;
               }
-              h1 {
-                  color: #1DB954;
+              .badge {
+                  width: 72px; height: 72px;
+                  margin: 0 auto 20px;
+                  border-radius: 9999px;
+                  background: rgba(34, 197, 94, 0.15);
+                  border: 1px solid rgba(34, 197, 94, 0.3);
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 32px;
               }
+              h1 { color: #4ade80; margin: 0 0 12px; font-size: 28px; font-weight: 800; }
+              p { color: #d4d4d8; margin: 8px 0; }
+              ul { list-style: none; padding: 0; margin: 20px 0 0; display: inline-block; text-align: left; }
+              li { color: #a1a1aa; margin: 6px 0; font-size: 15px; }
+              li span { color: #4ade80; font-weight: bold; margin-right: 8px; }
+              .actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+              .btn {
+                  display: inline-block; padding: 12px 24px; border-radius: 12px;
+                  font-weight: bold; font-size: 15px; text-decoration: none;
+                  transition: filter 0.15s;
+              }
+              .btn:hover { filter: brightness(1.1); }
+              .btn-primary { background: #22c55e; color: #000; box-shadow: 0 0 20px rgba(34, 197, 94, 0.35); }
+              .btn-ghost { background: rgba(255,255,255,0.05); color: #e4e4e7; border: 1px solid rgba(255,255,255,0.1); }
+              .fine { color: #71717a; font-size: 13px; margin-top: 20px; }
           </style>
       </head>
       <body>
           <div class="card">
-              <h1>Spotify Successfully Linked! 🎵</h1>
+              <div class="badge">🎵</div>
+              <h1>Spotify Successfully Linked!</h1>
               <p>Your Spotify account is now connected to DJ Scratch.</p>
-              <p>The Karaoke Lyrics teleprompter will now perfectly auto-sync!</p>
-              <p style="color: #888; font-size: 0.9em; margin-top: 20px;">You can close this window and return to Discord.</p>
+              <ul>
+                  <li><span>✓</span>Control playback from Discord with ,rc</li>
+                  <li><span>✓</span>Like songs and use the Music dashboard</li>
+                  <li><span>✓</span>Richer now-playing artwork and links</li>
+              </ul>
+              <div class="actions">
+                  <a class="btn btn-primary" href="/music">Open Music Dashboard</a>
+                  <a class="btn btn-ghost" href="javascript:window.close()">Close Window</a>
+              </div>
+              <p class="fine">${discordUpdated ? "Your Discord login message was updated too. " : ""}You can safely close this window and return to Discord.</p>
           </div>
       </body>
       </html>
