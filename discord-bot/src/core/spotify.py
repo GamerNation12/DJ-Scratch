@@ -3,7 +3,67 @@ import aiohttp
 import asyncio
 import os
 import base64
+import re
 import time
+
+# Matches open.spotify.com/<kind>/<id> and spotify:<kind>:<id> links.
+_SPOTIFY_URL_RE = re.compile(
+    r"(?:open\.spotify\.com/(track|album|artist|playlist)/([A-Za-z0-9]+)"
+    r"|spotify:(track|album|artist|playlist):([A-Za-z0-9]+))"
+)
+
+
+def parse_spotify_url(text):
+    """Extract (kind, spotify_id) from a Spotify link/URI, or None.
+
+    >>> parse_spotify_url("https://open.spotify.com/track/4uLU6hMCjMIgFfFxN58xCc?si=x")
+    ('track', '4uLU6hMCjMIgFfFxN58xCc')
+    """
+    if not text:
+        return None
+    m = _SPOTIFY_URL_RE.search(text)
+    if not m:
+        return None
+    kind = m.group(1) or m.group(3)
+    sid = m.group(2) or m.group(4)
+    return (kind, sid)
+
+
+def _norm_track(track):
+    return {
+        "uri": track.get("uri"),
+        "id": track.get("id"),
+        "name": track.get("name"),
+        "artists": [a.get("name") for a in track.get("artists", [])],
+        "spotify_url": track.get("external_urls", {}).get("spotify"),
+        "album_name": track.get("album", {}).get("name"),
+        "album_images": track.get("album", {}).get("images", []),
+    }
+
+
+def _norm_album(album):
+    artists = [a.get("name") for a in album.get("artists", [])]
+    return {
+        "uri": album.get("uri"),
+        "id": album.get("id"),
+        "name": album.get("name"),
+        "artists": artists,
+        "spotify_url": album.get("external_urls", {}).get("spotify"),
+        "album_name": album.get("name"),
+        "album_images": album.get("images", []),
+    }
+
+
+def _norm_artist_full(artist):
+    return {
+        "uri": "spotify:artist:{}".format(artist.get("id")) if artist.get("id") else None,
+        "id": artist.get("id"),
+        "name": artist.get("name"),
+        "artists": [artist.get("name")] if artist.get("name") else [],
+        "spotify_url": artist.get("external_urls", {}).get("spotify"),
+        "album_name": "",
+        "album_images": artist.get("images", []),
+    }
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -133,12 +193,17 @@ async def get_user_spotify_access_token(session: aiohttp.ClientSession, user_id:
         
     return None
 
-async def spotify_play_track(session: aiohttp.ClientSession, user_id: str, track_uri: str = None):
+async def spotify_play_track(session: aiohttp.ClientSession, user_id: str, track_uri: str = None, context_uri: str = None):
     token = await get_user_spotify_access_token(session, user_id)
     if not token: return "no_token"
-    
+
     headers = {"Authorization": f"Bearer {token}"}
-    data = {"uris": [track_uri]} if track_uri else {}
+    if context_uri:
+        data = {"context_uri": context_uri}  # album / artist / playlist playback
+    elif track_uri:
+        data = {"uris": [track_uri]}
+    else:
+        data = {}
     
     async with session.put("https://api.spotify.com/v1/me/player/play", headers=headers, json=data) as resp:
         if resp.status in [200, 202, 204]: return True
@@ -243,6 +308,58 @@ async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str
                     }
     except Exception as e:
         print(f"{Log.RED}>>> Failed to search Spotify artist: {type(e).__name__}: {e}{Log.RESET}")
+    return None
+
+async def _search_one(session: aiohttp.ClientSession, query: str, kind: str):
+    """Search Spotify for one album or artist. Returns the raw API object or None."""
+    token = await get_spotify_token(session)
+    if not token:
+        return None
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"q": query, "type": kind, "limit": 1}
+    try:
+        async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=3.0) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                items = data.get(f"{kind}s", {}).get("items", [])
+                if items:
+                    return items[0]
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to search Spotify {kind}: {type(e).__name__}: {e}{Log.RESET}")
+    return None
+
+
+async def search_spotify_album(session: aiohttp.ClientSession, query: str):
+    """Search for an album. Returns normalized info dict or None."""
+    album = await _search_one(session, query, "album")
+    return _norm_album(album) if album else None
+
+
+async def search_spotify_artist_full(session: aiohttp.ClientSession, query: str):
+    """Search for an artist. Returns normalized info dict or None."""
+    artist = await _search_one(session, query, "artist")
+    return _norm_artist_full(artist) if artist else None
+
+
+async def fetch_spotify_by_id(session: aiohttp.ClientSession, kind: str, spotify_id: str):
+    """Fetch a track/album/artist straight by ID (for pasted Spotify links)."""
+    if kind not in ("track", "album", "artist"):
+        return None
+    token = await get_spotify_token(session)
+    if not token:
+        return None
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with session.get(f"https://api.spotify.com/v1/{kind}s/{spotify_id}", headers=headers, timeout=3.0) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if kind == "track":
+                    return _norm_track(data)
+                if kind == "album":
+                    return _norm_album(data)
+                return _norm_artist_full(data)
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to fetch Spotify {kind} {spotify_id}: {type(e).__name__}: {e}{Log.RESET}")
     return None
 
 async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: str):

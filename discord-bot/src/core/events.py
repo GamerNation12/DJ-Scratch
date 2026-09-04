@@ -3922,6 +3922,11 @@ HELP_COMMAND_META = {
     "guide": ("Quick-start guide", "/guide"),
     "premium": ("Premium preview (coming soon)", "/premium"),
     "dms": ("Friend DMs inbox", "/dms"),
+    "remote": ("Spotify remote panel with live controls", "`,rc` • `,rc disconnect` • `,prev` • `,rq`"),
+    "previous": ("Previous Spotify track", "`,prev`"),
+    "spotify": ("Spotify link for current track or search", "`,sp [query]`"),
+    "spotifyalbum": ("Spotify link for an album", "`,spab [album]`"),
+    "spotifyartist": ("Spotify link for an artist", "`,spa [artist]`"),
     "social": ("Friends & social commands", "/social"),
     "deletedata": ("Delete your imported data", "/deletedata"),
     "suggest": ("Send an idea to the dev", "/suggest <idea> • `,suggest`"),
@@ -3957,7 +3962,7 @@ HELP_CATEGORIES = {
     "fun": {
         "label": "🎮 Fun & Utility", "emoji": "🎮", "title": "🎮 Fun & Utility",
         "tagline": "Games, AI, and handy extras.",
-        "commands": ["guess", "scramble", "judge", "receipt", "server", "status", "updates", "guide", "premium", "dms", "social", "deletedata", "suggest", "bug"],
+        "commands": ["remote", "previous", "spotify", "spotifyalbum", "spotifyartist", "guess", "scramble", "judge", "receipt", "server", "status", "updates", "guide", "premium", "dms", "social", "deletedata", "suggest", "bug"],
     },
 }
 
@@ -4575,11 +4580,13 @@ async def on_interaction(interaction: discord.Interaction):
                             res = await spotify_like_track(session, owner_id, track['id'])
                     elif action == "spotify_repeat":
                         res = True
+                    elif action == "spotify_refresh":
+                        res = True  # fall through to re-fetch + re-render below
                         
                     if res == "no_token":
                         return await interaction.followup.send(f"You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={interaction.user.id})", ephemeral=True)
                     elif res is not True:
-                        return await interaction.followup.send(f"Failed: {res}", ephemeral=True)
+                        return await interaction.followup.send(_pretty_spotify_error(res), ephemeral=True)
                         
                     await asyncio.sleep(1)
                     
@@ -4590,8 +4597,9 @@ async def on_interaction(interaction: discord.Interaction):
                         elif action == "spotify_prev": action_label = "Previous"
                         elif action == "spotify_next": action_label = "Skipped"
                         elif action == "spotify_like": action_label = "Liked"
+                        elif action == "spotify_refresh": action_label = "Refreshed"
                         
-                        from src.commands.spotify_remote import get_spotify_remote_layout
+                        from src.commands.spotify_remote import get_spotify_remote_layout, _pretty_spotify_error
                         view = get_spotify_remote_layout(track, owner_id, action_label)
                         await interaction.message.edit(embeds=[], view=view)
                         
