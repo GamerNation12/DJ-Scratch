@@ -480,11 +480,17 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           <div className="relative flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
             <div className="relative">
               <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
-              <img 
-                src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png"} 
-                alt="Avatar" 
-                className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10"
-              />
+              <span className="block w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10 overflow-hidden bg-zinc-800 shrink-0">
+                <span className="absolute inset-0 flex items-center justify-center text-3xl md:text-5xl font-black text-indigo-300">
+                  {(displayUsername || "?").charAt(0).toUpperCase()}
+                </span>
+                <img
+                  src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png"}
+                  alt="Avatar"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => { const t = e.currentTarget; if (!t.src.endsWith("/logo.png")) t.src = "/logo.png"; }}
+                />
+              </span>
             </div>
             <div className="flex flex-col justify-center h-full">
               {isOwner ? (
