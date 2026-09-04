@@ -195,6 +195,46 @@ async def get_color(user_id):
         except:
             pass
     return LASTFM_COLOR
+
+async def get_album_based_color(user_id, image_url=None):
+    """Get embed color based on last listened album art if user has feature enabled."""
+    from src.core.database import db_pool
+    if not db_pool:
+        return await get_color(user_id)
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT embed_color FROM user_settings WHERE user_id=$1", str(user_id))
+            if row and row['embed_color'] == 'album':
+                if not image_url:
+                    row2 = await conn.fetchrow(
+                        "SELECT t.artist_name, t.album_name FROM listens l JOIN tracks t ON l.track_id=t.id WHERE l.user_id=$1 ORDER BY l.played_at DESC LIMIT 1",
+                        str(user_id)
+                    )
+                    if row2 and row2['artist_name'] and row2['album_name']:
+                        image_url = await get_album_image_url(row2['artist_name'], row2['album_name'])
+                if image_url:
+                    from src.utils.color_extractor import get_album_art_color
+                    color_int = await get_album_art_color(image_url)
+                    import discord
+                    return discord.Color(color_int)
+    except Exception:
+        pass
+    return await get_color(user_id)
+
+async def get_album_image_url(artist, album):
+    """Try to fetch album art URL from iTunes Search API (no key required)."""
+    import aiohttp
+    try:
+        params = {"term": f"{artist} {album}", "media": "music", "entity": "album", "limit": 1}
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://itunes.apple.com/search", params=params) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("results"):
+                        return data["results"][0].get("artworkUrl100", "").replace("100x100bb", "300x300bb")
+    except Exception:
+        pass
+    return None
     
 avatar_cooldown_time = None
 
