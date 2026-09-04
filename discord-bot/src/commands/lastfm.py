@@ -7,10 +7,14 @@ from discord import app_commands
 from src.core.database import format_name
 
 
-def _spotify_login_url(user_id: int) -> str:
+def _spotify_login_url(user_id: int, channel_id=None, message_id=None) -> str:
     import os
     app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
-    return f"{app_url}/api/auth/spotify?user_id={user_id}"
+    url = f"{app_url}/api/auth/spotify?user_id={user_id}"
+    # Passed through Spotify's state so the callback can refresh this message.
+    if channel_id and message_id:
+        url += f"&channel_id={channel_id}&message_id={message_id}"
+    return url
 
 
 async def _is_spotify_linked(user_id: int) -> bool:
@@ -297,7 +301,6 @@ class LastFmCog(commands.Cog):
             from src.core.events import get_lastfm_username
             username = await get_lastfm_username(interaction.user.id)
             spotify_linked = await _is_spotify_linked(interaction.user.id)
-            spotify_url = _spotify_login_url(interaction.user.id)
 
             if username and spotify_linked:
                 embed = Theme.get_embed(
@@ -315,9 +318,15 @@ class LastFmCog(commands.Cog):
                                 "If you want to switch Last.fm accounts, use `/logout` first.",
                     color=discord.Color.green()
                 )
+                # Send first so we have a message id: the callback PATCHes this
+                # message with fresh status once Spotify is linked.
+                msg = await interaction.followup.send(embed=embed, ephemeral=True, wait=True)
                 view = discord.ui.View()
-                view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
-                return await interaction.followup.send(embed=embed, ephemeral=True, view=view)
+                view.add_item(discord.ui.Button(
+                    label="Login with Spotify",
+                    url=_spotify_login_url(interaction.user.id, interaction.channel_id, msg.id),
+                    emoji="🎵"))
+                return await msg.edit(embed=embed, view=view)
 
             desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                     "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
@@ -331,11 +340,16 @@ class LastFmCog(commands.Cog):
             cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
             auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
 
+            # Send first so we have a message id: callbacks PATCH this message
+            # with fresh status once an account is linked.
+            msg = await interaction.followup.send(embed=embed, ephemeral=True, wait=True)
             view = discord.ui.View()
             view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-            view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
-
-            await interaction.followup.send(embed=embed, ephemeral=True, view=view)
+            view.add_item(discord.ui.Button(
+                label="Login with Spotify",
+                url=_spotify_login_url(interaction.user.id, interaction.channel_id, msg.id),
+                emoji="🎵"))
+            await msg.edit(embed=embed, view=view)
         except Exception as e:
             print(f"{Log.RED}>>> /login failed: {e}{Log.RESET}")
             try:
@@ -820,7 +834,6 @@ class LastFmCog(commands.Cog):
         from src.core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)
         spotify_linked = await _is_spotify_linked(ctx.author.id)
-        spotify_url = _spotify_login_url(ctx.author.id)
 
         if username and spotify_linked:
             embed = Theme.get_embed(
@@ -838,9 +851,13 @@ class LastFmCog(commands.Cog):
                             "If you want to switch Last.fm accounts, use `,logout` first.",
                 color=discord.Color.green()
             )
+            msg = await ctx.send(embed=embed)
             view = discord.ui.View()
-            view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
-            return await ctx.send(embed=embed, view=view)
+            view.add_item(discord.ui.Button(
+                label="Login with Spotify",
+                url=_spotify_login_url(ctx.author.id, ctx.channel.id, msg.id),
+                emoji="🎵"))
+            return await msg.edit(embed=embed, view=view)
 
         desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                 "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
@@ -857,7 +874,10 @@ class LastFmCog(commands.Cog):
 
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-        view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
+        view.add_item(discord.ui.Button(
+            label="Login with Spotify",
+            url=_spotify_login_url(ctx.author.id, ctx.channel.id, msg.id),
+            emoji="🎵"))
         await msg.edit(view=view)
 
     @commands.command(name="logout", aliases=["lo"])
