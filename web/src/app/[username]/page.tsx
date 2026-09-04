@@ -582,7 +582,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">⭐ Top Artists</h3>
-                 <p className="text-zinc-400 text-sm mt-1">Their most listened to artists of all time.</p>
+                 <p className="text-zinc-400 text-sm mt-1">{isOwner ? "Your most listened to artists of all time." : "Their most listened to artists of all time."}</p>
                </div>
                <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                  {profile.stats?.topArtists?.length > 0 ? profile.stats.topArtists.map((artist: any, i: number) => (
@@ -613,7 +613,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
-                 <p className="text-zinc-400 text-sm mt-1">What they've been listening to lately.</p>
+                 <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
                </div>
                <div className="divide-y divide-white/5">
                  {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
@@ -657,7 +657,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /> Top Albums</h3>
-                 <p className="text-zinc-400 text-sm mt-1">Their most listened to albums of all time.</p>
+                 <p className="text-zinc-400 text-sm mt-1">{isOwner ? "Your most listened to albums of all time." : "Their most listened to albums of all time."}</p>
                </div>
                <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                  {profile.stats?.topAlbums?.length > 0 ? profile.stats.topAlbums.map((album: any, i: number) => (
@@ -689,7 +689,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">🔥 Top Tracks</h3>
-                 <p className="text-zinc-400 text-sm mt-1">Their most played individual songs.</p>
+                 <p className="text-zinc-400 text-sm mt-1">{isOwner ? "Your most played individual songs." : "Their most played individual songs."}</p>
                </div>
                <div className="divide-y divide-white/5">
                  {profile.stats?.topTracks?.length > 0 ? profile.stats.topTracks.map((track: any, i: number) => (

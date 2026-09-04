@@ -35,6 +35,13 @@ export default function Navbar() {
   const dashboardHref = session?.user?.name
     ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`
     : "/";
+  // Active only on your own page — the old `pathname !== "/"` lit Dashboard
+  // up on Leaderboard, Music, etc. too.
+  let isDashboard = false;
+  if (session?.user?.name) {
+    try { isDashboard = decodeURIComponent(pathname) === dashboardHref; }
+    catch { isDashboard = pathname === dashboardHref; }
+  }
 
   return (
     <div className="fixed top-0 w-full z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
@@ -78,10 +85,10 @@ export default function Navbar() {
                 Home
               </Link>
               {session ? (
-                <Link 
+                <Link
                   href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    pathname !== "/"
+                    isDashboard
                       ? "bg-white/10 text-white"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
@@ -89,10 +96,10 @@ export default function Navbar() {
                   Dashboard
                 </Link>
               ) : (
-                <a 
+                <a
                   href="/api/auth/login"
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    pathname !== "/"
+                    isDashboard
                       ? "bg-white/10 text-white"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
