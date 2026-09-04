@@ -15,7 +15,8 @@ export async function GET(req: Request) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dj-scratch.vercel.app';
   const redirectUri = encodeURIComponent(`${appUrl}/api/auth/spotify/callback`);
-  const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state user-library-modify');
+  // Same set as /api/auth/spotify/login so both entry points grant identical access.
+  const scope = encodeURIComponent('user-read-currently-playing user-read-playback-state user-modify-playback-state user-library-read user-library-modify');
   const state = encodeURIComponent(userId);
   
   const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
