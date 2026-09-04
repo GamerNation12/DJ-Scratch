@@ -1383,7 +1383,43 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
 LAST_ERROR_TRACEBACK = None
 
 # --- HELPER: ERROR DM ---
-async def notify_owner(ctx, err):
+def _describe_error_source(source):
+    """Build (user_line, location_line) for an error DM from a Context or Interaction."""
+    user_line = "unknown user"
+    location_line = "unknown location"
+    try:
+        user = getattr(source, 'author', None) or getattr(source, 'user', None)
+        if user is not None:
+            name = getattr(user, 'display_name', None) or getattr(user, 'name', '?')
+            user_line = f"{user.mention} `{name}` (`{getattr(user, 'id', '?')}`)"
+    except Exception:
+        pass
+    try:
+        guild = getattr(source, 'guild', None)
+        channel = getattr(source, 'channel', None)
+        if guild is not None:
+            location_line = f"**{guild.name}** (`{guild.id}`)"
+        else:
+            location_line = "DMs"
+        if channel is not None:
+            ch_name = getattr(channel, 'name', None)
+            if ch_name:
+                location_line += f" in #{ch_name} (`{channel.id}`)"
+            else:
+                location_line += f" (`{channel.id}`)"
+        # What they actually ran / clicked.
+        message = getattr(source, 'message', None)
+        if message is not None and getattr(message, 'content', None):
+            location_line += f"\n﹒`{message.content[:200]}`"
+        jump = getattr(message, 'jump_url', None)
+        if jump:
+            location_line += f" ([jump]({jump}))"
+    except Exception:
+        pass
+    return user_line, location_line
+
+
+async def notify_owner(ctx, err, source=None):
     import traceback
     import io
     global LAST_ERROR_TRACEBACK
@@ -1393,14 +1429,18 @@ async def notify_owner(ctx, err):
         owner = await bot.fetch_user(OWNER_ID)
         tick = chr(96)
         code_block = tick + tick + tick
-        
+
         err_to_trace = getattr(err, 'original', err)
         tb = "".join(traceback.format_exception(type(err_to_trace), err_to_trace, err_to_trace.__traceback__))
         LAST_ERROR_TRACEBACK = tb
-        
+
         embed = Theme.get_embed(title="⚠️ Bot Error", color=discord.Color.red())
 
-        
+        if source is not None:
+            user_line, location_line = _describe_error_source(source)
+            embed.add_field(name="👤 User", value=user_line, inline=False)
+            embed.add_field(name="📍 Where", value=location_line, inline=False)
+
         if len(tb) > 3800:
             embed.description = f"An error occurred in **{str(ctx)}**:\n*Traceback too long, attaching as file.*"
             file = discord.File(io.BytesIO(tb.encode('utf-8')), filename="traceback.txt")
@@ -1459,7 +1499,7 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.CommandInvokeError) and isinstance(error.original, discord.HTTPException) and error.original.code == 200000:
         return await ctx.send("❌ The response was blocked by AutoMod. This usually happens if your username or requested data contains a blocked word.")
         
-    await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error)
+    await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error, source=ctx)
     try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
     except: pass
 
@@ -1487,7 +1527,7 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
         return
 
     cmd_name = interaction.command.name if interaction.command else "unknown"
-    await notify_owner(f"/{cmd_name}", error)
+    await notify_owner(f"/{cmd_name}", error, source=interaction)
     
     fallback_msg = "Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92"
     if not interaction.response.is_done(): 
