@@ -2063,45 +2063,143 @@ class SettingsView(discord.ui.View):
         self.add_item(SettingsDropdown())
 
 _FEATURES_CACHE: dict = {}
+_FEATURES_TTL = 21600.0  # 6h (short: a wrong guess must not stick around for a day)
+
+_FEAT_RE = r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)"
+# Version words that mean "different recording" — never borrow artists across these.
+_VERSION_WORDS = ("remix", "live", "acoustic", "demo", "version", "edit", "mix", "cover", "instrumental")
 
 
-async def apply_features(session, artist, song, s_artists=None):
-    """Fast feat. detection: title regex + Spotify artists (already fetched) + cached iTunes.
-    MusicBrainz blocking call removed (was 1.5s+ per /fm); Spotify/iTunes run concurrently."""
+def _norm_name(x):
+    import re, unicodedata
+    return re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', x or '').encode('ASCII', 'ignore').decode('utf-8').lower())
+
+
+def _strip_leading_the(n):
+    return n[3:] if n.startswith('the') and len(n) > 5 else n
+
+
+def _same_track(a, b):
+    """Fuzzy title match with a version guard (remix vs original must NOT match)."""
+    na, nb = _norm_name(a), _norm_name(b)
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    if len(na) < 3 or len(nb) < 3:
+        return False
+    if na not in nb and nb not in na:
+        return False
+    if {w for w in _VERSION_WORDS if w in na} != {w for w in _VERSION_WORDS if w in nb}:
+        return False
+    return True
+
+
+def _same_artist_strict(a, b):
+    """Main-artist identification: normalized equality (ignoring a leading 'the')."""
+    na, nb = _strip_leading_the(_norm_name(a)), _strip_leading_the(_norm_name(b))
+    return bool(na) and na == nb
+
+
+def _same_artist_loose(a, b):
+    if _same_artist_strict(a, b):
+        return True
+    na, nb = _norm_name(a), _norm_name(b)
+    # Min length kills short-name false positives ("em" in "eminem", "al" in "alice").
+    if len(na) < 4 or len(nb) < 4:
+        return False
+    return na in nb or nb in na
+
+
+def _already_listed(existing_norms, n):
+    if not n:
+        return True
+    for e in existing_norms:
+        if n == e:
+            return True
+        if len(n) >= 4 and len(e) >= 4 and (n in e or e in n):
+            return True
+    return False
+
+
+def _extract_title_features(artist, song):
+    """Pull (feat. X) / - feat. X out of the title. Most reliable signal, no network."""
+    import re
+    m = re.search(_FEAT_RE, song, flags=re.IGNORECASE)
+    if not m:
+        return artist, song
+    features = m.group(1).strip(" ,&-").strip()
+    if not features or len(features) > 60:
+        return artist, song  # absurdly long capture = regex misfire, ignore it
+    song = (song[:m.start()] + song[m.end():]).strip()
+    song = re.sub(r'\s{2,}', ' ', song).strip(" -")
+    artist = f"{artist}, {features}"
+    return artist, song
+
+
+def _merge_spotify_artists(artist, song, original_artist, s_artists, s_track_name):
+    """Merge Spotify's artist list. Returns (artist, song, resolved).
+
+    resolved=False means the Spotify data couldn't be trusted (wrong track or
+    main artist not identifiable) — caller should fall through, not guess.
+    """
+    if not s_artists:
+        return artist, song, False
+    # Don't trust artists from the wrong Spotify track (same-name covers/remixes).
+    if s_track_name and not _same_track(song, s_track_name):
+        return artist, song, False
+    main_idx = next((i for i, a in enumerate(s_artists) if _same_artist_strict(original_artist, a)), None)
+    if main_idx is None:
+        main_idx = next((i for i, a in enumerate(s_artists) if _same_artist_loose(original_artist, a)), None)
+    if main_idx is None:
+        return artist, song, False
+    existing = {_norm_name(p) for p in artist.split(",")}
+    extras = [a.strip() for i, a in enumerate(s_artists)
+              if i != main_idx and a and a.strip() and not _already_listed(existing, _norm_name(a))]
+    if extras:
+        artist = f"{artist}, {', '.join(extras)}"
+    return artist, song, True
+
+
+async def apply_features(session, artist, song, s_artists=None, s_track_name=None):
+    """Feat. detection: title regex + verified Spotify artists + guarded iTunes fallback.
+
+    Conservative by design: a missed feature just shows the plain artist name,
+    but a wrong feature shows someone else's name — so when in doubt, don't add.
+    """
     if not artist or not song:
         return artist, song
 
-    import re, unicodedata
-    norm = lambda x: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8').lower())
-
+    import re
     original_artist = artist
-    cache_key = f"{original_artist.lower()}\x00{song.lower()}"
+    sp_sig = ""
+    if s_track_name:
+        sp_sig += "\x01" + s_track_name.lower()
+    if s_artists:
+        sp_sig += "\x02" + "|".join(a.lower() for a in s_artists[:4])
+    cache_key = f"{original_artist.lower()}\x00{song.lower()}\x00{sp_sig}"
     now = _ctime.monotonic()
     entry = _FEATURES_CACHE.get(cache_key)
     if entry and entry[1] > now:
         return entry[0]
 
-    # 1. Extract from title (instant, no network)
-    m = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", song, flags=re.IGNORECASE)
-    if m:
-        features = m.group(1).strip()
-        song = song.replace(m.group(0), "").strip()
-        artist = f"{artist}, {features}"
+    def _store(result):
+        _FEATURES_CACHE[cache_key] = (result, now + _FEATURES_TTL)
+        if len(_FEATURES_CACHE) > 2000:
+            _FEATURES_CACHE.pop(next(iter(_FEATURES_CACHE)))
+        return result
 
-    n_artist = norm(artist)
+    # 1. Title regex (instant, most reliable).
+    artist, song = _extract_title_features(artist, song)
 
     # 2. Spotify artists already fetched in process_fm — instant, no extra call.
-    if s_artists and len(s_artists) > 0:
-        if any(norm(original_artist) in norm(a) or norm(a) in norm(original_artist) for a in s_artists):
-            api_features = [a for a in s_artists if norm(a) not in n_artist]
-            if api_features:
-                artist = f"{artist}, {', '.join(api_features)}"
-                for a in api_features:
-                    n_artist += norm(a)
-        _FEATURES_CACHE[cache_key] = ((artist, song), now + 86400)
-        return artist, song
+    if s_artists:
+        artist, song, resolved = _merge_spotify_artists(artist, song, original_artist, s_artists, s_track_name)
+        if resolved:
+            return _store((artist, song))
+        # Unresolved: fall through to iTunes instead of guessing.
 
-    # 3. Concurrent fallbacks (Spotify already attempted upstream; just try iTunes fast).
+    # 3. iTunes fallback, tightly guarded.
     async def _itunes_lookup():
         try:
             import aiohttp as _aio
@@ -2119,37 +2217,41 @@ async def apply_features(session, artist, song, s_artists=None):
         data = await asyncio.wait_for(_itunes_lookup(), timeout=1.6)
         if data and data.get('resultCount', 0) > 0:
             for result in data['results'][:3]:
-                it_artist = result.get('artistName', '')
-                it_track = result.get('trackName', '')
-                if norm(song) not in norm(it_track) and norm(it_track) not in norm(song):
+                it_artist = result.get('artistName', '') or ''
+                it_track = result.get('trackName', '') or ''
+                if not _same_track(song, it_track):
                     continue
-                lower_t = it_track.lower()
-                lower_s = song.lower()
-                if ('remix' in lower_t and 'remix' not in lower_s) or ('acoustic' in lower_t and 'acoustic' not in lower_s) or ('demo' in lower_t and 'demo' not in lower_s) or ('version' in lower_t and 'version' not in lower_s):
+                # Split collab string, but only trust it if the main artist is
+                # positively identifiable among the parts (kills "Mumford & Sons"
+                # -> phantom "Sons" feature, and "Al" matching "Alice Cooper").
+                parts = [p.strip() for p in re.split(
+                    r',|\s+&\s+|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+with\s+',
+                    it_artist, flags=re.IGNORECASE)]
+                parts = [p for p in parts if p]
+                if not parts or not any(_same_artist_strict(original_artist, p) for p in parts):
                     continue
-                if original_artist.lower() in it_artist.lower():
-                    api_features = []
-                    m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
-                    if m2:
-                        for f in re.split(r',|&', m2.group(1).strip()):
-                            f = f.strip()
-                            if f and norm(f) not in n_artist:
-                                api_features.append(f)
-                                n_artist += norm(f)
-                    for a in [a.strip() for a in re.split(r',|&| feat\. | ft\. | featuring | with ', it_artist, flags=re.IGNORECASE)]:
-                        if a and norm(a) not in n_artist:
-                            api_features.append(a)
-                            n_artist += norm(a)
-                    if api_features:
-                        artist = f"{artist}, {', '.join(api_features)}"
-                        break
+                existing = {_norm_name(p) for p in artist.split(",")}
+                api_features = []
+                m2 = re.search(_FEAT_RE, it_track, flags=re.IGNORECASE)
+                if m2:
+                    for f in re.split(r',|&', m2.group(1).strip()):
+                        f = f.strip()
+                        if f and not _already_listed(existing, _norm_name(f)):
+                            api_features.append(f)
+                            existing.add(_norm_name(f))
+                for p in parts:
+                    if _same_artist_strict(original_artist, p):
+                        continue  # the main artist, not a feature
+                    if not _already_listed(existing, _norm_name(p)):
+                        api_features.append(p)
+                        existing.add(_norm_name(p))
+                if api_features:
+                    artist = f"{artist}, {', '.join(api_features)}"
+                    break
     except Exception:
         pass
 
-    _FEATURES_CACHE[cache_key] = ((artist, song), now + 86400)
-    if len(_FEATURES_CACHE) > 2000:
-        _FEATURES_CACHE.pop(next(iter(_FEATURES_CACHE)))
-    return artist, song
+    return _store((artist, song))
 
 # --- CORE LOGIC ---
 import discord
@@ -2246,13 +2348,15 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             t_info = await track_info_task
     
             s_artists = None
-            
+            s_track_name = None
+
             if s_info:
                 spotify_url = s_info.get("spotify_url")
                 s_img = s_info.get("image_url")
                 if s_img and (not img or "2a96cbd8b46e442fc41c2b86b821562f" in img):
                     img = s_img
                 s_artists = s_info.get("artists")
+                s_track_name = s_info.get("name")
     
             async def do_deezer():
                 if not img or "2a96cbd8b46e442fc41c2b86b821562f" in img:
@@ -2266,7 +2370,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
             async def do_features():
                 if show_features:
-                    return await apply_features(session, artist, song, s_artists)
+                    return await apply_features(session, artist, song, s_artists, s_track_name)
                 return artist, song
                 
             img, (artist, song) = await asyncio.gather(do_deezer(), do_features())
