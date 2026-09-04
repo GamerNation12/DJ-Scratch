@@ -275,45 +275,65 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def login_slash(self, interaction: discord.Interaction):
-        from src.core.events import get_lastfm_username
-        username = await get_lastfm_username(interaction.user.id)
-        if username:
+        # Defer FIRST: Discord only waits 3s for the first reply, and a busy
+        # event loop can burn that before we even reach the DB call (10062).
+        # Deferring buys 15 minutes; the real message goes via followup.
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from src.core.events import get_lastfm_username
+            username = await get_lastfm_username(interaction.user.id)
+            if username:
+                embed = Theme.get_embed(
+                    title="✅ Already Logged In",
+                    description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `/logout` command first.",
+                    color=discord.Color.green()
+                )
+                return await interaction.followup.send(embed=embed, ephemeral=True)
+
             embed = Theme.get_embed(
-                title="✅ Already Logged In",
-                description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `/logout` command first.",
-                color=discord.Color.green()
+                title="🔗 Connect Last.fm",
+                description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
+                            "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
+                            "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
+                color=discord.Color.red()
             )
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
-            
-        embed = Theme.get_embed(
-            title="🔗 Connect Last.fm",
-            description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
-                        "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
-                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
-            color=discord.Color.red()
-        )
-        import urllib.parse
-        from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-        cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
-        auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
-        
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
+            import urllib.parse
+            from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
+            cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
+            auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
+
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+
+            await interaction.followup.send(embed=embed, ephemeral=True, view=view)
+        except Exception as e:
+            print(f"{Log.RED}>>> /login failed: {e}{Log.RESET}")
+            try:
+                await interaction.followup.send("❌ Something went wrong. Please try `/login` again.", ephemeral=True)
+            except Exception:
+                pass
 
     @app_commands.command(name="logout", description="Unlink your Last.fm account from the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def logout_slash(self, interaction: discord.Interaction):
-        from src.core.database import unlink_user
-        await unlink_user(interaction.user.id)
-        embed = Theme.get_embed(
-            title="👋 Logged Out",
-            description="Your Last.fm account has been successfully unlinked from your Discord account.",
-            color=discord.Color.green()
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        # Same 3-second rule as /login: defer first, answer via followup.
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from src.core.database import unlink_user
+            await unlink_user(interaction.user.id)
+            embed = Theme.get_embed(
+                title="👋 Logged Out",
+                description="Your Last.fm account has been successfully unlinked from your Discord account.",
+                color=discord.Color.green()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as e:
+            print(f"{Log.RED}>>> /logout failed: {e}{Log.RESET}")
+            try:
+                await interaction.followup.send("❌ Something went wrong. Please try `/logout` again.", ephemeral=True)
+            except Exception:
+                pass
 
     @app_commands.command(name="fm", description="View what you are currently listening to")
     @app_commands.describe(mode="Choose embed style")
