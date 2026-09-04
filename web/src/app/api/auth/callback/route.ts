@@ -44,6 +44,19 @@ export async function GET(request: Request) {
 
   const username = userData.username === "gamernation12" ? "GamerNation12" : userData.username;
 
+  // Accounts without a custom avatar have avatar=null (".../null.png" would 404),
+  // so fall back to Discord's default avatar for the account.
+  const defaultAvatarIndex = (() => {
+    try {
+      return Number((BigInt(userData.id) >> BigInt(22)) % BigInt(6));
+    } catch {
+      return 0;
+    }
+  })();
+  const avatarUrl = userData.avatar
+    ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex}.png`;
+
   let displayName = null;
   let sql;
   try {
@@ -63,7 +76,7 @@ export async function GET(request: Request) {
     name: resolvedName,
     discord_name: username,
     email: userData.email,
-    image: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`,
+    image: avatarUrl,
   });
 
   const state = searchParams.get('state');
@@ -103,7 +116,7 @@ export async function GET(request: Request) {
     await sql`ALTER TABLE imported_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`;
     await sql`
       INSERT INTO imported_users (id, username, avatar_url)
-      VALUES (${userData.id}, ${username}, ${`https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`})
+      VALUES (${userData.id}, ${username}, ${avatarUrl})
       ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, avatar_url = EXCLUDED.avatar_url
     `;
     await sql`
