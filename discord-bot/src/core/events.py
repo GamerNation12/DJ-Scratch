@@ -115,16 +115,37 @@ async def add_restarting_user(user_id, channel_id):
     except Exception as e:
         print(f"Failed to save restart notif for {user_id}: {e}")
 
+_TOUCH_STAMPS: dict = {}  # (user_id, kind) -> last monotonic write
+_TOUCH_TTL = 600.0  # 10 min: purge cutoffs are 53/60 days, so this loses nothing
+
+
+def _should_touch(user_id, kind="activity", ttl=_TOUCH_TTL):
+    import time as _t
+    now = _t.monotonic()
+    key = (str(user_id), kind)
+    if now - _TOUCH_STAMPS.get(key, 0.0) < ttl:
+        return False
+    _TOUCH_STAMPS[key] = now
+    if len(_TOUCH_STAMPS) > 20000:
+        cutoff = now - ttl
+        for k in [k for k, v in _TOUCH_STAMPS.items() if v < cutoff]:
+            _TOUCH_STAMPS.pop(k, None)
+    return True
+
+
 async def update_user_activity(user_id):
+    # Debounced: this fires on EVERY command, but day-granularity is plenty.
+    if not _should_touch(user_id, "activity"):
+        return
     from src.core.database import db_pool
     if not db_pool:
         return
     try:
         async with db_pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO user_settings (user_id, last_active, purge_warning_sent) 
+                INSERT INTO user_settings (user_id, last_active, purge_warning_sent)
                 VALUES ($1, CURRENT_TIMESTAMP, FALSE)
-                ON CONFLICT (user_id) 
+                ON CONFLICT (user_id)
                 DO UPDATE SET last_active = CURRENT_TIMESTAMP, purge_warning_sent = FALSE
             """, str(user_id))
     except Exception as e:
@@ -175,6 +196,26 @@ async def run_inactive_purge():
             deleted_count = int(res.split()[1]) if res.startswith("DELETE") else 0
             if deleted_count > 0:
                 print(f"Purged {deleted_count} completed/denied suggestions/bugs.")
+
+            # Storage guard: web uploads stuck mid-flow (user never hit finalize,
+            # or the worker died) leave raw file bytes in import_chunks forever.
+            # 'ready'/'completed' are left alone — only abandoned jobs are purged.
+            try:
+                stale_jobs = await conn.fetch(
+                    "SELECT id FROM import_jobs WHERE status NOT IN ('ready', 'completed')"
+                    " AND created_at < NOW() - INTERVAL '7 days'"
+                )
+                for sj in stale_jobs:
+                    await conn.execute("DELETE FROM import_chunks WHERE job_id = $1", sj['id'])
+                    await conn.execute("DELETE FROM import_jobs WHERE id = $1", sj['id'])
+                if stale_jobs:
+                    print(f"Cleaned {len(stale_jobs)} stale import jobs (+ their chunks).")
+            except Exception as e:
+                # import_jobs/chunks are created manually; if the tables (or
+                # created_at) don't exist there is simply nothing to clean.
+                if not isinstance(e, (asyncpg.exceptions.UndefinedTableError,
+                                      asyncpg.exceptions.UndefinedColumnError)):
+                    print(f"Import cleanup skipped: {e}")
                 
     except Exception as e:
         print(f"Error in run_inactive_purge: {e}")
@@ -1459,13 +1500,14 @@ async def on_command(ctx):
     print(f"{Log.CYAN}>>> [PREFIX COMMAND] {msg_info} {ctx.author} ran '{ctx.message.content}' in {location}{Log.RESET}")
     
     from .database import db_pool
-    if db_pool:
+    # Display names barely change — sync at most every 10 min, not per command.
+    if db_pool and _should_touch(ctx.author.id, "names"):
         try:
             async with db_pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO user_settings (user_id, discord_username, display_name) 
+                    INSERT INTO user_settings (user_id, discord_username, display_name)
                     VALUES ($1, $2, $3)
-                    ON CONFLICT (user_id) DO UPDATE SET 
+                    ON CONFLICT (user_id) DO UPDATE SET
                         discord_username = EXCLUDED.discord_username,
                         display_name = EXCLUDED.display_name
                 """, str(ctx.author.id), ctx.author.name, ctx.author.display_name)
@@ -1726,20 +1768,52 @@ async def add_custom_reactions(message):
     except: pass
 
 # --- HELPER: DATABASE MANAGEMENT ---
+# Full-table scans used by stats/whoknows paths — cache 90s, grows with user base.
+_LOAD_TABLE_CACHE: dict = {}  # name -> (data, expires_monotonic)
+_LOAD_TABLE_TTL = 90.0
+
+
+def _load_table_get(name):
+    import time as _t
+    e = _LOAD_TABLE_CACHE.get(name)
+    if e and e[1] > _t.monotonic():
+        return e[0]
+    return None
+
+
+def _load_table_set(name, data):
+    import time as _t
+    _LOAD_TABLE_CACHE[name] = (data, _t.monotonic() + _LOAD_TABLE_TTL)
+
+
+def invalidate_load_tables():
+    _LOAD_TABLE_CACHE.clear()
+
+
 async def load_users():
+    cached = _load_table_get('users')
+    if cached is not None:
+        return cached
     global db_pool
     if not db_pool: return {}
     async with db_pool.acquire() as conn:
         rows = await conn.fetch("SELECT user_id, lastfm_username FROM user_settings WHERE lastfm_username IS NOT NULL")
-        return {r['user_id']: r['lastfm_username'] for r in rows}
+        data = {r['user_id']: r['lastfm_username'] for r in rows}
+        _load_table_set('users', data)
+        return data
 
 async def load_display_names():
+    cached = _load_table_get('display_names')
+    if cached is not None:
+        return cached
     global db_pool
     if not db_pool: return {}
     async with db_pool.acquire() as conn:
         try:
             rows = await conn.fetch("SELECT user_id, display_name FROM user_settings WHERE display_name IS NOT NULL")
-            return {r['user_id']: r['display_name'] for r in rows}
+            data = {r['user_id']: r['display_name'] for r in rows}
+            _load_table_set('display_names', data)
+            return data
         except Exception:
             return {}
 
@@ -1756,6 +1830,10 @@ async def save_user(uid, username):
     try:
         from src.core.database import invalidate_user_cache
         invalidate_user_cache(uid)
+    except Exception:
+        pass
+    try:
+        invalidate_load_tables()
     except Exception:
         pass
     print(f"{Log.GREEN}>>> Saved Last.fm user to Postgres: {username} ({uid}){Log.RESET}")
@@ -3827,7 +3905,7 @@ HELP_COMMAND_META = {
     "servertracks": ("Server-wide top tracks", "/servertracks [period]"),
     # Account
     "login": ("Link your Last.fm account", "/login • `,login`"),
-    "logout": ("Unlink your Last.fm account", "/logout"),
+    "logout": ("Unlink Last.fm or Spotify", "/logout [spotify] • `,logout spotify`"),
     "privacy": ("Toggle private mode", "/privacy"),
     "import": ("Import Spotify / Apple Music history", "/import + attach ZIP"),
     "settings": ("Your display + /fm settings", "/settings"),
@@ -4260,21 +4338,22 @@ CACHED_GLOBAL_UPDATE_MESSAGE = None
 
 async def check_update_notification(user_id: int, send_message_func):
     try:
-        from src.core.database import get_global_update_version, get_user_update_notifs, get_user_last_update_seen, set_user_last_update_seen
+        from src.core.database import get_global_update_version, get_user_bundle, set_user_last_update_seen
         global CACHED_GLOBAL_UPDATE_VERSION
-        
+
         if CACHED_GLOBAL_UPDATE_VERSION is None:
             CACHED_GLOBAL_UPDATE_VERSION = await get_global_update_version()
-            
+
         current_version = CACHED_GLOBAL_UPDATE_VERSION
         if not current_version:
             return
 
-        wants_notifs = await get_user_update_notifs(user_id)
-        if not wants_notifs:
+        # ONE cached read instead of 2-3 DB round-trips per command.
+        bundle = await get_user_bundle(user_id)
+        if not bundle.get('update_notifs', True):
             return
-            
-        last_seen = await get_user_last_update_seen(user_id)
+
+        last_seen = bundle.get('last_update_seen', '') or ''
         if last_seen != current_version:
             await set_user_last_update_seen(user_id, current_version)
             await send_message_func()

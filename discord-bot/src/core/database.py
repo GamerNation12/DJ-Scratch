@@ -48,6 +48,7 @@ async def get_user_bundle(user_id):
         'lastfm_username': None, 'fm_mode': 'full', 'show_features': False,
         'show_track_playcount': True, 'data_source': 'combined',
         'embed_color': None, 'timezone': 'UTC', 'private_mode': False,
+        'update_notifs': True, 'last_update_seen': '',
     }
     if not db_pool:
         return bundle
@@ -55,7 +56,8 @@ async def get_user_bundle(user_id):
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT lastfm_username, fm_mode, show_features, show_track_playcount,"
-                " data_source, embed_color, timezone, private_mode"
+                " data_source, embed_color, timezone, private_mode,"
+                " update_notifs, last_update_seen"
                 " FROM user_settings WHERE user_id=$1", uid)
             if row:
                 for k in bundle:
@@ -545,6 +547,7 @@ async def get_user_update_notifs(uid):
         return True
 
 async def set_user_update_notifs(uid, enabled: bool):
+    invalidate_user_cache(uid)
     if not db_pool: return
     async with db_pool.acquire() as conn:
         try:
@@ -575,6 +578,7 @@ async def get_user_last_update_seen(uid):
         return ''
 
 async def set_user_last_update_seen(uid, version: str):
+    invalidate_user_cache(uid)
     if not db_pool: return
     async with db_pool.acquire() as conn:
         try:
@@ -921,6 +925,27 @@ async def unlink_user(user_id):
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")
+        return False
+
+async def clear_user_spotify(user_id):
+    """Disconnect Spotify: drop all stored tokens. Returns True on success."""
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            try:
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_access_token TEXT")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT")
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_token_expires_at TIMESTAMP")
+            except Exception:
+                pass
+            await conn.execute(
+                "UPDATE user_settings SET spotify_access_token = NULL,"
+                " spotify_refresh_token = NULL, spotify_token_expires_at = NULL"
+                " WHERE user_id=$1", str(user_id))
+            invalidate_user_cache(user_id)
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error clearing Spotify for {user_id}: {e}{Log.RESET}")
         return False
 
 # --- FRIENDS & DMs ---

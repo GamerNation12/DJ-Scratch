@@ -7,6 +7,20 @@ from discord import app_commands
 from src.core.database import format_name
 
 
+def _spotify_login_url(user_id: int) -> str:
+    import os
+    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+    return f"{app_url}/api/auth/spotify?user_id={user_id}"
+
+
+async def _is_spotify_linked(user_id: int) -> bool:
+    try:
+        from src.core.database import get_user_spotify_refresh_token
+        return bool(await get_user_spotify_refresh_token(user_id))
+    except Exception:
+        return False
+
+
 def extract_artist_from_message(msg: discord.Message) -> str:
     import re
     
@@ -282,21 +296,36 @@ class LastFmCog(commands.Cog):
         try:
             from src.core.events import get_lastfm_username
             username = await get_lastfm_username(interaction.user.id)
-            if username:
+            spotify_linked = await _is_spotify_linked(interaction.user.id)
+            spotify_url = _spotify_login_url(interaction.user.id)
+
+            if username and spotify_linked:
                 embed = Theme.get_embed(
-                    title="✅ Already Logged In",
-                    description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `/logout` command first.",
+                    title="✅ All Linked",
+                    description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready.",
                     color=discord.Color.green()
                 )
                 return await interaction.followup.send(embed=embed, ephemeral=True)
 
-            embed = Theme.get_embed(
-                title="🔗 Connect Last.fm",
-                description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
-                            "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
-                            "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
-                color=discord.Color.red()
-            )
+            if username:
+                embed = Theme.get_embed(
+                    title="✅ Last.fm Linked",
+                    description=f"You are logged in as **{username}**.\n\n"
+                                "🎵 Spotify is **not** linked yet — add it for playback control (`/play`), likes, and the Music dashboard.\n\n"
+                                "If you want to switch Last.fm accounts, use `/logout` first.",
+                    color=discord.Color.green()
+                )
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
+                return await interaction.followup.send(embed=embed, ephemeral=True, view=view)
+
+            desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
+                    "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
+                    "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*")
+            if spotify_linked:
+                desc += "\n\n🎵 Spotify already linked."
+            embed = Theme.get_embed(title="🔗 Connect Your Music", description=desc, color=discord.Color.red())
+
             import urllib.parse
             from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
             cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
@@ -304,6 +333,7 @@ class LastFmCog(commands.Cog):
 
             view = discord.ui.View()
             view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+            view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
 
             await interaction.followup.send(embed=embed, ephemeral=True, view=view)
         except Exception as e:
@@ -313,13 +343,21 @@ class LastFmCog(commands.Cog):
             except Exception:
                 pass
 
-    @app_commands.command(name="logout", description="Unlink your Last.fm account from the bot")
+    @app_commands.command(name="logout", description="Unlink your Last.fm or Spotify account from the bot")
+    @app_commands.describe(service="Which account to unlink (default: Last.fm)")
+    @app_commands.choices(service=[
+        app_commands.Choice(name="Last.fm", value="lastfm"),
+        app_commands.Choice(name="Spotify", value="spotify"),
+    ])
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def logout_slash(self, interaction: discord.Interaction):
+    async def logout_slash(self, interaction: discord.Interaction, service: app_commands.Choice[str] = None):
         # Same 3-second rule as /login: defer first, answer via followup.
         await interaction.response.defer(ephemeral=True)
         try:
+            svc = service.value if service else "lastfm"
+            if svc == "spotify":
+                return await self._logout_spotify_slash(interaction)
             from src.core.database import unlink_user
             await unlink_user(interaction.user.id)
             embed = Theme.get_embed(
@@ -334,6 +372,30 @@ class LastFmCog(commands.Cog):
                 await interaction.followup.send("❌ Something went wrong. Please try `/logout` again.", ephemeral=True)
             except Exception:
                 pass
+
+    async def _logout_spotify_slash(self, interaction: discord.Interaction):
+        from src.core.database import clear_user_spotify
+        if not await _is_spotify_linked(interaction.user.id):
+            embed = Theme.get_embed(
+                title="🎵 Spotify Not Linked",
+                description="Your Spotify account isn't linked — nothing to disconnect.",
+                color=discord.Color.blue()
+            )
+            return await interaction.followup.send(embed=embed, ephemeral=True)
+        ok = await clear_user_spotify(interaction.user.id)
+        if ok:
+            embed = Theme.get_embed(
+                title="🔓 Spotify Disconnected",
+                description="Your Spotify account has been unlinked.\n\nRemote control, likes, and the Music dashboard will stop working until you link it again with `/login`.",
+                color=discord.Color.green()
+            )
+        else:
+            embed = Theme.get_embed(
+                title="❌ Disconnect Failed",
+                description="Could not disconnect Spotify (database offline?). Please try again later.",
+                color=discord.Color.red()
+            )
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="fm", description="View what you are currently listening to")
     @app_commands.describe(mode="Choose embed style")
@@ -757,39 +819,79 @@ class LastFmCog(commands.Cog):
     async def login_prefix(self, ctx):
         from src.core.events import get_lastfm_username
         username = await get_lastfm_username(ctx.author.id)
-        if username:
+        spotify_linked = await _is_spotify_linked(ctx.author.id)
+        spotify_url = _spotify_login_url(ctx.author.id)
+
+        if username and spotify_linked:
             embed = Theme.get_embed(
-                title="✅ Already Logged In",
-                description=f"You are currently logged in as **{username}**.\n\nIf you want to switch accounts, please use the `,logout` command first.",
+                title="✅ All Linked",
+                description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready.",
                 color=discord.Color.green()
             )
             return await ctx.send(embed=embed)
-            
-        embed = Theme.get_embed(
-            title="🔗 Connect Last.fm",
-            description="**DJ Scratch uses Last.fm to track your listening history.**\n\n"
-                        "Click the button below to securely link your Last.fm account. You will be redirected to Last.fm to authorize the bot.\n\n"
-                        "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*",
-            color=discord.Color.red()
-        )
+
+        if username:
+            embed = Theme.get_embed(
+                title="✅ Last.fm Linked",
+                description=f"You are logged in as **{username}**.\n\n"
+                            "🎵 Spotify is **not** linked yet — add it for playback control (`,play`), likes, and the Music dashboard.\n\n"
+                            "If you want to switch Last.fm accounts, use `,logout` first.",
+                color=discord.Color.green()
+            )
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
+            return await ctx.send(embed=embed, view=view)
+
+        desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
+                "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
+                "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*")
+        if spotify_linked:
+            desc += "\n\n🎵 Spotify already linked."
+        embed = Theme.get_embed(title="🔗 Connect Your Music", description=desc, color=discord.Color.red())
         msg = await ctx.send(embed=embed)
-        
+
         import urllib.parse
         from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
         cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
         auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
-        
+
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))
+        view.add_item(discord.ui.Button(label="Login with Spotify", url=spotify_url, emoji="🎵"))
         await msg.edit(view=view)
 
     @commands.command(name="logout", aliases=["lo"])
-    async def logout_prefix(self, ctx):
+    async def logout_prefix(self, ctx, *, service: str = None):
+        # `,logout spotify` disconnects Spotify; anything else unlinks Last.fm.
+        if service and service.strip().lower() in ("spotify", "sp", "spot"):
+            from src.core.database import clear_user_spotify
+            if not await _is_spotify_linked(ctx.author.id):
+                embed = Theme.get_embed(
+                    title="🎵 Spotify Not Linked",
+                    description="Your Spotify account isn't linked — nothing to disconnect.",
+                    color=discord.Color.blue()
+                )
+                return await ctx.send(embed=embed)
+            ok = await clear_user_spotify(ctx.author.id)
+            if ok:
+                embed = Theme.get_embed(
+                    title="🔓 Spotify Disconnected",
+                    description="Your Spotify account has been unlinked.\n\nRemote control, likes, and the Music dashboard will stop working until you link it again with `,login`.",
+                    color=discord.Color.green()
+                )
+            else:
+                embed = Theme.get_embed(
+                    title="❌ Disconnect Failed",
+                    description="Could not disconnect Spotify (database offline?). Please try again later.",
+                    color=discord.Color.red()
+                )
+            return await ctx.send(embed=embed)
+
         from src.core.database import unlink_user
         await unlink_user(ctx.author.id)
         embed = Theme.get_embed(
             title="👋 Logged Out",
-            description="Your Last.fm account has been successfully unlinked from your Discord account.",
+            description="Your Last.fm account has been successfully unlinked from your Discord account.\n\n*To disconnect Spotify instead, use `,logout spotify`.*",
             color=discord.Color.green()
         )
         await ctx.send(embed=embed)
