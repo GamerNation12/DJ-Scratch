@@ -148,6 +148,8 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         self.bot = bot
 
     async def cog_check(self, ctx):
+        if ctx.command and ctx.command.name == "stats":
+            return True
         if ctx.author.id == OWNER_ID:
             return True
         from src.core.database import has_command_permission
@@ -207,64 +209,98 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
     @commands.command(name="stats", aliases=["guilds", "servers", "st"])
     async def stats_command(self, ctx):
-        msg = await ctx.send("📊 Fetching global database metrics... (this may take a few seconds)")
-        
+        msg = await ctx.send("📊 Fetching stats...")
+
+        is_owner = ctx.author.id == OWNER_ID
+
         guilds = sorted(self.bot.guilds, key=lambda g: g.member_count or 0, reverse=True)
         total_servers = len(guilds)
         total_members = sum(g.member_count for g in guilds if g.member_count)
-        
+
         db_size = "Unknown"
         scrobbles = 0
         users = 0
         crowns = 0
-        
+
         if getattr(self.bot, 'db_pool', None):
             async with self.bot.db_pool.acquire() as conn:
                 try:
-                    # Using reltuples for extremely fast table row count estimate on massive tables
                     scrobbles = await conn.fetchval("SELECT reltuples::bigint FROM pg_class WHERE relname = 'listens'")
                     users = await conn.fetchval("SELECT COUNT(*) FROM user_settings")
                     crowns = await conn.fetchval("SELECT COUNT(*) FROM server_crowns")
-                    db_size = await conn.fetchval("SELECT pg_size_pretty(pg_database_size(current_database()))")
+                    if is_owner:
+                        db_size = await conn.fetchval("SELECT pg_size_pretty(pg_database_size(current_database()))")
                 except Exception as e:
                     print(f"Stats DB Error: {e}")
-                    
-        # System stats
+
         import psutil
         import time
         from datetime import timedelta
-        
+
         cpu_usage = psutil.cpu_percent()
         ram_usage = psutil.virtual_memory().percent
-        
+
         uptime_seconds = int(time.time() - psutil.Process().create_time())
         uptime_str = str(timedelta(seconds=uptime_seconds))
-        
+
         try:
             ping = round(self.bot.latency * 1000)
-        except:
+        except Exception:
             ping = 0
-            
-        desc_lines = []
-        for idx, guild in enumerate(guilds[:10], 1):
-            desc_lines.append(f"`{idx:02}.` **{guild.name}** • 👥 **{guild.member_count:,}**")
-            
-        if len(guilds) > 10:
-            desc_lines.append(f"\n*...and {len(guilds) - 10} more servers.*")
-            
+
         from src.core.theme import Theme
-        embed = discord.Embed(
-            title="📊 Global System & Database Dashboard",
-            color=Theme.PRIMARY
-        )
-        
-        embed.add_field(name="🗄️ Database Metrics", value=f"**Scrobbles:** `{scrobbles:,}`\n**Crowns:** `{crowns:,}`\n**DB Size:** `{db_size}`", inline=True)
-        embed.add_field(name="👥 User Statistics", value=f"**Users Tracked:** `{users:,}`\n**Total Servers:** `{total_servers:,}`\n**Total Reach:** `{total_members:,}`", inline=True)
-        embed.add_field(name="🤖 Bot Health", value=f"**Uptime:** `{uptime_str}`\n**Ping:** `{ping}ms`\n**CPU/RAM:** `{cpu_usage}% / {ram_usage}%`", inline=True)
-        
-        embed.add_field(name="🌐 Top 10 Largest Servers", value=chr(10).join(desc_lines) if desc_lines else "None", inline=False)
+
+        if is_owner:
+            desc_lines = []
+            for idx, guild in enumerate(guilds[:10], 1):
+                desc_lines.append(f"`{idx:02}.` **{guild.name}** • 👥 **{guild.member_count:,}**")
+
+            if len(guilds) > 10:
+                desc_lines.append(f"\n*...and {len(guilds) - 10} more servers.*")
+
+            embed = discord.Embed(
+                title="📊 Global System & Database Dashboard",
+                color=Theme.PRIMARY
+            )
+
+            embed.add_field(name="🗄️ Database Metrics", value=f"**Scrobbles:** `{scrobbles:,}`\n**Crowns:** `{crowns:,}`\n**DB Size:** `{db_size}`", inline=True)
+            embed.add_field(name="👥 User Statistics", value=f"**Users Tracked:** `{users:,}`\n**Total Servers:** `{total_servers:,}`\n**Total Reach:** `{total_members:,}`", inline=True)
+            embed.add_field(name="🤖 Bot Health", value=f"**Uptime:** `{uptime_str}`\n**Ping:** `{ping}ms`\n**CPU/RAM:** `{cpu_usage}% / {ram_usage}%`", inline=True)
+
+            embed.add_field(name="🌐 Top 10 Largest Servers", value=chr(10).join(desc_lines) if desc_lines else "None", inline=False)
+        else:
+            embed = discord.Embed(
+                title="📊 DJ Scratch — Global Stats",
+                color=Theme.PRIMARY
+            )
+            embed.add_field(
+                name="🎵 Music Data",
+                value=(
+                    f"**Scrobbles Tracked:** `{scrobbles:,}`\n"
+                    f"**Users Registered:** `{users:,}`\n"
+                    f"**Crowns Awarded:** `{crowns:,}`"
+                ),
+                inline=True
+            )
+            embed.add_field(
+                name="🌐 Reach",
+                value=(
+                    f"**Servers:** `{total_servers:,}`\n"
+                    f"**Members Reached:** `{total_members:,}`"
+                ),
+                inline=True
+            )
+            embed.add_field(
+                name="🤖 Bot Status",
+                value=(
+                    f"**Ping:** `{ping}ms`\n"
+                    f"**Uptime:** `{uptime_str}`"
+                ),
+                inline=True
+            )
+            embed.set_footer(text="Use /login to link your Last.fm and start tracking!")
+
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        
         await msg.edit(content=None, embed=embed)
 
     @commands.command(name="cleanduplicates", aliases=["cdp", "cleand"])
@@ -493,3 +529,4 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
 
 async def setup(bot):
     await bot.add_cog(OwnerCommands(bot))
+
