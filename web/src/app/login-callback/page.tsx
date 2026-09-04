@@ -14,6 +14,8 @@ function LoginCallbackInner() {
     const discordId = searchParams.get("discord_id");
     const interactionToken = searchParams.get("interaction_token");
     const appId = searchParams.get("app_id");
+    const channelId = searchParams.get("channel_id");
+    const messageId = searchParams.get("message_id");
 
     if (!token || !discordId) {
       setStatus("error");
@@ -26,6 +28,9 @@ function LoginCallbackInner() {
         let url = `https://dj-scratch.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
         if (interactionToken) url += `&interaction_token=${interactionToken}`;
         if (appId) url += `&app_id=${appId}`;
+        // Prefix flow: lets the API refresh the original Discord message.
+        if (channelId) url += `&channel_id=${channelId}`;
+        if (messageId) url += `&message_id=${messageId}`;
         const res = await fetch(url);
         const data = await res.json();
 

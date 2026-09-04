@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Pool } from "pg";
 import crypto from "crypto";
 import { signToken } from '@/lib/jwt';
+import { refreshLoginMessage } from '@/lib/loginRefresh';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -115,6 +116,23 @@ export async function GET(req: Request) {
       );
     } catch (e) {
       console.error("Failed to log website action:", e);
+    }
+
+    // Prefix flow: refresh the original `,login` message (slash flow is
+    // handled via the interaction webhook below).
+    if (!searchParams.get("interaction_token") && discordId) {
+      try {
+        const origin = new URL(req.url).origin;
+        await refreshLoginMessage({
+          channelId: searchParams.get("channel_id"),
+          messageId: searchParams.get("message_id"),
+          userId: discordId,
+          siteOrigin: origin,
+          linkedLastfmUsername: lastfmUsername,
+        });
+      } catch (e) {
+        console.error("Failed to refresh login message:", e);
+      }
     }
 
     await pool.end();

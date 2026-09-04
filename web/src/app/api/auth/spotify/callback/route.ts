@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { getSpotifyRedirectUri } from '@/lib/spotify';
+import { refreshLoginMessage } from '@/lib/loginRefresh';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code');
-  const discordId = searchParams.get('state');
+  // state is either "<discordId>" or "<discordId>:<channelId>:<messageId>".
+  const [discordId, channelId, messageId] = (searchParams.get('state') || '').split(':');
   
   if (!code || !discordId) {
     return NextResponse.json({ error: 'Missing code or state parameter' }, { status: 400 });
@@ -63,6 +65,14 @@ export async function GET(req: Request) {
     );
 
     await pool.end();
+
+    // Refresh the Discord login message if this link started there.
+    try {
+      const origin = new URL(req.url).origin;
+      await refreshLoginMessage({ channelId, messageId, userId: discordId, siteOrigin: origin });
+    } catch (e) {
+      console.error('Failed to refresh login message:', e);
+    }
 
     // Give the user a nice success page
     const html = `
