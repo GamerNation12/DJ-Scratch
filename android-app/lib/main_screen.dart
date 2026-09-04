@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tabs/dashboard_tab.dart';
+import 'tabs/player_tab.dart';
 import 'tabs/leaderboard_tab.dart';
 import 'tabs/admin_tab.dart';
 import 'tabs/settings_tab.dart';
@@ -25,12 +26,6 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   String? _adminRole;
   bool _isLoading = true;
-
-  final List<Widget> _baseTabs = [
-    const DashboardTab(),
-    const LeaderboardTab(),
-    const SettingsTab(),
-  ];
 
   @override
   void initState() {
@@ -137,6 +132,7 @@ class _MainScreenState extends State<MainScreen> {
     // Dynamically insert Admin tab if they have permission
     final tabs = [
       const DashboardTab(),
+      const PlayerTab(),
       const LeaderboardTab(),
       const FriendsTab(),
       const MessagesTab(),
@@ -164,6 +160,11 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(LucideIcons.layoutDashboard, color: Colors.white54),
               selectedIcon: Icon(LucideIcons.layoutDashboard, color: Color(0xFF0AB5CD)),
               label: 'Dashboard',
+            ),
+            const NavigationDestination(
+              icon: Icon(LucideIcons.music, color: Colors.white54),
+              selectedIcon: Icon(LucideIcons.music, color: Color(0xFF22C55E)),
+              label: 'Player',
             ),
             const NavigationDestination(
               icon: Icon(LucideIcons.trophy, color: Colors.white54),

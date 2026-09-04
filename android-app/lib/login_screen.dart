@@ -133,6 +133,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Image.asset(
                               'assets/icon.png',
                               fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Icons.music_note,
+                                color: Colors.white,
+                                size: 56,
+                              ),
                             ),
                           ),
                         ),
