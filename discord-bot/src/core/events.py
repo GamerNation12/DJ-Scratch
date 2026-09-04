@@ -4559,9 +4559,10 @@ async def on_interaction(interaction: discord.Interaction):
                 app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
                 
                 from src.core.spotify import (
-                    spotify_skip_to_previous, spotify_pause_playback, 
-                    spotify_play_track, spotify_skip_to_next, 
-                    spotify_like_track, get_currently_playing_track
+                    spotify_skip_to_previous, spotify_pause_playback,
+                    spotify_play_track, spotify_skip_to_next,
+                    spotify_like_track, get_currently_playing_track,
+                    get_spotify_queue, is_track_liked
                 )
                 
                 async with aiohttp.ClientSession() as session:
@@ -4598,9 +4599,16 @@ async def on_interaction(interaction: discord.Interaction):
                         elif action == "spotify_next": action_label = "Skipped"
                         elif action == "spotify_like": action_label = "Liked"
                         elif action == "spotify_refresh": action_label = "Refreshed"
-                        
+
+                        queue, liked = await asyncio.gather(
+                            get_spotify_queue(session, owner_id),
+                            is_track_liked(session, owner_id, track.get("id")),
+                        )
+                        if queue == "no_token":
+                            queue = []
+
                         from src.commands.spotify_remote import get_spotify_remote_layout, _pretty_spotify_error
-                        view = get_spotify_remote_layout(track, owner_id, action_label)
+                        view = get_spotify_remote_layout(track, owner_id, action_label, queue=queue, liked=liked)
                         await interaction.message.edit(embeds=[], view=view)
                         
         elif custom_id.startswith("fm_up:") or custom_id.startswith("fm_down:"):

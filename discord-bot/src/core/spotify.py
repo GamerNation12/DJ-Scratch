@@ -362,6 +362,47 @@ async def fetch_spotify_by_id(session: aiohttp.ClientSession, kind: str, spotify
         print(f"{Log.RED}>>> Failed to fetch Spotify {kind} {spotify_id}: {type(e).__name__}: {e}{Log.RESET}")
     return None
 
+async def get_spotify_queue(session: aiohttp.ClientSession, user_id: str, limit: int = 4):
+    """Up-next queue for the remote panel. Returns a list (possibly empty) or "no_token"."""
+    token = await get_user_spotify_access_token(session, user_id)
+    if not token:
+        return "no_token"
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        async with session.get("https://api.spotify.com/v1/me/player/queue", headers=headers, timeout=3.0) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                out = []
+                for t in (data.get("queue") or [])[:max(0, limit)]:
+                    out.append({
+                        "name": t.get("name"),
+                        "artists": [a.get("name") for a in t.get("artists", [])],
+                        "spotify_url": (t.get("external_urls") or {}).get("spotify"),
+                        "uri": t.get("uri"),
+                    })
+                return out
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to fetch Spotify queue: {type(e).__name__}: {e}{Log.RESET}")
+    return []
+
+
+async def is_track_liked(session: aiohttp.ClientSession, user_id: str, track_id: str):
+    """Liked state for the panel heart. True/False, or None when unknown."""
+    if not track_id:
+        return None
+    token = await get_user_spotify_access_token(session, user_id)
+    if not token:
+        return None
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        async with session.get(f"https://api.spotify.com/v1/me/tracks/contains?ids={track_id}", headers=headers, timeout=3.0) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return bool(data and data[0])
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to check liked state: {type(e).__name__}: {e}{Log.RESET}")
+    return None
+
 async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: str):
     token = await get_user_spotify_access_token(session, user_id)
     if not token: return "no_token"
