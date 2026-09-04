@@ -1,5 +1,6 @@
 import os
 import paramiko
+import socket
 import time
 import random
 from dotenv import load_dotenv
@@ -17,24 +18,23 @@ def deploy():
 
     import sys
     try:
-        # Initial connection with timeout
-        transport = paramiko.Transport((host, port))
-        transport.set_gss_auth(False)
-        transport.connect(username=username, password=password, timeout=30)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(30)
+        sock.connect((host, port))
+        transport = paramiko.Transport(sock)
+        transport.connect(username=username, password=password)
         sftp = paramiko.SFTPClient.from_transport(transport)
         print("Connected! Syncing files...")
         
-        # Files/Folders to sync from discord-bot
         sync_items = [
             "discord-bot/src",
             "discord-bot/cogs",
             "discord-bot/main.py",
             "discord-bot/requirements.txt",
-            ".env" # Keep .env in root for local testing
+            ".env"
         ]
         
         def reconnect():
-            """Attempt to reconnect to the server"""
             nonlocal transport, sftp
             try:
                 transport.close()
@@ -42,36 +42,31 @@ def deploy():
                 pass
             
             time.sleep(1)
-            transport = paramiko.Transport((host, port))
-            transport.set_gss_auth(False)
-            transport.connect(username=username, password=password, timeout=30)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(30)
+            sock.connect((host, port))
+            transport = paramiko.Transport(sock)
+            transport.connect(username=username, password=password)
             sftp = paramiko.SFTPClient.from_transport(transport)
             print("Reconnected to server")
         
         def upload_file_with_retry(local_path, remote_path, max_retries=5):
-            """Upload file with exponential backoff retry logic"""
             base_delay = 1
-            
             for attempt in range(max_retries):
                 try:
-                    # Check connection health before upload
                     try:
                         sftp.stat('/')
                     except:
                         print(f"Connection lost, reconnecting...")
                         reconnect()
-                    
                     sftp.put(local_path, remote_path)
-                    print(f"✓ Uploaded {local_path}")
+                    print(f"? Uploaded {local_path}")
                     return
                 except Exception as e:
                     if attempt < max_retries - 1:
-                        # Exponential backoff with jitter
                         delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                        print(f"✗ Upload failed for {local_path}: {str(e)[:80]}. Retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        print(f"? Upload failed for {local_path}: {str(e)[:80]}. Retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})...")
                         time.sleep(delay)
-                        
-                        # Try to reconnect before next attempt
                         try:
                             reconnect()
                         except Exception as reconnect_err:
@@ -84,13 +79,11 @@ def deploy():
                 sftp.mkdir(remote_dir)
             except IOError:
                 pass
-                
             for item in os.listdir(local_dir):
                 if item == "__pycache__":
                     continue
                 local_path = os.path.join(local_dir, item)
                 remote_path = f"{remote_dir}/{item}"
-                
                 if os.path.isfile(local_path):
                     print(f"Uploading {local_path} -> {remote_path}")
                     upload_file_with_retry(local_path, remote_path)
@@ -99,7 +92,6 @@ def deploy():
 
         for item in sync_items:
             local_path = item
-            # Strip "discord-bot/" from the remote path so it uploads to the server root
             remote_path = f"/{item.replace('discord-bot/', '')}"
             if os.path.isfile(local_path):
                 print(f"Uploading {local_path} -> {remote_path}")
@@ -107,17 +99,16 @@ def deploy():
             elif os.path.isdir(local_path):
                 upload_dir(local_path, remote_path)
                 
-        # Write restart flag to tell the bot to restart
         try:
             with sftp.file('/.restart_flag', 'w') as f:
                 f.write('restart')
-            print("✓ Wrote .restart_flag to remote server.")
+            print("? Wrote .restart_flag to remote server.")
         except Exception as e:
-            print(f"⚠ Could not write .restart_flag: {e}")
+            print(f"? Could not write .restart_flag: {e}")
 
-        print("✓ Deployment successful!")
+        print("? Deployment successful!")
     except Exception as e:
-        print(f"✗ Deployment failed: {e}")
+        print(f"? Deployment failed: {e}")
         sys.exit(1)
     finally:
         if 'transport' in locals():

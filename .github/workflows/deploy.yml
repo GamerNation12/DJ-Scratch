@@ -26,7 +26,7 @@ jobs:
           python-version: '3.11'
           
       - name: Install dependencies
-        run: pip install paramiko python-dotenv
+        run: pip install 'paramiko>=2.11.0,<3.0' python-dotenv
         
       - name: Sync Files to Server via SFTP
         env:
