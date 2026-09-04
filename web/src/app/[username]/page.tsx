@@ -69,6 +69,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [importError, setImportError] = useState<string | null>(null);
   const [importLocked, setImportLocked] = useState(false);
   const [importLockReason, setImportLockReason] = useState<string | null>(null);
+  const [spotifyLinked, setSpotifyLinked] = useState<boolean | null>(null);
+  const [spotifyBusy, setSpotifyBusy] = useState(false);
 
   // Reflect the bot owner's import lock (disabled_commands) in the UI.
   // Server routes enforce it regardless; this just avoids a doomed upload.
@@ -91,6 +93,34 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   }, [activeTab, isOwner]);
 
   const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+
+  // Spotify link status for the Connected Accounts card.
+  useEffect(() => {
+    if (activeTab !== "settings" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/spotify/status");
+        const data = await res.json();
+        if (!cancelled && res.ok) setSpotifyLinked(!!data.linked);
+      } catch {
+        /* unknown: actions stay hidden */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, isOwner]);
+
+  const handleSpotifyDisconnect = async () => {
+    setSpotifyBusy(true);
+    try {
+      const res = await fetchApi("/api/spotify/disconnect", { method: "POST" });
+      if (res.ok) setSpotifyLinked(false);
+    } catch {
+      /* keep current state on failure */
+    } finally {
+      setSpotifyBusy(false);
+    }
+  };
 
   const handleImportUpload = async () => {
     if (!importFile) return;
@@ -816,6 +846,53 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         { value: "Australia/Sydney", label: "Australia/Sydney" }
                       ]}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Connected Accounts */}
+              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Connected Accounts</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Music services linked to your Discord account.</p>
+                </div>
+                <div className="divide-y divide-white/5">
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Last.fm</div>
+                      <div className="text-sm text-zinc-400">
+                        {profile?.lastfm_username ? <>Linked as <span className="text-white font-medium">{profile.lastfm_username}</span></> : "Not linked"}
+                      </div>
+                    </div>
+                    {!profile?.lastfm_username && (
+                      <span className="shrink-0 text-xs text-zinc-500">Link with /login in Discord</span>
+                    )}
+                  </div>
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Spotify</div>
+                      <div className="text-sm text-zinc-400">
+                        {spotifyLinked === null ? "Checking…" : spotifyLinked ? "Linked — remote control, likes, and Music dashboard ready" : "Not linked"}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {spotifyLinked === true ? (
+                        <button
+                          onClick={handleSpotifyDisconnect}
+                          disabled={spotifyBusy}
+                          className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {spotifyBusy ? "Working…" : "Disconnect"}
+                        </button>
+                      ) : spotifyLinked === false && session?.user?.id ? (
+                        <a
+                          href={`/api/auth/spotify/login?discord_id=${session.user.id}`}
+                          className="inline-block px-5 py-2.5 bg-green-500/15 hover:bg-green-500/25 border border-green-500/25 text-green-300 text-sm font-bold rounded-xl transition-all"
+                        >
+                          Connect
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
