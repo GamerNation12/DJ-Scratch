@@ -11,8 +11,6 @@ export default function Navbar() {
   const pathname = usePathname();
   const [botMode, setBotMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminRole, setAdminRole] = useState<string | null>(null);
 
   if (pathname.startsWith('/activity')) return null;
 
@@ -30,35 +28,13 @@ export default function Navbar() {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    if (session) {
-      import('@/lib/fetchApi').then(({ fetchApi }) => {
-        fetchApi("/api/admin/check")
-          .then(res => res.json())
-          .then(data => {
-            if (data.role) {
-              setIsAdmin(true);
-              setAdminRole(data.role);
-            } else {
-              setIsAdmin(false);
-            }
-          })
-          .catch(console.error);
-      });
-    } else {
-      setIsAdmin(false);
-    }
-  }, [session]);
-
   const displayName = botMode ? "DJ Scratch" : session?.user?.name;
   const displayImage = botMode ? "/logo.png" : session?.user?.image || "";
-  // Admin lives in the user dashboard now, not /admin.
-  const adminPath = session?.user?.name
+  // Own dashboard, one click from the avatar. (Admin lives in the
+  // dashboard's Admin tab now, so the navbar carries no admin links.)
+  const dashboardHref = session?.user?.name
     ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`
     : "/";
-  const adminHref = `${adminPath}?tab=admin`;
-  // Own dashboard, one click from the avatar.
-  const dashboardHref = adminPath === "/" ? "/" : adminPath;
 
   return (
     <div className="fixed top-0 w-full z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
@@ -151,21 +127,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-3 sm:space-x-4">
             {session ? (
               <div className="flex items-center gap-2 sm:gap-4">
-                {isAdmin && (
                   <Link
-                    href={adminHref}
-                    className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                      pathname === adminPath
-                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                        : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                    }`}
-                    title="Admin"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                    <span className="hidden lg:block text-xs font-medium">Admin</span>
-                  </Link>
-                )}
-                <Link
                   href="/friends"
                   className={`p-2 rounded-lg transition-all ${
                     pathname === "/friends"
@@ -314,19 +276,6 @@ export default function Navbar() {
                 </Link>
 
               </>
-            )}
-            {isAdmin && (
-              <Link
-                href={adminHref}
-                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                  pathname === adminPath
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                    : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                Admin
-              </Link>
             )}
             <div className="h-px bg-white/10 my-2"></div>
             <a 
