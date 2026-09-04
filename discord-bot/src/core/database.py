@@ -129,7 +129,10 @@ async def init_db():
                 db_conn_string,
                 min_size=1,
                 max_size=5,
-                max_inactive_connection_lifetime=30.0
+                max_inactive_connection_lifetime=30.0,
+                # Required for Supabase pooler (PgBouncer transaction mode):
+                # prepared statements don't survive the pooler.
+                statement_cache_size=0
             )
             print(f"{Log.GREEN}>>> Database pool created successfully{Log.RESET}")
             async with db_pool.acquire() as conn:
