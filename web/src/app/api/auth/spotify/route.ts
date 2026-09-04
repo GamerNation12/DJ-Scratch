@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getSpotifyRedirectUri } from '@/lib/spotify';
 
 export async function GET(req: Request) {
   const urlParams = new URL(req.url).searchParams;
@@ -13,8 +14,7 @@ export async function GET(req: Request) {
     return new NextResponse('Missing SPOTIFY_CLIENT_ID', { status: 500 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dj-scratch.vercel.app';
-  const redirectUri = encodeURIComponent(`${appUrl}/api/auth/spotify/callback`);
+  const redirectUri = encodeURIComponent(getSpotifyRedirectUri());
   // Same set as /api/auth/spotify/login so both entry points grant identical access.
   const scope = encodeURIComponent('user-read-currently-playing user-read-playback-state user-modify-playback-state user-library-read user-library-modify');
   const state = encodeURIComponent(userId);

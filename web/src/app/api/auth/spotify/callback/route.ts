@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { getSpotifyRedirectUri } from '@/lib/spotify';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -12,9 +13,7 @@ export async function GET(req: Request) {
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  const redirectUri = process.env.NEXT_PUBLIC_BASE_URL 
-    ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/spotify/callback` 
-    : 'https://dj-scratch.vercel.app/api/auth/spotify/callback';
+  const redirectUri = getSpotifyRedirectUri();
 
   if (!clientId || !clientSecret) {
     return NextResponse.json({ error: 'Spotify credentials are not configured' }, { status: 500 });

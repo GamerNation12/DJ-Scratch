@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
+import { getSpotifyRedirectUri } from '@/lib/spotify';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const discordId = searchParams.get('discord_id');
-  
+
   if (!discordId) {
     return NextResponse.json({ error: 'Missing discord_id parameter' }, { status: 400 });
   }
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_BASE_URL 
-    ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/spotify/callback` 
-    : 'https://dj-scratch.vercel.app/api/auth/spotify/callback';
+  const redirectUri = getSpotifyRedirectUri();
 
   if (!clientId) {
     return NextResponse.json({ error: 'SPOTIFY_CLIENT_ID is not configured' }, { status: 500 });

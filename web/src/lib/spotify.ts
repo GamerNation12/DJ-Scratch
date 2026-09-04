@@ -32,6 +32,21 @@ export async function getSpotifyAccessToken(userId: string): Promise<string | nu
   }
 }
 
+/**
+ * Single source of truth for the Spotify OAuth redirect URI.
+ * All three auth routes (login, link, callback) MUST send the identical
+ * string, and that exact string must be registered in the Spotify
+ * Developer Dashboard, or Spotify rejects the login outright.
+ */
+export function getSpotifyRedirectUri(): string {
+  const base = (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://dj-scratch.vercel.app"
+  ).replace(/\/+$/, "");
+  return `${base}/api/auth/spotify/callback`;
+}
+
 /** Authenticated user id from the site JWT, or null. */
 export async function getUserIdFromRequest(req: Request): Promise<string | null> {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
