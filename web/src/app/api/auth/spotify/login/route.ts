@@ -17,7 +17,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'SPOTIFY_CLIENT_ID is not configured' }, { status: 500 });
   }
 
-  const scope = 'user-read-currently-playing user-read-playback-state';
+  // Read scopes power now-playing display; modify/library scopes power the
+  // Music page remote (play/pause/skip) and likes. Request all up front so
+  // users never need to re-link to unlock a button.
+  const scope = [
+    'user-read-currently-playing',
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-library-read',
+    'user-library-modify',
+  ].join(' ');
   // We pass the discordId in the state parameter so we know who to save the token for!
   const state = discordId;
 

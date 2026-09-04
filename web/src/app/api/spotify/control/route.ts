@@ -30,6 +30,13 @@ export async function POST(req: Request) {
   try {
     const r = await spotifyFetch(accessToken, target.path, { method: target.method });
     if (r.status === 204 || r.ok) return NextResponse.json({ success: true });
+    if (r.status === 401) {
+      // Token granted before control scopes existed. Re-linking fixes it.
+      return NextResponse.json(
+        { error: "Spotify didn't grant control permissions. Disconnect Spotify in Settings (or ,play in Discord) and link it again." },
+        { status: 400 }
+      );
+    }
     if (r.status === 404) {
       return NextResponse.json(
         { error: "No active Spotify device. Open Spotify on your phone or computer first." },

@@ -27,6 +27,12 @@ export async function POST(req: Request) {
     if (r.status === 200 || r.status === 204 || r.ok) {
       return NextResponse.json({ success: true, liked: action === "like" });
     }
+    if (r.status === 401) {
+      return NextResponse.json(
+        { error: "Spotify didn't grant library permissions. Disconnect Spotify in Settings (or ,play in Discord) and link it again." },
+        { status: 400 }
+      );
+    }
     const text = await r.text().catch(() => "");
     return NextResponse.json({ error: `Spotify error: ${r.status} ${text}`.trim() }, { status: 500 });
   } catch (err: unknown) {
