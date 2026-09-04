@@ -57,6 +57,8 @@ export default function Navbar() {
     ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`
     : "/";
   const adminHref = `${adminPath}?tab=admin`;
+  // Own dashboard, one click from the avatar.
+  const dashboardHref = adminPath === "/" ? "/" : adminPath;
 
   return (
     <div className="fixed top-0 w-full z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
@@ -183,7 +185,11 @@ export default function Navbar() {
                 >
                   Invite
                 </a>
-                <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded-full border border-white/5">
+                <Link
+                  href={dashboardHref}
+                  title="My Dashboard"
+                  className="flex items-center gap-2 px-2 py-1 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all"
+                >
                   <img
                     src={displayImage}
                     alt="Avatar"
@@ -192,7 +198,7 @@ export default function Navbar() {
                   <span className="text-xs font-medium text-zinc-300 hidden sm:block pr-2">
                     {displayName}
                   </span>
-                </div>
+                </Link>
                 <button
                   onClick={() => logout()}
                   className="hidden sm:block px-3 py-1.5 text-xs font-medium text-red-400/80 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
