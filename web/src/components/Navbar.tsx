@@ -52,6 +52,11 @@ export default function Navbar() {
 
   const displayName = botMode ? "DJ Scratch" : session?.user?.name;
   const displayImage = botMode ? "/logo.png" : session?.user?.image || "";
+  // Admin lives in the user dashboard now, not /admin.
+  const adminPath = session?.user?.name
+    ? `/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`
+    : "/";
+  const adminHref = `${adminPath}?tab=admin`;
 
   return (
     <div className="fixed top-0 w-full z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
@@ -146,9 +151,9 @@ export default function Navbar() {
               <div className="flex items-center gap-2 sm:gap-4">
                 {isAdmin && (
                   <Link
-                    href="/admin"
+                    href={adminHref}
                     className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                      pathname === "/admin"
+                      pathname === adminPath
                         ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
                         : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
                     }`}
@@ -300,9 +305,9 @@ export default function Navbar() {
             )}
             {isAdmin && (
               <Link
-                href="/admin"
+                href={adminHref}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                  pathname === "/admin"
+                  pathname === adminPath
                     ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
                     : "text-zinc-400 hover:text-indigo-300 hover:bg-indigo-500/10"
                 }`}
