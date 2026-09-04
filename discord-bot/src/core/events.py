@@ -39,11 +39,38 @@ class CustomTree(app_commands.CommandTree):
             allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True)
         )
 
+# --- Prefix cache: avoids a DB hit on EVERY message (biggest latency win) ---
+_PREFIX_CACHE: dict = {}  # guild_id -> (prefixes_list, expires_at_monotonic)
+_PREFIX_TTL = 300.0  # 5 minutes
+
+def _prefix_cache_get(guild_id: str):
+    import time as _t
+    entry = _PREFIX_CACHE.get(guild_id)
+    if entry and entry[1] > _t.monotonic():
+        return entry[0]
+    return None
+
+def _prefix_cache_set(guild_id: str, prefixes):
+    import time as _t
+    _PREFIX_CACHE[guild_id] = (prefixes, _t.monotonic() + _PREFIX_TTL)
+    # Bound cache size
+    if len(_PREFIX_CACHE) > 5000:
+        _PREFIX_CACHE.pop(next(iter(_PREFIX_CACHE)))
+
+def invalidate_prefix_cache(guild_id=None):
+    if guild_id is None:
+        _PREFIX_CACHE.clear()
+    else:
+        _PREFIX_CACHE.pop(str(guild_id), None)
+
 async def get_prefix(client, message):
     if getattr(client, 'is_test_bot', False):
         return ",,"
     default_prefix = [',']
     if not message.guild: return default_prefix
+    cached = _prefix_cache_get(str(message.guild.id))
+    if cached is not None:
+        return cached
     from src.core.database import db_pool
     if not db_pool: return default_prefix
     try:
@@ -51,7 +78,11 @@ async def get_prefix(client, message):
             row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(message.guild.id))
             if row and row['prefix']:
                 p = row['prefix']
-                if p != ',': return [p, ',']
+                prefixes = [p, ','] if p != ',' else default_prefix
+            else:
+                prefixes = default_prefix
+            _prefix_cache_set(str(message.guild.id), prefixes)
+            return prefixes
     except Exception: pass
     return default_prefix
 
@@ -185,15 +216,29 @@ COOLDOWN_FILE = "avatar_cooldown.txt"
 from src.core.theme import Theme
 LASTFM_COLOR = Theme.PRIMARY 
 
+# Color cache: get_color() is called on nearly every command.
+_COLOR_CACHE: dict = {}
+import time as _ctime
+
+
 async def get_color(user_id):
     from src.core.database import get_user_embed_color
+    now = _ctime.monotonic()
+    entry = _COLOR_CACHE.get(str(user_id))
+    if entry and entry[1] > now:
+        return entry[0]
     c = await get_user_embed_color(user_id)
-    if c:
+    if c and c != 'album':
         import discord
         try:
-            return discord.Color(int(c.strip('#'), 16))
+            color = discord.Color(int(c.strip('#'), 16))
+            _COLOR_CACHE[str(user_id)] = (color, now + 300)
+            if len(_COLOR_CACHE) > 2000:
+                _COLOR_CACHE.pop(next(iter(_COLOR_CACHE)))
+            return color
         except:
             pass
+    _COLOR_CACHE[str(user_id)] = (LASTFM_COLOR, now + 60)
     return LASTFM_COLOR
 
 async def get_album_based_color(user_id, image_url=None):
@@ -221,17 +266,39 @@ async def get_album_based_color(user_id, image_url=None):
         pass
     return await get_color(user_id)
 
+_ITUNES_CACHE: dict = {}
+
+
 async def get_album_image_url(artist, album):
     """Try to fetch album art URL from iTunes Search API (no key required)."""
     import aiohttp
+    key = f"{artist.lower()}\x00{album.lower()}"
+    now = _ctime.monotonic()
+    entry = _ITUNES_CACHE.get(key)
+    if entry and entry[1] > now:
+        return entry[0]
     try:
         params = {"term": f"{artist} {album}", "media": "music", "entity": "album", "limit": 1}
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://itunes.apple.com/search", params=params) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data.get("results"):
-                        return data["results"][0].get("artworkUrl100", "").replace("100x100bb", "300x300bb")
+        session = getattr(bot, 'session', None)
+        if session is None or getattr(session, 'closed', True):
+            async with aiohttp.ClientSession() as _tmp:
+                async with _tmp.get("https://itunes.apple.com/search", params=params, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("results"):
+                            url = data["results"][0].get("artworkUrl100", "").replace("100x100bb", "300x300bb")
+                            _ITUNES_CACHE[key] = (url, now + 86400)
+                            return url
+            return None
+        async with session.get("https://itunes.apple.com/search", params=params, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("results"):
+                    url = data["results"][0].get("artworkUrl100", "").replace("100x100bb", "300x300bb")
+                    _ITUNES_CACHE[key] = (url, now + 86400)
+                    if len(_ITUNES_CACHE) > 2000:
+                        _ITUNES_CACHE.pop(next(iter(_ITUNES_CACHE)))
+                    return url
     except Exception:
         pass
     return None
@@ -361,8 +428,15 @@ class BugReportView(discord.ui.View):
     async def investigating_btn(self, i: discord.Interaction, b: discord.ui.Button):
         await i.response.send_modal(SuggestionFeedbackModal("Investigating", discord.Color.blurple(), "🔍", "approved", is_bug=True))
 
+def make_fast_session():
+    # Shared connector: connection reuse + DNS cache = much faster API calls.
+    connector = aiohttp.TCPConnector(limit=100, limit_per_host=20, ttl_dns_cache=300)
+    timeout = aiohttp.ClientTimeout(total=8, connect=3, sock_read=5)
+    return aiohttp.ClientSession(connector=connector, timeout=timeout)
+
 async def setup_hook():
-    bot.session = aiohttp.ClientSession()
+    if getattr(bot, 'session', None) is None or getattr(bot.session, 'closed', True):
+        bot.session = make_fast_session()
     bot.add_view(SuggestionView())
     bot.add_view(BugReportView())
     try:
@@ -1627,17 +1701,40 @@ async def save_user(uid, username):
             "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
             str(uid), username
         )
+    try:
+        from src.core.database import invalidate_user_cache
+        invalidate_user_cache(uid)
+    except Exception:
+        pass
     print(f"{Log.GREEN}>>> Saved Last.fm user to Postgres: {username} ({uid}){Log.RESET}")
 
 async def get_lastfm_username(uid):
     if bot and bot.user and str(uid) == str(bot.user.id):
         return "DJ-Scratch"
-        
+
+    # Fast path: bundle cache (populated by get_user_bundle, 2-min TTL).
+    try:
+        from src.core.database import _bundle_get, _LASTFM_USER_CACHE, _LASTFM_USER_TTL, _time as _dbtime
+        b = _bundle_get(str(uid))
+        if b is not None:
+            return b.get('lastfm_username') or None
+        e = _LASTFM_USER_CACHE.get(str(uid))
+        if e and e[1] > _dbtime.monotonic():
+            return e[0]
+    except Exception:
+        pass
+
     global db_pool
     if not db_pool: return None
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow("SELECT lastfm_username FROM user_settings WHERE user_id = $1", str(uid))
-        return row['lastfm_username'] if row and row['lastfm_username'] else None
+        uname = row['lastfm_username'] if row and row['lastfm_username'] else None
+        try:
+            from src.core.database import _LASTFM_USER_CACHE as _c, _LASTFM_USER_TTL as _ttl, _time as _t
+            _c[str(uid)] = (uname, _t.monotonic() + _ttl)
+        except Exception:
+            pass
+        return uname
 
 # --- LAST.FM API FETCHERS ---
 
@@ -1953,16 +2050,26 @@ class SettingsView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(SettingsDropdown())
 
+_FEATURES_CACHE: dict = {}
+
+
 async def apply_features(session, artist, song, s_artists=None):
+    """Fast feat. detection: title regex + Spotify artists (already fetched) + cached iTunes.
+    MusicBrainz blocking call removed (was 1.5s+ per /fm); Spotify/iTunes run concurrently."""
     if not artist or not song:
         return artist, song
-        
+
     import re, unicodedata
     norm = lambda x: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8').lower())
-    
-    original_artist = artist
 
-    # 1. Extract from title
+    original_artist = artist
+    cache_key = f"{original_artist.lower()}\x00{song.lower()}"
+    now = _ctime.monotonic()
+    entry = _FEATURES_CACHE.get(cache_key)
+    if entry and entry[1] > now:
+        return entry[0]
+
+    # 1. Extract from title (instant, no network)
     m = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", song, flags=re.IGNORECASE)
     if m:
         features = m.group(1).strip()
@@ -1971,116 +2078,65 @@ async def apply_features(session, artist, song, s_artists=None):
 
     n_artist = norm(artist)
 
-    # 2. Check s_artists
+    # 2. Spotify artists already fetched in process_fm — instant, no extra call.
     if s_artists and len(s_artists) > 0:
-        # 2. Add features from Spotify/Last.fm if available
         if any(norm(original_artist) in norm(a) or norm(a) in norm(original_artist) for a in s_artists):
             api_features = [a for a in s_artists if norm(a) not in n_artist]
             if api_features:
                 artist = f"{artist}, {', '.join(api_features)}"
                 for a in api_features:
                     n_artist += norm(a)
-        
+        _FEATURES_CACHE[cache_key] = ((artist, song), now + 86400)
         return artist, song
 
-    # 3. Fallback to Musicbrainz
+    # 3. Concurrent fallbacks (Spotify already attempted upstream; just try iTunes fast).
+    async def _itunes_lookup():
+        try:
+            import aiohttp as _aio
+            url = f"https://itunes.apple.com/search?term={urllib.parse.quote(original_artist + ' ' + song)}&entity=song&limit=3"
+            if session is None or getattr(session, 'closed', True):
+                return None
+            async with session.get(url, timeout=_aio.ClientTimeout(total=1.5)) as r:
+                if r.status == 200:
+                    return await r.json(content_type=None)
+        except Exception:
+            pass
+        return None
+
     try:
-        import urllib.request, json, functools
-        req = urllib.request.Request(f"https://musicbrainz.org/ws/2/recording/?query=recording:%22{urllib.parse.quote(song)}%22%20AND%20artist:%22{urllib.parse.quote(original_artist)}%22&fmt=json", headers={'User-Agent': 'DJScratch/1.0'})
-        mb_loop = asyncio.get_event_loop()
-        mb_resp = await mb_loop.run_in_executor(None, functools.partial(urllib.request.urlopen, req, timeout=1.5))
-        mb_data = json.loads(mb_resp.read())
-        
-        if mb_data.get('recordings'):
-            for rec in mb_data['recordings']:
-                if rec.get('title', '').lower() == song.lower():
-                    credits = [c.get('artist', {}).get('name', '') for c in rec['artist-credit']]
-                    if any(norm(original_artist) in norm(c) or norm(c) in norm(original_artist) for c in credits if c):
-                        api_features = []
-                        for credit_name in credits:
-                            if credit_name and norm(credit_name) not in n_artist:
-                                api_features.append(credit_name)
-                        if api_features:
-                            return f"{artist}, {', '.join(api_features)}", song
-                    break
+        data = await asyncio.wait_for(_itunes_lookup(), timeout=1.6)
+        if data and data.get('resultCount', 0) > 0:
+            for result in data['results'][:3]:
+                it_artist = result.get('artistName', '')
+                it_track = result.get('trackName', '')
+                if norm(song) not in norm(it_track) and norm(it_track) not in norm(song):
+                    continue
+                lower_t = it_track.lower()
+                lower_s = song.lower()
+                if ('remix' in lower_t and 'remix' not in lower_s) or ('acoustic' in lower_t and 'acoustic' not in lower_s) or ('demo' in lower_t and 'demo' not in lower_s) or ('version' in lower_t and 'version' not in lower_s):
+                    continue
+                if original_artist.lower() in it_artist.lower():
+                    api_features = []
+                    m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
+                    if m2:
+                        for f in re.split(r',|&', m2.group(1).strip()):
+                            f = f.strip()
+                            if f and norm(f) not in n_artist:
+                                api_features.append(f)
+                                n_artist += norm(f)
+                    for a in [a.strip() for a in re.split(r',|&| feat\. | ft\. | featuring | with ', it_artist, flags=re.IGNORECASE)]:
+                        if a and norm(a) not in n_artist:
+                            api_features.append(a)
+                            n_artist += norm(a)
+                    if api_features:
+                        artist = f"{artist}, {', '.join(api_features)}"
+                        break
     except Exception:
         pass
 
-    # 4. Fallback to Spotify API
-    try:
-        from src.core.spotify import get_spotify_track_info
-        s_info = await get_spotify_track_info(session, original_artist, song)
-        if s_info and s_info.get("artists") and len(s_info["artists"]) > 1:
-            track_name = s_info.get("name", "")
-            if norm(song) in norm(track_name) or norm(track_name) in norm(song):
-                skip = False
-                if 'remix' in track_name.lower() and 'remix' not in song.lower():
-                    skip = True
-                if ('live ' in track_name.lower() or '(live' in track_name.lower() or '[live' in track_name.lower()) and 'live' not in song.lower():
-                    skip = True
-                if 'acoustic' in track_name.lower() and 'acoustic' not in song.lower():
-                    skip = True
-                if 'demo' in track_name.lower() and 'demo' not in song.lower():
-                    skip = True
-                if 'version' in track_name.lower() and 'version' not in song.lower():
-                    skip = True
-                    
-                if not skip:
-                    if any(norm(original_artist) in norm(a) or norm(a) in norm(original_artist) for a in s_info["artists"]):
-                        api_features = [a for a in s_info["artists"] if norm(a) not in n_artist]
-                        if api_features:
-                            return f"{artist}, {', '.join(api_features)}", song
-    except Exception:
-        pass
-        
-    # 5. Fallback to iTunes API
-    try:
-        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(original_artist + ' ' + song)}&entity=song&limit=5"
-        async with session.get(url, timeout=1.5) as r:
-            if r.status == 200:
-                data = await r.json(content_type=None)
-                if data.get('resultCount', 0) > 0:
-                    for result in data['results']:
-                        it_artist = result.get('artistName', '')
-                        it_track = result.get('trackName', '')
-                        
-                        if norm(song) not in norm(it_track) and norm(it_track) not in norm(song):
-                            continue
-                        
-                        if 'remix' in it_track.lower() and 'remix' not in song.lower():
-                            continue
-                        if 'live ' in it_track.lower() or '(live' in it_track.lower() or '[live' in it_track.lower():
-                            if 'live' not in song.lower():
-                                continue
-                        if 'acoustic' in it_track.lower() and 'acoustic' not in song.lower():
-                            continue
-                        if 'demo' in it_track.lower() and 'demo' not in song.lower():
-                            continue
-                        if 'version' in it_track.lower() and 'version' not in song.lower():
-                            continue
-                            
-                        if original_artist.lower() in it_artist.lower():
-                            api_features = []
-                            # Check track name for features
-                            m2 = re.search(r"(?:[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+|(?:\s+-\s+|\s+)(?:feat\.?|ft\.?|featuring)\s+)([^\]\)]+?)(?:[\)\]]|$)", it_track, flags=re.IGNORECASE)
-                            if m2:
-                                it_features = m2.group(1).strip()
-                                for f in re.split(r',|&', it_features):
-                                    f = f.strip()
-                                    if f and norm(f) not in n_artist:
-                                        api_features.append(f)
-                                        n_artist += norm(f)
-                            # Check artist string for extra artists
-                            it_artists = [a.strip() for a in re.split(r',|&| feat\. | ft\. | featuring | with ', it_artist, flags=re.IGNORECASE)]
-                            for a in it_artists:
-                                if a and norm(a) not in n_artist:
-                                    api_features.append(a)
-                                    n_artist += norm(a)
-                            if api_features:
-                                return f"{artist}, {', '.join(api_features)}", song
-    except Exception:
-        pass
-        
+    _FEATURES_CACHE[cache_key] = ((artist, song), now + 86400)
+    if len(_FEATURES_CACHE) > 2000:
+        _FEATURES_CACHE.pop(next(iter(_FEATURES_CACHE)))
     return artist, song
 
 # --- CORE LOGIC ---
@@ -2121,11 +2177,17 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
         
         raw_artist, raw_song = artist, song
-        
-        from src.core.database import get_user_show_features, get_user_show_track_playcount
-        show_features_task = asyncio.create_task(get_user_show_features(user.id))
-        show_playcount_task = asyncio.create_task(get_user_show_track_playcount(user.id))
-        show_features, show_playcount = await asyncio.gather(show_features_task, show_playcount_task)
+
+        # ONE cached DB query instead of 2-3 round-trips per /fm.
+        from src.core.database import get_user_bundle
+        try:
+            _bundle = await get_user_bundle(user.id)
+            show_features = _bundle.get('show_features', False)
+            show_playcount = _bundle.get('show_track_playcount', True)
+            if show_playcount is None:
+                show_playcount = True
+        except Exception:
+            show_features, show_playcount = False, True
         
         spotify_url = None
         track_plays = -1
@@ -2272,26 +2334,65 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if guild:
                 users_db = await load_users()
                 display_names = await load_display_names()
-                linked = {uid: lname for uid, lname in users_db.items() if uid in [str(m.id) for m in guild.members]}
+                member_ids = {str(m.id) for m in guild.members}
+                linked = {uid: lname for uid, lname in users_db.items() if uid in member_ids}
+                # Cap: 1 Last.fm call per member was killing /fm stats in big servers.
+                # Check at most 25 members with a concurrency limit + overall timeout.
                 if linked:
                     async def fetch_crown():
-                        tasks = [(uid, lname, fetch_artist_playcount(session, lname, raw_artist)) for uid, lname in linked.items()]
-                        results = await asyncio.gather(*(t[2] for t in tasks))
-                        
+                        import asyncio as _aio
+                        items = list(linked.items())[:25]
+                        sem = _aio.Semaphore(8)
+
+                        async def _one(lname):
+                            async with sem:
+                                try:
+                                    return await _aio.wait_for(fetch_artist_playcount(session, lname, raw_artist), timeout=4)
+                                except Exception:
+                                    return 0
+
+                        try:
+                            results = await _aio.wait_for(_aio.gather(*[_one(ln) for _, ln in items], return_exceptions=True), timeout=6)
+                        except Exception:
+                            return None
+
                         def get_name(uid, lname):
                             custom_name = display_names.get(uid)
                             if custom_name: return custom_name
-                            member = guild.get_member(int(uid))
+                            try:
+                                member = guild.get_member(int(uid))
+                            except Exception:
+                                member = None
                             return member.display_name if member else lname
-                            
-                        lb = [{"name": get_name(tasks[i][0], tasks[i][1]), "plays": pc} for i, pc in enumerate(results) if pc > 0]
+
+                        lb = []
+                        for (uid, lname), pc in zip(items, results or []):
+                            if isinstance(pc, Exception) or not pc:
+                                continue
+                            lb.append({"name": get_name(uid, lname), "plays": pc})
                         if not lb: return None
-                        lb = sorted(lb, key=lambda x: x['plays'], reverse=True)
+                        lb.sort(key=lambda x: x['plays'], reverse=True)
                         return lb[0]
                     crown_task = asyncio.create_task(fetch_crown())
-            
-            a_info = await a_info_task
-            crown_winner = await crown_task if crown_task else None
+
+            try:
+                a_info = await asyncio.wait_for(a_info_task, timeout=5)
+            except Exception:
+                try:
+                    a_info_task.cancel()
+                except Exception:
+                    pass
+                a_info = None
+            crown_winner = None
+            if crown_task:
+                try:
+                    crown_winner = await asyncio.wait_for(crown_task, timeout=7)
+                except Exception:
+                    try:
+                        crown_task.cancel()
+                    except Exception:
+                        pass
+                    crown_winner = None
 
             footer_parts = []
             if a_info and 'artist' in a_info and 'tags' in a_info['artist'] and 'tag' in a_info['artist']['tags']:
@@ -3537,128 +3638,295 @@ async def process_killallcrowns(guild, user):
 
 
 
+# ---------------------------------------------------------------------------
+# Help menu (redesigned): home page + category dropdown + prev/next navigation.
+# Command metadata is curated so every entry shows what it does AND how to use it.
+# ---------------------------------------------------------------------------
+HELP_COMMAND_META = {
+    # Now playing / personal stats
+    "fm": ("Now playing / last played track", "/fm [@user] • `,fm [@user]` • `,fm1` compact"),
+    "ta": ("Your top artists", "/ta [period] [@user] • `,ta all`"),
+    "tt": ("Your top tracks", "/tt [period] [@user] • `,tt 7day`"),
+    "rt": ("Your recent tracks", "/rt [@user] • `,rt`"),
+    "at": ("Your top tracks for one artist", "/at <artist> • `,at Taylor Swift`"),
+    "profile": ("Your listening profile card", "/profile [@user] • `,profile`"),
+    "topalbums": ("Your top albums", "/topalbums [period] • `,topalbums`"),
+    "chart": ("Album collage chart (3x3–5x5)", "/chart [size] [period] • `,chart 3x3`"),
+    "artistchart": ("Artist collage chart", "/artistchart [size] [period]"),
+    "taste": ("Compare music taste with someone", "/taste [@user] • `,t`"),
+    "streak": ("Current play streak for an artist", "/streak [artist]"),
+    "streakhistory": ("Past streaks (25+ plays)", "/streakhistory"),
+    # Server
+    "whoknows": ("Who in this server plays an artist most", "/whoknows <artist> • `,wk <artist>`"),
+    "whoknowstrack": ("Who plays a specific track most", "/whoknowstrack <track> • `,wkt`"),
+    "whoknowsalbum": ("Who plays a specific album most", "/whoknowsalbum <album> • `,wka`"),
+    "globalwhoknows": ("Who globally plays an artist most", "/globalwhoknows <artist>"),
+    "globalwhoknowstrack": ("Who globally plays a track most", "/globalwhoknowstrack <track>"),
+    "globalwhoknowsalbum": ("Who globally plays an album most", "/globalwhoknowsalbum <album>"),
+    "crowns": ("Your server crowns (most plays per artist)", "/crowns • `,crowns`"),
+    "crownseeder": ("Seed crowns for the server (Admin)", "/crownseeder"),
+    "killallcrowns": ("Remove all server crowns (Admin)", "/killallcrowns"),
+    "serverartists": ("Server-wide top artists", "/serverartists [period]"),
+    "serveralbums": ("Server-wide top albums", "/serveralbums [period]"),
+    "servertracks": ("Server-wide top tracks", "/servertracks [period]"),
+    # Account
+    "login": ("Link your Last.fm account", "/login • `,login`"),
+    "logout": ("Unlink your Last.fm account", "/logout"),
+    "privacy": ("Toggle private mode", "/privacy"),
+    "import": ("Import Spotify / Apple Music history", "/import + attach ZIP"),
+    "settings": ("Your display + /fm settings", "/settings"),
+    "cd": ("Check bot-avatar cooldown + preview", "`,cd`"),
+    "cd2": ("Preview avatar from last (not current) song", "`,cd2`"),
+    # Fun / utility
+    "guess": ("Guess-the-song game", "/guess"),
+    "scramble": ("Unscramble the artist/track", "/scramble"),
+    "judge": ("AI roasts your music taste", "/judge"),
+    "receipt": ("Top-tracks receipt image", "/receipt"),
+    "server": ("Server info card", "/server"),
+    "status": ("Bot uptime / ping / stats", "/status"),
+    "updates": ("Latest bot updates", "/updates"),
+    "guide": ("Quick-start guide", "/guide"),
+    "premium": ("Premium preview (coming soon)", "/premium"),
+    "dms": ("Friend DMs inbox", "/dms"),
+    "social": ("Friends & social commands", "/social"),
+    "deletedata": ("Delete your imported data", "/deletedata"),
+    "suggest": ("Send an idea to the dev", "/suggest <idea> • `,suggest`"),
+    "bug": ("Report a bug to the dev", "/bug <what happened>"),
+}
+
+HELP_CATEGORIES = {
+    "home": {
+        "label": "🏠 Home", "emoji": "🏠", "title": "DJ Scratch — Help",
+        "tagline": "Your Last.fm + Spotify stats bot. Pick a category below or flip pages.",
+        "commands": [],
+    },
+    "nowplaying": {
+        "label": "🎧 Now Playing & Stats", "emoji": "🎧", "title": "🎧 Now Playing & Stats",
+        "tagline": "What you're spinning right now and your personal stats.",
+        "commands": ["fm", "profile", "taste", "streak", "streakhistory", "chart", "artistchart"],
+    },
+    "tops": {
+        "label": "📊 Tops & History", "emoji": "📊", "title": "📊 Tops & History",
+        "tagline": "Top artists, tracks, albums and recent history. Periods: `7day 1month 3month 6month 12month overall` (or `,ta 7d`).",
+        "commands": ["ta", "tt", "topalbums", "rt", "at", "serverartists", "serveralbums", "servertracks"],
+    },
+    "server": {
+        "label": "👑 Server & Crowns", "emoji": "👑", "title": "👑 Server & Crowns",
+        "tagline": "Battle your server for crowns and whoknows titles.",
+        "commands": ["whoknows", "whoknowstrack", "whoknowsalbum", "globalwhoknows", "globalwhoknowstrack", "globalwhoknowsalbum", "crowns", "crownseeder", "killallcrowns"],
+    },
+    "account": {
+        "label": "🔗 Account & Setup", "emoji": "🔗", "title": "🔗 Account & Setup",
+        "tagline": "Link Last.fm, import history, and tune your settings.",
+        "commands": ["login", "logout", "import", "settings", "privacy", "cd", "cd2"],
+    },
+    "fun": {
+        "label": "🎮 Fun & Utility", "emoji": "🎮", "title": "🎮 Fun & Utility",
+        "tagline": "Games, AI, and handy extras.",
+        "commands": ["guess", "scramble", "judge", "receipt", "server", "status", "updates", "guide", "premium", "dms", "social", "deletedata", "suggest", "bug"],
+    },
+}
+
+_HELP_AUTO_CACHE: dict = {}  # bot_id -> (cmd_info_dict, expires)
+
+
+def _get_auto_cmd_info(bot):
+    """Fallback descriptions from registered slash/prefix commands (cached 10 min)."""
+    import time as _t
+    bid = str(getattr(getattr(bot, 'user', None), 'id', 'nobot'))
+    e = _HELP_AUTO_CACHE.get(bid)
+    if e and e[1] > _t.monotonic():
+        return e[0]
+    info = {}
+    try:
+        slash_map = {c.name: c for c in bot.tree.get_commands()
+                     if not isinstance(c, discord.app_commands.ContextMenu)}
+    except Exception:
+        slash_map = {}
+    try:
+        for cmd in bot.commands:
+            s = slash_map.get(cmd.name)
+            desc = (s.description if s else None) or (cmd.help or "No description.")
+            # e.g. "/fm • also `,np`, `,n`"
+            aliases = (" • also " + ", ".join(f"`,{a}`" for a in cmd.aliases)) if cmd.aliases else ""
+            info[cmd.name] = (desc, f"/{cmd.name}{aliases}")
+    except Exception:
+        pass
+    try:
+        for name, s in slash_map.items():
+            if name not in info and not isinstance(s, discord.app_commands.Group):
+                info[name] = (s.description or "No description.", f"/{name}")
+    except Exception:
+        pass
+    _HELP_AUTO_CACHE[bid] = (info, _t.monotonic() + 600)
+    return info
+
+
+class HelpCategorySelect(discord.ui.Select):
+    def __init__(self, view_ref):
+        self.view_ref = view_ref
+        options = [
+            discord.SelectOption(label=v["label"].replace(f"{v['emoji']} ", ""), emoji=v["emoji"],
+                                 value=key, description=v["tagline"][:100])
+            for key, v in HELP_CATEGORIES.items()
+            if not v.get("admin")
+        ]
+        if view_ref.is_admin:
+            options.append(discord.SelectOption(label="Admin", emoji="🔒", value="admin",
+                                                description="Restricted commands"))
+        super().__init__(placeholder="Jump to a category…", min_values=1, max_values=1,
+                         options=options, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        v = self.view_ref
+        if interaction.user.id != v.user.id:
+            return await interaction.response.send_message("This menu isn't for you — run `,help` yourself!", ephemeral=True)
+        v.current_page = v.page_keys.index(self.values[0])
+        v.sync_controls()
+        await interaction.response.edit_message(embed=v.pages[v.current_page], view=v)
+
+
 class HelpPaginationView(discord.ui.View):
     def __init__(self, user, bot, is_admin=False):
         super().__init__(timeout=180)
         self.user = user
         self.bot = bot
         self.is_admin = is_admin
+        self.page_keys = list(HELP_CATEGORIES.keys()) + (["admin"] if is_admin else [])
         self.pages = self.build_pages()
         self.current_page = 0
-        self.update_buttons()
+        self.select = HelpCategorySelect(self)
+        self.add_item(self.select)
+        self.sync_controls()
+
+    def _cmd_field(self, name, auto_info):
+        meta = HELP_COMMAND_META.get(name)
+        if meta:
+            desc, usage = meta
+        elif name in auto_info:
+            desc, usage = auto_info[name]
+        else:
+            desc, usage = "No description.", f"/{name}"
+        # Field name shows slash + prefix; value shows what + how.
+        return (f"`/{name}`", f"{desc}\n﹒{usage}")
 
     def build_pages(self):
         from src.core.theme import Theme
         import discord
-        
-        COMMANDS_DATA = {
-            "Getting Started": {
-                "emoji": "💡",
-                "commands": []
-            },
-            "Last.fm Commands": {
-                "emoji": "🎵",
-                "desc": "Commands for tracking and viewing your Last.fm stats.",
-                "commands": ["fm", "ta", "tt", "rt", "at", "profile", "taste", "streak", "streakhistory", "chart", "artistchart", "topalbums", "serverartists", "serveralbums", "servertracks", "login", "logout", "privacy", "cd", "cd2", "import"]
-            },
-            "Server Stats": {
-                "emoji": "📊",
-                "desc": "See who listens to what the most in the server.",
-                "commands": ["whoknows", "whoknowstrack", "whoknowsalbum", "globalwhoknows", "globalwhoknowstrack", "globalwhoknowsalbum", "crowns", "crownseeder", "killallcrowns"]
-            },
-            "Utility & Fun": {
-                "emoji": "⚙️",
-                "desc": "Settings, games, and other utility commands.",
-                "commands": ["settings", "server", "guess", "scramble", "judge", "receipt", "suggest", "bug", "status", "updates", "guide", "premium", "dms", "social", "deletedata"]
-            },
-            "Restricted Commands": {
-                "emoji": "🔒",
-                "desc": "Admin restricted commands.",
-                "admin": True,
-                "commands": ["wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]
-            }
-        }
-        
-        # Pre-compute command info mapping
-        cmd_info = {}
-        # Fetch prefix commands
-        for cmd in self.bot.commands:
-            slash_cmd = discord.utils.get(self.bot.tree.get_commands(), name=cmd.name)
-            desc = slash_cmd.description if slash_cmd else (cmd.help or "No description provided.")
-            
-            prefix_usage = f"`/{cmd.name}`" if slash_cmd else f"`.{cmd.name}`"
-            alias_str = f" (or `.{'`, `.'.join(cmd.aliases)}`)" if cmd.aliases else ""
-            
-            cmd_info[cmd.name] = f"{prefix_usage}{alias_str} - {desc}"
-            
-        # Fetch slash commands that have no prefix version
-        for slash_cmd in self.bot.tree.get_commands():
-            if isinstance(slash_cmd, discord.app_commands.ContextMenu):
-                continue
-            if slash_cmd.name not in cmd_info:
-                if isinstance(slash_cmd, discord.app_commands.Group):
-                    cmd_info[slash_cmd.name] = f"`/{slash_cmd.name}` - {slash_cmd.description}"
-                else:
-                    cmd_info[slash_cmd.name] = f"`/{slash_cmd.name}` - {slash_cmd.description}"
 
+        auto_info = _get_auto_cmd_info(self.bot)
+        try:
+            avatar = self.bot.user.display_avatar.url if self.bot.user else None
+        except Exception:
+            avatar = None
         pages = []
-        for cat_name, cat_data in COMMANDS_DATA.items():
-            if cat_data.get("admin") and not self.is_admin:
-                continue
-                
-            embed = Theme.get_embed(user=self.user, title=f"{cat_data['emoji']} Help: {cat_name}")
-            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-            
-            lines = []
-            if cat_name == "Getting Started":
-                lines.append("**Welcome to DJ Scratch!**\n")
-                lines.append("**1️⃣ Link your Last.fm**\nUse `/login` to securely link your Last.fm account.\n")
-                lines.append("**2️⃣ Listen to Music**\nStart playing music on Spotify or Apple Music (ensure they are connected in your Last.fm settings).\n")
-                lines.append("**3️⃣ View your Current Song**\nType `,fm` or `/fm` in any channel to display the song you are currently listening to.\n")
-                lines.append("**4️⃣ Explore More Commands**\nTry `,ta` to see your top artists, `,tt` for top tracks, or `,wk <artist>` to see who in the server listens to an artist the most!")
-            else:
-                if "desc" in cat_data:
-                    lines.append(f"*{cat_data['desc']}*\n")
-                
-                for cmd_name in cat_data["commands"]:
-                    if cmd_name in cmd_info:
-                        lines.append(cmd_info[cmd_name])
+
+        for key in self.page_keys:
+            if key == "admin":
+                embed = Theme.get_embed(user=self.user, title="🔒 Admin Commands",
+                                        description="*Restricted — you can see this because you're staff.*")
+                if avatar:
+                    embed.set_thumbnail(url=avatar)
+                for cmd_name in ["wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]:
+                    if cmd_name in auto_info:
+                        desc, usage = auto_info[cmd_name]
                     else:
-                        lines.append(f"`/{cmd_name}` - Unknown command")
-                        
-            embed.description = "\n".join(lines)
-            embed.set_footer(text=f"Page {len(pages)+1} of {len(COMMANDS_DATA) - (1 if not self.is_admin else 0)} | Use the buttons below to navigate")
+                        desc, usage = "Restricted admin command.", f"/{cmd_name}"
+                    embed.add_field(name=f"`/{cmd_name}`", value=f"{desc}\n﹒{usage}", inline=False)
+                embed.set_footer(text=f"Page {len(pages)+1} of {len(self.page_keys)} • ,help • Only you can use these buttons")
+                pages.append(embed)
+                continue
+
+            cat = HELP_CATEGORIES[key]
+            if key == "home":
+                embed = Theme.get_embed(
+                    user=self.user,
+                    title="🎧 DJ Scratch — Help",
+                    description=(
+                        "Track your **Last.fm + Spotify** listening, battle your server for **crowns**, "
+                        "and flex your stats.\n\n"
+                        "**🚀 Get started in 30 seconds**\n"
+                        "**1.** `/login` — link your Last.fm\n"
+                        "**2.** Play music on Spotify / Apple Music (connected to Last.fm)\n"
+                        "**3.** `,fm` or `/fm` — show what's playing\n\n"
+                        "**📚 Categories** — use the dropdown above or ⬅️ ➡️ to browse:\n"
+                        + "\n".join(f"{v['emoji']} **{v['label'].replace(v['emoji']+' ', '')}** — {v['tagline'][:80]}"
+                                    for k, v in HELP_CATEGORIES.items() if k != "home")
+                        + "\n\n*Tip: most commands work as both `/slash` and `,prefix` (e.g. `/fm` = `,fm`).*"
+                    ),
+                )
+                if avatar:
+                    embed.set_thumbnail(url=avatar)
+                embed.set_footer(text=f"Page 1 of {len(self.page_keys)} • ,help or /help • Pick a category above 👆")
+                pages.append(embed)
+                continue
+
+            embed = Theme.get_embed(user=self.user, title=cat["title"], description=f"*{cat['tagline']}*")
+            if avatar:
+                embed.set_thumbnail(url=avatar)
+            for cmd_name in cat["commands"]:
+                fname, fvalue = self._cmd_field(cmd_name, auto_info)
+                embed.add_field(name=fname, value=fvalue, inline=True)
+            embed.set_footer(text=f"Page {len(pages)+1} of {len(self.page_keys)} • ,help or /help • Use the dropdown to jump 👆")
             pages.append(embed)
-            
+
         return pages
 
-    def update_buttons(self):
-        self.prev_btn.disabled = self.current_page == 0
-        self.next_btn.disabled = self.current_page == len(self.pages) - 1
+    def sync_controls(self):
+        self.prev_btn.disabled = self.current_page <= 0
+        self.next_btn.disabled = self.current_page >= len(self.pages) - 1
+        self.home_btn.disabled = self.current_page == 0
+        # Keep dropdown in sync
+        try:
+            for opt in self.select.options:
+                opt.default = (opt.value == self.page_keys[self.current_page])
+        except Exception:
+            pass
 
-    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.secondary)
-    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
-        self.current_page -= 1
-        self.update_buttons()
+            try:
+                await interaction.response.send_message("This menu isn't for you — run `,help` yourself!", ephemeral=True)
+            except Exception:
+                pass
+            return False
+        return True
+
+    async def on_timeout(self):
+        try:
+            for child in self.children:
+                child.disabled = True
+        except Exception:
+            pass
+
+    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.secondary, row=1)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = max(0, self.current_page - 1)
+        self.sync_controls()
         await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
 
-    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji="🏠", style=discord.ButtonStyle.primary, row=1)
+    async def home_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = 0
+        self.sync_controls()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.secondary, row=1)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
-        self.current_page += 1
-        self.update_buttons()
+        self.current_page = min(len(self.pages) - 1, self.current_page + 1)
+        self.sync_controls()
         await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
 
 async def get_help_embed(user, bot):
     from src.core.theme import Theme
     from src.core.database import has_any_command_permission
     from src.core.config import OWNER_ID
-    
-    is_admin = user.id == OWNER_ID or await has_any_command_permission(str(user.id))
-    
+
+    try:
+        is_admin = user.id == OWNER_ID or await has_any_command_permission(str(user.id))
+    except Exception:
+        is_admin = False
+
     view = HelpPaginationView(user, bot, is_admin)
     embed = view.pages[0]
     return embed, view

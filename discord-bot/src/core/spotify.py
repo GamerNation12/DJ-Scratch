@@ -41,6 +41,10 @@ async def get_spotify_token(session: aiohttp.ClientSession):
         
     return None
 
+_TRACK_CACHE: dict = {}  # (artist, song) -> (info, expires)
+_TRACK_TTL = 86400.0
+
+
 async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, song: str, user_token: str = None):
     """
     Returns a dictionary with:
@@ -48,6 +52,13 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
     - preview_url: 30s audio preview
     - image_url: High-res album art (640x640)
     """
+    # Cache anonymous lookups (user-token lookups vary per user, don't cache those).
+    cache_key = None
+    if not user_token and artist and song:
+        cache_key = (artist.lower(), song.lower())
+        entry = _TRACK_CACHE.get(cache_key)
+        if entry and entry[1] > time.time():
+            return entry[0]
     token = user_token or await get_spotify_token(session)
     if not token:
         return None
@@ -70,16 +81,21 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                 tracks = data.get("tracks", {}).get("items", [])
                 if tracks:
                     track = tracks[0]
-                    return {
+                    info = {
                         "name": track.get("name"),
                         "spotify_url": track.get("external_urls", {}).get("spotify"),
                         "preview_url": track.get("preview_url"),
                         "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,
                         "artists": [a.get("name") for a in track.get("artists", [])]
                     }
+                    if cache_key:
+                        _TRACK_CACHE[cache_key] = (info, time.time() + _TRACK_TTL)
+                        if len(_TRACK_CACHE) > 2000:
+                            _TRACK_CACHE.pop(next(iter(_TRACK_CACHE)))
+                    return info
     except Exception as e:
         print(f"{Log.RED}>>> Failed to fetch Spotify track: {type(e).__name__}: {e}{Log.RESET}")
-        
+
     return None
 
 from src.core.database import get_user_spotify_refresh_token

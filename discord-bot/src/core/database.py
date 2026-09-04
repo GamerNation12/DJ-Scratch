@@ -8,6 +8,76 @@ from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
 display_name_cache = {}
 name_cache_task = None
 
+# --- Hot-read TTL caches (avoid a DB round-trip per command) ---
+import time as _time
+_USER_BUNDLE_CACHE: dict = {}  # user_id -> (bundle_dict, expires)
+_USER_BUNDLE_TTL = 120.0
+_LASTFM_USER_CACHE: dict = {}  # user_id -> (username_or_None, expires)
+_LASTFM_USER_TTL = 300.0
+
+
+def _bundle_get(uid: str):
+    e = _USER_BUNDLE_CACHE.get(uid)
+    if e and e[1] > _time.monotonic():
+        return e[0]
+    return None
+
+
+def _bundle_set(uid: str, bundle: dict):
+    _USER_BUNDLE_CACHE[uid] = (bundle, _time.monotonic() + _USER_BUNDLE_TTL)
+    if len(_USER_BUNDLE_CACHE) > 5000:
+        _USER_BUNDLE_CACHE.pop(next(iter(_USER_BUNDLE_CACHE)))
+
+
+def invalidate_user_cache(uid=None):
+    if uid is None:
+        _USER_BUNDLE_CACHE.clear()
+        _LASTFM_USER_CACHE.clear()
+    else:
+        _USER_BUNDLE_CACHE.pop(str(uid), None)
+        _LASTFM_USER_CACHE.pop(str(uid), None)
+
+
+async def get_user_bundle(user_id):
+    """Fetch frequently-used user settings in ONE query (cached 2 min)."""
+    uid = str(user_id)
+    cached = _bundle_get(uid)
+    if cached is not None:
+        return cached
+    bundle = {
+        'lastfm_username': None, 'fm_mode': 'full', 'show_features': False,
+        'show_track_playcount': True, 'data_source': 'combined',
+        'embed_color': None, 'timezone': 'UTC', 'private_mode': False,
+    }
+    if not db_pool:
+        return bundle
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT lastfm_username, fm_mode, show_features, show_track_playcount,"
+                " data_source, embed_color, timezone, private_mode"
+                " FROM user_settings WHERE user_id=$1", uid)
+            if row:
+                for k in bundle:
+                    try:
+                        v = row[k]
+                    except Exception:
+                        v = None
+                    if v is not None:
+                        bundle[k] = v
+                if not bundle['fm_mode']:
+                    bundle['fm_mode'] = 'full'
+                if not bundle['data_source']:
+                    bundle['data_source'] = 'combined'
+                if not bundle['timezone']:
+                    bundle['timezone'] = 'UTC'
+    except Exception:
+        pass
+    _bundle_set(uid, bundle)
+    if bundle['lastfm_username']:
+        _LASTFM_USER_CACHE[uid] = (bundle['lastfm_username'], _time.monotonic() + _LASTFM_USER_TTL)
+    return bundle
+
 async def _poll_name_cache():
     import asyncio
     while True:
@@ -203,6 +273,9 @@ async def get_total_linked_users():
         return 0
 
 async def get_user_fm_mode(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('fm_mode') or 'full'
     if not db_pool: return None
     try:
         async with db_pool.acquire() as conn:
@@ -221,8 +294,12 @@ async def set_user_fm_mode(user_id, mode):
             """, str(user_id), mode)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting fm_mode: {e}{Log.RESET}")
+    invalidate_user_cache(user_id)
 
 async def get_user_private_mode(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('private_mode') or False
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
@@ -232,6 +309,9 @@ async def get_user_private_mode(user_id):
         return False
 
 async def get_user_show_features(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('show_features') or False
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
@@ -250,6 +330,7 @@ async def set_user_show_features(user_id, show_features: bool):
             """, str(user_id), show_features)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting show_features: {e}{Log.RESET}")
+    invalidate_user_cache(user_id)
 
 async def get_user_created_at(user_id):
     if not db_pool: return None
@@ -261,6 +342,10 @@ async def get_user_created_at(user_id):
         return None
 
 async def get_user_show_track_playcount(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        v = b.get('show_track_playcount')
+        return True if v is None else v
     if not db_pool: return True
     try:
         async with db_pool.acquire() as conn:
@@ -270,6 +355,9 @@ async def get_user_show_track_playcount(user_id):
         return True
 
 async def get_user_embed_color(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('embed_color')
     if not db_pool: return None
     try:
         async with db_pool.acquire() as conn:
@@ -288,6 +376,7 @@ async def set_user_embed_color(user_id, color_hex: str):
             """, str(user_id), color_hex)
     except Exception as e:
         print(f"Error setting embed_color: {e}")
+    invalidate_user_cache(user_id)
 async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
     if not db_pool: return
     try:
@@ -298,6 +387,7 @@ async def set_user_show_track_playcount(user_id, show_track_playcount: bool):
             """, str(user_id), show_track_playcount)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting show_track_playcount: {e}{Log.RESET}")
+    invalidate_user_cache(user_id)
 
 async def fetch_user_avatar(user_id):
     if not db_pool: return None
@@ -388,6 +478,9 @@ async def remove_command_permission(user_id: str, command_name: str):
         return False
 
 async def get_user_data_source(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('data_source') or 'combined'
     if not db_pool: return 'combined'
     try:
         async with db_pool.acquire() as conn:
@@ -406,8 +499,12 @@ async def set_user_data_source(user_id, source):
             """, str(user_id), source)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting data_source: {e}{Log.RESET}")
+    invalidate_user_cache(user_id)
 
 async def get_user_timezone(user_id):
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('timezone') or 'UTC'
     if not db_pool: return 'UTC'
     try:
         async with db_pool.acquire() as conn:
@@ -486,6 +583,7 @@ async def set_user_timezone(user_id, tz):
             """, str(user_id), tz)
     except Exception as e:
         print(f"{Log.RED}>>> Error setting timezone: {e}{Log.RESET}")
+    invalidate_user_cache(user_id)
 
 async def get_local_total_plays(user_id):
     if not db_pool: return 0
@@ -806,6 +904,7 @@ async def unlink_user(user_id):
     try:
         async with db_pool.acquire() as conn:
             await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(user_id))
+            invalidate_user_cache(user_id)
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")

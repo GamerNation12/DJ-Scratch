@@ -7,17 +7,29 @@ from .config import POSTGRES_URL, DATABASE_URL, Log
 
 from src.core.database import format_name
 
+_BOT_PREFIX_CACHE: dict = {}
+_BOT_PREFIX_TTL = 300.0
+
 class ScratchBot(commands.Bot):
     async def get_dynamic_prefix(self, bot, message):
+        import time as _t
         default_prefix = [',']
         if not message.guild: return default_prefix
         if not self.db_pool: return default_prefix
+        gid = str(message.guild.id)
+        entry = _BOT_PREFIX_CACHE.get(gid)
+        if entry and entry[1] > _t.monotonic():
+            return entry[0]
         try:
             async with self.db_pool.acquire() as conn:
-                row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", str(message.guild.id))
+                row = await conn.fetchrow("SELECT prefix FROM server_settings WHERE guild_id=$1", gid)
                 if row and row['prefix']:
                     p = row['prefix']
-                    if p != ',': return [p, ',']
+                    prefixes = [p, ','] if p != ',' else default_prefix
+                else:
+                    prefixes = default_prefix
+                _BOT_PREFIX_CACHE[gid] = (prefixes, _t.monotonic() + _BOT_PREFIX_TTL)
+                return prefixes
         except Exception: pass
         return default_prefix
 
@@ -40,7 +52,11 @@ class ScratchBot(commands.Bot):
         self.db_pool = None
 
     async def setup_hook(self):
-        self.session = aiohttp.ClientSession()
+        connector = aiohttp.TCPConnector(limit=100, limit_per_host=20, ttl_dns_cache=300)
+        self.session = aiohttp.ClientSession(
+            connector=connector,
+            timeout=aiohttp.ClientTimeout(total=8, connect=3, sock_read=5),
+        )
         db_conn_string = POSTGRES_URL or DATABASE_URL
         if db_conn_string:
             try:

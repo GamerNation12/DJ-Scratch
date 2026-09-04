@@ -246,6 +246,11 @@ class ServerSettingsCog(commands.Cog):
         if prefix:
             async with self.bot.db_pool.acquire() as conn:
                 await conn.execute("INSERT INTO server_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix=$2", str(interaction.guild.id), prefix)
+            try:
+                from src.core.events import invalidate_prefix_cache
+                invalidate_prefix_cache(interaction.guild.id)
+            except Exception:
+                pass
             embed = discord.Embed(title="Server Settings Updated", description=f"The command prefix for **{interaction.guild.name}** has been set to `{prefix}`", color=LASTFM_COLOR)
             await interaction.followup.send(embed=embed)
         else:
@@ -264,6 +269,11 @@ class ServerSettingsCog(commands.Cog):
         if prefix:
             async with self.bot.db_pool.acquire() as conn:
                 await conn.execute("INSERT INTO server_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix=$2", str(ctx.guild.id), prefix)
+            try:
+                from src.core.events import invalidate_prefix_cache
+                invalidate_prefix_cache(ctx.guild.id)
+            except Exception:
+                pass
             embed = discord.Embed(title="Server Settings Updated", description=f"The command prefix for **{ctx.guild.name}** has been set to `{prefix}`", color=LASTFM_COLOR)
             await ctx.send(embed=embed)
         else:

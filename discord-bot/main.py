@@ -3,8 +3,13 @@ import sys
 import psutil
 from discord.ext import tasks
 
-os.system(f"{sys.executable} -m pip install --upgrade pip")
-os.system(f"{sys.executable} -m pip install PyNaCl")
+# NOTE: Don't pip-install on every boot — it adds 5-20s to startup.
+# Dependencies are installed via requirements.txt at deploy time.
+# Only ensure PyNaCl (voice) exists, without upgrading pip.
+try:
+    import nacl  # noqa: F401  (PyNaCl)
+except ImportError:
+    os.system(f"{sys.executable} -m pip install PyNaCl")
 from src.core.events import bot
 from dotenv import load_dotenv
 
