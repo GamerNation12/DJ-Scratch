@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 import TrackModal from "@/components/TrackModal";
+import AdminClient from "@/app/admin/AdminClient";
 import Link from "next/link";
 
 export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
@@ -21,14 +22,45 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import" | "admin">("profile");
+
+  // Admin role: controls visibility of the Admin Console tab.
+  // AdminClient re-verifies server-side; this just hides the button.
+  const [adminRole, setAdminRole] = useState<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "import" || tab === "suggestions" || tab === "settings" || tab === "profile") {
+    if (tab === "import" || tab === "suggestions" || tab === "settings" || tab === "profile" || tab === "admin") {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !isOwner) {
+      setAdminRole(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/admin/check");
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && data.role) {
+          setAdminRole(data.role);
+        } else {
+          setAdminRole(null);
+          setActiveTab((prev) => (prev === "admin" ? "profile" : prev));
+        }
+      } catch {
+        if (!cancelled) {
+          setAdminRole(null);
+          setActiveTab((prev) => (prev === "admin" ? "profile" : prev));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [status, isOwner]);
 
   // --- Import State ---
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -525,6 +557,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               >
                 <span>📥</span> Import
               </button>
+              {adminRole && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'admin' ? 'bg-red-500/20 text-red-300 shadow-lg border border-red-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>🛡️</span> Admin
+              </button>
+              )}
             </div>
           </div>
         )}
@@ -1010,6 +1050,12 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {/* --- ADMIN TAB (owner dashboard + admin role only) --- */}
+        {isOwner && adminRole && activeTab === "admin" && (
+          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in">
+            <AdminClient embedded />
           </div>
         )}
       </main>

@@ -284,7 +284,7 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
   );
 }
 
-export default function AdminClient() {
+export default function AdminClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: session } = useSession();
   const [role, setRole] = useState<string | null>(null);
   const [statsData, setStatsData] = useState<any>({ totalPlays: 0, totalUsers: 0, botStats: null, commandUsage: [] });
@@ -558,6 +558,14 @@ export default function AdminClient() {
   };
 
   if (role === "unauthorized" || role === "error") {
+    if (embedded) {
+      return (
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
+          <p className="text-red-400 font-bold">Access Denied</p>
+          <p className="text-zinc-400 text-sm mt-1">You don&apos;t have permission to view this panel.</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white font-sans">
         <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mb-6 border border-red-500/20">
@@ -580,6 +588,14 @@ export default function AdminClient() {
   }
 
   if (!role) {
+    if (embedded) {
+      return (
+        <div className="flex items-center justify-center py-10 text-zinc-500 text-sm">
+          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+          Authenticating...
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-white font-sans">
         <div className="flex flex-col items-center">
@@ -638,9 +654,14 @@ export default function AdminClient() {
     });
   };
 
+  // Embedded mode (user dashboard tab): drop the full-page chrome (top offset,
+  // desktop sidebar) and always show the horizontal section nav instead.
+  const ContentTag = (embedded ? "div" : "main") as any;
+
   return (
-    <div className="min-h-screen bg-[#09090b] text-white flex flex-col md:flex-row font-sans selection:bg-indigo-500/30 pt-16">
-      {/* Sidebar Layout */}
+    <div className={embedded ? "w-full text-white font-sans" : "min-h-screen bg-[#09090b] text-white flex flex-col md:flex-row font-sans selection:bg-indigo-500/30 pt-16"}>
+      {/* Sidebar Layout (standalone /admin only) */}
+      {!embedded && (
       <aside className="w-full md:w-64 flex-shrink-0 border-b md:border-b-0 md:border-r border-white/10 bg-zinc-950/50 backdrop-blur-md z-10 hidden md:block relative">
         <div className="p-6 sticky top-16">
           <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Command Center</h2>
@@ -699,9 +720,10 @@ export default function AdminClient() {
           </nav>
         </div>
       </aside>
+      )}
 
-      {/* Mobile Nav (Scrollable horizontal) */}
-      <div className="md:hidden w-full overflow-x-auto flex gap-2 p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md sticky top-14 z-20 styled-scrollbar">
+      {/* Section Nav (horizontal; mobile-only standalone, always when embedded) */}
+      <div className={embedded ? "w-full overflow-x-auto flex gap-2 pb-4 styled-scrollbar" : "md:hidden w-full overflow-x-auto flex gap-2 p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md sticky top-14 z-20 styled-scrollbar"}>
         <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'overview' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Overview</button>
         {role === 'owner' && <button onClick={() => setActiveTab('access')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'access' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Access</button>}
         {role === 'owner' && <button onClick={() => setActiveTab('permissions')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'permissions' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Permissions</button>}
@@ -713,9 +735,11 @@ export default function AdminClient() {
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('chat-logs')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'chat-logs' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Chat Logs</button>}
       </div>
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-6xl mx-auto">
+      <ContentTag className={embedded ? "w-full block" : "flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-6xl mx-auto"}>
         <div className="mb-8">
+          {!embedded && (
           <h1 className="text-3xl font-black text-white tracking-tight">Admin Console</h1>
+          )}
           <div className="flex items-center gap-3 mt-2">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Role: {role}</span>
             {statusActivity && (
@@ -1324,7 +1348,7 @@ export default function AdminClient() {
           </div>
         )}
 
-      </main>
+      </ContentTag>
     </div>
   );
 }
