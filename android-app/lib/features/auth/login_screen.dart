@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../core/auth_store.dart';
-import '../core/config.dart';
-import '../features/shell/main_screen.dart';
+import '../../core/auth_store.dart';
+import '../../core/config.dart';
+import '../shell/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
