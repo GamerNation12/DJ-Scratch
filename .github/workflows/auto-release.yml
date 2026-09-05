@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Update Size'
+        description: 'Update Size (none = build current version as-is)'
         required: true
         default: 'patch'
         type: choice
@@ -12,6 +12,7 @@ on:
           - patch
           - minor
           - major
+          - none
       build_pc:
         description: 'Build PC App (.exe)'
         required: true
@@ -49,26 +50,44 @@ jobs:
         with:
           flutter-version: '3.24.3'
           channel: 'stable'
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android-app/android/gradle/wrapper/gradle-wrapper.properties', 'android-app/android/app/build.gradle', 'android-app/android/settings.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
       - name: Auto-Bump Versions
         id: version_bump
         run: |
           git config --global user.name "GamerNation12"
           git config --global user.email "GamerNation12@users.noreply.github.com"
-          
+
+          if ("${{ github.event.inputs.bump }}" -eq "none") {
+            $VERSION = node -p "require('./desktop-app/package.json').version"
+            $TAG = "v$VERSION"
+            echo "NEW_VERSION=$TAG" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
           cd desktop-app
           npm version ${{ github.event.inputs.bump }} --no-git-tag-version
           $VERSION = node -p "require('./package.json').version"
           $TAG = "v$VERSION"
           echo "NEW_VERSION=$TAG" >> $env:GITHUB_OUTPUT
           cd ..
-          
+
           cd android-app
           $content = Get-Content pubspec.yaml -Raw
           $content = [System.Text.RegularExpressions.Regex]::Replace($content, 'version: \d+\.\d+\.\d+\+(\d+)', { param($m) "version: $VERSION+" + ([int]$m.Groups[1].Value + 1) })
           Set-Content pubspec.yaml $content -NoNewline
           cd ..
-          
+
           git add desktop-app/package.json desktop-app/package-lock.json android-app/pubspec.yaml
           git commit -m "chore: auto-bump version to $TAG"
           git tag $TAG
