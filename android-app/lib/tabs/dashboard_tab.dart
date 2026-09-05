@@ -120,6 +120,100 @@ class _DashboardTabState extends State<DashboardTab> {
     ).animate().fade(delay: (index * 100).ms).slideX(begin: 0.1);
   }
 
+  Widget _buildNowPlayingHero(dynamic track) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0AB5CD).withOpacity(0.22),
+            const Color(0xFF0AB5CD).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF0AB5CD).withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0AB5CD).withOpacity(0.25),
+            blurRadius: 24,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 112,
+            height: 112,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              image: track['image'] != null
+                  ? DecorationImage(image: CachedNetworkImageProvider(track['image']), fit: BoxFit.cover)
+                  : null,
+              color: const Color(0xFF1E293B),
+            ),
+            child: track['image'] == null ? const Icon(LucideIcons.music, color: Colors.white54, size: 40) : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFF0AB5CD), borderRadius: BorderRadius.circular(20)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text('NOW PLAYING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(begin: 0.6, end: 1.0),
+                const SizedBox(height: 10),
+                Text(
+                  track['name'] ?? 'Unknown',
+                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  track['artist'] ?? 'Unknown Artist',
+                  style: GoogleFonts.inter(fontSize: 14, color: Colors.white70),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fade().scale(begin: const Offset(0.97, 0.97), curve: Curves.easeOut);
+  }
+
+  List<Widget> _buildRecentSection(List tracks) {
+    final widgets = <Widget>[];
+    var rows = tracks;
+    if (tracks.isNotEmpty && tracks.first['nowPlaying'] == true) {
+      widgets.add(_buildNowPlayingHero(tracks.first));
+      rows = tracks.skip(1).toList();
+    }
+    var i = 0;
+    for (final t in rows.take(5)) {
+      widgets.add(_buildRecentTrack(t, i++));
+    }
+    return widgets;
+  }
+
   Widget _buildRecentTrack(dynamic track, int index) {
     final isPlaying = track['nowPlaying'] == true;
     return Container(
@@ -224,9 +318,7 @@ class _DashboardTabState extends State<DashboardTab> {
                         Text('Recent Tracks', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                         const SizedBox(height: 16),
                         if (_stats!['recentTracks'] != null)
-                          ...(_stats!['recentTracks'] as List).take(5).toList().asMap().entries.map(
-                                (entry) => _buildRecentTrack(entry.value, entry.key),
-                              ),
+                          ..._buildRecentSection((_stats!['recentTracks'] as List).take(6).toList()),
                         
                         const SizedBox(height: 32),
 

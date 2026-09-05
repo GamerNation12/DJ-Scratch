@@ -153,6 +153,9 @@ class _MainScreenState extends State<MainScreen> {
         child: NavigationBar(
           selectedIndex: _currentIndex,
           onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+          // 7 destinations don't fit with labels always on — show the label
+          // for the active tab only.
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
           backgroundColor: const Color(0xFF030712),
           indicatorColor: const Color(0xFF0AB5CD).withOpacity(0.2),
           destinations: [
