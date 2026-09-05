@@ -169,12 +169,52 @@ const authServer = http.createServer((req, res) => {
       
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
-        <html>
-          <body style="background: #09090b; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
-            <h2>Authentication Successful!</h2>
-            <p>You can close this tab and return to the DJ Scratch app.</p>
-            <script>window.close();</script>
-          </body>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Logged in!</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+              background: #09090b; color: #fff;
+              display: flex; align-items: center; justify-content: center;
+              min-height: 100vh; margin: 0; padding: 24px;
+            }
+            .card {
+              background: rgba(24,24,27,0.6);
+              border: 1px solid rgba(255,255,255,0.1);
+              border-radius: 24px; padding: 40px 48px;
+              text-align: center; max-width: 480px; width: 100%;
+              box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            }
+            .badge {
+              width: 72px; height: 72px; margin: 0 auto 20px;
+              border-radius: 9999px;
+              background: rgba(99,102,241,0.15);
+              border: 1px solid rgba(99,102,241,0.35);
+              display: flex; align-items: center; justify-content: center;
+              font-size: 32px;
+            }
+            h1 { margin: 0 0 12px; font-size: 26px; font-weight: 800; }
+            h1 span { color: #818cf8; }
+            p { color: #d4d4d8; margin: 8px 0; }
+            .fine { color: #71717a; font-size: 13px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="badge">🔗</div>
+            <h1>Logged <span>in!</span></h1>
+            <p>Your Discord account is connected to the DJ Scratch desktop app.</p>
+            <p class="fine">Returning you to the app — if nothing happens, close this tab manually.</p>
+          </div>
+          <script>
+            setTimeout(function () { window.close(); }, 1500);
+          </script>
+        </body>
         </html>
       `);
     } else {

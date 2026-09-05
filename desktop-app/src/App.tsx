@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink, Shield, Users, MessageSquare } from 'lucide-react';
+import { Home, Trophy, Play, Pause, SkipForward, SkipBack, Settings, ExternalLink, Shield, Users, MessageSquare, Heart } from 'lucide-react';
+import { Toaster, toast } from 'react-hot-toast';
+import logoUrl from './assets/logo.png';
 import AdminClient from './AdminClient';
 import SettingsClient from './SettingsClient';
 import FriendsClient from './FriendsClient';
@@ -17,6 +19,9 @@ function App() {
   const [stats, setStats] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+  // Spotify remote state (same web APIs as the Music dashboard)
+  const [spNp, setSpNp] = useState<any>(null);
+  const [spBusy, setSpBusy] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for updates from electron via preload.js
@@ -83,9 +88,73 @@ function App() {
         const roleData = await roleRes.json();
         setIsAdmin(roleData.role === 'admin' || roleData.role === 'owner');
       }
-      
+
+      // Spotify now-playing (drives the floating player controls)
+      try {
+        const npRes = await fetch(`${API_BASE}/api/spotify/now-playing`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (npRes.ok) {
+          const npData = await npRes.json();
+          if (!npData.error) setSpNp(npData);
+        }
+      } catch {
+        // Spotify optional: Last.fm stats above are the core experience
+      }
+
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const refreshSpNp = async () => {
+    if (!token) return;
+    try {
+      const npRes = await fetch(`${API_BASE}/api/spotify/now-playing`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (npRes.ok) {
+        const npData = await npRes.json();
+        if (!npData.error) setSpNp(npData);
+      }
+    } catch {
+      // ignore: next poll recovers
+    }
+  };
+
+  const spControl = async (action: 'play' | 'pause' | 'next' | 'previous') => {
+    if (!token || spBusy) return;
+    setSpBusy(action);
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/control`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Control failed');
+      await refreshSpNp();
+    } catch (e: any) {
+      toast.error(e.message || 'Control failed');
+    } finally {
+      setSpBusy(null);
+    }
+  };
+
+  const spLike = async () => {
+    if (!token || !spNp?.id) return;
+    const action = spNp?.is_liked ? 'unlike' : 'like';
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/like`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: spNp.id, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Like failed');
+      await refreshSpNp();
+    } catch (e: any) {
+      toast.error(e.message || 'Like failed');
     }
   };
 
@@ -103,7 +172,7 @@ function App() {
         <div className="absolute inset-0 bg-[url('https://dj-scratch.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
 
         <div className="relative z-10 flex flex-col items-center p-12 bg-zinc-900/40 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center font-black text-3xl mb-6 shadow-2xl shadow-indigo-500/20 transform hover:scale-105 transition-transform">DJ</div>
+          <img src={logoUrl} alt="DJ Scratch logo" className="w-28 h-28 rounded-full object-cover mb-6 shadow-2xl shadow-indigo-500/20 transform hover:scale-105 transition-transform border-4 border-white/10" />
           <h1 className="text-4xl font-black mb-3 tracking-tight">DJ Scratch Desktop</h1>
           <p className="text-zinc-400 mb-10 text-center max-w-sm">Sign in with Discord to access your personalized live-updating dashboard.</p>
           <button onClick={handleLogin} className="px-10 py-4 bg-[#5865F2] hover:bg-[#4752C4] rounded-xl font-bold transition-all hover:scale-105 shadow-[0_0_20px_rgba(88,101,242,0.3)] flex items-center gap-3 text-lg">
@@ -120,6 +189,7 @@ function App() {
 
   return (
     <div className="relative flex h-screen bg-[#09090b] text-white overflow-hidden">
+      <Toaster position="bottom-center" toastOptions={{ style: { background: '#18181b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' } }} />
       {/* Draggable Title Bar Area */}
       <div className="absolute top-0 left-0 right-[140px] h-10 z-[100] app-region-drag pointer-events-none"></div>
 
@@ -141,7 +211,7 @@ function App() {
       {/* Sidebar (needs pt-10 to clear Windows controls if frameless) */}
       <div className="w-64 border-r border-white/10 bg-zinc-950/60 backdrop-blur-2xl p-4 flex flex-col pt-12 relative z-10 shadow-2xl">
         <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center font-black shadow-[0_0_15px_rgba(99,102,241,0.5)]">DJ</div>
+          <img src={logoUrl} alt="DJ Scratch logo" className="w-10 h-10 rounded-xl object-cover shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
           <span className="font-black text-xl tracking-tight">DJ Scratch</span>
         </div>
         
@@ -411,9 +481,24 @@ function App() {
             )}
           </div>
           
-          <div className="w-72 flex justify-end">
-            <button className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+          <div className="w-72 flex justify-end items-center gap-2">
+            <button onClick={() => spControl('previous')} disabled={!!spBusy} title="Previous track" className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-40">
+              <SkipBack size={14} />
+            </button>
+            <button onClick={() => spControl(spNp?.is_playing ? 'pause' : 'play')} disabled={!!spBusy} title={spNp?.is_playing ? 'Pause' : 'Play'} className="w-10 h-10 rounded-full bg-green-500 hover:bg-green-400 text-black flex items-center justify-center transition-all disabled:opacity-40 shadow-[0_0_15px_rgba(34,197,94,0.35)]">
+              {spBusy ? (
+                <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              ) : spNp?.is_playing ? (
+                <Pause size={16} />
+              ) : (
+                <Play size={16} className="ml-0.5" />
+              )}
+            </button>
+            <button onClick={() => spControl('next')} disabled={!!spBusy} title="Next track" className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-40">
+              <SkipForward size={14} />
+            </button>
+            <button onClick={spLike} disabled={!spNp?.id} title={spNp?.is_liked ? 'Unlike' : 'Like'} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-40">
+              <Heart size={14} className={spNp?.is_liked ? 'text-green-400' : ''} fill={spNp?.is_liked ? 'currentColor' : 'none'} />
             </button>
           </div>
         </div>
