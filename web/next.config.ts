@@ -26,6 +26,9 @@ const nextConfig: NextConfig = {
     };
   },
   async headers() {
+    // NOTE: CORS lives in middleware.ts (echoes the caller origin) so the
+    // desktop app (app://), Activities, and both domains all work. Do NOT
+    // set Allow-Origin here — duplicate values fail the browser check.
     return [
       {
         source: "/(.*).apk",
@@ -39,17 +42,6 @@ const nextConfig: NextConfig = {
             value: "attachment",
           },
         ],
-      },
-      {
-        // NOTE: "*" + Allow-Credentials is an invalid combo browsers reject.
-        // Same scoped origin as vercel.json; same-origin frontend needs no CORS.
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Origin", value: "https://dj-scratch.vercel.app" },
-          { key: "Vary", value: "Origin" },
-          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-          { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" },
-        ]
       }
     ];
   },

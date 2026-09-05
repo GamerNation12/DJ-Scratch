@@ -10,9 +10,11 @@ export async function GET(req: Request) {
   const discordId = searchParams.get("discord_id"); // Optional for web login
 
   if (!token) {
+    // NOTE: no per-route CORS headers — middleware.ts echoes the caller
+    // origin. A second Allow-Origin value would fail the browser check.
     return NextResponse.json(
-      { success: false, error: "Missing token parameter." }, 
-      { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+      { success: false, error: "Missing token parameter." },
+      { status: 400 }
     );
   }
 
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
   if (!sharedSecret) {
     return NextResponse.json(
       { success: false, error: "Configuration error: LASTFM_SHARED_SECRET is not set in the environment. Please contact the bot owner." },
-      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
+      { status: 500 }
     );
   }
 
@@ -41,8 +43,8 @@ export async function GET(req: Request) {
     if (data.error || !data.session?.name) {
       console.error("Last.fm Auth Error:", data);
       return NextResponse.json(
-        { success: false, error: `Last.fm Authentication Failed: ${data.message || "Unknown error"}` }, 
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        { success: false, error: `Last.fm Authentication Failed: ${data.message || "Unknown error"}` },
+        { status: 400 }
       );
     }
 
@@ -161,28 +163,16 @@ export async function GET(req: Request) {
       }
     }
 
-    // Return JSON response with CORS headers
+    // Return JSON response (CORS comes from middleware.ts)
     return NextResponse.json(
       { success: true, username: lastfmUsername },
-      { 
-        status: 200,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        }
-      }
+      { status: 200 }
     );
   } catch (error) {
     console.error("Callback Error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal Server Error while linking account." }, 
-      { 
-        status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*"
-        }
-      }
+      { success: false, error: "Internal Server Error while linking account." },
+      { status: 500 }
     );
   }
 }

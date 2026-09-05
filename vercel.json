@@ -1,14 +1,3 @@
 {
-  "ignoreCommand": "git log -1 --name-only | grep -q '^web/' && exit 1 || exit 0",
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://dj-scratch.vercel.app" },
-        { "key": "Vary", "value": "Origin" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
-      ]
-    }
-  ]
+  "ignoreCommand": "git log -1 --name-only | grep -q '^web/' && exit 1 || exit 0"
 }
