@@ -78,6 +78,11 @@ class AdminIPC(commands.Cog):
             if len(parts) == 3:
                 version = parts[1]
                 msg_content = parts[2]
+                # Defensive cap: embeds allow 1024 (field) / 4096 (description).
+                if len(msg_content) > 4000:
+                    cut = msg_content[:4000]
+                    lb = cut.rfind("\n")
+                    msg_content = (cut[:lb] if lb > 2000 else cut).rstrip() + "…"
                 from ..core.events import CACHED_GLOBAL_UPDATE_VERSION, CACHED_GLOBAL_UPDATE_MESSAGE
                 import src.core.events as events_module
                 events_module.CACHED_GLOBAL_UPDATE_VERSION = version

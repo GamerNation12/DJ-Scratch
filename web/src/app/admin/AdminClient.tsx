@@ -81,18 +81,32 @@ function AdminActionCard({ title, description, actionType, icon, colorClass }: a
 const tagColors: Record<string, { bg: string, text: string, name: string }> = {
   feat: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', name: '✨ New Feature' },
   fix: { bg: 'bg-red-500/20', text: 'text-red-400', name: '🐛 Bug Fix' },
+  perf: { bg: 'bg-amber-500/20', text: 'text-amber-400', name: '🚀 Improvement' },
   chore: { bg: 'bg-zinc-500/20', text: 'text-zinc-400', name: '🔧 Chore' },
   refactor: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', name: '♻️ Refactor' },
   docs: { bg: 'bg-blue-500/20', text: 'text-blue-400', name: '📚 Docs' },
+  style: { bg: 'bg-pink-500/20', text: 'text-pink-400', name: '💅 Style' },
+  test: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', name: '🧪 Test' },
+  build: { bg: 'bg-orange-500/20', text: 'text-orange-400', name: '🏗️ Build' },
+  ci: { bg: 'bg-orange-500/20', text: 'text-orange-400', name: '👷 CI' },
+  revert: { bg: 'bg-red-500/20', text: 'text-red-400', name: '⏪ Revert' },
 };
 
+// Discord embed field values cap at 1024 chars (/updates uses a field), and
+// the website→bot IPC rides in a 2000-char Discord message. Updates are kept
+// SHORT (450) because nobody reads walls of text — 3-5 skimable bullets max.
+const MAX_UPDATE_CHARS = 450;
+// Raw commit text staged for the AI: bodies trimmed per-commit, total capped.
+const MAX_COMMIT_BODY_CHARS = 300;
+const MAX_STAGED_CHARS = 2500;
+
 function getCommitInfo(message: string) {
-  const match = message.match(/^(feat|fix|fixed bug|chore|docs|refactor|style|test)(\(.*?\))?:/i);
+  const match = message.match(/^(feat|fix|fixed bug|perf|chore|docs|refactor|style|test|build|ci|revert)(\(.*?\))?!?:/i);
   if (match) {
-    const type = match[1].toLowerCase();
-    const typeClean = type === 'fixed bug' ? 'fix' : type;
+    let type = match[1].toLowerCase();
+    if (type === 'fixed bug') type = 'fix';
     const body = message.slice(match[0].length).trim();
-    return { type: typeClean, body };
+    return { type, body };
   }
   return { type: null, body: message };
 }
@@ -157,8 +171,16 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
         if (selectedCommits.length > 0) {
           const combinedMessages = selectedCommits.map(c => {
             const lines = c.commit.message.split('\n');
-            const msgLine = lines[0];
-            const body = lines.slice(1).join('\n').trim();
+            const msgLine = lines[0].slice(0, 200);
+            // Trim the body: first non-empty lines only, capped — full bodies
+            // (merge noise, co-author trailers) bloat the AI prompt and output.
+            const body = lines.slice(1).join('\n').trim()
+              .split('\n')
+              .map((l: string) => l.trim())
+              .filter((l: string) => l && !/^co-authored-by:/i.test(l) && !/^signed-off-by:/i.test(l))
+              .slice(0, 4)
+              .join('\n')
+              .slice(0, MAX_COMMIT_BODY_CHARS);
             const info = getCommitInfo(msgLine);
             
             let result = "";
@@ -173,7 +195,7 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
               result += `\n${body}`;
             }
             return result;
-          }).join('\n\n');
+          }).join('\n\n').slice(0, MAX_STAGED_CHARS);
           setContent(combinedMessages);
         }
       } else {
@@ -276,7 +298,12 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
           <button onClick={() => { setContent(prev => prev + "🔧 **Update:** "); setIsManualVersion(false); }} className="text-xs bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 px-2 py-1 rounded hover:bg-zinc-500/30 transition-colors">🔧 Update</button>
         </div>
         <textarea value={content} onChange={e => { setContent(e.target.value); setIsManualVersion(false); }} placeholder="Update message..." rows={6} className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
-        <button onClick={handleSend} disabled={loading || !version || !content} className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all ${status === 'success' ? 'bg-emerald-500 text-white' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'}`}>
+        <div className="flex justify-end">
+          <span className={`text-xs font-mono ${content.length > MAX_UPDATE_CHARS ? 'text-red-400 font-bold' : content.length > MAX_UPDATE_CHARS * 0.85 ? 'text-amber-400' : 'text-zinc-500'}`}>
+            {content.length}/{MAX_UPDATE_CHARS}{content.length > MAX_UPDATE_CHARS ? " — too long for Discord embeds, trim or re-run AI" : ""}
+          </span>
+        </div>
+        <button onClick={handleSend} disabled={loading || !version || !content || content.length > MAX_UPDATE_CHARS} className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 ${status === 'success' ? 'bg-emerald-500 text-white' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'}`}>
           {loading ? "Pushing..." : status === "success" ? "Pushed!" : "Push Notification"}
         </button>
       </div>

@@ -24,10 +24,28 @@ export async function POST(req: Request) {
 
     if (actionType === "SET_GLOBAL_UPDATE") {
       const version = payload?.version;
-      const message = payload?.message;
+      let message = payload?.message;
 
       if (!version || !message) {
         return NextResponse.json({ error: "Missing version or message" }, { status: 400 });
+      }
+
+      if (!/^v?\d+\.\d+\.\d+/.test(String(version))) {
+        return NextResponse.json({ error: "Version must look like v1.2.3" }, { status: 400 });
+      }
+
+      // Defense in depth: the admin UI caps at 450, but never let an
+      // over-long message reach Discord (embed field cap 1024, IPC message
+      // cap 2000). Trim on a line boundary instead of rejecting so pushes
+      // from older clients still go through.
+      const MAX_UPDATE_CHARS = 450;
+      message = String(message);
+      let trimmed = false;
+      if (message.length > MAX_UPDATE_CHARS) {
+        const cut = message.slice(0, MAX_UPDATE_CHARS);
+        const lastBreak = cut.lastIndexOf("\n");
+        message = (lastBreak > MAX_UPDATE_CHARS * 0.5 ? cut.slice(0, lastBreak) : cut).trimEnd() + "…";
+        trimmed = true;
       }
 
       // Keep DB update so it persists across bot restarts
@@ -43,8 +61,8 @@ export async function POST(req: Request) {
       await pool.end();
 
       // Send IPC message to notify bot instantly
-      await sendDiscordIPC(`[WEBSITE] SET_GLOBAL_UPDATE|${version}|${message}`);
-      return NextResponse.json({ success: true, message: "Global update notification updated successfully!" });
+      const ipcOk = await sendDiscordIPC(`[WEBSITE] SET_GLOBAL_UPDATE|${version}|${message}`);
+      return NextResponse.json({ success: true, message: "Global update notification updated successfully!", trimmed, ipcDelivered: ipcOk });
     }
 
     if (actionType === "SEND_MESSAGE") {
@@ -109,15 +127,23 @@ export async function POST(req: Request) {
 
 async function sendDiscordIPC(content: string) {
   const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
-  if (!botToken) return;
+  if (!botToken) return false;
+
+  // Discord message content caps at 2000 chars — never send more.
+  if (content.length > 2000) return false;
 
   const channelId = "1517288950522187947";
-  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bot ${botToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ content }),
-  });
+  try {
+    const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bot ${botToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

@@ -117,6 +117,12 @@ class InfoCog(commands.Cog):
             message = await get_global_update_message()
             
             if version and message:
+                # Embed field values cap at 1024 chars — trim defensively so an
+                # over-long pushed message can never break /updates.
+                if len(message) > 1000:
+                    cut = message[:1000]
+                    lb = cut.rfind("\n")
+                    message = (cut[:lb] if lb > 500 else cut).rstrip() + "…"
                 embed.add_field(name=f"Update {version}", value=message, inline=False)
             else:
                 embed.description = "No recent updates found."

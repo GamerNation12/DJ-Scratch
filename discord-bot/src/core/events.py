@@ -780,7 +780,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
@@ -4165,6 +4165,46 @@ HELP_COMMAND_META = {
     "deletedata": ("Delete your imported data", "/deletedata"),
     "suggest": ("Send an idea to the dev", "/suggest <idea> • `,suggest`"),
     "bug": ("Report a bug to the dev", "/bug <what happened>"),
+    # .fmbot-parity extras (src/commands/fmbot_missing.py)
+    "overview": ("Top track/album/artist snapshot", "/overview [days] • `,o`"),
+    "recap": ("Combined tops recap for a period", "/recap [period] • `,recap 7day`"),
+    "year": ("Yearly overview", "/year [year] • `,year`"),
+    "plays": ("Total scrobbles for a period", "/plays [period] • `,p`"),
+    "pace": ("ETA for a playcount goal", "/pace <goal> • `,pace 50000`"),
+    "milestone": ("Scrobble milestones", "/milestone [amount] • `,ms`"),
+    "genre": ("Genre tags for an artist", "/genre [artist] • `,genre`"),
+    "country": ("Country info for an artist", "/country [artist] • `,from`"),
+    "countrychart": ("Top countries in your library", "/countrychart [period]"),
+    "scrobbleleaderboard": ("Most plays in this server", "/scrobbleleaderboard • `,sblb`"),
+    "timeleaderboard": ("Most listening time in server", "/timeleaderboard • `,tlb`"),
+    "affinity": ("Whose taste matches yours most", "/affinity"),
+    "friendswhoknow": ("Which friends listen to an artist", "/friendswhoknow [artist] • `,fwk`"),
+    "friends": ("List your DJ Scratch friends", "/friends"),
+    "discoverydate": ("When did you discover this music", "/discoverydate • `,dd`"),
+    "lastlistened": ("When did you last hear this", "/lastlistened • `,last`"),
+    "discoveries": ("Artists you recently discovered", "/discoveries"),
+    "search": ("Search your library", "/search <query> • `,sr`"),
+    "iceberg": ("Artist popularity iceberg", "/iceberg [period]"),
+    "gaps": ("Faves you haven't heard lately", "/gaps"),
+    "lyrics": ("Lyrics for now playing or query", "/lyrics [Artist - Track]"),
+    "loved": ("Your loved tracks on Last.fm", "/loved"),
+    "love": ("Love the current track", "/love"),
+    "unlove": ("Unlove guidance", "/unlove"),
+    "scrobble": ("Manual scrobble guidance", "/scrobble [Artist - Track]"),
+    "youtube": ("YouTube link for a query", "/youtube <query> • `,yt`"),
+    "applemusic": ("Apple Music link for a query", "/applemusic <query>"),
+    "featured": ("Hourly featured listener", "/featured"),
+    "featuredlog": ("Last featured listener", "/featuredlog"),
+    "responsemode": ("Default layout for tops/whoknows", "/responsemode <embed|image|pagination>"),
+    "userreactions": ("Auto-emoji on your /fm", "/userreactions [emojis]"),
+    "shortcuts": ("Custom text-command shortcuts", "/shortcuts [name] [command] • `,sc`"),
+    "localization": ("Timezone + number format", "/localization [timezone] [format]"),
+    "members": ("Linked members in this server", "/members • `,mb`"),
+    "togglecommand": ("Enable/disable a command (Admin)", "/togglecommand <command> <on|off>"),
+    "autoposter": ("Server listening digest channel", "/autoposter [#channel]"),
+    "botscrobbling": ("Scrobble Discord music bots", "/botscrobbling [on|off]"),
+    "collection": ("Discogs vinyl collection (beta)", "/collection"),
+    "discogs": ("Link Discogs collection (beta)", "/discogs"),
 }
 
 HELP_CATEGORIES = {
@@ -4181,22 +4221,22 @@ HELP_CATEGORIES = {
     "tops": {
         "label": "📊 Tops & History", "emoji": "📊", "title": "📊 Tops & History",
         "tagline": "Top artists, tracks, albums and recent history. Periods: `7day 1month 3month 6month 12month overall` (or `,ta 7d`).",
-        "commands": ["ta", "tt", "topalbums", "rt", "at", "serverartists", "serveralbums", "servertracks"],
+        "commands": ["ta", "tt", "topalbums", "rt", "at", "plays", "pace", "milestone", "overview", "recap", "year", "serverartists", "serveralbums", "servertracks", "scrobbleleaderboard", "timeleaderboard"],
     },
     "server": {
         "label": "👑 Server & Crowns", "emoji": "👑", "title": "👑 Server & Crowns",
         "tagline": "Battle your server for crowns and whoknows titles.",
-        "commands": ["whoknows", "whoknowstrack", "whoknowsalbum", "globalwhoknows", "globalwhoknowstrack", "globalwhoknowsalbum", "crowns", "crownseeder", "killallcrowns"],
+        "commands": ["whoknows", "whoknowstrack", "whoknowsalbum", "globalwhoknows", "globalwhoknowstrack", "globalwhoknowsalbum", "crowns", "crownseeder", "killallcrowns", "affinity", "friendswhoknow", "friends", "members", "togglecommand", "autoposter", "botscrobbling", "featured", "featuredlog"],
     },
     "account": {
         "label": "🔗 Account & Setup", "emoji": "🔗", "title": "🔗 Account & Setup",
         "tagline": "Link Last.fm, import history, and tune your settings.",
-        "commands": ["login", "logout", "import", "settings", "privacy", "cd", "cd2"],
+        "commands": ["login", "logout", "import", "settings", "privacy", "responsemode", "userreactions", "shortcuts", "localization", "cd", "cd2"],
     },
     "fun": {
         "label": "🎮 Fun & Utility", "emoji": "🎮", "title": "🎮 Fun & Utility",
         "tagline": "Games, AI, and handy extras.",
-        "commands": ["remote", "previous", "spotify", "spotifyalbum", "spotifyartist", "guess", "scramble", "judge", "receipt", "server", "status", "updates", "guide", "premium", "dms", "social", "deletedata", "suggest", "bug"],
+        "commands": ["remote", "previous", "spotify", "spotifyalbum", "spotifyartist", "youtube", "applemusic", "lyrics", "loved", "love", "unlove", "scrobble", "discogs", "collection", "genre", "country", "countrychart", "search", "iceberg", "gaps", "discoverydate", "lastlistened", "discoveries", "guess", "scramble", "judge", "receipt", "server", "status", "updates", "guide", "premium", "dms", "social", "deletedata", "suggest", "bug"],
     },
 }
 
@@ -4624,7 +4664,12 @@ async def update_notif_prefix(ctx):
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
-            
+            # Embed descriptions cap at 4096 chars — trim defensively.
+            if msg and len(msg) > 4000:
+                cut = msg[:4000]
+                lb = cut.rfind("\n")
+                msg = (cut[:lb] if lb > 2000 else cut).rstrip() + "…"
+
             embed = Theme.get_embed(
                 title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 
@@ -4647,7 +4692,12 @@ async def update_notif_slash(interaction, command):
                 CACHED_GLOBAL_UPDATE_MESSAGE = await get_global_update_message()
             msg = CACHED_GLOBAL_UPDATE_MESSAGE
             version = CACHED_GLOBAL_UPDATE_VERSION if 'CACHED_GLOBAL_UPDATE_VERSION' in globals() else ""
-            
+            # Embed descriptions cap at 4096 chars — trim defensively.
+            if msg and len(msg) > 4000:
+                cut = msg[:4000]
+                lb = cut.rfind("\n")
+                msg = (cut[:lb] if lb > 2000 else cut).rstrip() + "…"
+
             embed = Theme.get_embed(
                 title=f"🎉 DJ Scratch Update `{version}`",
                 description=msg, 

@@ -22,6 +22,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing message to enhance" }, { status: 400 });
     }
 
+    // Cap raw commit text going INTO the model so huge bodies can't blow up
+    // the prompt or produce a giant changelog. Keep updates SHORT — nobody
+    // reads walls of text. Target: a glanceable 3-5 bullets.
+    const MAX_INPUT_CHARS = 3000;
+    const MAX_OUTPUT_CHARS = 450;
+    const rawInput = String(message).slice(0, MAX_INPUT_CHARS);
+
     let apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       try {
@@ -37,13 +44,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "GROQ_API_KEY is not configured" }, { status: 500 });
     }
 
-    const systemPrompt = `You are DJ Scratch's hype update assistant. 
+    const systemPrompt = `You are DJ Scratch's hype update assistant.
 The user will provide a list of raw GitHub commit messages. Your job is to transform them into an exciting, user-friendly, and beautifully formatted Discord update announcement.
 - REWRITE the technical commit messages into fun, exciting, and easily digestible updates for Discord users. DO NOT just copy and paste the original text.
 - Add personality, hype, and excitement to each point (avoid being overly corporate).
 - Break down the updates into clean bullet points.
 - Categorize and prefix each point with an appropriate emoji and bold tag (e.g. ✨ **New Feature:**, 🐛 **Bug Fix:**, 🔧 **Update:**, 🚀 **Improvement:**).
-- Do not include any introductory or concluding sentences, just the formatted changelog points.`;
+- Do not include any introductory or concluding sentences, just the formatted changelog points.
+- HARD LIMITS (people skim, nobody reads walls of text): at most 5 bullet points, each bullet ONE short line of at most 80 characters, total output at most 450 characters. Merge or drop minor points to fit. Shorter is better — cut everything non-essential.`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -53,9 +61,11 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
+        max_tokens: 400,
+        temperature: 0.7,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Raw Commit Message:\n${message}` }
+          { role: "user", content: `Raw Commit Message:\n${rawInput}` }
         ]
       })
     });
@@ -68,13 +78,22 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
     }
 
     const data = await res.json();
-    const generatedText = data.choices?.[0]?.message?.content;
+    let generatedText: string | undefined = data.choices?.[0]?.message?.content;
 
     if (!generatedText) {
       return NextResponse.json({ error: "No text returned from AI" }, { status: 500 });
     }
 
-    return NextResponse.json({ result: generatedText.trim() });
+    // Hard-trim server-side: strip intro/outro lines the model sometimes adds,
+    // then cut to MAX_OUTPUT_CHARS on a line boundary so embeds never overflow.
+    generatedText = generatedText.trim();
+    if (generatedText.length > MAX_OUTPUT_CHARS) {
+      const cut = generatedText.slice(0, MAX_OUTPUT_CHARS);
+      const lastBreak = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(". "));
+      generatedText = (lastBreak > MAX_OUTPUT_CHARS * 0.5 ? cut.slice(0, lastBreak) : cut).trimEnd() + "…";
+    }
+
+    return NextResponse.json({ result: generatedText });
   } catch (error) {
     console.error("Error generating AI message:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
