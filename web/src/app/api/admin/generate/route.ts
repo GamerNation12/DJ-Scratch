@@ -61,7 +61,11 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
-        max_tokens: 400,
+        // NOTE: gpt-oss is a reasoning model — its thinking counts against
+        // the token budget. Too small a cap = empty reply. Keep this roomy;
+        // output length is enforced by the server-side trim below, not here.
+        max_tokens: 1500,
+        reasoning_effort: "low",
         temperature: 0.7,
         messages: [
           { role: "system", content: systemPrompt },
@@ -81,7 +85,11 @@ The user will provide a list of raw GitHub commit messages. Your job is to trans
     let generatedText: string | undefined = data.choices?.[0]?.message?.content;
 
     if (!generatedText) {
-      return NextResponse.json({ error: "No text returned from AI" }, { status: 500 });
+      // Log the shape so Vercel logs show WHY (e.g. reasoning-only reply).
+      try {
+        console.error("Groq empty content, response shape:", JSON.stringify(data).slice(0, 1000));
+      } catch { /* logging must never break the route */ }
+      return NextResponse.json({ error: "AI returned an empty response — try again" }, { status: 500 });
     }
 
     // Hard-trim server-side: strip intro/outro lines the model sometimes adds,
