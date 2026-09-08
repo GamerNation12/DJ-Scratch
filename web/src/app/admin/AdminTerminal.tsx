@@ -13,14 +13,22 @@ export default function AdminTerminal() {
 
     async function initTerminal() {
       try {
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://mango.fps.ms:20544";
+        // Never use plain ws:// from an HTTPS page (browsers block it as
+        // mixed content). Match the page scheme; override with
+        // NEXT_PUBLIC_SOCKET_URL when set.
+        const raw = process.env.NEXT_PUBLIC_SOCKET_URL;
+        const socketUrl = raw || (typeof window !== "undefined" && window.location.protocol === "https:"
+          ? "https://mango.fps.ms:20544"
+          : "http://mango.fps.ms:20544");
         const { io } = await import("socket.io-client");
-        
+
         if (!active) return;
 
         const socket = io(socketUrl, {
           transports: ["websocket", "polling"],
-          reconnection: true
+          reconnection: true,
+          // Don't hammer a dead host forever — surfaced as error state.
+          reconnectionAttempts: 8
         });
 
         socket.on("connect", () => {

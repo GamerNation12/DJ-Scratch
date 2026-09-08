@@ -219,7 +219,18 @@ function PushGlobalUpdateCard({ currentVersion, onUpdate }: { currentVersion: st
         setContent(data.result);
         setIsManualVersion(false);
       } else {
-        toast.error("AI Error");
+        // Surface the real reason (e.g. missing GROQ_API_KEY on Vercel)
+        // instead of a generic toast nobody can act on.
+        let msg = "AI Error";
+        try {
+          const data = await res.json();
+          if (data?.error === "GROQ_API_KEY is not configured") {
+            msg = "AI key missing — add GROQ_API_KEY in Vercel env vars and redeploy";
+          } else if (data?.error) {
+            msg = data.error;
+          }
+        } catch { /* non-JSON response, keep default */ }
+        toast.error(msg);
       }
     } catch (e) {
       toast.error("AI service failed.");

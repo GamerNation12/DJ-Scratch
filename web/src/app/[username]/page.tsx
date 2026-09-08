@@ -255,15 +255,20 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   // Fetch Public Profile Data
   useEffect(() => {
     let isMounted = true;
+    // Permanent errors (unknown user, private, banned) never resolve by
+    // retrying — stop polling so a missing profile doesn't 404 forever.
+    let stopPolling = false;
     setProfileLoading(true);
-    
+
     const fetchProfile = async () => {
+      if (stopPolling) return;
       try {
         const res = await fetchApi(`/api/u/${encodeURIComponent(usernameParam)}?period=${period}&t=${Date.now()}`);
         const data = await res.json();
         if (isMounted) {
           if (data.error) {
             setProfileError(data.error);
+            if (res.status === 404 || res.status === 403) stopPolling = true;
           } else {
             setProfileError(null);
             setProfile(data);
@@ -281,6 +286,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
     return () => {
       isMounted = false;
+      stopPolling = true;
       clearInterval(intervalId);
     };
   }, [usernameParam, period]);
