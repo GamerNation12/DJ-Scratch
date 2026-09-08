@@ -1337,7 +1337,22 @@ async def on_ready():
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
     print(f"{Log.GREEN}[OK] CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
     print(f"{Log.GREEN}[OK] SYNCED COMMANDS: {len(bot.tree.get_commands())} global commands{Log.RESET}")
-    print(f"{Log.YELLOW}! NOTE: Slash commands do not auto-sync. Run ',sync' in Discord if needed.{Log.RESET}")
+
+    # Auto-sync slash commands on boot (same entry-point-safe bulk upsert as
+    # ",sync"). Runs once per process — on_ready refires on reconnects.
+    if not getattr(bot, 'did_auto_sync', False):
+        bot.did_auto_sync = True
+        try:
+            _app_id = bot.application_id or (await bot.application_info()).id
+            _existing = await bot.http.get_global_commands(_app_id)
+            _entry_points = [cmd for cmd in _existing if cmd.get('type') == 4]
+            _local = bot.tree._get_all_commands(guild=None)
+            _payload = [c.to_dict(bot.tree) for c in _local]
+            _payload.extend(_entry_points)
+            _synced = await bot.http.bulk_upsert_global_commands(_app_id, _payload)
+            print(f"{Log.GREEN}[OK] AUTO-SYNCED {len(_synced)} global slash commands ({len(_entry_points)} entry points kept){Log.RESET}")
+        except Exception as e:
+            print(f"{Log.RED}>>> Auto-sync failed (run ',sync' manually): {e}{Log.RESET}")
     
 
 
@@ -4165,46 +4180,46 @@ HELP_COMMAND_META = {
     "deletedata": ("Delete your imported data", "/deletedata"),
     "suggest": ("Send an idea to the dev", "/suggest <idea> • `,suggest`"),
     "bug": ("Report a bug to the dev", "/bug <what happened>"),
-    # .fmbot-parity extras (src/commands/fmbot_missing.py)
-    "overview": ("Top track/album/artist snapshot", "/overview [days] • `,o`"),
-    "recap": ("Combined tops recap for a period", "/recap [period] • `,recap 7day`"),
-    "year": ("Yearly overview", "/year [year] • `,year`"),
-    "plays": ("Total scrobbles for a period", "/plays [period] • `,p`"),
-    "pace": ("ETA for a playcount goal", "/pace <goal> • `,pace 50000`"),
-    "milestone": ("Scrobble milestones", "/milestone [amount] • `,ms`"),
-    "genre": ("Genre tags for an artist", "/genre [artist] • `,genre`"),
-    "country": ("Country info for an artist", "/country [artist] • `,from`"),
-    "countrychart": ("Top countries in your library", "/countrychart [period]"),
-    "scrobbleleaderboard": ("Most plays in this server", "/scrobbleleaderboard • `,sblb`"),
-    "timeleaderboard": ("Most listening time in server", "/timeleaderboard • `,tlb`"),
-    "affinity": ("Whose taste matches yours most", "/affinity"),
-    "friendswhoknow": ("Which friends listen to an artist", "/friendswhoknow [artist] • `,fwk`"),
-    "friends": ("List your DJ Scratch friends", "/friends"),
-    "discoverydate": ("When did you discover this music", "/discoverydate • `,dd`"),
-    "lastlistened": ("When did you last hear this", "/lastlistened • `,last`"),
-    "discoveries": ("Artists you recently discovered", "/discoveries"),
-    "search": ("Search your library", "/search <query> • `,sr`"),
-    "iceberg": ("Artist popularity iceberg", "/iceberg [period]"),
-    "gaps": ("Faves you haven't heard lately", "/gaps"),
-    "lyrics": ("Lyrics for now playing or query", "/lyrics [Artist - Track]"),
-    "loved": ("Your loved tracks on Last.fm", "/loved"),
-    "love": ("Love the current track", "/love"),
-    "unlove": ("Unlove guidance", "/unlove"),
-    "scrobble": ("Manual scrobble guidance", "/scrobble [Artist - Track]"),
-    "youtube": ("YouTube link for a query", "/youtube <query> • `,yt`"),
-    "applemusic": ("Apple Music link for a query", "/applemusic <query>"),
-    "featured": ("Hourly featured listener", "/featured"),
-    "featuredlog": ("Last featured listener", "/featuredlog"),
-    "responsemode": ("Default layout for tops/whoknows", "/responsemode <embed|image|pagination>"),
-    "userreactions": ("Auto-emoji on your /fm", "/userreactions [emojis]"),
-    "shortcuts": ("Custom text-command shortcuts", "/shortcuts [name] [command] • `,sc`"),
-    "localization": ("Timezone + number format", "/localization [timezone] [format]"),
-    "members": ("Linked members in this server", "/members • `,mb`"),
-    "togglecommand": ("Enable/disable a command (Admin)", "/togglecommand <command> <on|off>"),
-    "autoposter": ("Server listening digest channel", "/autoposter [#channel]"),
-    "botscrobbling": ("Scrobble Discord music bots", "/botscrobbling [on|off]"),
-    "collection": ("Discogs vinyl collection (beta)", "/collection"),
-    "discogs": ("Link Discogs collection (beta)", "/discogs"),
+    # .fmbot-parity extras (src/commands/fmbot_missing.py — slash under groups)
+    "overview": ("Top track/album/artist snapshot", "/stats overview • `,o`"),
+    "recap": ("Combined tops recap for a period", "/stats recap • `,recap 7day`"),
+    "year": ("Yearly overview", "/stats year • `,year`"),
+    "plays": ("Total scrobbles for a period", "/stats plays • `,plays`"),
+    "pace": ("ETA for a playcount goal", "/stats pace • `,pace 50000`"),
+    "milestone": ("Scrobble milestones", "/stats milestone • `,ms`"),
+    "genre": ("Genre tags for an artist", "/stats genre • `,genre`"),
+    "country": ("Country info for an artist", "/stats country • `,from`"),
+    "countrychart": ("Top countries in your library", "/stats countrychart"),
+    "scrobbleleaderboard": ("Most plays in this server", "/community scrobbleleaderboard • `,sblb`"),
+    "timeleaderboard": ("Most listening time in server", "/community timeleaderboard • `,tlb`"),
+    "affinity": ("Whose taste matches yours most", "/community affinity"),
+    "friendswhoknow": ("Which friends listen to an artist", "/community friendswhoknow • `,fwk`"),
+    "friends": ("List your DJ Scratch friends", "/community friends"),
+    "discoverydate": ("When did you discover this music", "/stats discoverydate • `,ddate`"),
+    "lastlistened": ("When did you last hear this", "/stats lastlistened • `,last`"),
+    "discoveries": ("Artists you recently discovered", "/stats discoveries"),
+    "search": ("Search your library", "/stats search • `,sr`"),
+    "iceberg": ("Artist popularity iceberg", "/stats iceberg"),
+    "gaps": ("Faves you haven't heard lately", "/stats gaps"),
+    "lyrics": ("Lyrics for now playing or query", "/music lyrics"),
+    "loved": ("Your loved tracks on Last.fm", "/music loved"),
+    "love": ("Love the current track", "/music love"),
+    "unlove": ("Unlove guidance", "/music unlove"),
+    "scrobble": ("Manual scrobble guidance", "/music scrobble"),
+    "youtube": ("YouTube link for a query", "/music youtube • `,yt`"),
+    "applemusic": ("Apple Music link for a query", "/music applemusic"),
+    "featured": ("Hourly featured listener", "/community featured"),
+    "featuredlog": ("Last featured listener", "/community featuredlog"),
+    "responsemode": ("Default layout for tops/whoknows", "/setup responsemode"),
+    "userreactions": ("Auto-emoji on your /fm", "/setup userreactions"),
+    "shortcuts": ("Custom text-command shortcuts", "/setup shortcuts • `,sc`"),
+    "localization": ("Timezone + number format", "/setup localization"),
+    "members": ("Linked members in this server", "/community members • `,mb`"),
+    "togglecommand": ("Enable/disable a command (Admin)", "/setup togglecommand"),
+    "autoposter": ("Server listening digest channel", "/setup autoposter"),
+    "botscrobbling": ("Scrobble Discord music bots", "/setup botscrobbling"),
+    "collection": ("Discogs vinyl collection (beta)", "/music collection"),
+    "discogs": ("Link Discogs collection (beta)", "/music discogs"),
 }
 
 HELP_CATEGORIES = {
@@ -4294,7 +4309,7 @@ class HelpCategorySelect(discord.ui.Select):
         v = self.view_ref
         if interaction.user.id != v.user.id:
             return await interaction.response.send_message("This menu isn't for you — run `,help` yourself!", ephemeral=True)
-        v.current_page = v.page_keys.index(self.values[0])
+        v.current_page = v.page_cats.index(self.values[0])
         v.sync_controls()
         await interaction.response.edit_message(embed=v.pages[v.current_page], view=v)
 
@@ -4306,13 +4321,13 @@ class HelpPaginationView(discord.ui.View):
         self.bot = bot
         self.is_admin = is_admin
         self.page_keys = list(HELP_CATEGORIES.keys()) + (["admin"] if is_admin else [])
-        self.pages = self.build_pages()
+        self.pages, self.page_cats = self.build_pages()
         self.current_page = 0
         self.select = HelpCategorySelect(self)
         self.add_item(self.select)
         self.sync_controls()
 
-    def _cmd_field(self, name, auto_info):
+    def _cmd_lines(self, name, auto_info):
         meta = HELP_COMMAND_META.get(name)
         if meta:
             desc, usage = meta
@@ -4320,8 +4335,9 @@ class HelpPaginationView(discord.ui.View):
             desc, usage = auto_info[name]
         else:
             desc, usage = "No description.", f"/{name}"
-        # Field name shows slash + prefix; value shows what + how.
-        return (f"`/{name}`", f"{desc}\n﹒{usage}")
+        # Two compact lines per command; pages are chunked so big
+        # categories never hit Discord's embed limits.
+        return f"**/{name}** — {desc}\n﹒{usage}"
 
     def build_pages(self):
         from src.core.theme import Theme
@@ -4332,67 +4348,95 @@ class HelpPaginationView(discord.ui.View):
             avatar = self.bot.user.display_avatar.url if self.bot.user else None
         except Exception:
             avatar = None
-        pages = []
+        pages: list = []
+        cats: list = []
 
-        for key in self.page_keys:
-            if key == "admin":
-                embed = Theme.get_embed(user=self.user, title="🔒 Admin Commands",
-                                        description="*Restricted — you can see this because you're staff.*")
-                if avatar:
-                    embed.set_thumbnail(url=avatar)
-                for cmd_name in ["wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]:
-                    if cmd_name in auto_info:
-                        desc, usage = auto_info[cmd_name]
-                    else:
-                        desc, usage = "Restricted admin command.", f"/{cmd_name}"
-                    embed.add_field(name=f"`/{cmd_name}`", value=f"{desc}\n﹒{usage}", inline=False)
-                embed.set_footer(text=f"Page {len(pages)+1} of {len(self.page_keys)} • ,help • Only you can use these buttons")
-                pages.append(embed)
+        total_cmds = sum(len(v["commands"]) for v in HELP_CATEGORIES.values())
+
+        # ---- home ----
+        cat_lines = []
+        for k, v in HELP_CATEGORIES.items():
+            if k == "home":
                 continue
+            n = len(v["commands"])
+            label = v["label"].replace(v["emoji"] + " ", "")
+            cat_lines.append(f"{v['emoji']} **{label}** — {n} commands")
+        embed = Theme.get_embed(
+            user=self.user,
+            title="DJ Scratch — Command Help",
+            description=(
+                "Your Last.fm + Spotify stats bot. Track what you play, battle "
+                "your server for crowns, and dig into your taste.\n\n"
+                "**Get started**\n"
+                "1️⃣ `/login` — link your Last.fm account\n"
+                "2️⃣ Play music with scrobbling on (Spotify / Apple Music)\n"
+                "3️⃣ `,fm` or `/fm` — show what's playing\n\n"
+                "**Browse by category**\n"
+                + "\n".join(cat_lines)
+                + f"\n\n*{total_cmds} commands · most work as both `/slash` and `,prefix`.*"
+            ),
+        )
+        if avatar:
+            embed.set_thumbnail(url=avatar)
+        pages.append(embed)
+        cats.append("home")
 
+        # ---- categories (chunked so 25-field / 4096-char limits never break) ----
+        for key in self.page_keys:
+            if key in ("home", "admin"):
+                continue
             cat = HELP_CATEGORIES[key]
-            if key == "home":
+            entries = [self._cmd_lines(c, auto_info) for c in cat["commands"]]
+            chunks: list = []
+            cur: list = []
+            cur_len = 0
+            for e in entries:
+                if cur and cur_len + len(e) + 2 > 3400:
+                    chunks.append(cur)
+                    cur = []
+                    cur_len = 0
+                cur.append(e)
+                cur_len += len(e) + 2
+            if cur:
+                chunks.append(cur)
+            for i, chunk in enumerate(chunks):
+                title = cat["title"] + (f" · {i + 1}/{len(chunks)}" if len(chunks) > 1 else "")
                 embed = Theme.get_embed(
-                    user=self.user,
-                    title="🎧 DJ Scratch — Help",
-                    description=(
-                        "Track your **Last.fm + Spotify** listening, battle your server for **crowns**, "
-                        "and flex your stats.\n\n"
-                        "**🚀 Get started in 30 seconds**\n"
-                        "**1.** `/login` — link your Last.fm\n"
-                        "**2.** Play music on Spotify / Apple Music (connected to Last.fm)\n"
-                        "**3.** `,fm` or `/fm` — show what's playing\n\n"
-                        "**📚 Categories** — use the dropdown above or ⬅️ ➡️ to browse:\n"
-                        + "\n".join(f"{v['emoji']} **{v['label'].replace(v['emoji']+' ', '')}** — {v['tagline'][:80]}"
-                                    for k, v in HELP_CATEGORIES.items() if k != "home")
-                        + "\n\n*Tip: most commands work as both `/slash` and `,prefix` (e.g. `/fm` = `,fm`).*"
-                    ),
+                    user=self.user, title=title,
+                    description=f"*{cat['tagline']}*\n\n" + "\n".join(chunk),
                 )
                 if avatar:
                     embed.set_thumbnail(url=avatar)
-                embed.set_footer(text=f"Page 1 of {len(self.page_keys)} • ,help or /help • Pick a category above 👆")
                 pages.append(embed)
-                continue
+                cats.append(key)
 
-            embed = Theme.get_embed(user=self.user, title=cat["title"], description=f"*{cat['tagline']}*")
+        # ---- admin ----
+        if "admin" in self.page_keys:
+            embed = Theme.get_embed(user=self.user, title="🔒 Admin Commands",
+                                    description="*Restricted — you can see this because you're staff.*")
             if avatar:
                 embed.set_thumbnail(url=avatar)
-            for cmd_name in cat["commands"]:
-                fname, fvalue = self._cmd_field(cmd_name, auto_info)
-                embed.add_field(name=fname, value=fvalue, inline=True)
-            embed.set_footer(text=f"Page {len(pages)+1} of {len(self.page_keys)} • ,help or /help • Use the dropdown to jump 👆")
+            for cmd_name in ["wipedata", "cleanduplicates", "stats", "restart", "sync", "resetcd"]:
+                if cmd_name in auto_info:
+                    desc, usage = auto_info[cmd_name]
+                else:
+                    desc, usage = "Restricted admin command.", f"/{cmd_name}"
+                embed.add_field(name=f"`/{cmd_name}`", value=f"{desc}\n﹒{usage}", inline=False)
             pages.append(embed)
+            cats.append("admin")
 
-        return pages
+        for i, em in enumerate(pages):
+            em.set_footer(text=f"Page {i + 1} of {len(pages)} · ,help or /help · use the dropdown to jump")
+        return pages, cats
 
     def sync_controls(self):
         self.prev_btn.disabled = self.current_page <= 0
         self.next_btn.disabled = self.current_page >= len(self.pages) - 1
         self.home_btn.disabled = self.current_page == 0
-        # Keep dropdown in sync
+        # Keep dropdown in sync (categories can span multiple pages now)
         try:
             for opt in self.select.options:
-                opt.default = (opt.value == self.page_keys[self.current_page])
+                opt.default = (opt.value == self.page_cats[self.current_page])
         except Exception:
             pass
 
