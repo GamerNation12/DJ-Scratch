@@ -4609,7 +4609,12 @@ async def on_message(message):
     
     import re
     import asyncio
-    if not message.author.bot and re.match(r'^\.[a-zA-Z]', message.content):
+    # Scoped to DOT_DELETE_GUILD_IDS (your server only): wipe dot-prefixed
+    # invocations like .fmbot's `.fm` a few seconds after they're sent.
+    from src.core.config import DOT_DELETE_GUILD_IDS
+    if (not message.author.bot and message.guild
+            and str(message.guild.id) in DOT_DELETE_GUILD_IDS
+            and re.match(r'^\.[a-zA-Z]', message.content)):
         async def delayed_delete():
             await asyncio.sleep(5)  # 5-second delay
             try:

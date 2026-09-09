@@ -36,6 +36,15 @@ if not LASTFM_API_KEY or not LASTFM_API_SECRET:
     )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
+# Servers where dot-prefixed messages (e.g. .fmbot's `.fm`) from non-bots get
+# auto-deleted. Your server is hardcoded; add more via DOT_DELETE_GUILD_IDS
+# (comma-separated). Your server only — never turn this on globally.
+_HOME_DOT_DELETE_GUILDS = {"1360772594122358834"}
+DOT_DELETE_GUILD_IDS = frozenset(
+    {g.strip() for g in os.getenv("DOT_DELETE_GUILD_IDS", "").split(",") if g.strip()}
+    | _HOME_DOT_DELETE_GUILDS
+)
+
 COOLDOWN_FILE = "cooldowns.json"
 
 CURRENT_UPDATE_VERSION = "v1.4.0"
