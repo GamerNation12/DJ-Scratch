@@ -2623,6 +2623,22 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     live = False
             except Exception:
                 pass
+        if is_cached and live:
+            # Re-rendering an old message (up/down toggle): the cached flag
+            # is from send-time. If the user changed songs since, a fresh
+            # check disagrees — word as "was", not "is".
+            try:
+                fresh = await fetch_now_playing(username, 1)
+                f_tracks = (fresh.get('recenttracks', {}) or {}).get('track') or []
+                ft = f_tracks[0] if f_tracks else {}
+                f_is_p = ft.get('@attr', {}).get('nowplaying') == 'true'
+                f_artist_raw = ft.get('artist', '')
+                f_artist = f_artist_raw.get('#text', '') if isinstance(f_artist_raw, dict) else str(f_artist_raw)
+                if (not f_is_p or (ft.get('name') or '').lower() != raw_song.lower()
+                        or f_artist.lower() != raw_artist.lower()):
+                    live = False
+            except Exception:
+                pass
         status = "Now Playing" if live else "Last Played"
 
         user_color = await get_color(user.id)
