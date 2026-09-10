@@ -15,6 +15,11 @@ from ..utils.api import *
 
 FM_TRACK_CACHE = {}
 
+# If Last.fm still flags a track as now-playing while the newest *finished*
+# scrobble ended longer ago than this, the flag is frozen (dead scrobbling)
+# and fm wordings must say "was listening", not "is listening".
+NOWPLAYING_STALE_AFTER_SEC = 3 * 3600
+
 # --- TERMINAL COLOR CODES ---
 class Log:
     RESET = '\033[0m'
@@ -2564,10 +2569,21 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
-        status = "Now Playing" if is_p else "Last Played"
-        
+        # Frozen-flag guard: a stuck nowplaying flag with no finished
+        # scrobbles for hours means playback stopped — word as "was".
+        live = is_p
+        if is_p and len(tracks) > 1:
+            try:
+                import time as _time
+                prev_uts = int((tracks[1].get('date') or {}).get('uts', 0) or 0)
+                if prev_uts and _time.time() - prev_uts > NOWPLAYING_STALE_AFTER_SEC:
+                    live = False
+            except Exception:
+                pass
+        status = "Now Playing" if live else "Last Played"
+
         user_color = await get_color(user.id)
-        color = user_color if is_p else discord.Color.dark_gray()
+        color = user_color if live else discord.Color.dark_gray()
 
         if is_p:
             cd = await get_avatar_cooldown()
@@ -2576,15 +2592,15 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
 
         if mode == "compact":
-            if is_p:
+            if live:
                 content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
                 content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
                 content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
-            
+
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
             if show_playcount and track_plays != -1:
-                if track_plays == 0 and is_p:
+                if track_plays == 0 and live:
                     desc_lines.append("\n🎧 **First time listening!**")
                 else:
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
@@ -2618,13 +2634,13 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 desc_lines.extend(["", "Previous:", f"**[{p_song}]({p_url})**", f"**{p_artist}** • *{p_album}*"])
             
             if show_playcount and track_plays != -1:
-                if track_plays == 0 and is_p:
+                if track_plays == 0 and live:
                     desc_lines.append("\n🎧 **First time listening!**")
                 else:
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
-            
+
             embed = Theme.get_embed(description=chr(10).join(desc_lines), color=color)
-            embed.set_author(name=f"Now playing for {format_name(user)}" if is_p else f"Last played by {format_name(user)}")
+            embed.set_author(name=f"Now playing for {format_name(user)}" if live else f"Last played by {format_name(user)}")
             if img: embed.set_thumbnail(url=img)
             
             a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist))
@@ -2714,7 +2730,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 footer_parts.append(" • ".join(stats_line))
                 
             disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
-            if not is_p:
+            if not live:
                 footer_parts.append("Scrobbles frozen? Run ,outofsync")
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u} | Scrobbles frozen? Run ,outofsync")
             else:
@@ -2726,7 +2742,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
         if show_playcount and track_plays != -1:
-            if track_plays == 0 and is_p:
+            if track_plays == 0 and live:
                 desc_lines.append("\n🎧 **First time listening!**")
             else:
                 desc_lines.append(f"\n🔢 **{track_plays}** plays")
@@ -2736,7 +2752,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        if not is_p:
+        if not live:
             footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
         else:
             footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}"
