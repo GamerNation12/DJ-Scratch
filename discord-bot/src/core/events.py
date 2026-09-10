@@ -20,6 +20,35 @@ FM_TRACK_CACHE = {}
 # and fm wordings must say "was listening", not "is listening".
 NOWPLAYING_STALE_AFTER_SEC = 3 * 3600
 
+
+async def get_fm_track_data(unique_id):
+    """fm button payload: memory first, Postgres fallback (survives restarts)."""
+    if not unique_id:
+        return None
+    data = FM_TRACK_CACHE.get(unique_id)
+    if data is not None:
+        return data
+    try:
+        from src.core.database import fm_cache_get
+        data = await fm_cache_get(unique_id)
+        if data is not None:
+            FM_TRACK_CACHE[unique_id] = data
+        return data
+    except Exception as e:
+        print(f"{Log.RED}>>> fm cache fetch failed: {e}{Log.RESET}")
+        return None
+
+
+def persist_fm_track_data(unique_id, track_data):
+    """Fire-and-forget DB persist so fm buttons keep working after restarts."""
+    try:
+        if not unique_id or track_data is None:
+            return
+        from src.core.database import fm_cache_put
+        asyncio.create_task(fm_cache_put(unique_id, track_data))
+    except Exception:
+        pass
+
 # --- TERMINAL COLOR CODES ---
 class Log:
     RESET = '\033[0m'
@@ -619,6 +648,17 @@ async def setup_hook():
                     CREATE TABLE IF NOT EXISTS global_settings (
                         key VARCHAR(255) PRIMARY KEY,
                         value TEXT
+                    )
+                    """
+                )
+
+                # Durable fm button payloads (up/down keep working after restarts)
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS fm_track_cache (
+                        key VARCHAR(32) PRIMARY KEY,
+                        data JSONB NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                     """
                 )
@@ -2005,6 +2045,9 @@ class FMActionsView(discord.ui.View):
             if len(FM_TRACK_CACHE) > 1000:
                 for k in list(FM_TRACK_CACHE.keys())[:100]:
                     FM_TRACK_CACHE.pop(k, None)
+            # Durable copy: up/down buttons on this message keep working
+            # after a bot restart (memory cache alone would be wiped).
+            persist_fm_track_data(unique_id, track_data)
                     
         if current_mode == "compact":
             btn_down = discord.ui.Button(label="", emoji="<:Down:1528249702338789407>", style=discord.ButtonStyle.secondary, custom_id=f"fm_down:{user_id}:{current_mode}:{unique_id}")
@@ -4980,10 +5023,10 @@ async def on_interaction(interaction: discord.Interaction):
                     new_mode = "full" if current_mode == "compact" else "stats"
                     
                 await interaction.response.defer()
-                cached_data = FM_TRACK_CACHE.get(unique_id) if unique_id else None
+                cached_data = await get_fm_track_data(unique_id)
                 if not cached_data:
                     if not interaction.response.is_done():
-                        await interaction.followup.send("⚠️ This message is too old to interact with (the bot restarted or cache cleared). Please run `,fm` again!", ephemeral=True)
+                        await interaction.followup.send("⚠️ This message is too old to interact with (older than 7 days). Please run `,fm` again!", ephemeral=True)
                     return
                 result, _ = await process_fm(interaction, target_user, mode=new_mode, track_data=cached_data)
                 if result:
@@ -5069,7 +5112,7 @@ async def on_interaction(interaction: discord.Interaction):
                 
                 track_data = None
                 if unique_id:
-                    track_data = FM_TRACK_CACHE.get(unique_id)
+                    track_data = await get_fm_track_data(unique_id)
                 
                 apply_view = ApplyAvatarView(bot, artist, img_url, original_msg=interaction.message, original_user=target_user, track=None, track_data=track_data)
                 

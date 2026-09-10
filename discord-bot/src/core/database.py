@@ -1170,3 +1170,49 @@ async def is_command_disabled(command_name: str) -> str:
         return rows[0]['reason']
     return None
 
+# --- Durable fm button cache (survives bot restarts) ---
+# FM_TRACK_CACHE in events.py is memory-only, so up/down buttons on old fm
+# messages died on every restart. These helpers back it with Postgres;
+# entries expire after 7 days.
+FM_CACHE_TTL_DAYS = 7
+
+async def fm_cache_put(key: str, data: dict):
+    if not db_pool or not key or data is None:
+        return
+    try:
+        payload = json.dumps(data, default=str)
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_cache_put serialize failed: {e}{Log.RESET}")
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO fm_track_cache (key, data) VALUES ($1, $2::jsonb) "
+                "ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, created_at = CURRENT_TIMESTAMP",
+                str(key), payload,
+            )
+            await conn.execute(
+                "DELETE FROM fm_track_cache WHERE created_at < CURRENT_TIMESTAMP - ($1 || ' days')::interval",
+                str(FM_CACHE_TTL_DAYS),
+            )
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_cache_put failed: {e}{Log.RESET}")
+
+async def fm_cache_get(key: str):
+    if not db_pool or not key:
+        return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT data FROM fm_track_cache WHERE key = $1 "
+                "AND created_at >= CURRENT_TIMESTAMP - ($2 || ' days')::interval",
+                str(key), str(FM_CACHE_TTL_DAYS),
+            )
+        if not row or row['data'] is None:
+            return None
+        data = row['data']
+        return json.loads(data) if isinstance(data, str) else dict(data)
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_cache_get failed: {e}{Log.RESET}")
+        return None
+
