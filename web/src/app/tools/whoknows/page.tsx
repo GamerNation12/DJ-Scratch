@@ -64,7 +64,7 @@ export default function WhoKnowsPage() {
           <p className="text-zinc-400">Top listeners across the whole bot. Bot: <span className="font-mono text-zinc-500">/globalwhoknows</span></p>
         </div>
 
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+        <div className="relative z-20 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
           <div className="flex gap-2 mb-4">
             {(["artist", "track", "album"] as Kind[]).map((k) => (
               <button
