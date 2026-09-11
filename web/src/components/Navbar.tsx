@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSession } from "@/app/providers";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Users, MessageSquare } from "lucide-react";
+import { Users, MessageSquare, Wrench } from "lucide-react";
 
 export default function Navbar() {
   const { data: session, logout } = useSession();
@@ -126,6 +126,17 @@ export default function Navbar() {
                 }`}
               >
                 Music
+              </Link>
+              <Link
+                href="/tools"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  pathname.startsWith("/tools")
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                Tools
               </Link>
 
             </div>
@@ -262,11 +273,21 @@ export default function Navbar() {
               href="/music"
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/music"
-                  ? "bg-white/10 text-white"
+                  ? "bg-white/10 text-white" 
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
               Music
+            </Link>
+            <Link
+              href="/tools"
+              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname.startsWith("/tools")
+                  ? "bg-white/10 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Tools
             </Link>
 
             {session && (
