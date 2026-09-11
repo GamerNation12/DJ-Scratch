@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import AutocompleteInput from "@/components/AutocompleteInput";
 import { Crown, Search, ChevronLeft } from "lucide-react";
 
 type Kind = "artist" | "track" | "album";
@@ -77,21 +78,32 @@ export default function WhoKnowsPage() {
               </button>
             ))}
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
+          <form
+            className="flex flex-col sm:flex-row gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              search();
+            }}
+          >
+            <AutocompleteInput
+              kind="artist"
               value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && search()}
+              onChange={setArtist}
               placeholder="Artist (e.g. Taylor Swift)"
-              className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+              className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
             />
             {kind !== "artist" && (
-              <input
+              <AutocompleteInput
+                kind={kind === "track" ? "track" : "album"}
+                context={artist}
                 value={kind === "track" ? track : album}
-                onChange={(e) => (kind === "track" ? setTrack(e.target.value) : setAlbum(e.target.value))}
-                onKeyDown={(e) => e.key === "Enter" && search()}
+                onChange={kind === "track" ? setTrack : setAlbum}
+                onSelect={(s) => {
+                  // Picking "X by Y" also fills a blank artist field.
+                  if (!artist.trim() && s.artist) setArtist(s.artist);
+                }}
                 placeholder={kind === "track" ? "Track" : "Album"}
-                className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+                className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
               />
             )}
             <button
@@ -101,7 +113,7 @@ export default function WhoKnowsPage() {
             >
               <Search className="w-4 h-4" /> {loading ? "..." : "Search"}
             </button>
-          </div>
+          </form>
         </div>
 
         {error && (
