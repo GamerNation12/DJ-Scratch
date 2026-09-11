@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { HeartHandshake, Search, ChevronLeft } from "lucide-react";
@@ -11,6 +11,24 @@ export default function TastePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  // Click a chip, then the other field, to compare fast.
+  const [fillTarget, setFillTarget] = useState<"a" | "b">("a");
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("djs-recent-users") || "[]");
+      if (Array.isArray(raw)) setRecent(raw.filter((x) => typeof x === "string").slice(0, 6));
+    } catch { /* ignore */ }
+  }, []);
+
+  const remember = (names: string[]) => {
+    setRecent((prev) => {
+      const next = [...names, ...prev.filter((x) => !names.some((n) => n.toLowerCase() === x.toLowerCase()))].slice(0, 6);
+      try { localStorage.setItem("djs-recent-users", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const search = async () => {
     if (!a.trim() || !b.trim() || loading) return;
@@ -22,7 +40,10 @@ export default function TastePage() {
       const res = await fetch(`/api/tools/taste?${params.toString()}`);
       const data = await res.json();
       if (!res.ok || data.error) setError(data.error || "Compare failed.");
-      else setResult(data);
+      else {
+        setResult(data);
+        remember([data.a, data.b].filter(Boolean));
+      }
     } catch {
       setError("Compare failed.");
     } finally {
@@ -49,6 +70,34 @@ export default function TastePage() {
         </div>
 
         <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+          {recent.length > 0 && (
+            <div className="mb-3">
+              <div className="flex gap-1.5 mb-2">
+                {(["a", "b"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setFillTarget(t)}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                      fillTarget === t ? "bg-pink-500/20 text-pink-300 border-pink-500/30" : "text-zinc-500 border-transparent hover:text-white"
+                    }`}
+                  >
+                    {t === "a" ? "Fill: first" : "Fill: second"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {recent.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => (fillTarget === "a" ? setA(r) : setB(r))}
+                    className="text-xs font-mono px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={a}

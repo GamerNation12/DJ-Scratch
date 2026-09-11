@@ -9,6 +9,7 @@ Backend lives in src/core/fmbot_extras.py. This file is only wiring.
 import discord
 from discord.ext import commands
 from discord import app_commands
+from src.utils.autocomplete import artist_ac, track_dash_ac
 
 
 class FmbotMissingCog(commands.Cog):
@@ -125,6 +126,7 @@ class FmbotMissingCog(commands.Cog):
 
     @stats.command(name="genre", description="Genre tags for an artist")
     @app_commands.describe(artist="Artist (blank = now playing)")
+    @app_commands.autocomplete(artist=artist_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def stats_genre(self, interaction: discord.Interaction, artist: str = None):
@@ -141,6 +143,7 @@ class FmbotMissingCog(commands.Cog):
 
     @stats.command(name="country", description="Country info for an artist")
     @app_commands.describe(artist="Artist (blank = now playing)")
+    @app_commands.autocomplete(artist=artist_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def stats_country(self, interaction: discord.Interaction, artist: str = None):
@@ -346,6 +349,7 @@ class FmbotMissingCog(commands.Cog):
 
     @community.command(name="friendswhoknow", description="Which friends listen to an artist")
     @app_commands.describe(artist="Artist (blank = now playing)")
+    @app_commands.autocomplete(artist=artist_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def community_fwk(self, interaction: discord.Interaction, artist: str = None):
@@ -379,6 +383,7 @@ class FmbotMissingCog(commands.Cog):
 
     @music.command(name="lyrics", description="Lyrics for now playing or query")
     @app_commands.describe(query="Artist - Track (blank = now playing)")
+    @app_commands.autocomplete(query=track_dash_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def music_lyrics(self, interaction: discord.Interaction, query: str = None):

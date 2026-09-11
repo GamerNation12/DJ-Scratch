@@ -5,6 +5,7 @@ export interface Suggestion {
   name: string;
   artist?: string;
   listeners?: number;
+  image?: string;
 }
 
 interface Props {
@@ -60,6 +61,21 @@ export default function AutocompleteInput({
     onSelect?.(s);
   };
 
+  // Bold the typed part inside each suggestion, like .fmbot-style clients.
+  const hi = (text: string) => {
+    const q = value.trim();
+    if (!q) return <>{text}</>;
+    const i = text.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return <>{text}</>;
+    return (
+      <>
+        {text.slice(0, i)}
+        <span className="text-white">{text.slice(i, i + q.length)}</span>
+        {text.slice(i + q.length)}
+      </>
+    );
+  };
+
   return (
     <div ref={boxRef} className="relative flex-1">
       <input
@@ -97,12 +113,19 @@ export default function AutocompleteInput({
                 pick(s);
               }}
               onMouseEnter={() => setHighlight(i)}
-              className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors ${
+              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
                 highlight === i ? "bg-indigo-500/20 text-white" : "text-zinc-300"
               }`}
             >
+              {s.image ? (
+                <img src={s.image} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" loading="lazy" />
+              ) : (
+                <span className="w-8 h-8 rounded-md bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-500 shrink-0">
+                  {(s.name || "?").charAt(0).toUpperCase()}
+                </span>
+              )}
               <span className="truncate flex-1">
-                <span className="font-bold">{s.name}</span>
+                <span className="font-bold">{hi(s.name)}</span>
                 {s.artist && <span className="text-zinc-500"> · {s.artist}</span>}
               </span>
               {typeof s.listeners === "number" && (

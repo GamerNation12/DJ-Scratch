@@ -29,20 +29,39 @@ export async function GET(req: Request) {
     else raw = data?.results?.albummatches?.album || [];
     if (!Array.isArray(raw)) raw = [raw];
 
-    const suggestions = raw.slice(0, 8).map((x: any) => ({
-      name: x.name,
-      artist: typeof x.artist === "string" ? x.artist : x.artist?.name || undefined,
-      listeners: x.listeners ? parseInt(x.listeners, 10) : undefined,
-    })).filter((s: any) => s.name);
+    const suggestions = raw.slice(0, 12).map((x: any) => {
+      const imgs = Array.isArray(x.image) ? x.image : [];
+      const image = imgs.map((i: any) => i?.["#text"]).find((u: string) => u) || undefined;
+      return {
+        name: x.name,
+        artist: typeof x.artist === "string" ? x.artist : x.artist?.name || undefined,
+        listeners: x.listeners ? parseInt(x.listeners, 10) : undefined,
+        image,
+      };
+    }).filter((s: any) => s.name);
 
-    // De-dupe by name, keep order.
+    // De-dupe by name, keep order — then rank exact/prefix matches first.
     const seen = new Set<string>();
-    const unique = suggestions.filter((s: any) => {
-      const k = `${s.name}::${s.artist || ""}`.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+    const ql = q.toLowerCase();
+    const unique = suggestions
+      .filter((s: any) => {
+        const k = `${s.name}::${s.artist || ""}`.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .sort((x: any, y: any) => {
+        const rank = (s: any) => {
+          const n = (s.name || "").toLowerCase();
+          if (n === ql) return 0;
+          if (n.startsWith(ql)) return 1;
+          return 2;
+        };
+        const r = rank(x) - rank(y);
+        if (r !== 0) return r;
+        return (y.listeners || 0) - (x.listeners || 0);
+      })
+      .slice(0, 8);
 
     return NextResponse.json({ success: true, suggestions: unique });
   } catch (error) {

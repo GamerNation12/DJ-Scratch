@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { Gauge, Search, ChevronLeft, Flag, Rocket } from "lucide-react";
@@ -10,6 +10,22 @@ export default function PacePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("djs-recent-users") || "[]");
+      if (Array.isArray(raw)) setRecent(raw.filter((x) => typeof x === "string").slice(0, 6));
+    } catch { /* ignore */ }
+  }, []);
+
+  const remember = (name: string) => {
+    setRecent((prev) => {
+      const next = [name, ...prev.filter((x) => x.toLowerCase() !== name.toLowerCase())].slice(0, 6);
+      try { localStorage.setItem("djs-recent-users", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const search = async () => {
     if (!user.trim() || loading) return;
@@ -23,7 +39,10 @@ export default function PacePage() {
       const res = await fetch(`/api/tools/pace?${params.toString()}`);
       const data = await res.json();
       if (!res.ok || data.error) setError(data.error || "Lookup failed.");
-      else setResult(data);
+      else {
+        setResult(data);
+        remember(data.user || user.trim());
+      }
     } catch {
       setError("Lookup failed.");
     } finally {
@@ -52,6 +71,19 @@ export default function PacePage() {
         </div>
 
         <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+          {recent.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {recent.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setUser(r)}
+                  className="text-xs font-mono px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={user}

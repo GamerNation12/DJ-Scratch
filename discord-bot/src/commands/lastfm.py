@@ -5,6 +5,10 @@ from discord.ext import commands
 from discord import app_commands
 
 from src.core.database import format_name
+from src.utils.autocomplete import (
+    artist_ac, track_dash_ac, track_pipe_ac,
+    album_dash_ac, album_pipe_ac,
+)
 
 
 def _spotify_login_url(user_id: int, channel_id=None, message_id=None) -> str:
@@ -488,6 +492,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="artist", description="Detailed stats about an artist")
     @app_commands.describe(artist="Artist name")
+    @app_commands.autocomplete(artist=artist_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def artist_info_slash(self, interaction: discord.Interaction, artist: str = None):
@@ -499,6 +504,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="album", description="Detailed stats about an album")
     @app_commands.describe(album="Artist - Album")
+    @app_commands.autocomplete(album=album_dash_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def album_info_slash(self, interaction: discord.Interaction, album: str = None):
@@ -510,6 +516,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="track", description="Detailed stats about a track")
     @app_commands.describe(track="Artist - Track")
+    @app_commands.autocomplete(track=track_dash_ac)
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def track_info_slash(self, interaction: discord.Interaction, track: str = None):
@@ -557,6 +564,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="whoknows", description="See who in the server listens to an artist most")
     @app_commands.describe(artist="The artist name (leave blank to use your current playing artist)")
+    @app_commands.autocomplete(artist=artist_ac)
     async def whoknows(self, interaction: discord.Interaction, artist: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_whoknows(interaction.guild, interaction.user, artist)
@@ -565,6 +573,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="whoknowstrack", description="See who in the server listens to a track most")
     @app_commands.describe(query="Format: Artist - Track (leave blank to use your current playing track)")
+    @app_commands.autocomplete(query=track_dash_ac)
     async def whoknowstrack(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_whoknowstrack(interaction.guild, interaction.user, query)
@@ -573,6 +582,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="whoknowsalbum", description="See who in the server listens to an album most")
     @app_commands.describe(query="Format: Artist - Album (leave blank to use your current playing album)")
+    @app_commands.autocomplete(query=album_dash_ac)
     async def whoknowsalbum(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_whoknowsalbum(interaction.guild, interaction.user, query)
@@ -1269,6 +1279,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="globalwhoknows", description="See who listens to an artist globally across all servers")
     @app_commands.describe(artist="Leave blank to use your currently playing artist")
+    @app_commands.autocomplete(artist=artist_ac)
     async def globalwhoknows_slash(self, interaction: discord.Interaction, artist: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_global_whoknows(interaction.user, artist, self.bot)
@@ -1283,6 +1294,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="globalwhoknowstrack", description="See who listens to a track globally across all servers")
     @app_commands.describe(query="Format: 'Artist | Track' (or leave blank to use your currently playing track)")
+    @app_commands.autocomplete(query=track_pipe_ac)
     async def globalwhoknowstrack_slash(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_global_whoknowstrack(interaction.user, query, self.bot)
@@ -1297,6 +1309,7 @@ class LastFmCog(commands.Cog):
 
     @app_commands.command(name="globalwhoknowsalbum", description="See who listens to an album globally across all servers")
     @app_commands.describe(query="Format: 'Artist | Album' (or leave blank to use your currently playing album)")
+    @app_commands.autocomplete(query=album_pipe_ac)
     async def globalwhoknowsalbum_slash(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
         embed, err = await self.bot.process_global_whoknowsalbum(interaction.user, query, self.bot)
