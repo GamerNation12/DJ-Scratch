@@ -1,10 +1,8 @@
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
-    const sql = postgres(process.env.DATABASE_URL!);
-
     await sql`
       CREATE TABLE IF NOT EXISTS imported_users (
         id VARCHAR(255) PRIMARY KEY,

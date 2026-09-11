@@ -1,35 +1,34 @@
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export const revalidate = 60;
 
 export async function GET(req: Request) {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
-    const usersResult = await pool.query("SELECT COUNT(*) FROM user_settings WHERE lastfm_username IS NOT NULL");
-    const totalUsers = parseInt(usersResult.rows[0].count, 10);
+    const [usersResult] = await sql`SELECT COUNT(*) FROM user_settings WHERE lastfm_username IS NOT NULL`;
+    const totalUsers = parseInt(usersResult.count, 10);
 
-    const botStatsResult = await pool.query("SELECT value FROM global_settings WHERE key = 'bot_stats'");
+    const botStatsResult = await sql`SELECT value FROM global_settings WHERE key = 'bot_stats'`;
     let activeMembers = 0;
     let serverCount = 0;
-    if (botStatsResult.rows.length > 0) {
-      const stats = JSON.parse(botStatsResult.rows[0].value);
+    if (botStatsResult.length > 0) {
+      const stats = JSON.parse(botStatsResult[0].value);
       activeMembers = stats.member_count || 0;
       serverCount = stats.server_count || 0;
     }
-    
-    const topUsersResult = await pool.query(`
-      SELECT user_id, COUNT(*) as count 
-      FROM listens 
-      GROUP BY user_id 
-      ORDER BY count DESC 
+
+    const topUsersResult = await sql`
+      SELECT user_id, COUNT(*) as count
+      FROM listens
+      GROUP BY user_id
+      ORDER BY count DESC
       LIMIT 3
-    `);
+    `;
 
     const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
-    const topAvatars = await Promise.all(topUsersResult.rows.map(async (row) => {
+    const topAvatars = await Promise.all(topUsersResult.map(async (row) => {
       try {
         const res = await fetch(`https://discord.com/api/v10/users/${row.user_id}`, {
           headers: { Authorization: `Bot ${botToken}` },
@@ -54,7 +53,5 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("Public stats error:", err);
     return NextResponse.json({ totalUsers: 0, activeMembers: 0, serverCount: 0, topAvatars: [] }, { status: 500 });
-  } finally {
-    await pool.end();
   }
 }

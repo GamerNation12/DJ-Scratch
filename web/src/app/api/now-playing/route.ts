@@ -1,8 +1,7 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 
 export async function GET(req: Request) {
@@ -18,7 +17,6 @@ export async function GET(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const sql = postgres(DB_URL!);
     const row = await sql`
       SELECT lastfm_username FROM user_settings WHERE user_id = ${userId}
     `;

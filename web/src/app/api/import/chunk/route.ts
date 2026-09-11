@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 import { getDisabledCommandReason } from "@/lib/commandLock";
 
@@ -34,8 +34,6 @@ export async function POST(req: Request) {
 
     const arrayBuffer = await fileBlob.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-
-    const sql = postgres(process.env.DATABASE_URL || "");
 
     const userId = String((decoded as any).id);
     const [job] = await sql`SELECT user_id FROM import_jobs WHERE id = ${jobId}`;

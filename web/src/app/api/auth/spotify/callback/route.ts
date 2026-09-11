@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { sql } from "@/lib/db";
 import { getSpotifyRedirectUri } from '@/lib/spotify';
 import { refreshLoginMessage } from '@/lib/loginRefresh';
 
@@ -49,22 +49,15 @@ export async function GET(req: Request) {
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
     // Save to PostgreSQL database
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
-    });
-
-    await pool.query(
-      `INSERT INTO user_settings (user_id, spotify_access_token, spotify_refresh_token, spotify_token_expires_at) 
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id) 
-       DO UPDATE SET 
-         spotify_access_token = $2, 
-         spotify_refresh_token = $3, 
-         spotify_token_expires_at = $4`,
-      [discordId, access_token, refresh_token, expiresAt]
-    );
-
-    await pool.end();
+    await sql`
+      INSERT INTO user_settings (user_id, spotify_access_token, spotify_refresh_token, spotify_token_expires_at)
+      VALUES (${discordId}, ${access_token}, ${refresh_token}, ${expiresAt})
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        spotify_access_token = ${access_token},
+        spotify_refresh_token = ${refresh_token},
+        spotify_token_expires_at = ${expiresAt}
+    `;
 
     // Refresh the Discord login message if this link started there.
     try {

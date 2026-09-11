@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 import crypto from "crypto";
 import { signToken } from '@/lib/jwt';
 import { refreshLoginMessage } from '@/lib/loginRefresh';
@@ -49,14 +49,12 @@ export async function GET(req: Request) {
     }
 
     const lastfmUsername = data.session.name;
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     // Web Login Flow
     if (!discordId) {
-      const { rows } = await pool.query(`SELECT user_id, discord_username FROM user_settings WHERE lastfm_username ILIKE $1`, [lastfmUsername]);
-      
+      const rows = await sql`SELECT user_id, discord_username FROM user_settings WHERE lastfm_username ILIKE ${lastfmUsername}`;
+
       if (rows.length === 0) {
-        await pool.end();
         return NextResponse.redirect(new URL('/?error=NoAccountLinked', req.url));
       }
 
@@ -88,34 +86,30 @@ export async function GET(req: Request) {
         image: avatarUrl,
       });
 
-      await pool.query(`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-      await pool.query(
-        `INSERT INTO website_logs (user_id, username, action, details) VALUES ($1, $2, $3, $4)`,
-        [userId, username, 'Website Login', 'User logged in via Last.fm']
-      );
-      await pool.end();
+      await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`
+        INSERT INTO website_logs (user_id, username, action, details) VALUES (${userId}, ${username}, 'Website Login', 'User logged in via Last.fm')
+      `;
 
       return NextResponse.redirect(new URL(`/logging-in#token=${jwt}`, req.url));
     }
 
     // Account Linking Flow
-    await pool.query(
-      `INSERT INTO user_settings (user_id, lastfm_username) 
-       VALUES ($1, $2) 
-       ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username`,
-      [discordId, lastfmUsername]
-    );
+    await sql`
+      INSERT INTO user_settings (user_id, lastfm_username)
+      VALUES (${discordId}, ${lastfmUsername})
+      ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username
+    `;
 
     // Log the action
     try {
-      await pool.query(`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-      await pool.query(
-        `INSERT INTO website_logs (user_id, username, action, details) VALUES ($1, $2, $3, $4)`,
-        [discordId, discordId, 'Account Linked', `Linked Last.fm account: ${lastfmUsername}`]
-      );
-      await pool.query(
-        `DELETE FROM website_logs WHERE id NOT IN (SELECT id FROM website_logs ORDER BY timestamp DESC LIMIT 200)`
-      );
+      await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+      await sql`
+        INSERT INTO website_logs (user_id, username, action, details) VALUES (${discordId}, ${discordId}, 'Account Linked', ${`Linked Last.fm account: ${lastfmUsername}`})
+      `;
+      await sql`
+        DELETE FROM website_logs WHERE id NOT IN (SELECT id FROM website_logs ORDER BY timestamp DESC LIMIT 200)
+      `;
     } catch (e) {
       console.error("Failed to log website action:", e);
     }
@@ -136,8 +130,6 @@ export async function GET(req: Request) {
         console.error("Failed to refresh login message:", e);
       }
     }
-
-    await pool.end();
 
     const interactionToken = searchParams.get("interaction_token");
     const appId = searchParams.get("app_id");

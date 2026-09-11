@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { discordAvatarUrl } from "@/lib/discord";
 
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
@@ -10,8 +9,6 @@ export const revalidate = 300; // Cache for 5 minutes
 
 export async function GET() {
   try {
-    const sql = postgres(DB_URL!);
-    
     // Fetch all public users (plus stored avatars as fallback when Discord rate-limits us)
     const rows = await sql`
       SELECT us.user_id, us.lastfm_username, us.discord_username, us.display_name, us.data_source, iu.avatar_url

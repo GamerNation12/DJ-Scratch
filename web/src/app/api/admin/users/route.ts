@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { getAdminRole } from '@/lib/admin';
-import postgres from 'postgres';
-
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+import { sql } from "@/lib/db";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization');
@@ -24,8 +22,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    const sql = postgres(DB_URL!);
-    
     // Fetch all users with relevant fields
     const users = await sql`
       SELECT user_id, discord_username, lastfm_username, display_name, is_banned, ban_reason, ban_expires_at, private_mode

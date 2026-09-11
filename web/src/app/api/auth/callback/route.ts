@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/jwt';
-import postgres from 'postgres';
+import { sql } from "@/lib/db";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -58,9 +58,7 @@ export async function GET(request: Request) {
     : `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex}.png`;
 
   let displayName = null;
-  let sql;
   try {
-    sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
     const userSettings = await sql`SELECT display_name FROM user_settings WHERE user_id = ${userData.id}`;
     if (userSettings.length > 0) {
       displayName = userSettings[0].display_name;
@@ -96,7 +94,6 @@ export async function GET(request: Request) {
 
   // Log the login
   try {
-    if (!sql) sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
     await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
     await sql`
       INSERT INTO website_logs (user_id, username, action, details)

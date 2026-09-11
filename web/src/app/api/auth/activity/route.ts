@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/jwt';
-import postgres from 'postgres';
+import { sql } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
@@ -40,9 +40,7 @@ export async function POST(request: Request) {
     const username = userData.username === "gamernation12" ? "GamerNation12" : userData.username;
 
     let displayName = null;
-    let sql;
     try {
-      sql = postgres(process.env.DATABASE_URL || process.env.POSTGRES_URL || "");
       const userSettings = await sql`SELECT display_name FROM user_settings WHERE user_id = ${userData.id}`;
       if (userSettings.length > 0) {
         displayName = userSettings[0].display_name;

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
-
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+import { sql } from "@/lib/db";
 
 // Web equivalent of the bot's /globalwhoknows commands: who across the whole
 // bot listens to an artist / track / album most (imported listens).
@@ -27,8 +25,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    const sql = postgres(DB_URL!);
-
     const extraFilter =
       kind === "track" ? sql`AND LOWER(t.track_name) = LOWER(${track})` :
       kind === "album" ? sql`AND LOWER(t.album_name) = LOWER(${album})` :

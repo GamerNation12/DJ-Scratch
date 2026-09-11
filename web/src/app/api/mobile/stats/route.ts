@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
@@ -53,8 +52,6 @@ export async function GET(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const sql = postgres(DB_URL!);
-    
     let rows = await sql`
       SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
       FROM user_settings 

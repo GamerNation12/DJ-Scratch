@@ -1,7 +1,7 @@
 import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -49,16 +49,12 @@ export async function POST(req: Request) {
       }
 
       // Keep DB update so it persists across bot restarts
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-      await pool.query(
-        "INSERT INTO global_settings (key, value) VALUES ('current_update_version', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-        [version]
-      );
-      await pool.query(
-        "INSERT INTO global_settings (key, value) VALUES ('current_update_message', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-        [message]
-      );
-      await pool.end();
+      await sql`
+        INSERT INTO global_settings (key, value) VALUES ('current_update_version', ${version}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+      `;
+      await sql`
+        INSERT INTO global_settings (key, value) VALUES ('current_update_message', ${message}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+      `;
 
       // Send IPC message to notify bot instantly
       const ipcOk = await sendDiscordIPC(`[WEBSITE] SET_GLOBAL_UPDATE|${version}|${message}`);

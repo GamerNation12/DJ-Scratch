@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { discordAvatarUrl } from "@/lib/discord";
 
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
@@ -70,8 +69,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const cutoffDate = cutoffDays != null ? new Date(Date.now() - cutoffDays * 24 * 60 * 60 * 1000) : null;
 
   try {
-    const sql = postgres(DB_URL!);
-    
     let rows: any[] = [];
     // Fast path: raw Discord user IDs resolve directly, no name matching.
     // (Profile URLs use display names, which drift — the page falls back

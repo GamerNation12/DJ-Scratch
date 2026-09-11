@@ -1,7 +1,7 @@
 import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 
 const ADMIN_ID = "759433582107426816";
 
@@ -16,21 +16,14 @@ export async function GET(req: Request) {
   const role = await getAdminRole(userId);
   const isAdmin = role === "owner" || role === "admin" || role === "moderator";
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  
   try {
-    let result;
-    if (isAdmin) {
-      result = await pool.query("SELECT * FROM suggestions ORDER BY created_at DESC");
-    } else {
-      result = await pool.query("SELECT * FROM suggestions WHERE user_id = $1 ORDER BY created_at DESC", [userId]);
-    }
-    return NextResponse.json(result.rows);
+    const rows = isAdmin
+      ? await sql`SELECT * FROM suggestions ORDER BY created_at DESC`
+      : await sql`SELECT * FROM suggestions WHERE user_id = ${userId} ORDER BY created_at DESC`;
+    return NextResponse.json(rows);
   } catch (err) {
     console.error("Failed to fetch suggestions:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  } finally {
-    await pool.end();
   }
 }
 
@@ -41,8 +34,8 @@ export async function POST(req: Request) {
   const session = user ? { user } : null;
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = (session.user as any)?.id;
-  const username = session.user?.name || "Unknown";
+  const userId: string = (session.user as any)?.id;
+  const username: string = (session.user as any)?.name || "Unknown";
   
   try {
     const { title, description } = await req.json();
@@ -51,12 +44,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Title and description required" }, { status: 400 });
     }
 
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const result = await pool.query(
-      "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4) RETURNING *",
-      [userId, username, title, description]
-    );
-    await pool.end();
+    const [inserted] = await sql`
+      INSERT INTO suggestions (user_id, username, title, description) VALUES (${userId}, ${username}, ${title}, ${description}) RETURNING *
+    `;
 
     // Send a DM to the owner via Discord API
     const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
@@ -108,7 +98,7 @@ export async function POST(req: Request) {
       }
     }
     
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(inserted);
   } catch (err) {
     console.error("Failed to submit suggestion:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

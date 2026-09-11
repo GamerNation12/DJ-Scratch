@@ -1,6 +1,6 @@
 import { getAdminRole } from "@/lib/admin";
 import { NextResponse } from 'next/server';
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 import { verifyToken } from '@/lib/jwt';
 
 export async function GET(req: Request) {
@@ -17,45 +17,40 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  
   let totalPlays = 0;
   let totalUsers = 0;
   let botStats = null;
   let statusActivity = null;
-  let commandUsage = [];
+  let commandUsage: any[] = [];
   let currentVersion = "v1.0.0";
-  
+
   try {
-    const playsResult = await pool.query("SELECT COUNT(*) FROM listens");
-    totalPlays = parseInt(playsResult.rows[0].count, 10);
-    
-    const usersResult = await pool.query("SELECT COUNT(*) FROM imported_users");
-    totalUsers = parseInt(usersResult.rows[0].count, 10);
+    const [playsResult] = await sql`SELECT COUNT(*) FROM listens`;
+    totalPlays = parseInt(playsResult.count, 10);
 
-    const botStatsResult = await pool.query("SELECT value FROM global_settings WHERE key = 'bot_stats'");
-    if (botStatsResult.rows.length > 0) {
-      botStats = JSON.parse(botStatsResult.rows[0].value);
+    const [usersResult] = await sql`SELECT COUNT(*) FROM imported_users`;
+    totalUsers = parseInt(usersResult.count, 10);
+
+    const botStatsResult = await sql`SELECT value FROM global_settings WHERE key = 'bot_stats'`;
+    if (botStatsResult.length > 0) {
+      botStats = JSON.parse(botStatsResult[0].value);
     }
 
-    const botStatusResult = await pool.query("SELECT value FROM global_settings WHERE key = 'bot_status'");
-    if (botStatusResult.rows.length > 0) {
-      statusActivity = botStatusResult.rows[0].value;
+    const botStatusResult = await sql`SELECT value FROM global_settings WHERE key = 'bot_status'`;
+    if (botStatusResult.length > 0) {
+      statusActivity = botStatusResult[0].value;
     }
 
-    const versionResult = await pool.query("SELECT value FROM global_settings WHERE key = 'current_update_version'");
-    if (versionResult.rows.length > 0) {
-      currentVersion = versionResult.rows[0].value;
+    const versionResult = await sql`SELECT value FROM global_settings WHERE key = 'current_update_version'`;
+    if (versionResult.length > 0) {
+      currentVersion = versionResult[0].value;
     }
 
-    const commandsResult = await pool.query("SELECT command_name, usage_count FROM command_usage ORDER BY usage_count DESC LIMIT 5");
-    commandUsage = commandsResult.rows;
+    commandUsage = await sql`SELECT command_name, usage_count FROM command_usage ORDER BY usage_count DESC LIMIT 5`;
 
   } catch (e) {
     console.error("Failed to fetch stats:", e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  } finally {
-    await pool.end();
   }
   
   return NextResponse.json({ totalPlays, totalUsers, botStats, commandUsage, statusActivity, currentVersion });

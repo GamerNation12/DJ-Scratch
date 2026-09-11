@@ -1,7 +1,7 @@
 import { getAdminRole } from "@/lib/admin";
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { sql } from "@/lib/db";
 
 const ADMIN_ID = "759433582107426816";
 
@@ -18,18 +18,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { status, admin_feedback } = await req.json();
     
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const result = await pool.query(
-      "UPDATE suggestions SET status = $1, admin_feedback = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *",
-      [status, admin_feedback, id]
-    );
-    await pool.end();
+    const [updated] = await sql`
+      UPDATE suggestions SET status = ${status}, admin_feedback = ${admin_feedback}, updated_at = CURRENT_TIMESTAMP WHERE id = ${id} RETURNING *
+    `;
 
-    if (result.rows.length === 0) {
+    if (!updated) {
       return NextResponse.json({ error: "Suggestion not found" }, { status: 404 });
     }
 
-    const suggestion = result.rows[0];
+    const suggestion = updated;
 
     // Send DM to the user who made the suggestion
     const DISCORD_TOKEN = process.env.DISCORD_TOKEN;

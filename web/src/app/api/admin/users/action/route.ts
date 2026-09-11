@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { getAdminRole } from '@/lib/admin';
-import postgres from 'postgres';
-
-const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization');
@@ -28,8 +26,6 @@ export async function POST(req: Request) {
     if (!userId || !actionType) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
-
-    const sql = postgres(DB_URL!);
 
     if (actionType === 'BAN') {
       const reason = payload?.reason || "No reason provided.";

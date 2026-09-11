@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 import { getDisabledCommandReason } from "@/lib/commandLock";
 import { v4 as uuidv4 } from "uuid";
@@ -29,7 +29,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Imports are currently disabled. ${lockReason}` }, { status: 403 });
     }
 
-    const sql = postgres(process.env.DATABASE_URL || "");
     const jobId = uuidv4();
 
     const userId = String((decoded as any).id);
