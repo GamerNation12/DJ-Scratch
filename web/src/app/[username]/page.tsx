@@ -17,7 +17,11 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const searchParams = useSearchParams();
   
   const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
-  const isOwner = status === "authenticated" && displayUsername && displayUsername === usernameParam;
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  // Name lookups can 404 when a Discord display name drifted from every
+  // stored name — the profile then resolves the viewer by their own ID.
+  const [resolvedOwnProfile, setResolvedOwnProfile] = useState(false);
+  const isOwner = (status === "authenticated" && displayUsername && displayUsername === usernameParam) || resolvedOwnProfile;
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -258,13 +262,34 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     // Permanent errors (unknown user, private, banned) never resolve by
     // retrying — stop polling so a missing profile doesn't 404 forever.
     let stopPolling = false;
+    // One-time fallback: if the name lookup 404s while logged in, retry via
+    // your own Discord ID (display names drift; IDs don't). Sticks to the ID
+    // URL for subsequent polls once it succeeds.
+    let triedIdFallback = false;
+    let useIdUrl = false;
     setProfileLoading(true);
+    setResolvedOwnProfile(false);
 
     const fetchProfile = async () => {
       if (stopPolling) return;
       try {
-        const res = await fetchApi(`/api/u/${encodeURIComponent(usernameParam)}?period=${period}&t=${Date.now()}`);
-        const data = await res.json();
+        const key = useIdUrl && sessionUserId ? sessionUserId : usernameParam;
+        let res = await fetchApi(`/api/u/${encodeURIComponent(key)}?period=${period}&t=${Date.now()}`);
+        let data = await res.json();
+        if (res.status === 404 && !useIdUrl && sessionUserId && !triedIdFallback) {
+          triedIdFallback = true;
+          const res2 = await fetchApi(`/api/u/${sessionUserId}?period=${period}&t=${Date.now()}`);
+          const data2 = await res2.json();
+          if (!data2.error) {
+            useIdUrl = true;
+            res = res2;
+            data = data2;
+            if (isMounted) {
+              setResolvedOwnProfile(true);
+              toast("Couldn't find that username — showing your profile instead.");
+            }
+          }
+        }
         if (isMounted) {
           if (data.error) {
             setProfileError(data.error);
@@ -289,7 +314,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       stopPolling = true;
       clearInterval(intervalId);
     };
-  }, [usernameParam, period]);
+  }, [usernameParam, period, status, sessionUserId]);
 
   // Fetch Dashboard Data (only if owner)
   useEffect(() => {

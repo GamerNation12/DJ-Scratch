@@ -72,7 +72,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const sql = postgres(DB_URL!);
     
-    let rows;
+    let rows: any[] = [];
+    // Fast path: raw Discord user IDs resolve directly, no name matching.
+    // (Profile URLs use display names, which drift — the page falls back
+    // to the viewer's own ID when the name lookup 404s.)
+    if (/^\d{5,25}$/.test(userId)) {
+      try {
+        rows = await sql`
+          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
+          FROM user_settings 
+          WHERE user_id = ${userId}
+        `;
+      } catch {
+        rows = [];
+      }
+    }
+    if (rows.length === 0) {
     try {
       rows = await sql`
         SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
@@ -104,6 +119,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       } else {
         throw e;
       }
+    }
     }
 
     if (rows.length === 0) {
