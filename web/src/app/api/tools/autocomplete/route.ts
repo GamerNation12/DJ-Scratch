@@ -31,7 +31,12 @@ export async function GET(req: Request) {
 
     const suggestions = raw.slice(0, 12).map((x: any) => {
       const imgs = Array.isArray(x.image) ? x.image : [];
-      const image = imgs.map((i: any) => i?.["#text"]).find((u: string) => u) || undefined;
+      let image = imgs.map((i: any) => i?.["#text"]).find((u: string) => u) || undefined;
+      // Last.fm's default "no image" star placeholder — treat as no image so
+      // the UI falls back to the initial-letter avatar instead of a white box.
+      if (image && (image.includes("2a96cbd8b46e442fc41c2b86b821562f") || image.includes("36bb9b7f5efbb0bb01f454bb86a0e603"))) {
+        image = undefined;
+      }
       return {
         name: x.name,
         artist: typeof x.artist === "string" ? x.artist : x.artist?.name || undefined,
