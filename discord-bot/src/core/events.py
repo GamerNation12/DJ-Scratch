@@ -16,9 +16,37 @@ from ..utils.api import *
 FM_TRACK_CACHE = {}
 
 # If Last.fm still flags a track as now-playing while the newest *finished*
-# scrobble ended longer ago than this, the flag is frozen (dead scrobbling)
-# and fm wordings must say "was listening", not "is listening".
+# scrobble ended longer ago than this, the flag is ambiguous: either frozen
+# scrobbling or the first song of a fresh session. Ambiguous cases ask
+# Spotify (when linked); unknown defaults to trusting the flag.
 NOWPLAYING_STALE_AFTER_SEC = 3 * 3600
+
+
+async def spotify_match_now_playing(session, user_id, artist, song):
+    """Compare Spotify's current item with the Last.fm track.
+
+    Returns True (same session), False (different track playing) or
+    None (unknown — unlinked, offline, or lookup failed).
+    """
+    try:
+        from src.core.spotify import get_currently_playing_track
+        if session is None:
+            return None
+        cur = await get_currently_playing_track(session, str(user_id))
+        if not cur or cur == "no_token":
+            return None
+        import re
+        norm = lambda s: re.sub(r'\s+', ' ', (s or '').lower()).strip()
+        s_song = norm(cur.get("name"))
+        s_artists = [norm(a) for a in cur.get("artists", []) if norm(a)]
+        l_song, l_artist = norm(song), norm(artist)
+        if not s_song or not l_song:
+            return None
+        song_hit = s_song in l_song or l_song in s_song
+        art_hit = bool(l_artist) and any(l_artist in a or a in l_artist for a in s_artists)
+        return bool(song_hit and art_hit)
+    except Exception:
+        return None
 
 
 async def get_fm_track_data(unique_id):
@@ -2749,7 +2777,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 import time as _time
                 prev_uts = int((tracks[1].get('date') or {}).get('uts', 0) or 0)
                 if prev_uts and _time.time() - prev_uts > NOWPLAYING_STALE_AFTER_SEC:
-                    live = False
+                    # Ambiguous: frozen flag or first song of a fresh session.
+                    # Spotify breaks the tie when linked; otherwise trust flag.
+                    confirmed = await spotify_match_now_playing(session, user.id, raw_artist, raw_song)
+                    if confirmed is False:
+                        live = False
             except Exception:
                 pass
         if is_cached and live:
