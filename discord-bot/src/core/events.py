@@ -21,6 +21,32 @@ FM_TRACK_CACHE = {}
 # Spotify (when linked); unknown defaults to trusting the flag.
 NOWPLAYING_STALE_AFTER_SEC = 3 * 3600
 
+# A single track can't play forever: if the same (user, track) claims
+# now-playing for longer than this, the flag is frozen — no Spotify needed.
+NP_MAX_ALIVE_SEC = 90 * 60
+NP_SEEN: dict = {}  # (user_id, artist, song) -> first-seen monotonic
+
+
+def np_session_alive(user_id, artist, song) -> bool:
+    """True if this now-playing claim is fresh enough to be real.
+
+    First sighting of a (user, track) is always trusted; a claim that
+    persists past NP_MAX_ALIVE_SEC is a frozen flag. Track changes reset
+    the user's previous key.
+    """
+    import time as _time
+    now = _time.monotonic()
+    key = (str(user_id), (artist or "").strip().lower(), (song or "").strip().lower())
+    for k in [k for k in NP_SEEN if k[0] == key[0] and k != key]:
+        NP_SEEN.pop(k, None)
+    first = NP_SEEN.get(key)
+    if first is None:
+        NP_SEEN[key] = now
+        if len(NP_SEEN) > 2000:
+            NP_SEEN.pop(next(iter(NP_SEEN)), None)
+        return True
+    return (now - first) <= NP_MAX_ALIVE_SEC
+
 
 async def spotify_match_now_playing(session, user_id, artist, song):
     """Compare Spotify's current item with the Last.fm track.
@@ -168,7 +194,10 @@ async def fm_live_watch():
                 f_artist = (a.get("#text", "") if isinstance(a, dict) else str(a)).strip().lower()
                 f_song = (t.get("name", "") or "").strip().lower()
                 for r in rws:
-                    same = (f_is_p
+                    # Flip when the song changed, stopped, or has claimed
+                    # now-playing longer than any real track lasts.
+                    alive = np_session_alive(uid, f_artist, f_song) if f_is_p else False
+                    same = (alive
                             and f_song == (r["song"] or "").strip().lower()
                             and f_artist == (r["artist"] or "").strip().lower())
                     if not same:
@@ -2772,7 +2801,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         # Frozen-flag guard: a stuck nowplaying flag with no finished
         # scrobbles for hours means playback stopped — word as "was".
         live = is_p
-        if is_p and len(tracks) > 1:
+        if live and not np_session_alive(user.id, raw_artist, raw_song):
+            live = False
+        if live and is_p and len(tracks) > 1:
             try:
                 import time as _time
                 prev_uts = int((tracks[1].get('date') or {}).get('uts', 0) or 0)
