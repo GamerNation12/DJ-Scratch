@@ -49,6 +49,112 @@ def persist_fm_track_data(unique_id, track_data):
     except Exception:
         pass
 
+
+async def track_fm_message(msg, user):
+    """Snapshot a freshly sent now-playing fm so the watcher can flip it
+    to 'was listening' once the song ends."""
+    try:
+        if not msg or not getattr(msg, "id", None):
+            return
+        from src.core.database import fm_live_track
+        username = await get_lastfm_username(user.id)
+        if not username:
+            return
+        data = await fetch_now_playing(username, 1)
+        tracks = (data.get("recenttracks", {}) or {}).get("track") or []
+        t = tracks[0] if tracks else {}
+        a = t.get("artist", "")
+        artist = (a.get("#text", "") if isinstance(a, dict) else str(a)).strip()
+        song = (t.get("name", "") or "").strip()
+        if not artist or not song:
+            return
+        gid = getattr(getattr(msg, "guild", None), "id", None)
+        await fm_live_track(msg.id, msg.channel.id, gid, user.id, artist, song)
+    except Exception:
+        pass
+
+
+async def flip_fm_message_to_was(row):
+    """Edit a tracked fm message from now-playing wording to last-played."""
+    from src.core.database import fm_live_remove
+    mid = str(row["message_id"])
+    try:
+        channel = bot.get_channel(int(row["channel_id"]))
+        if channel is None:
+            channel = await bot.fetch_channel(int(row["channel_id"]))
+        msg = await channel.fetch_message(int(mid))
+    except Exception:
+        try:
+            await fm_live_remove(mid)
+        except Exception:
+            pass
+        return
+    try:
+        kwargs = {}
+        if msg.content and " is listening to " in msg.content:
+            kwargs["content"] = msg.content.replace(" is listening to ", " was listening to ", 1)
+        if msg.embeds:
+            d = msg.embeds[0].to_dict()
+            author = d.get("author", {}) or {}
+            name = author.get("name", "")
+            new_name = name.replace("Now Playing", "Last Played").replace("Now playing for", "Last played by")
+            if new_name != name:
+                author["name"] = new_name
+                d["author"] = author
+            d["color"] = discord.Color.dark_gray().value
+            kwargs["embed"] = discord.Embed.from_dict(d)
+        if kwargs:
+            await msg.edit(**kwargs)
+    except (discord.NotFound, discord.Forbidden):
+        pass
+    except Exception as e:
+        print(f"{Log.RED}>>> fm flip failed: {e}{Log.RESET}")
+    try:
+        await fm_live_remove(mid)
+    except Exception:
+        pass
+
+
+@tasks.loop(minutes=1)
+async def fm_live_watch():
+    """Every minute: flip tracked fm messages whose song has ended."""
+    try:
+        from src.core.database import fm_live_list, fm_live_prune
+        await fm_live_prune(24)
+        rows = await fm_live_list(200)
+        if not rows:
+            return
+        by_user: dict = {}
+        for r in rows:
+            by_user.setdefault(str(r["user_id"]), []).append(r)
+        for uid, rws in by_user.items():
+            try:
+                lname = await get_lastfm_username(int(uid))
+                if not lname:
+                    continue
+                data = await fetch_now_playing(lname, 2)
+                tracks = (data.get("recenttracks", {}) or {}).get("track") or []
+                t = tracks[0] if tracks else {}
+                f_is_p = t.get("@attr", {}).get("nowplaying") == "true"
+                a = t.get("artist", "")
+                f_artist = (a.get("#text", "") if isinstance(a, dict) else str(a)).strip().lower()
+                f_song = (t.get("name", "") or "").strip().lower()
+                for r in rws:
+                    same = (f_is_p
+                            and f_song == (r["song"] or "").strip().lower()
+                            and f_artist == (r["artist"] or "").strip().lower())
+                    if not same:
+                        await flip_fm_message_to_was(r)
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_live_watch error: {e}{Log.RESET}")
+
+
+@fm_live_watch.before_loop
+async def _before_fm_live_watch():
+    await bot.wait_until_ready()
+
 # --- TERMINAL COLOR CODES ---
 class Log:
     RESET = '\033[0m'
@@ -662,6 +768,21 @@ async def setup_hook():
                     )
                     """
                 )
+
+                # Live fm messages watched until the song ends ("is" -> "was")
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS fm_live_messages (
+                        message_id VARCHAR(32) PRIMARY KEY,
+                        channel_id VARCHAR(32) NOT NULL,
+                        guild_id VARCHAR(32),
+                        user_id VARCHAR(32) NOT NULL,
+                        artist TEXT NOT NULL,
+                        song TEXT NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
                 
                 await conn.execute(
                     """
@@ -832,6 +953,14 @@ async def setup_hook():
                     print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
+
+            # Flip old fm messages to "was listening" once songs end.
+            try:
+                if not fm_live_watch.is_running():
+                    fm_live_watch.start()
+                    print(f"{Log.GREEN}>>> Started fm live watcher{Log.RESET}")
+            except Exception as e:
+                print(f"{Log.RED}>>> Failed to start fm live watcher: {e}{Log.RESET}")
                     
             if getattr(bot, 'is_test_bot', False):
                 test_dir = os.path.join(os.path.dirname(__file__), "..", "test_commands")

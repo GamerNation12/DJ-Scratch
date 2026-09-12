@@ -1170,6 +1170,57 @@ async def is_command_disabled(command_name: str) -> str:
         return rows[0]['reason']
     return None
 
+# --- Live fm message tracking (flip "is" -> "was" when the song ends) ---
+async def fm_live_track(message_id, channel_id, guild_id, user_id, artist, song):
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO fm_live_messages (message_id, channel_id, guild_id, user_id, artist, song) "
+                "VALUES ($1, $2, $3, $4, $5, $6) "
+                "ON CONFLICT (message_id) DO UPDATE SET artist = EXCLUDED.artist, song = EXCLUDED.song, "
+                "created_at = CURRENT_TIMESTAMP",
+                str(message_id), str(channel_id),
+                str(guild_id) if guild_id else None,
+                str(user_id), artist, song,
+            )
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_live_track failed: {e}{Log.RESET}")
+
+async def fm_live_list(limit: int = 200):
+    if not db_pool:
+        return []
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT message_id, channel_id, user_id, artist, song, created_at "
+                "FROM fm_live_messages ORDER BY created_at DESC LIMIT $1", limit)
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_live_list failed: {e}{Log.RESET}")
+        return []
+
+async def fm_live_remove(message_id):
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("DELETE FROM fm_live_messages WHERE message_id = $1", str(message_id))
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_live_remove failed: {e}{Log.RESET}")
+
+async def fm_live_prune(max_hours: int = 24):
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM fm_live_messages WHERE created_at < CURRENT_TIMESTAMP - ($1 || ' hours')::interval",
+                str(max_hours))
+    except Exception as e:
+        print(f"{Log.RED}>>> fm_live_prune failed: {e}{Log.RESET}")
+
 # --- Durable fm button cache (survives bot restarts) ---
 # FM_TRACK_CACHE in events.py is memory-only, so up/down buttons on old fm
 # messages died on every restart. These helpers back it with Postgres;

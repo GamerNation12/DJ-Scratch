@@ -438,6 +438,12 @@ class LastFmCog(commands.Cog):
         elif isinstance(result, dict):
             msg = await interaction.edit_original_response(**result)
             if is_p: await self.bot.add_custom_reactions(msg)
+            if is_p:
+                try:
+                    from src.core.events import track_fm_message
+                    await track_fm_message(msg, interaction.user)
+                except Exception:
+                    pass
 
     @app_commands.command(name="topartists", description="View your top played artists")
     @app_commands.describe(period="The time frame to check")
@@ -970,6 +976,12 @@ class LastFmCog(commands.Cog):
         elif isinstance(result, dict):
             msg = await self._reply_and_delete(ctx, **result)
             if is_p: await self.bot.add_custom_reactions(msg)
+            if is_p:
+                try:
+                    from src.core.events import track_fm_message
+                    await track_fm_message(msg, target_user)
+                except Exception:
+                    pass
 
     @commands.command(name="ta", aliases=["topartists", "topa", "tart"])
     async def ta_prefix(self, ctx, *, args: str = None):
