@@ -5846,6 +5846,8 @@ async def process_streak_history(user, artist: str = None):
         # fmbot streaks filtering: contains match on artist name
         needle = artist.strip().lower()
         history = [h for h in history if h.get('artist_name') and needle in h['artist_name'].lower()]
+    # fmbot GetStreaks orders biggest streak first (ArtistPlaycount desc)
+    history = sorted(history, key=lambda h: h.get('streak_length', 0), reverse=True)
     if not history:
         # fmbot: orange warning + "No saved streaks found for this user."
         display = format_name(user)
