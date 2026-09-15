@@ -4905,6 +4905,12 @@ async def on_message(message):
     if is_stats_bot or has_phrase:
         await add_custom_reactions(message)
 
+    if not message.author.bot and re.search(r'\b(?:h+e+\s*){2,}\b', content_lower):
+        try:
+            await message.channel.send("https://tenor.com/view/haha-mickael-jackson-queendugif-ahah-hehe-gif-13642339")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
     await bot.process_commands(message)
 
 async def process_receipt(user, period='overall', limit=10):
