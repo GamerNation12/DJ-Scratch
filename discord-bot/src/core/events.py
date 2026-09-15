@@ -5442,100 +5442,361 @@ async def process_artist_chart(user, target_user, size: str = '3x3', period: str
         
     return status_embed, generate_chart_task
 
-async def process_streak(user, query: str = None):
-    from src.core.database import get_streak, get_user_data_source, format_name
-    from src.utils.api import fetch_recent_tracks, fetch_now_playing
-    
-    username = await get_lastfm_username(user.id)
-    d_source = await get_user_data_source(user.id)
-    
-    artist_name = None
-    if not query:
-        if not username:
-            return Theme.get_error_embed(description="Link account or provide an artist name."), None
-        np_data = await fetch_now_playing(username, 1)
-        try:
-            artist_name = np_data['recenttracks']['track'][0]['artist']['#text']
-        except:
-            return Theme.get_error_embed(description="You aren't playing anything right now!"), None
-    else:
-        artist_name = query
+FMBOT_STREAK_RED = 0xBA0000  # fmbot DiscordConstants.LastFmColorRed = (186, 0, 0)
+FMBOT_STREAK_THRESHOLD = 25  # fmbot Constants.StreakSaveThreshold
 
-    streak = 0
-    if d_source != 'lastfm_only':
-        streak = await get_streak(str(user.id), artist_name)
-    
-    if d_source != 'imported_only' and username:
-        # Check API streak
-        api_streak = 0
-        page = 1
-        limit = 200
-        found_break = False
-        
-        while not found_break:
-            data = await fetch_recent_tracks(username, limit, page)
-            if not data or 'recenttracks' not in data or not data['recenttracks']['track']:
-                break
-                
-            tracks = data['recenttracks']['track']
-            for t in tracks:
-                if t['artist']['#text'].lower() == artist_name.lower():
-                    api_streak += 1
-                else:
-                    found_break = True
-                    break
-                    
-            if len(tracks) < limit:
-                break
-            page += 1
-            
-        streak = max(streak, api_streak)
-        
-    if streak == 0:
-        embed = Theme.get_embed(description="No active streak found.\nTry scrobbling multiple of the same artist, album, track or genre in a row to get started.", color=LASTFM_COLOR)
-        embed.set_author(name=f"Streak overview for {format_name(user)}", icon_url=user.display_avatar.url)
-        return embed, None
-        
-    desc = f"`Artist:` **{artist_name}** - {streak} plays\n\nOnly streaks with 25 plays or higher are saved."
-    embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
-    embed.set_author(name=f"Streak overview for {format_name(user)}", icon_url=user.display_avatar.url)
+
+def _fmbot_streak_emoji(count: int):
+    # Port of fmbot PlayService.GetEmojiForStreakCount (PlayService.cs)
+    if count is None:
+        return None
+    if count > 25000:
+        return "🌌"
+    if count > 15000:
+        return "🌠"
+    if count > 10000:
+        return "🪐"
+    if count > 7500:
+        return "🌚"
+    if count > 5000:
+        return "🚀"
+    if count > 2500:
+        return "😵"
+    if count == 1337:
+        return "🦹"
+    if count == 1234:
+        return "🔢"
+    if count > 1000:
+        return "😲"
+    if count == 666:
+        return "😈"
+    if count == 420:
+        return "🍃"
+    if count == 100:
+        return "💯"
+    if count == 69:
+        return "😎"
+    if count > 50:
+        return "🔥"
+    # fmbot shows fire for active streaks even under 50 (see screenshot: 70 plays -> 🔥,
+    # and small streaks still get 🔥 in overview). Keep overview parity: fire for any shown streak.
+    return "🔥"
+
+
+def _fmbot_plural(count: int):
+    return "1 play" if count == 1 else f"{count} plays"
+
+
+async def _fmbot_artist_tags(username, artist_name, _cache: dict):
+    # fmbot GenreService reads Spotify-derived artist_genres from its DB.
+    # We don't have that table, so Last.fm artist tags are the equivalent source.
+    key = (artist_name or "").lower()
+    if not key:
+        return None
+    if key in _cache:
+        return _cache[key]
+    try:
+        from src.utils.api import fetch_artist_info
+        info = await fetch_artist_info(username, artist_name)
+        tags = info.get("artist", {}).get("tags", {}).get("tag", []) if info else []
+        if isinstance(tags, dict):
+            tags = [tags]
+        names = [t.get("name") for t in tags if isinstance(t, dict) and t.get("name")]
+        _cache[key] = names or None
+        return _cache[key]
+    except Exception:
+        _cache[key] = None
+        return None
+
+
+async def process_streak(user, query: str = None):
+    # Faithful port of fmbot StreakAsync (PlayBuilders.cs) + PlayService.GetCurrentStreak /
+    # ApplyGenreStreaks / MusicStreaksToText / GenreStreaksToText / StreakStartedToText
+    # (PlayService.cs) using en.json strings.
+    import urllib.parse
+    from datetime import timezone as _tz
+    from src.core.database import format_name
+    from src.utils.api import fetch_recent_tracks, fetch_now_playing
+
+    username = await get_lastfm_username(user.id)
+    if not username:
+        return Theme.get_error_embed(description="Link account or provide an artist name."), None
+
+    display = format_name(user)
+    library_url = f"https://www.last.fm/user/{urllib.parse.quote(username)}/library"
+    title = f"### Streak overview for [{display}]({library_url})"
+
+    def _no_streak_embed():
+        desc = (f"{title}\n"
+                f"No active streak found.\n"
+                f"Try scrobbling multiple of the same artist, album, track or genre in a row to get started.")
+        return discord.Embed(description=desc, color=FMBOT_STREAK_RED), None
+
+    # Pull enough history for long genre streaks (screenshot shows 121 plays)
+    all_tracks = []
+    for page in range(1, 6):
+        data = await fetch_recent_tracks(username, 200, page)
+        try:
+            tracks = data["recenttracks"]["track"]
+        except Exception:
+            break
+        if not tracks:
+            break
+        if isinstance(tracks, dict):
+            tracks = [tracks]
+        all_tracks.extend(tracks)
+        if len(tracks) < 200:
+            break
+
+    if not all_tracks:
+        try:
+            np_data = await fetch_now_playing(username, 1)
+            all_tracks = np_data["recenttracks"]["track"]
+        except Exception:
+            pass
+    if not all_tracks:
+        return _no_streak_embed()
+
+    def _parse(t):
+        try:
+            artist = (t.get("artist", {}) or {}).get("#text", "") or ""
+        except Exception:
+            artist = ""
+        try:
+            album = (t.get("album", {}) or {}).get("#text", "") or ""
+        except Exception:
+            album = ""
+        name = t.get("name", "") or ""
+        nowplaying = isinstance(t.get("@attr"), dict) and t["@attr"].get("nowplaying") == "true"
+        ts = None
+        try:
+            uts = (t.get("date", {}) or {}).get("uts")
+            if uts:
+                ts = datetime.fromtimestamp(int(uts), tz=_tz.utc)
+        except Exception:
+            ts = None
+        return {"artist": artist, "album": album, "track": name,
+                "nowplaying": nowplaying, "time": ts}
+
+    parsed = [_parse(t) for t in all_tracks]
+    last = parsed[0]
+    if not last["artist"]:
+        return _no_streak_embed()
+
+    # If caller passed an artist (legacy `,streak <artist>`), only show when it
+    # matches the live streak artist - fmbot itself has no artist argument.
+    if query and query.strip().lower() != last["artist"].lower():
+        return _no_streak_embed()
+
+    now = datetime.now(_tz.utc)
+    last_time = last["time"] or now
+    history = parsed[1:] if last["nowplaying"] else parsed[1:]
+    # C# filters plays to TimePlayed < lastPlay.TimePlayed; our list is already newest-first
+    # so everything after index 0 qualifies.
+    history = [p for p in history if p["time"] is None or p["time"] <= last_time]
+
+    # --- GetCurrentStreak loops (three independent runs) ---
+    artist_count, album_count, track_count = 1, 1, 1
+    artist_name = album_name = track_name = None
+    streak_started = last_time
+
+    for p in history:
+        if (p["artist"] or "").lower() == last["artist"].lower():
+            artist_count += 1
+            artist_name = p["artist"]
+            if p["time"] and p["time"] < streak_started:
+                streak_started = p["time"]
+        else:
+            break
+
+    for p in history:
+        if last["album"] and p["album"] and last["album"].lower() == p["album"].lower():
+            album_count += 1
+            album_name = p["album"]
+            if p["time"] and p["time"] < streak_started:
+                streak_started = p["time"]
+        else:
+            break
+
+    for p in history:
+        if (last["track"] or "").lower() == (p["track"] or "").lower() and \
+           (last["artist"] or "").lower() == (p["artist"] or "").lower():
+            track_count += 1
+            track_name = p["track"]
+            if p["time"] and p["time"] < streak_started:
+                streak_started = p["time"]
+        else:
+            break
+
+    # --- ApplyGenreStreaks via Last.fm tags ---
+    tag_cache: dict = {}
+    seed = await _fmbot_artist_tags(username, last["artist"], tag_cache) or []
+    seed = list(dict.fromkeys([s for s in seed if s]))  # distinct, keep order
+    candidates = [{"genre": s, "count": 1, "alive": True, "started": last_time} for s in seed]
+
+    for p in history:
+        if not candidates or not any(c["alive"] for c in candidates):
+            break
+        genres = await _fmbot_artist_tags(username, p["artist"], tag_cache)
+        play_set = {g.lower() for g in genres} if genres else None
+        any_alive = False
+        for c in candidates:
+            if not c["alive"]:
+                continue
+            if play_set is not None and c["genre"].lower() in play_set:
+                c["count"] += 1
+                if p["time"] and p["time"] < c["started"]:
+                    c["started"] = p["time"]
+                any_alive = True
+            else:
+                c["alive"] = False
+        if not any_alive:
+            break
+
+    genre_streaks = sorted([c for c in candidates if c["count"] >= 2],
+                           key=lambda c: c["count"], reverse=True)[:3]
+    for g in genre_streaks:
+        if g["started"] < streak_started:
+            streak_started = g["started"]
+
+    # --- StreakExists ---
+    if artist_name is None and album_name is None and track_name is None and not genre_streaks:
+        return _no_streak_embed()
+
+    # --- MusicStreaksToText ---
+    lines = [title, ""]
+    if artist_name is not None:
+        disp_name = artist_name or last["artist"]
+        if len(urllib.parse.quote(disp_name)) > 80:
+            artist_disp = f"**{disp_name}**"
+        else:
+            artist_disp = f"**[{disp_name}](https://www.last.fm/music/{urllib.parse.quote(disp_name)})**"
+        emoji = _fmbot_streak_emoji(artist_count)
+        entry = f"`Artist:` {artist_disp} - {emoji} {_fmbot_plural(artist_count)}" if emoji \
+            else f"`Artist:` {artist_disp} - {_fmbot_plural(artist_count)}"
+        lines.append(entry)
+    if album_name is not None:
+        a_enc = urllib.parse.quote(album_name or "") + urllib.parse.quote(last["artist"] or "")
+        if len(a_enc) > 100:
+            album_disp = f"**{album_name}**"
+        else:
+            album_disp = (f"**[{album_name}](https://www.last.fm/music/"
+                          f"{urllib.parse.quote(last['artist'])}/{urllib.parse.quote(album_name)})**")
+        emoji = _fmbot_streak_emoji(album_count)
+        entry = f"` Album:` {album_disp} - {emoji} {_fmbot_plural(album_count)}" if emoji \
+            else f"` Album:` {album_disp} - {_fmbot_plural(album_count)}"
+        lines.append(entry)
+    if track_name is not None:
+        t_enc = urllib.parse.quote(track_name or "") + urllib.parse.quote(last["artist"] or "")
+        if len(t_enc) > 100:
+            track_disp = f"**{track_name}**"
+        else:
+            track_disp = (f"**[{track_name}](https://www.last.fm/music/"
+                          f"{urllib.parse.quote(last['artist'])}/_/{urllib.parse.quote(track_name)})**")
+        emoji = _fmbot_streak_emoji(track_count)
+        entry = f"` Track:` {track_disp} - {emoji} {_fmbot_plural(track_count)}" if emoji \
+            else f"` Track:` {track_disp} - {_fmbot_plural(track_count)}"
+        lines.append(entry)
+
+    if genre_streaks:
+        if len(lines) > 2:
+            lines.append("")
+        for g in genre_streaks:
+            emoji = _fmbot_streak_emoji(g["count"])
+            gname = str(g["genre"]).title()
+            entry = f"` Genre:` **{gname}** - {emoji} {_fmbot_plural(g['count'])}" if emoji \
+                else f"` Genre:` **{gname}** - {_fmbot_plural(g['count'])}"
+            lines.append(entry)
+
+    # --- StreakStartedToText ---
+    try:
+        unix = int(streak_started.timestamp())
+    except Exception:
+        unix = int(now.timestamp())
+    lines.append("")
+    lines.append(f"Streak started <t:{unix}:R>.")
+    lines.append("")
+
+    # --- ShouldSaveStreak ---
+    save = any(g["count"] >= FMBOT_STREAK_THRESHOLD for g in genre_streaks) or \
+        artist_count >= FMBOT_STREAK_THRESHOLD or \
+        album_count >= FMBOT_STREAK_THRESHOLD or \
+        track_count >= FMBOT_STREAK_THRESHOLD
+    if save:
+        lines.append("-# Streak has been saved!")
+    else:
+        lines.append(f"-# Only streaks with {FMBOT_STREAK_THRESHOLD} plays or higher are saved.")
+
+    embed = discord.Embed(description="\n".join(lines).strip(), color=FMBOT_STREAK_RED)
     return embed, None
 
 
 class StreakHistoryPaginator(discord.ui.View):
-    def __init__(self, user, history):
+    # fmbot StreakHistoryAsync pages 4 streaks per page, entry = "**n. **<t:start:f> until <t:end:t|f>"
+    # followed by StreakToText lines (PlayBuilders.cs / PlayService.cs).
+    def __init__(self, user, history, username=None):
         super().__init__(timeout=60.0)
         self.user = user
         self.history = history
+        self.username = username
         self.current_page = 0
-        self.items_per_page = 15
+        self.items_per_page = 4
         self.max_pages = max(1, (len(history) + self.items_per_page - 1) // self.items_per_page)
-        
+
         self.first_button.disabled = True
         self.prev_button.disabled = True
         self.next_button.disabled = self.max_pages <= 1
         self.last_button.disabled = self.max_pages <= 1
 
-    def generate_embed(self):
+    def _history_title(self):
+        import urllib.parse
         from src.core.database import format_name
-        
+        display = format_name(self.user)
+        if self.username:
+            url = f"https://www.last.fm/user/{urllib.parse.quote(self.username)}/library"
+            return f"### Streak history for [{display}]({url})"
+        return f"### Streak history for {display}"
+
+    def generate_embed(self):
+        import urllib.parse
+
         start = self.current_page * self.items_per_page
         end = start + self.items_per_page
         page_items = self.history[start:end]
-        
-        desc = ""
-        for i, streak in enumerate(page_items, start=start+1):
-            artist = streak['artist_name']
-            count = streak['streak_length']
-            s_time = streak['started_at'].strftime("%B %d, %Y %I:%M %p") if streak['started_at'] else "Unknown"
-            
-            desc += f"`{i}` **{artist}** - **{count}** plays\n└ *Started: {s_time}*\n"
-            
-        if not desc:
+
+        blocks = [self._history_title(), ""]
+        base = start
+        for offset, streak in enumerate(page_items):
+            n = base + offset + 1
+            artist = streak.get('artist_name', 'Unknown')
+            count = streak.get('streak_length', 0)
+            s_time = streak.get('started_at')
+            e_time = streak.get('ended_at') or s_time
+            try:
+                s_unix = int(s_time.timestamp())
+                e_unix = int(e_time.timestamp())
+                same_day = (e_time - s_time).total_seconds() <= 20 * 3600
+                to_fmt = f"<t:{e_unix}:t>" if same_day else f"<t:{e_unix}:f>"
+                period = f"<t:{s_unix}:f> until {to_fmt}"
+            except Exception:
+                period = "Unknown period"
+            if len(urllib.parse.quote(str(artist))) > 80:
+                artist_disp = f"**{artist}**"
+            else:
+                artist_disp = f"**[{artist}](https://www.last.fm/music/{urllib.parse.quote(str(artist))})**"
+            plural = "1 play" if count == 1 else f"{count} plays"
+            emoji = _fmbot_streak_emoji(count)
+            line = f"`Artist:` {artist_disp} - {emoji} {plural}" if emoji \
+                else f"`Artist:` {artist_disp} - {plural}"
+            blocks.append(f"**{n}. **{period}")
+            blocks.append(line)
+            blocks.append("")
+
+        desc = "\n".join(blocks).strip()
+        if not page_items:
             desc = "No streak history found."
-            
-        embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
-        embed.set_author(name=f"{format_name(self.user)}'s Streak History", icon_url=self.user.display_avatar.url)
+
+        embed = discord.Embed(description=desc, color=FMBOT_STREAK_RED)
         embed.set_footer(text=f"Page {self.current_page + 1}/{self.max_pages} • Total: {len(self.history)}")
         return embed
 
@@ -5575,15 +5836,25 @@ class StreakHistoryPaginator(discord.ui.View):
         await self.update_message(interaction)
 
 
-async def process_streak_history(user):
+async def process_streak_history(user, artist: str = None):
     from src.core.database import get_streak_history, format_name
-    
+    import urllib.parse
+
     history = await get_streak_history(user.id)
+    username = await get_lastfm_username(user.id)
+    if artist:
+        # fmbot streaks filtering: contains match on artist name
+        needle = artist.strip().lower()
+        history = [h for h in history if h.get('artist_name') and needle in h['artist_name'].lower()]
     if not history:
-        embed = Theme.get_embed(description=f"You don't have any past streaks >= 25 plays recorded.", color=LASTFM_COLOR)
-        embed.set_author(name=f"{format_name(user)}'s Streak History", icon_url=user.display_avatar.url)
-        return embed, None
-        
-    view = StreakHistoryPaginator(user, history)
+        # fmbot: orange warning + "No saved streaks found for this user."
+        display = format_name(user)
+        desc = f"No saved streaks found for this user."
+        if artist:
+            desc += f"\n-# Filtering to artist '{artist}'"
+        void = discord.Embed(description=desc, color=0xFFAE42)
+        return void, None
+
+    view = StreakHistoryPaginator(user, history, username)
     embed = view.generate_embed()
     return embed, view

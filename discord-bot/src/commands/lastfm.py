@@ -1230,15 +1230,15 @@ class LastFmCog(commands.Cog):
         embed, file, _ = await task()
         await msg.edit(embed=embed, attachments=[file] if file else [])
 
-    @commands.command(name="streak", aliases=["str"])
+    @commands.command(name="streak", aliases=["str", "combo", "cb"])
     async def streak_prefix(self, ctx, *, artist: str = None):
         embed, err = await self.bot.process_streak(ctx.author, artist)
         if embed: await self._reply_and_delete(ctx, embed=embed)
         else: await self._reply_and_delete(ctx, err)
 
-    @commands.command(name="streakhistory", aliases=["strs"])
-    async def streakhistory_prefix(self, ctx):
-        embed, view = await self.bot.process_streak_history(ctx.author)
+    @commands.command(name="streakhistory", aliases=["streaks", "strs", "combos", "cbs", "combohistory", "combolist", "streaklist"])
+    async def streakhistory_prefix(self, ctx, *, artist: str = None):
+        embed, view = await self.bot.process_streak_history(ctx.author, artist) if artist else await self.bot.process_streak_history(ctx.author)
         if view:
             await ctx.reply(embed=embed, view=view, mention_author=False)
         else:
