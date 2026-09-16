@@ -948,10 +948,18 @@ async def set_listenbrainz_username(user_id, lb_username):
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
-            await conn.execute("""
-                INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
-                ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
-            """, str(user_id), lb_username)
+            try:
+                await conn.execute("""
+                    INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
+                    ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
+                """, str(user_id), lb_username)
+            except asyncpg.exceptions.UndefinedColumnError:
+                # Self-heal if the boot migration hasn't run yet.
+                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT")
+                await conn.execute("""
+                    INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
+                    ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
+                """, str(user_id), lb_username)
         invalidate_user_cache(user_id)
         return True
     except Exception as e:

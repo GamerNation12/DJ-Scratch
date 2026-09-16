@@ -805,6 +805,10 @@ async def setup_hook():
                 try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
                 except Exception: pass
+
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT")
+                except Exception: pass
                     
                 await conn.execute(
                     """
