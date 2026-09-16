@@ -1003,7 +1003,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.listenbrainz', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
@@ -2667,8 +2667,16 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
-    if not username: return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link it with `/login`")}, False
-    
+    from src.core.database import get_listenbrainz_username as _get_lb_user
+    lb_username = await _get_lb_user(user.id)
+    from_lb = False
+    if not username and not lb_username:
+        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm or ListenBrainz account! Link with `/login` or `/linklb`")}, False
+
+    # Footer label: Last.fm wording when we have a Last.fm user, LB wording otherwise.
+    scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}"
+                       if username else f"Listening via ListenBrainz as {lb_username}")
+
     is_cached = False
     if track_data is not None and isinstance(track_data, dict) and 'raw_data' in track_data:
         data = track_data['raw_data']
@@ -2676,7 +2684,21 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     elif track_data is not None:
         data = track_data
     else:
-        data = await fetch_now_playing(username, 2)
+        data = None
+        if username:
+            data = await fetch_now_playing(username, 2)
+        if (not isinstance(data, dict) or 'error' in data
+                or 'recenttracks' not in data or not (data.get('recenttracks') or {}).get('track')):
+            # Last.fm empty or errored -> ListenBrainz fallback (read-only v1).
+            if lb_username:
+                try:
+                    from src.utils.listenbrainz import fetch_lb_now_playing_shape
+                    lb_data = await fetch_lb_now_playing_shape(lb_username, 2)
+                except Exception:
+                    lb_data = None
+                if lb_data:
+                    data = lb_data
+                    from_lb = True
 
     if isinstance(data, dict) and 'error' in data:
         err_msg = data.get('message', 'Unknown error')
@@ -2735,7 +2757,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 return s_inf
     
             async def get_track_data(show_pc, m):
-                if show_pc or m == "stats":
+                if (show_pc or m == "stats") and username:
                     return await fetch_track_info(username, raw_artist, raw_song)
                 return None
     
@@ -2815,7 +2837,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                         live = False
             except Exception:
                 pass
-        if is_cached and live:
+        if is_cached and live and username:
             # Re-rendering an old message (up/down toggle): the cached flag
             # is from send-time. If the user changed songs since, a fresh
             # check disagrees — word as "was", not "is".
@@ -2864,7 +2886,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
-            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+            footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
             if cd > 0:
                 m, s = divmod(int(cd), 60)
                 footer_text += f" • Avatar CD: {m}m {s}s"
@@ -2897,11 +2919,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             embed.set_author(name=f"Now playing for {format_name(user)}" if live else f"Last played by {format_name(user)}")
             if img: embed.set_thumbnail(url=img)
             
-            a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist))
+            a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist)) if username else None
             
             guild = getattr(ctx_int, 'guild', None)
             crown_task = None
-            if guild:
+            if guild and username:
                 users_db = await load_users()
                 display_names = await load_display_names()
                 member_ids = {str(m.id) for m in guild.members}
@@ -2946,10 +2968,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     crown_task = asyncio.create_task(fetch_crown())
 
             try:
-                a_info = await asyncio.wait_for(a_info_task, timeout=5)
+                a_info = await asyncio.wait_for(a_info_task, timeout=5) if a_info_task else None
             except Exception:
                 try:
-                    a_info_task.cancel()
+                    if a_info_task:
+                        a_info_task.cancel()
                 except Exception:
                     pass
                 a_info = None
@@ -2983,14 +3006,14 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if stats_line:
                 footer_parts.append(" • ".join(stats_line))
                 
-            disp_u = 'DJ Scratch' if username.lower() == 'dj-scratch' else username
+            disp_u = 'DJ Scratch' if (username or '').lower() == 'dj-scratch' else (username or lb_username)
             if not live:
                 frozen_note = "" if is_cached else " | Scrobbles frozen? Run ,outofsync"
                 if not is_cached:
                     footer_parts.append("Scrobbles frozen? Run ,outofsync")
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}{frozen_note}")
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"{scrobbler_label}{frozen_note}")
             else:
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"Scrobbling as {disp_u}")
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else scrobbler_label)
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             result = {"embed": embed, "view": view}
@@ -3009,9 +3032,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         if img: embed.set_thumbnail(url=img)
         
         if not live and not is_cached:
-            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username} | Scrobbles frozen? Run ,outofsync"
+            footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
         else:
-            footer_text = f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}"
+            footer_text = scrobbler_label
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • Avatar CD: {mins}m {secs}s"

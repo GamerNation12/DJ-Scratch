@@ -45,7 +45,7 @@ async def get_user_bundle(user_id):
     if cached is not None:
         return cached
     bundle = {
-        'lastfm_username': None, 'fm_mode': 'full', 'show_features': False,
+        'lastfm_username': None, 'listenbrainz_username': None, 'fm_mode': 'full', 'show_features': False,
         'show_track_playcount': True, 'data_source': 'combined',
         'embed_color': None, 'timezone': 'UTC', 'private_mode': False,
         'update_notifs': True, 'last_update_seen': '',
@@ -55,7 +55,7 @@ async def get_user_bundle(user_id):
     try:
         async with db_pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT lastfm_username, fm_mode, show_features, show_track_playcount,"
+                "SELECT lastfm_username, listenbrainz_username, fm_mode, show_features, show_track_playcount,"
                 " data_source, embed_color, timezone, private_mode,"
                 " update_notifs, last_update_seen"
                 " FROM user_settings WHERE user_id=$1", uid)
@@ -250,6 +250,10 @@ async def init_db():
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE")
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
                 except Exception as e:
+                    pass
+                try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT")
+                except Exception:
                     pass
                 try:
                     await conn.execute("ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT")
@@ -925,6 +929,44 @@ async def unlink_user(user_id):
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")
+        return False
+
+async def get_listenbrainz_username(user_id):
+    """ListenBrainz username for a Discord user (None if not linked)."""
+    b = _bundle_get(str(user_id))
+    if b is not None:
+        return b.get('listenbrainz_username') or None
+    if not db_pool: return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT listenbrainz_username FROM user_settings WHERE user_id=$1", str(user_id))
+            return row['listenbrainz_username'] if row and row['listenbrainz_username'] else None
+    except Exception:
+        return None
+
+async def set_listenbrainz_username(user_id, lb_username):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
+            """, str(user_id), lb_username)
+        invalidate_user_cache(user_id)
+        return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error setting listenbrainz_username: {e}{Log.RESET}")
+        return False
+
+async def unlink_listenbrainz(user_id):
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("UPDATE user_settings SET listenbrainz_username = NULL WHERE user_id=$1", str(user_id))
+            invalidate_user_cache(user_id)
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error unlinking ListenBrainz for {user_id}: {e}{Log.RESET}")
         return False
 
 async def clear_user_spotify(user_id):
