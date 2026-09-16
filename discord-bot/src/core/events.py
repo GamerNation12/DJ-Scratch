@@ -1003,7 +1003,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.listenbrainz', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)
@@ -2671,7 +2671,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     lb_username = await _get_lb_user(user.id)
     from_lb = False
     if not username and not lb_username:
-        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm or ListenBrainz account! Link with `/login` or `/linklb`")}, False
+        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm or ListenBrainz account! Link with `/login`")}, False
 
     # Footer label: Last.fm wording when we have a Last.fm user, LB wording otherwise.
     scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}"

@@ -29,6 +29,28 @@ async def _is_spotify_linked(user_id: int) -> bool:
         return False
 
 
+async def _link_listenbrainz(user_id: int, lb_username: str):
+    """Validate + save a ListenBrainz username. Returns (ok, message)."""
+    from src.utils.listenbrainz import fetch_lb_listen_count
+    from src.core.database import set_listenbrainz_username
+    name = (lb_username or "").strip()
+    if not name:
+        return False, "Give your ListenBrainz username."
+    total = await fetch_lb_listen_count(name)
+    if total is None:
+        return False, (f"Couldn't find ListenBrainz user **{name}**.\n"
+                       "Check the spelling — it's the name on your listenbrainz.org profile.")
+    if not await set_listenbrainz_username(user_id, name):
+        return False, "Database is not available right now. Please try again later."
+    return True, f"Linked as **[{name}](https://listenbrainz.org/user/{name}/)** with **{total:,}** scrobbles."
+
+
+def _lb_status_line(lb_username):
+    if lb_username:
+        return f"\n🎧 ListenBrainz linked as **{lb_username}**."
+    return "\n🎧 ListenBrainz **not** linked — add it with `/login listenbrainz:<name>` (or `,login <name>`)."
+
+
 def extract_artist_from_message(msg: discord.Message) -> str:
     import re
     
@@ -294,22 +316,34 @@ class LastFmCog(commands.Cog):
             await send_func(content="Database is not available right now. Please try again later.")
 
     @app_commands.command(name="login", description="Securely login and link your Last.fm account")
+    @app_commands.describe(listenbrainz="Your ListenBrainz username (optional, for LB now-playing)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def login_slash(self, interaction: discord.Interaction):
+    async def login_slash(self, interaction: discord.Interaction, listenbrainz: str = None):
         # Defer FIRST: Discord only waits 3s for the first reply, and a busy
         # event loop can burn that before we even reach the DB call (10062).
         # Deferring buys 15 minutes; the real message goes via followup.
         await interaction.response.defer(ephemeral=True)
         try:
             from src.core.events import get_lastfm_username
+            from src.core.database import get_listenbrainz_username
+            lb_notice = None
+            if listenbrainz:
+                ok, msg = await _link_listenbrainz(interaction.user.id, listenbrainz)
+                lb_notice = f"{'✅' if ok else '❌'} ListenBrainz: {msg}"
+                if not ok:
+                    return await interaction.followup.send(
+                        embed=Theme.get_error_embed(description=lb_notice), ephemeral=True)
             username = await get_lastfm_username(interaction.user.id)
+            lb_username = await get_listenbrainz_username(interaction.user.id)
             spotify_linked = await _is_spotify_linked(interaction.user.id)
 
             if username and spotify_linked:
                 embed = Theme.get_embed(
                     title="✅ All Linked",
-                    description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready.",
+                    description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready."
+                                f"{_lb_status_line(lb_username)}"
+                                f"{chr(10) + lb_notice if lb_notice else ''}",
                     color=discord.Color.green()
                 )
                 return await interaction.followup.send(embed=embed, ephemeral=True)
@@ -319,7 +353,9 @@ class LastFmCog(commands.Cog):
                     title="✅ Last.fm Linked",
                     description=f"You are logged in as **{username}**.\n\n"
                                 "🎵 Spotify is **not** linked yet — add it for playback control (`/play`), likes, and the Music dashboard.\n\n"
-                                "If you want to switch Last.fm accounts, use `/logout` first.",
+                                "If you want to switch Last.fm accounts, use `/logout` first."
+                                f"{_lb_status_line(lb_username)}"
+                                f"{chr(10) + lb_notice if lb_notice else ''}",
                     color=discord.Color.green()
                 )
                 # Send first so we have a message id: the callback PATCHes this
@@ -334,9 +370,12 @@ class LastFmCog(commands.Cog):
 
             desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                     "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
-                    "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*")
+                    "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*\n\n"
+                    "🎧 Use ListenBrainz instead? Just run `/login listenbrainz:<your-name>` (or `,login <name>`) — no Last.fm needed for `/fm`.")
             if spotify_linked:
                 desc += "\n\n🎵 Spotify already linked."
+            if lb_notice:
+                desc += f"\n\n{lb_notice}"
             embed = Theme.get_embed(title="🔗 Connect Your Music", description=desc, color=discord.Color.red())
 
             import urllib.parse
@@ -361,10 +400,11 @@ class LastFmCog(commands.Cog):
             except Exception:
                 pass
 
-    @app_commands.command(name="logout", description="Unlink your Last.fm or Spotify account from the bot")
+    @app_commands.command(name="logout", description="Unlink your Last.fm, ListenBrainz or Spotify account from the bot")
     @app_commands.describe(service="Which account to unlink (default: Last.fm)")
     @app_commands.choices(service=[
         app_commands.Choice(name="Last.fm", value="lastfm"),
+        app_commands.Choice(name="ListenBrainz", value="listenbrainz"),
         app_commands.Choice(name="Spotify", value="spotify"),
     ])
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -376,6 +416,22 @@ class LastFmCog(commands.Cog):
             svc = service.value if service else "lastfm"
             if svc == "spotify":
                 return await self._logout_spotify_slash(interaction)
+            if svc == "listenbrainz":
+                from src.core.database import get_listenbrainz_username, unlink_listenbrainz
+                current = await get_listenbrainz_username(interaction.user.id)
+                if not current:
+                    embed = Theme.get_embed(title="🎧 ListenBrainz Not Linked",
+                                            description="No ListenBrainz account linked — nothing to disconnect.",
+                                            color=discord.Color.blue())
+                elif await unlink_listenbrainz(interaction.user.id):
+                    embed = Theme.get_embed(title="👋 ListenBrainz Unlinked",
+                                            description=f"Unlinked **{current}**.",
+                                            color=discord.Color.green())
+                else:
+                    embed = Theme.get_embed(title="❌ Disconnect Failed",
+                                            description="Could not disconnect (database offline?). Please try again later.",
+                                            color=discord.Color.red())
+                return await interaction.followup.send(embed=embed, ephemeral=True)
             from src.core.database import unlink_user
             await unlink_user(interaction.user.id)
             embed = Theme.get_embed(
@@ -874,15 +930,25 @@ class LastFmCog(commands.Cog):
         await ctx.send(content=status_msg)
 
     @commands.command(name="login", aliases=["log", "li"])
-    async def login_prefix(self, ctx):
+    async def login_prefix(self, ctx, *, lb_username: str = None):
         from src.core.events import get_lastfm_username
+        from src.core.database import get_listenbrainz_username
+        lb_notice = None
+        if lb_username:
+            ok, msg = await _link_listenbrainz(ctx.author.id, lb_username)
+            lb_notice = f"{'✅' if ok else '❌'} ListenBrainz: {msg}"
+            if not ok:
+                return await ctx.send(embed=Theme.get_error_embed(description=lb_notice))
         username = await get_lastfm_username(ctx.author.id)
+        lb_linked = await get_listenbrainz_username(ctx.author.id)
         spotify_linked = await _is_spotify_linked(ctx.author.id)
 
         if username and spotify_linked:
             embed = Theme.get_embed(
                 title="✅ All Linked",
-                description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready.",
+                description=f"Last.fm linked as **{username}**.\n🎵 Spotify linked — remote control and the Music dashboard are ready."
+                            f"{_lb_status_line(lb_linked)}"
+                            f"{chr(10) + lb_notice if lb_notice else ''}",
                 color=discord.Color.green()
             )
             return await ctx.send(embed=embed)
@@ -892,7 +958,9 @@ class LastFmCog(commands.Cog):
                 title="✅ Last.fm Linked",
                 description=f"You are logged in as **{username}**.\n\n"
                             "🎵 Spotify is **not** linked yet — add it for playback control (`,play`), likes, and the Music dashboard.\n\n"
-                            "If you want to switch Last.fm accounts, use `,logout` first.",
+                            "If you want to switch Last.fm accounts, use `,logout` first."
+                            f"{_lb_status_line(lb_linked)}"
+                            f"{chr(10) + lb_notice if lb_notice else ''}",
                 color=discord.Color.green()
             )
             msg = await ctx.send(embed=embed)
@@ -905,9 +973,12 @@ class LastFmCog(commands.Cog):
 
         desc = ("**DJ Scratch uses Last.fm to track your listening history.**\n\n"
                 "Click a button below to link an account. You will be redirected to authorize the bot.\n\n"
-                "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*")
+                "*(Don't have a Last.fm account? You'll need to [create one](https://www.last.fm/join) and link it to your Spotify first!)*\n\n"
+                "🎧 Use ListenBrainz instead? Just run `,login <your-name>` — no Last.fm needed for `/fm`.")
         if spotify_linked:
             desc += "\n\n🎵 Spotify already linked."
+        if lb_notice:
+            desc += f"\n\n{lb_notice}"
         embed = Theme.get_embed(title="🔗 Connect Your Music", description=desc, color=discord.Color.red())
         msg = await ctx.send(embed=embed)
 
@@ -926,7 +997,26 @@ class LastFmCog(commands.Cog):
 
     @commands.command(name="logout", aliases=["lo"])
     async def logout_prefix(self, ctx, *, service: str = None):
-        # `,logout spotify` disconnects Spotify; anything else unlinks Last.fm.
+        # `,logout spotify` disconnects Spotify, `,logout lb` unlinks
+        # ListenBrainz; anything else unlinks Last.fm.
+        svc = (service or "").strip().lower()
+        if svc in ("listenbrainz", "lb", "listenb", "brainz"):
+            from src.core.database import get_listenbrainz_username, unlink_listenbrainz
+            current = await get_listenbrainz_username(ctx.author.id)
+            if not current:
+                return await ctx.send(embed=Theme.get_embed(
+                    title="🎧 ListenBrainz Not Linked",
+                    description="No ListenBrainz account linked — nothing to disconnect.",
+                    color=discord.Color.blue()))
+            if await unlink_listenbrainz(ctx.author.id):
+                return await ctx.send(embed=Theme.get_embed(
+                    title="👋 ListenBrainz Unlinked",
+                    description=f"Unlinked **{current}**.",
+                    color=discord.Color.green()))
+            return await ctx.send(embed=Theme.get_embed(
+                title="❌ Disconnect Failed",
+                description="Could not disconnect (database offline?). Please try again later.",
+                color=discord.Color.red()))
         if service and service.strip().lower() in ("spotify", "sp", "spot"):
             from src.core.database import clear_user_spotify
             if not await _is_spotify_linked(ctx.author.id):
