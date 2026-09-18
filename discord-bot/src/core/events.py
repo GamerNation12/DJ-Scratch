@@ -1582,6 +1582,15 @@ async def on_ready():
     total_members = sum(g.member_count for g in bot.guilds if g.member_count)
     print(f"{Log.GREEN}[OK] CONNECTED TO: {total_servers} servers | {total_members} members{Log.RESET}")
     print(f"{Log.GREEN}[OK] SYNCED COMMANDS: {len(bot.tree.get_commands())} global commands{Log.RESET}")
+    print(f"{Log.CYAN}>>> Boot: total time to on_ready {time.monotonic() - BOOT_T0:.1f}s{Log.RESET}")
+
+    # Replace any stale "Restarting..." presence immediately — the DB status
+    # restore + auto-sync below are slow, and Discord keeps showing the old
+    # session's activity until we overwrite it.
+    try:
+        await bot.change_presence(activity=discord.Game(name="Back online — loading..."))
+    except Exception:
+        pass
 
     # Auto-sync slash commands on boot (same entry-point-safe bulk upsert as
     # ",sync"). Runs once per process — on_ready refires on reconnects.

@@ -420,10 +420,17 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
                 return
             await asyncio.sleep(1)
         
-        if getattr(self.bot, 'session', None):
-            await self.bot.session.close()
-        await self.bot.close()
-        os._exit(0)
+        # Bounded shutdown: bot.close() can hang, leaving the old session
+        # lingering with a stale "Restarting..." presence.
+        print(f"{Log.RED}>>> Restart countdown finished, shutting down...{Log.RESET}")
+        try:
+            if getattr(self.bot, 'session', None):
+                await self.bot.session.close()
+            await asyncio.wait_for(self.bot.close(), timeout=10)
+        except Exception as e:
+            print(f"Shutdown error (forcing exit anyway): {e}")
+        finally:
+            os._exit(0)
 
 
     @commands.command(name="resetcd", aliases=["rcd"])

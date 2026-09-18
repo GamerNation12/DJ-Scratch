@@ -71,10 +71,17 @@ async def restart_watchdog():
                 return
             await asyncio.sleep(1)
         
-        if getattr(bot, 'session', None):
-            await bot.session.close()
-        await bot.close()
-        os._exit(0)
+        # Bounded shutdown: bot.close() can hang (voice/gateway), which leaves
+        # the old session lingering with a stale "Restarting..." presence.
+        print(f"[{bot.user.name}] Restart countdown finished, shutting down...")
+        try:
+            if getattr(bot, 'session', None):
+                await bot.session.close()
+            await asyncio.wait_for(bot.close(), timeout=10)
+        except Exception as e:
+            print(f"Shutdown error (forcing exit anyway): {e}")
+        finally:
+            os._exit(0)
 
 @tasks.loop(hours=24)
 async def inactive_purge_task():
