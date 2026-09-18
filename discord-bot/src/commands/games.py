@@ -319,23 +319,54 @@ class GamesCog(commands.Cog):
                 await context.send(msg)
             return
             
-        target = random.choice(albums)
-        album_name = target['name']
-        artist_name = target['artist']['name']
-        img_url = target['image'][-1]['#text']
+        target = None
+        album_name = None
+        artist_name = None
+        img_url = None
+        img_bytes = None
 
-        # Download image
+        # Download image with timeout + retries across a few albums.
+        # Last.fm image CDN occasionally stalls -> previously raised
+        # aiohttp SocketTimeoutError and killed the command with a traceback.
         session = self.bot.session
-        async with session.get(img_url) as resp:
-            if resp.status != 200:
-                msg = "Failed to download album art!"
-                if isinstance(context, discord.Interaction):
-                    return await context.followup.send(msg)
-                else:
-                    return await context.send(msg)
-            img_bytes = await resp.read()
+        candidates = random.sample(albums, min(len(albums), 5))
+        for candidate in candidates:
+            candidate_url = candidate['image'][-1]['#text']
+            try:
+                async with session.get(
+                    candidate_url,
+                    timeout=aiohttp.ClientTimeout(total=10, sock_read=5),
+                ) as resp:
+                    if resp.status != 200:
+                        continue
+                    img_bytes = await resp.read()
+                if not img_bytes:
+                    continue
+                target = candidate
+                album_name = target['name']
+                artist_name = target['artist']['name']
+                img_url = candidate_url
+                break
+            except (asyncio.TimeoutError, aiohttp.ClientError):
+                continue
+            except Exception:
+                continue
 
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        if target is None or not img_bytes:
+            msg = "Couldn't fetch album art right now (image host timed out). Try again in a moment!"
+            if isinstance(context, discord.Interaction):
+                return await context.followup.send(msg)
+            else:
+                return await context.send(msg)
+
+        try:
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        except Exception:
+            msg = "Couldn't load album art right now. Try again in a moment!"
+            if isinstance(context, discord.Interaction):
+                return await context.followup.send(msg)
+            else:
+                return await context.send(msg)
         
         hints = [
             f"The artist name starts with **{artist_name[0]}**",
