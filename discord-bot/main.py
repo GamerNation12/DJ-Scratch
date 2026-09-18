@@ -148,6 +148,18 @@ if __name__ == "__main__":
                 print(f"Deleted old temp file: {f}")
             except Exception as e:
                 print(f"Failed to delete {f}: {e}")
+
+    # The panel runs `pip install -U` on every boot, which bloats the pip
+    # cache under ~/.cache/pip over time (250MB disk cap). Purging is safe —
+    # pip simply re-downloads if it ever needs a wheel again.
+    try:
+        import shutil
+        _pip_cache = os.path.expanduser("~/.cache/pip")
+        if os.path.isdir(_pip_cache):
+            shutil.rmtree(_pip_cache, ignore_errors=True)
+            print("Cleared pip cache.")
+    except Exception as e:
+        print(f"Failed to clear pip cache: {e}")
                 
     import logging
     logging.getLogger().handlers.clear()

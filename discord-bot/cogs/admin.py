@@ -318,6 +318,85 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         await msg.edit(content=None, embed=embed)
 
+    @commands.command(name="disk", aliases=["du", "storage"])
+    async def disk_usage_command(self, ctx):
+        """Owner-only: show container disk usage broken down by top-level dir."""
+        if ctx.author.id != OWNER_ID:
+            return await ctx.send("❌ Owner only.")
+        import shutil
+        msg = await ctx.send("📊 Measuring disk usage...")
+        try:
+            def _dir_size(path, budget=40000):
+                total = 0
+                seen = 0
+                for root, _dirs, files in os.walk(path):
+                    for f in files:
+                        try:
+                            total += os.path.getsize(os.path.join(root, f))
+                        except OSError:
+                            pass
+                        seen += 1
+                        if seen > budget:
+                            return total, True
+                return total, False
+
+            lines = []
+            try:
+                du = shutil.disk_usage('.')
+                lines.append(f"**Disk:** `{du.used / 1024 / 1024:.1f} MiB` used / `{du.total / 1024 / 1024:.1f} MiB` total (`{du.free / 1024 / 1024:.1f} MiB` free)")
+            except Exception:
+                pass
+            entries = []
+            for entry in os.scandir('.'):
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        size, _trunc = _dir_size(entry.path)
+                        entries.append((size, entry.name + "/"))
+                    else:
+                        entries.append((entry.stat().st_size, entry.name))
+                except OSError:
+                    pass
+            entries.sort(reverse=True)
+            for size, name in entries[:15]:
+                lines.append(f"`{size / 1024 / 1024:7.1f} MiB`  {name}")
+            try:
+                pip_cache = os.path.expanduser("~/.cache/pip")
+                if os.path.isdir(pip_cache):
+                    size, _trunc = _dir_size(pip_cache)
+                    lines.append(f"\nPip cache (`~/.cache/pip`): `{size / 1024 / 1024:.1f} MiB` — clear with `,cleancache`")
+            except Exception:
+                pass
+            await msg.edit(content="\n".join(lines)[:1900])
+        except Exception as e:
+            await msg.edit(content=f"❌ Failed to measure disk: {e}")
+
+    @commands.command(name="cleancache", aliases=["ccache", "purgepip"])
+    async def clean_cache_command(self, ctx):
+        """Owner-only: purge pip cache + stale temp files to free disk."""
+        if ctx.author.id != OWNER_ID:
+            return await ctx.send("❌ Owner only.")
+        import shutil
+        freed = 0
+        notes = []
+        for target in (os.path.expanduser("~/.cache/pip"),):
+            try:
+                if os.path.isdir(target):
+                    size = sum(os.path.getsize(os.path.join(r, f)) for r, _d, fs in os.walk(target) for f in fs)
+                    shutil.rmtree(target, ignore_errors=True)
+                    freed += size
+                    notes.append(f"pip cache (`{size / 1024 / 1024:.1f} MiB`)")
+            except Exception as e:
+                notes.append(f"pip cache failed: {e}")
+        for f in os.listdir('.'):
+            if f.startswith('temp_import_') or f.startswith('web_import_'):
+                try:
+                    freed += os.path.getsize(f)
+                    os.remove(f)
+                    notes.append(f"`{f}`")
+                except Exception:
+                    pass
+        await ctx.send(f"🧹 Freed `{freed / 1024 / 1024:.1f} MiB`: " + (", ".join(notes) if notes else "nothing to clean."))
+
     @commands.command(name="cleanduplicates", aliases=["cdp", "cleand"])
     async def clean_duplicates_command(self, ctx):
         msg = await ctx.send("🧹 Scanning database for bugged duplicates (Account Data & overlapping timestamps)...")
