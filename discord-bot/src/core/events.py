@@ -5215,6 +5215,17 @@ async def on_interaction(interaction: discord.Interaction):
                 if str(interaction.user.id) != owner_id:
                     await interaction.response.send_message("This is not your remote!", ephemeral=True)
                     return
+                from src.core.config import OWNER_ID as _SPOTIFY_OWNER_ID
+                try:
+                    _is_sp_owner = int(interaction.user.id) == int(_SPOTIFY_OWNER_ID)
+                except Exception:
+                    _is_sp_owner = False
+                if not _is_sp_owner:
+                    await interaction.response.send_message(
+                        "🔒 Spotify playback controls are currently **owner-only** while the Spotify app is in Development Mode.",
+                        ephemeral=True,
+                    )
+                    return
                 
                 await interaction.response.defer()
                 app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
@@ -5225,6 +5236,7 @@ async def on_interaction(interaction: discord.Interaction):
                     spotify_like_track, get_currently_playing_track,
                     get_spotify_queue, is_track_liked
                 )
+                from src.commands.spotify_remote import get_spotify_remote_layout, _pretty_spotify_error
                 
                 async with aiohttp.ClientSession() as session:
                     res = False
@@ -5268,7 +5280,6 @@ async def on_interaction(interaction: discord.Interaction):
                         if queue == "no_token":
                             queue = []
 
-                        from src.commands.spotify_remote import get_spotify_remote_layout, _pretty_spotify_error
                         view = get_spotify_remote_layout(track, owner_id, action_label, queue=queue, liked=liked)
                         await interaction.message.edit(embeds=[], view=view)
                         
