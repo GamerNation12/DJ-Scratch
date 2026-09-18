@@ -755,67 +755,29 @@ async def setup_hook():
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                # One round trip instead of thirteen: every action is
+                # IF NOT EXISTS, so a single statement never errors.
                 try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE")
-                except Exception as e:
+                    await conn.execute(
+                        """
+                        ALTER TABLE user_settings
+                            ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE,
+                            ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined',
+                            ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE,
+                            ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC',
+                            ADD COLUMN IF NOT EXISTS lastfm_username TEXT,
+                            ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE,
+                            ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE,
+                            ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT '',
+                            ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT,
+                            ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE,
+                            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT
+                        """
+                    )
+                except Exception:
                     pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined'")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username TEXT")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE")
-                except Exception as e:
-                    pass
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT ''")
-                except Exception as e:
-                    pass
-
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT")
-                except Exception as e:
-                    pass
-
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
-                except Exception as e:
-                    pass
-
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE")
-                except Exception: pass
-                
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
-                except Exception: pass
-
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT")
-                except Exception: pass
                     
                 await conn.execute(
                     """
@@ -918,20 +880,8 @@ async def setup_hook():
                 except Exception as e:
                     print(f"{Log.RED}>>> Failed to add claimed_at column to server_crowns: {e}{Log.RESET}")
                 
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lastfm_username VARCHAR(255)")
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to add lastfm_username column: {e}{Log.RESET}")
-                    
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'")
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to add timezone column: {e}{Log.RESET}")
-
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to add show_track_playcount column: {e}{Log.RESET}")
+                # NOTE: lastfm_username / timezone / show_track_playcount re-adds
+                # lived here — removed, already covered by the combined ALTER above.
                 
                 try:
                     await conn.execute("""
@@ -1566,6 +1516,13 @@ async def spotify_track_length_scanner():
         except Exception as e:
             print(f"{Log.RED}>>> Error in spotify_track_length_scanner: {e}{Log.RESET}")
             await asyncio.sleep(60)
+
+@bot.event
+async def on_connect():
+    # Fires when the gateway socket connects, before READY/guild chunking.
+    # Together with the on_ready total, this splits boot time into
+    # "network+login" vs "guild streaming/chunking".
+    print(f"{Log.CYAN}>>> Boot: gateway connected in {time.monotonic() - BOOT_T0:.1f}s (waiting for guilds/READY...){Log.RESET}")
 
 @bot.event
 async def on_ready():
