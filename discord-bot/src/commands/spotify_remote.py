@@ -43,15 +43,17 @@ def _is_owner(user_id) -> bool:
         return False
 
 
-OWNER_ONLY_MSG = (
-    "🔒 Spotify playback controls are currently **owner-only** "
-    "while the Spotify app is in Development Mode "
-    "(Spotify only lets the app owner authorize)."
-)
-
-
 def _owner_only_embed():
-    return discord.Embed(color=0xFF0000, description=OWNER_ONLY_MSG)
+    from src.core.theme import Theme
+    return Theme.get_premium_embed(
+        title="Spotify Owner-Only",
+        description=(
+            "Spotify playback controls are currently **owner-only** "
+            "while the Spotify app is in Development Mode — "
+            "Spotify only lets the app owner authorize.\n\n"
+            "*Heads up: `,sp` / `,spa` / `,spab` search still works for everyone.*"
+        ),
+    )
 
 
 async def _resolve_spotify_input(session, query):

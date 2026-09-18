@@ -1802,9 +1802,15 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): return
     
     if isinstance(error, commands.NotOwner):
-        return await ctx.send("❌ You do not have permission to use this command.")
+        return await ctx.send(embed=Theme.get_error_embed(title="No Permission", description="You do not have permission to use this command."))
     if isinstance(error, commands.CheckFailure):
-        return await ctx.send("❌ You do not have permission to use this command.")
+        # Global checks (login / ban / disabled-command) already sent a
+        # user-facing embed before failing — don't pile on a second message.
+        # Only speak up if the check raised with its own message.
+        msg = str(error).strip() if str(error) else ""
+        if msg:
+            return await ctx.send(embed=Theme.get_error_embed(title="No Permission", description=msg))
+        return
     
     # Handle common user-facing errors
     usage = f"`{ctx.prefix}{ctx.command.name} {ctx.command.signature}`" if ctx.command else ""
@@ -1834,7 +1840,10 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
     if isinstance(error, discord.app_commands.CommandOnCooldown):
         msg = f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**."
     elif isinstance(error, discord.app_commands.CheckFailure):
-        msg = "❌ You do not have permission to use this command."
+        # Check predicates already replied with their own embed — only speak
+        # up if the check raised with its own message.
+        check_msg = str(error).strip() if str(error) else ""
+        msg = check_msg if check_msg else None
     elif isinstance(error, discord.app_commands.MissingPermissions):
         msg = "🚫 You don't have the required permissions to use this command."
     elif isinstance(error, discord.app_commands.BotMissingPermissions):
@@ -1946,10 +1955,14 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
         
     username = await get_lastfm_username(interaction.user.id)
     if not username:
-        embed = Theme.get_embed(
-            title="⚠️ Account Not Linked",
-            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `/login` to link your Last.fm account.\n*Need help? Run `/guide` to learn how to start!*",
-            color=discord.Color.red()
+        embed = Theme.get_warning_embed(
+            title="Link Your Account",
+            description=(
+                "This command needs your **Last.fm** account linked.\n\n"
+                "🔗 **[Log in on the website](https://dj-scratch.vercel.app/)** "
+                "or run `/login` to connect.\n\n"
+                "*New here? Run `/guide` for a quick start!*"
+            ),
         )
         try:
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -1990,10 +2003,14 @@ async def global_login_check_prefix(ctx) -> bool:
         
     username = await get_lastfm_username(ctx.author.id)
     if not username:
-        embed = Theme.get_embed(
-            title="⚠️ Account Not Linked",
-            description="You need to log into the updated website to use this command!\n\n🔗 **[Login Here](https://dj-scratch.vercel.app/)** or use `,login` to link your Last.fm account.\n*Need help? Run `,guide` to learn how to start!*",
-            color=discord.Color.red()
+        embed = Theme.get_warning_embed(
+            title="Link Your Account",
+            description=(
+                "This command needs your **Last.fm** account linked.\n\n"
+                "🔗 **[Log in on the website](https://dj-scratch.vercel.app/)** "
+                "or run `,login` to connect.\n\n"
+                "*New here? Run `,guide` for a quick start!*"
+            ),
         )
         try:
             await ctx.send(embed=embed)
@@ -5222,7 +5239,13 @@ async def on_interaction(interaction: discord.Interaction):
                     _is_sp_owner = False
                 if not _is_sp_owner:
                     await interaction.response.send_message(
-                        "🔒 Spotify playback controls are currently **owner-only** while the Spotify app is in Development Mode.",
+                        embed=Theme.get_premium_embed(
+                            title="Spotify Owner-Only",
+                            description=(
+                                "Spotify playback controls are currently **owner-only** "
+                                "while the Spotify app is in Development Mode."
+                            ),
+                        ),
                         ephemeral=True,
                     )
                     return
