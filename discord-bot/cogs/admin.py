@@ -202,6 +202,21 @@ class OwnerCommands(commands.Cog, name="Owner Commands"):
             # Bulk upsert the commands directly to the API
             synced_data = await self.bot.http.bulk_upsert_global_commands(app_id, payload)
             
+            # Remember the payload hash so the next boot can skip re-syncing
+            # unchanged commands (see on_ready auto-sync). Hash local commands
+            # only (entry points excluded) to match the auto-sync hash.
+            try:
+                import hashlib
+                import json as _json
+                _local_only = [c for c in payload if c.get('type') != 4]
+                _hash = hashlib.sha256(_json.dumps(_local_only, sort_keys=True, default=str).encode()).hexdigest()
+                from src.core.database import db_pool as _pool
+                if _pool:
+                    async with _pool.acquire() as _conn:
+                        await _conn.execute("INSERT INTO global_settings (key, value) VALUES ('slash_sync_hash', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", _hash)
+            except Exception:
+                pass
+            
             await msg.edit(content=f"✅ Synced {len(synced_data)} slash commands globally (including {len(entry_points)} protected Entry Points)!")
             print(f"{Log.GREEN}>>> Owner synced {len(synced_data)} slash commands.{Log.RESET}")
         except Exception as e:

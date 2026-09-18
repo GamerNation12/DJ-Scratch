@@ -1,5 +1,6 @@
 from src.core.config import Log
 import os
+import time
 import discord
 import aiohttp
 import json
@@ -12,6 +13,9 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 import uuid
 from ..utils.api import *
+
+# Monotonic clock for boot timing logs (cold start diagnostics).
+BOOT_T0 = time.monotonic()
 
 FM_TRACK_CACHE = {}
 
@@ -702,6 +706,8 @@ def make_fast_session():
     return aiohttp.ClientSession(connector=connector, timeout=timeout)
 
 async def setup_hook():
+    _t_setup = time.monotonic()
+    print(f"{Log.CYAN}>>> Boot: python imports took {time.monotonic() - BOOT_T0:.1f}s{Log.RESET}")
     if getattr(bot, 'session', None) is None or getattr(bot.session, 'closed', True):
         bot.session = make_fast_session()
     bot.add_view(SuggestionView())
@@ -723,7 +729,8 @@ async def setup_hook():
             db_module.db_pool = db_pool
             await db_module.init_name_cache()
             
-            print(f"{Log.GREEN}>>> Connected to Postgres DB{Log.RESET}")
+            print(f"{Log.GREEN}>>> Connected to Postgres DB (pool took {time.monotonic() - _t_setup:.1f}s){Log.RESET}")
+            _t_ddl = time.monotonic()
             async with db_pool.acquire() as conn:
                 await conn.execute(
                     """
@@ -965,6 +972,8 @@ async def setup_hook():
                         print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
 
                 print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+            print(f"{Log.CYAN}>>> Boot: schema DDL took {time.monotonic() - _t_ddl:.1f}s{Log.RESET}")
+            _t_cogs = time.monotonic()
             bot.db_pool = db_pool
             bot.get_avatar_cooldown = get_avatar_cooldown
             bot.get_user_fm_mode = get_user_fm_mode
@@ -1016,6 +1025,7 @@ async def setup_hook():
                     print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
 
             # Flip old fm messages to "was listening" once songs end.
+            print(f"{Log.CYAN}>>> Boot: cog loading took {time.monotonic() - _t_cogs:.1f}s{Log.RESET}")
             try:
                 if not fm_live_watch.is_running():
                     fm_live_watch.start()
@@ -1575,17 +1585,39 @@ async def on_ready():
 
     # Auto-sync slash commands on boot (same entry-point-safe bulk upsert as
     # ",sync"). Runs once per process — on_ready refires on reconnects.
+    # Skipped when the command payload hash matches the last sync, since the
+    # global bulk-upsert is the slowest step of boot. Force with ",sync".
     if not getattr(bot, 'did_auto_sync', False):
         bot.did_auto_sync = True
+        _t_sync = time.monotonic()
         try:
+            import hashlib
             _app_id = bot.application_id or (await bot.application_info()).id
-            _existing = await bot.http.get_global_commands(_app_id)
-            _entry_points = [cmd for cmd in _existing if cmd.get('type') == 4]
             _local = bot.tree._get_all_commands(guild=None)
             _payload = [c.to_dict(bot.tree) for c in _local]
-            _payload.extend(_entry_points)
-            _synced = await bot.http.bulk_upsert_global_commands(_app_id, _payload)
-            print(f"{Log.GREEN}[OK] AUTO-SYNCED {len(_synced)} global slash commands ({len(_entry_points)} entry points kept){Log.RESET}")
+            _hash = hashlib.sha256(json.dumps(_payload, sort_keys=True, default=str).encode()).hexdigest()
+            from .database import db_pool as _pool
+            _last_hash = None
+            if _pool:
+                try:
+                    async with _pool.acquire() as _conn:
+                        _last_hash = await _conn.fetchval("SELECT value FROM global_settings WHERE key = 'slash_sync_hash'")
+                except Exception:
+                    pass
+            if _last_hash == _hash:
+                print(f"{Log.GREEN}[OK] Slash commands unchanged ({len(_payload)} cmds) — skipped re-sync in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
+            else:
+                _existing = await bot.http.get_global_commands(_app_id)
+                _entry_points = [cmd for cmd in _existing if cmd.get('type') == 4]
+                _payload.extend(_entry_points)
+                _synced = await bot.http.bulk_upsert_global_commands(_app_id, _payload)
+                if _pool:
+                    try:
+                        async with _pool.acquire() as _conn:
+                            await _conn.execute("INSERT INTO global_settings (key, value) VALUES ('slash_sync_hash', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", _hash)
+                    except Exception:
+                        pass
+                print(f"{Log.GREEN}[OK] AUTO-SYNCED {len(_synced)} global slash commands ({len(_entry_points)} entry points kept) in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Auto-sync failed (run ',sync' manually): {e}{Log.RESET}")
     
@@ -1804,13 +1836,14 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.NotOwner):
         return await ctx.send(embed=Theme.get_error_embed(title="No Permission", description="You do not have permission to use this command."))
     if isinstance(error, commands.CheckFailure):
-        # Global checks (login / ban / disabled-command) already sent a
-        # user-facing embed before failing — don't pile on a second message.
-        # Only speak up if the check raised with its own message.
+        # discord.py auto-generates "The global/check functions for command X
+        # failed." when a predicate returns False — our global checks (login /
+        # ban / disabled-command) already sent their own embed in that case,
+        # so stay quiet. Only custom check messages get shown.
         msg = str(error).strip() if str(error) else ""
-        if msg:
-            return await ctx.send(embed=Theme.get_error_embed(title="No Permission", description=msg))
-        return
+        if not msg or msg.startswith(("The global check functions for command", "The check functions for command")):
+            return
+        return await ctx.send(embed=Theme.get_error_embed(title="No Permission", description=msg))
     
     # Handle common user-facing errors
     usage = f"`{ctx.prefix}{ctx.command.name} {ctx.command.signature}`" if ctx.command else ""
@@ -1840,10 +1873,13 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
     if isinstance(error, discord.app_commands.CommandOnCooldown):
         msg = f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**."
     elif isinstance(error, discord.app_commands.CheckFailure):
-        # Check predicates already replied with their own embed — only speak
-        # up if the check raised with its own message.
+        # Auto-generated "check functions failed" means a predicate already
+        # replied with its own embed — stay quiet. Custom messages get shown.
         check_msg = str(error).strip() if str(error) else ""
-        msg = check_msg if check_msg else None
+        if check_msg and not check_msg.startswith(("The check functions for command", "The global check")):
+            msg = check_msg
+        else:
+            return
     elif isinstance(error, discord.app_commands.MissingPermissions):
         msg = "🚫 You don't have the required permissions to use this command."
     elif isinstance(error, discord.app_commands.BotMissingPermissions):
