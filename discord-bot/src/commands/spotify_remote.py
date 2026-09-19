@@ -508,20 +508,39 @@ class SpotifyRemote(commands.Cog):
             return discord.Embed(color=0xFF0000, description="❌ Could not find that artist on Spotify.")
         return self._link_embed("artist", artist_info)
 
+    async def _maybe_add_sp_reactions(self, msg, embed):
+        """Mirror the fm commands: 🔥/jamming reactions on successful lookups."""
+        try:
+            if msg is None or embed is None:
+                return
+            if (embed.description or "").startswith("❌"):
+                return  # error embed — no reactions
+            add_rx = getattr(self.bot, "add_custom_reactions", None)
+            if add_rx:
+                await add_rx(msg)
+        except Exception:
+            pass
+
     @commands.command(name="spotify", aliases=['sp'])
     async def spotify_link(self, ctx, *, query: str = None):
         """Spotify link for your current track, or search. No link required."""
-        await ctx.send(embed=await self._link_result(ctx.author.id, query, "track"))
+        embed = await self._link_result(ctx.author.id, query, "track")
+        msg = await ctx.send(embed=embed)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     @commands.command(name="spotifyalbum", aliases=['spab'])
     async def spotify_album_link(self, ctx, *, query: str = None):
         """Spotify link for your current album, or search. No link required."""
-        await ctx.send(embed=await self._link_result(ctx.author.id, query, "album"))
+        embed = await self._link_result(ctx.author.id, query, "album")
+        msg = await ctx.send(embed=embed)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     @commands.command(name="spotifyartist", aliases=['spa'])
     async def spotify_artist_link(self, ctx, *, query: str = None):
         """Spotify link for your current artist, or search. No link required."""
-        await ctx.send(embed=await self._link_result(ctx.author.id, query, "artist"))
+        embed = await self._link_result(ctx.author.id, query, "artist")
+        msg = await ctx.send(embed=embed)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     # --- SLASH COMMANDS (same cores as prefix above) ---
     @app_commands.command(name="remote", description="Open the Spotify remote panel with live controls")
@@ -612,7 +631,9 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotify_slash(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
-        await interaction.followup.send(embed=await self._link_result(interaction.user.id, query, "track"))
+        embed = await self._link_result(interaction.user.id, query, "track")
+        msg = await interaction.followup.send(embed=embed, wait=True)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     @app_commands.command(name="spotifyalbum", description="Spotify link for your current album, or search")
     @app_commands.describe(query="Album or Spotify link (empty = current album)")
@@ -620,7 +641,9 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotifyalbum_slash(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
-        await interaction.followup.send(embed=await self._link_result(interaction.user.id, query, "album"))
+        embed = await self._link_result(interaction.user.id, query, "album")
+        msg = await interaction.followup.send(embed=embed, wait=True)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     @app_commands.command(name="spotifyartist", description="Spotify link for your current artist, or search")
     @app_commands.describe(query="Artist or Spotify link (empty = current artist)")
@@ -628,7 +651,9 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotifyartist_slash(self, interaction: discord.Interaction, query: str = None):
         await interaction.response.defer()
-        await interaction.followup.send(embed=await self._link_result(interaction.user.id, query, "artist"))
+        embed = await self._link_result(interaction.user.id, query, "artist")
+        msg = await interaction.followup.send(embed=embed, wait=True)
+        await self._maybe_add_sp_reactions(msg, embed)
 
     async def play_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         if not _is_owner(interaction.user.id):
