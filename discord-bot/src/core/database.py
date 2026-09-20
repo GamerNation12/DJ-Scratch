@@ -1445,6 +1445,8 @@ async def get_user_badges(user_id) -> list:
         if uid == str(OWNER_ID):
             have.add("owner")
         elif db_pool:
+            # Owner's friend is permanent once earned: persist the row on first
+            # sighting so unfriending later keeps the badge.
             try:
                 async with db_pool.acquire() as conn:
                     row = await conn.fetchrow(
@@ -1454,6 +1456,14 @@ async def get_user_badges(user_id) -> list:
                     )
                     if row:
                         have.add("owner_friend")
+                        try:
+                            await conn.execute(
+                                "INSERT INTO user_badges (user_id, badge) VALUES ($1, $2)"
+                                " ON CONFLICT (user_id, badge) DO NOTHING",
+                                uid, "owner_friend",
+                            )
+                        except Exception:
+                            pass
             except Exception:
                 pass
     except Exception:
