@@ -43,6 +43,44 @@ def _fit_text(draw: ImageDraw.ImageDraw, text: str, font, max_px: int) -> str:
     return text
 
 
+def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_px: int, max_lines: int = 2) -> list:
+    """Greedy word-wrap for card titles that deserve a second line."""
+    words = (text or "").split()
+    lines, current = [], ""
+    for w in words:
+        trial = f"{current} {w}".strip()
+        try:
+            too_wide = draw.textlength(trial, font=font) > max_px
+        except Exception:
+            too_wide = len(trial) > 40
+        if too_wide and current:
+            lines.append(current)
+            current = w
+        else:
+            current = trial
+    if current:
+        lines.append(current)
+    if len(lines) > max_lines:
+        extra = " ".join(lines[max_lines - 1:])
+        lines = lines[:max_lines - 1]
+        while len(extra) > 4:
+            try:
+                if draw.textlength(extra + "…", font=font) <= max_px:
+                    break
+            except Exception:
+                break
+            extra = extra[:-1].rstrip()
+        lines.append((extra + "…") if extra else "")
+    return [line for line in lines if line]
+
+
+def _strip_feat(text: str) -> str:
+    """'All I Do Is Win (feat. T-Pain, …)' -> 'All I Do Is Win' for display."""
+    import re
+    cleaned = re.sub(r"\s*[\(\[]\s*feat\.?.*?[\)\]]", "", text or "", flags=re.IGNORECASE).strip()
+    return cleaned or (text or "").strip()
+
+
 async def generate_music_card(
     session: aiohttp.ClientSession,
     *,
@@ -52,98 +90,144 @@ async def generate_music_card(
     track_title: str = "",
     track_artist: str = "",
     track_album: str = "",
+    track_plays: int = 0,
     art_url: str = "",
     is_playing: bool = False,
     top_artist: str = "",
     top_artist_plays: int = 0,
+    top_track: str = "",
+    top_track_plays: int = 0,
+    top_album: str = "",
+    top_album_plays: int = 0,
+    plays_24h: int = 0,
     total_plays: int = 0,
     invite_url: str = "",
 ) -> io.BytesIO:
-    """Shareable stats music card (900x480 JPEG).
+    """Shareable stats music card (1000x640 JPEG, Wrapped-style).
 
-    Purely visual — the clickable invite link travels in the message content
-    alongside the image, since images can't carry links.
+    Blurred album-art backdrop, rounded art thumb, track spotlight, 7-day
+    stats grid. Purely visual — the clickable invite link travels in the
+    message content alongside the image, since images can't carry links.
     """
-    W, H = 900, 480
-    BG = (16, 16, 22)
+    W, H = 1000, 680
     ACCENT = (10, 181, 205)
     WHITE = (245, 245, 245)
-    GRAY = (170, 170, 180)
-    DIM = (120, 120, 130)
+    GRAY = (185, 185, 195)
+    DIM = (140, 140, 150)
     GOLD = (241, 196, 15)
 
-    def _render() -> Image.Image:
-        card = Image.new("RGB", (W, H), color=BG)
-        draw = ImageDraw.Draw(card)
-        draw.rectangle([(0, 0), (12, H)], fill=ACCENT)
-        return card, draw
-
-    card, draw = await asyncio.to_thread(_render)
-
-    # Fonts (loaded in-thread with everything else below).
     def _fonts():
         return {
-            "name": _load_font_bold(44),
-            "handle": _load_font("", 24),
-            "badges": _load_font("", 20),
+            "name": _load_font_bold(48),
+            "total": _load_font_bold(34),
+            "total_label": _load_font_bold(18),
+            "handle": _load_font("", 26),
+            "badges": _load_font("", 22),
             "label": _load_font_bold(20),
-            "title": _load_font_bold(30),
-            "artist": _load_font("", 26),
-            "album": _load_font("", 22),
-            "stats": _load_font("", 24),
-            "invite": _load_font("", 20),
-            "footer": _load_font("", 18),
+            "title": _load_font_bold(34),
+            "artist": _load_font("", 28),
+            "album": _load_font("", 24),
+            "plays": _load_font_bold(22),
+            "stat_val": _load_font_bold(25),
+            "stat_name": _load_font("", 22),
+            "invite": _load_font("", 21),
+            "footer": _load_font("", 19),
         }
 
     fonts = await asyncio.to_thread(_fonts)
 
-    # Album art (left).
+    # Artwork: full-size for the blurred backdrop, thumb for the spotlight.
     try:
-        art = await download_image(session, art_url)
-        art = art.convert("RGB").resize((280, 280), Image.Resampling.LANCZOS)
+        art_full = await download_image(session, art_url)
+        art_full = art_full.convert("RGB")
     except Exception:
-        art = Image.new("RGB", (280, 280), color=(30, 30, 36))
+        art_full = Image.new("RGB", (400, 400), color=(34, 34, 40))
 
-    def _compose(base: Image.Image):
-        base.paste(art, (44, 150))
-        d = ImageDraw.Draw(base)
-        x = 350
-        right = W - 36
-        max_px = right - x
-        # Header: display name + Last.fm handle + badges (text only — bitmap
-        # fallback fonts can't draw emoji, so badge NAMES, not icons).
-        d.text((x, 30), _fit_text(d, display_name or "Unknown", fonts["name"], max_px), font=fonts["name"], fill=WHITE)
-        if lastfm_username:
-            d.text((x, 84), _fit_text(d, f"@{lastfm_username}", fonts["handle"], max_px), font=fonts["handle"], fill=GRAY)
-        if badge_names:
-            d.text((x, 114), _fit_text(d, "  •  ".join(badge_names), fonts["badges"], max_px), font=fonts["badges"], fill=GOLD)
-        # Current track.
-        y = 152 if badge_names else 140
-        label = "NOW PLAYING" if is_playing else "LAST PLAYED"
-        d.text((x, y), label, font=fonts["label"], fill=ACCENT if is_playing else DIM)
-        d.text((x, y + 28), _fit_text(d, track_title or "Unknown track", fonts["title"], max_px), font=fonts["title"], fill=WHITE)
-        d.text((x, y + 66), _fit_text(d, track_artist or "Unknown artist", fonts["artist"], max_px), font=fonts["artist"], fill=GRAY)
-        if track_album:
-            d.text((x, y + 100), _fit_text(d, track_album, fonts["album"], max_px), font=fonts["album"], fill=DIM)
-        # Stats block.
-        sy = 330
-        if top_artist:
-            plays = f"{top_artist_plays:,} plays" if top_artist_plays else "top artist (7d)"
-            d.text((x, sy), "TOP ARTIST (7D)", font=fonts["label"], fill=DIM)
-            d.text((x, sy + 26), _fit_text(d, f"{top_artist} — {plays}", fonts["stats"], max_px), font=fonts["stats"], fill=WHITE)
-            sy += 60
-        if total_plays:
-            d.text((x, sy), _fit_text(d, f"TOTAL SCROBBLES  {total_plays:,}", fonts["stats"], max_px), font=fonts["stats"], fill=WHITE)
-        # Invite footer (visual only — clickable link goes in the message).
-        if invite_url:
-            short = invite_url.replace("https://", "")
-            d.text((44, H - 44), _fit_text(d, f"Join me: {short}", fonts["invite"], W - 88), font=fonts["invite"], fill=ACCENT)
-        d.text((W - 150, H - 40), "DJ Scratch", font=fonts["footer"], fill=DIM)
-        return base
+    def _base() -> Image.Image:
+        bg = art_full.resize((W, H), Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(28))
+        black = Image.new("RGB", (W, H), color=(8, 8, 12))
+        card = Image.blend(bg, black, 0.68)
+        d = ImageDraw.Draw(card)
+        d.rectangle([(0, 0), (12, H)], fill=ACCENT)
+        return card
 
-    card = await asyncio.to_thread(_compose, card)
+    def _round_paste(base: Image.Image, img: Image.Image, box, radius: int):
+        mask = Image.new("L", (box[2] - box[0], box[3] - box[1]), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([(0, 0), mask.size], radius=radius, fill=255)
+        base.paste(img, box[:2], mask)
+
+    def _right(d: ImageDraw.ImageDraw, x_right: int, y: int, text: str, font, fill):
+        try:
+            w = d.textlength(text, font=font)
+        except Exception:
+            w = len(text) * 12
+        d.text((x_right - w, y), text, font=font, fill=fill)
+
+    card = await asyncio.to_thread(_base)
+    thumb = art_full.resize((280, 280), Image.Resampling.LANCZOS)
+    await asyncio.to_thread(_round_paste, card, thumb, (52, 218, 332, 498), 26)
+    draw = ImageDraw.Draw(card)
+
+    x = 366
+    right = W - 48
+    max_px = right - x
+
+    # Header (name reserves room for the total top-right).
+    name_max = max_px - (190 if total_plays else 0)
+    draw.text((x, 34), _fit_text(draw, display_name or "Unknown", fonts["name"], name_max), font=fonts["name"], fill=WHITE)
+    hy = 100
+    if lastfm_username:
+        draw.text((x, hy), _fit_text(draw, f"@{lastfm_username}", fonts["handle"], max_px), font=fonts["handle"], fill=GRAY)
+        hy += 36
+    if badge_names:
+        draw.text((x, hy), _fit_text(draw, "  •  ".join(badge_names), fonts["badges"], max_px), font=fonts["badges"], fill=GOLD)
+    if total_plays:
+        _right(draw, right, 44, f"{total_plays:,}", fonts["total"], WHITE)
+        _right(draw, right, 86, "SCROBBLES", fonts["total_label"], DIM)
+
+    # Track spotlight.
+    ty = 218
+    draw.text((x, ty), "NOW PLAYING" if is_playing else "LAST PLAYED", font=fonts["label"], fill=ACCENT if is_playing else DIM)
+    title_lines = _wrap_text(draw, _strip_feat(track_title) or track_title, fonts["title"], max_px, 2)
+    ty += 30
+    for line in title_lines or [_fit_text(draw, track_title or "Unknown track", fonts["title"], max_px)]:
+        draw.text((x, ty), line, font=fonts["title"], fill=WHITE)
+        ty += 40
+    draw.text((x, ty + 4), _fit_text(draw, track_artist or "Unknown artist", fonts["artist"], max_px), font=fonts["artist"], fill=GRAY)
+    ty += 42
+    if track_album:
+        draw.text((x, ty), _fit_text(draw, track_album, fonts["album"], max_px), font=fonts["album"], fill=DIM)
+        ty += 34
+    if track_plays:
+        draw.text((x, ty), f"My plays  {track_plays:,}", font=fonts["plays"], fill=ACCENT)
+
+    # 7-day stats grid (2 x 2).
+    stats = [
+        ("TOP TRACK", top_track, top_track_plays),
+        ("TOP ARTIST", top_artist, top_artist_plays),
+        ("TOP ALBUM", top_album, top_album_plays),
+        ("LAST 24H", f"{plays_24h:,} plays" if plays_24h or plays_24h == 0 else "", 0),
+    ]
+    col_x = (52, 520)
+    row_y = (514, 578)
+    for i, (label, name, plays) in enumerate(stats):
+        cx, cy = col_x[i % 2], row_y[i // 2]
+        cw = 440
+        draw.text((cx, cy), label, font=fonts["label"], fill=DIM)
+        if i == 3:
+            draw.text((cx, cy + 24), name, font=fonts["stat_val"], fill=WHITE)
+        else:
+            val = f"{name} — {plays:,} plays" if name and plays else (name or "—")
+            draw.text((cx, cy + 24), _fit_text(draw, val, fonts["stat_val"], cw), font=fonts["stat_val"], fill=WHITE)
+
+    # Invite footer (visual only — clickable link goes in the message).
+    if invite_url:
+        short = invite_url.replace("https://", "")
+        draw.text((52, H - 44), _fit_text(draw, f"Join me: {short}", fonts["invite"], 640), font=fonts["invite"], fill=ACCENT)
+    draw.text((W - 150, H - 40), "DJ Scratch", font=fonts["footer"], fill=DIM)
+
     buffer = io.BytesIO()
-    card.save(buffer, format="JPEG", quality=85)
+    card.save(buffer, format="JPEG", quality=88)
     buffer.seek(0)
     return buffer
 

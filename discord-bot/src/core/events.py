@@ -980,7 +980,6 @@ async def setup_hook():
             bot.process_taste = process_taste
             bot.process_live = process_live
             bot.process_insights = process_insights
-            bot.process_share = process_share
             bot.process_suggestion = process_suggestion
             bot.get_help_embed = get_help_embed
             bot.process_crowns = process_crowns
@@ -4327,52 +4326,6 @@ async def process_insights(user):
     embed.set_author(name=f"Listening insights — {format_name(user)}")
     return embed, None
 
-async def process_share(user):
-    """Shareable DJ Scratch profile link card (+ referral invite link).
-
-    Your link carries ?ref=CODE: when a friend opens it and links Last.fm,
-    you BOTH earn a badge (📣 Recruiter for you, 💫 Referred for them).
-    """
-    from src.core.database import get_or_create_referral_code, get_referral_stats
-    username = await get_lastfm_username(user.id)
-    safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
-    profile_url = f"https://dj-scratch.vercel.app/{safe_name}"
-    try:
-        code = await get_or_create_referral_code(user.id)
-    except Exception:
-        code = None
-    invite_url = f"{profile_url}?ref={code}" if code else profile_url
-    try:
-        stats = await get_referral_stats(user.id)
-    except Exception:
-        stats = {"clicks": 0, "completed": 0}
-
-    class ShareLinksView(discord.ui.View):
-        def __init__(self):
-            super().__init__(timeout=None)
-            self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=profile_url))
-            if code:
-                self.add_item(discord.ui.Button(label="Copy Invite Link", style=discord.ButtonStyle.link, url=invite_url))
-            if username:
-                self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=f"https://www.last.fm/user/{username}"))
-
-    desc = (
-        f"Send your friends here to see your stats, tops and recents:\n\n"
-        f"🔗 {profile_url}\n\n"
-        f"**Invite link (earn badges together):**\n🎁 {invite_url}\n"
-        f"*When a friend opens your invite link and links Last.fm, "
-        f"you get 📣 **Recruiter** and they get 💫 **Referred**.*\n"
-        f"*Want it as an image? Try `,musiccard`.*"
-    )
-    embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
-    embed.set_author(name=f"Share {format_name(user)}'s profile")
-    if stats.get("completed") or stats.get("clicks"):
-        embed.add_field(
-            name="📨 Your invites",
-            value=f"**{stats.get('completed', 0)}** joined • **{stats.get('clicks', 0)}** clicked",
-            inline=False,
-        )
-    return embed, ShareLinksView()
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
         title = "Bug Report" if is_bug else "Bot Suggestion"
@@ -4561,7 +4514,7 @@ HELP_COMMAND_META = {
     "taste": ("Compare music taste with someone", "/taste [@user] • `,t`"),
     "live": ("What your friends are playing now", "/live • `,live`"),
     "insights": ("24h plays, milestone & top-artist share", "/insights [@user] • `,insights [@user|id]`"),
-    "share": ("Shareable link to your profile", "/share • `,share`"),
+        "share": ("Shareable music stats card", "/share • `,share`"),
     "streak": ("Current play streak for an artist", "/streak [artist]"),
     "streakhistory": ("Past streaks (25+ plays)", "/streakhistory"),
     # Server
