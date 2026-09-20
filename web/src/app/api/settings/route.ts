@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     let currentDisplayName = "";
 
     // Fetch current settings to handle partial updates
-    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name FROM user_settings WHERE user_id = ${userId}`;
+    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom FROM user_settings WHERE user_id = ${userId}`;
     if (row.length > 0) {
       currentFmMode = row[0].fm_mode;
       currentShowFeatures = row[0].show_features || false;
@@ -69,6 +69,12 @@ export async function POST(req: Request) {
       currentShowTrackPlaycount = row[0].show_track_playcount || false;
       currentDisplayName = row[0].display_name || "";
     }
+    let currentCustom = false;
+    try {
+      currentCustom = !!(row.length > 0 && (row[0] as any).display_name_custom);
+    } catch {
+      currentCustom = false;
+    }
 
     const newFmMode = fmMode !== undefined ? fmMode : currentFmMode;
     const newShowFeatures = showFeatures !== undefined ? showFeatures : currentShowFeatures;
@@ -77,6 +83,9 @@ export async function POST(req: Request) {
     const newTimezone = timezone !== undefined ? timezone : currentTimezone;
     const newShowTrackPlaycount = showTrackPlaycount !== undefined ? showTrackPlaycount : currentShowTrackPlaycount;
     const newDisplayName = displayName !== undefined ? (displayName.trim() || null) : currentDisplayName;
+    // A name saved here is explicit — the bot must not overwrite it with the
+    // Discord display name on later commands. Clearing re-enables syncing.
+    const newCustom = displayName !== undefined ? !!displayName.trim() : currentCustom;
 
     if (newFmMode !== "compact" && newFmMode !== "full" && newFmMode !== "stats") {
       return NextResponse.json({ error: "Invalid layout mode" }, { status: 400 });
@@ -87,8 +96,8 @@ export async function POST(req: Request) {
     }
 
     await sql`
-      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name)
-      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount}, ${newDisplayName})
+      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom)
+      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount}, ${newDisplayName}, ${newCustom})
       ON CONFLICT (user_id) DO UPDATE SET 
         fm_mode = EXCLUDED.fm_mode, 
         show_features = EXCLUDED.show_features, 
@@ -96,7 +105,8 @@ export async function POST(req: Request) {
         data_source = EXCLUDED.data_source,
         timezone = EXCLUDED.timezone,
         show_track_playcount = EXCLUDED.show_track_playcount,
-        display_name = EXCLUDED.display_name
+        display_name = EXCLUDED.display_name,
+        display_name_custom = EXCLUDED.display_name_custom
     `;
 
     // Log the change

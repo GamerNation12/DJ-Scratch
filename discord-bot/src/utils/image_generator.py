@@ -259,9 +259,9 @@ async def generate_music_card(
 
     # Glass stat chips.
     chips = [
-        ("TOP TRACK", top_track, top_track_plays),
-        ("TOP ARTIST", top_artist, top_artist_plays),
-        ("TOP ALBUM", top_album, top_album_plays),
+        ("TOP TRACK (7D)", top_track, top_track_plays),
+        ("TOP ARTIST (7D)", top_artist, top_artist_plays),
+        ("TOP ALBUM (7D)", top_album, top_album_plays),
         ("LAST 24H", "", 0),
     ]
     for i, (label, name, plays) in enumerate(chips):

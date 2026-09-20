@@ -1473,6 +1473,30 @@ async def get_user_badges(user_id) -> list:
     return badges
 
 
+async def get_card_name(user) -> str:
+    """Name for the music card: website-set custom name, else Discord username.
+
+    (Deliberately NOT the server nickname / cached display name — users
+    complained the card showed names they never chose.)
+    """
+    try:
+        uid = str(getattr(user, "id", user))
+    except Exception:
+        uid = str(user)
+    fallback = getattr(user, "name", None) or "Unknown"
+    if not db_pool:
+        return fallback
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT display_name, display_name_custom FROM user_settings WHERE user_id = $1", uid)
+            if row and row["display_name"] and row["display_name_custom"]:
+                return row["display_name"]
+    except Exception:
+        pass
+    return fallback
+
+
 async def badge_suffix(user_id) -> str:
     """' 📣🌟' style suffix for display names. Empty string when none.
 

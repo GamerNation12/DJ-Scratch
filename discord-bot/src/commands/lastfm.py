@@ -1247,7 +1247,7 @@ class LastFmCog(commands.Cog):
         )
         from src.utils.image_generator import generate_music_card
         from src.core.database import get_or_create_referral_code, get_user_badges, REFERRAL_BADGES
-        from src.core.database import format_name
+        from src.core.database import format_name, get_card_name
         import urllib.parse
 
         username = await get_lastfm_username(user.id)
@@ -1345,6 +1345,7 @@ class LastFmCog(commands.Cog):
             code = None
         safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
         invite_url = f"https://dj-scratch.vercel.app/{safe_name}?ref={code}" if code else ""
+        card_name = await get_card_name(user)
         try:
             badge_names = [REFERRAL_BADGES[b][1] for b in await get_user_badges(user.id) if b in REFERRAL_BADGES]
         except Exception:
@@ -1353,7 +1354,7 @@ class LastFmCog(commands.Cog):
         try:
             buf = await generate_music_card(
                 self.bot.session,
-                display_name=format_name(user),
+                display_name=card_name,
                 lastfm_username=username,
                 badge_names=badge_names,
                 track_title=song, track_artist=artist, track_album=album,
@@ -1370,7 +1371,7 @@ class LastFmCog(commands.Cog):
             return None, Theme.get_error_embed(description=f"Couldn't render the card: {e}")
         # Animated GIF while playing, still JPEG otherwise.
         file = discord.File(buf, filename="musiccard.jpg")
-        text = f"🎵 **{format_name(user)}'s music card** — share it around!"
+        text = f"🎵 **{card_name}'s music card** — share it around!"
         if invite_url:
             # Angle brackets suppress Discord's link-preview embed.
             text += f"\nJoin through my invite and we BOTH earn a badge: <{invite_url}>"

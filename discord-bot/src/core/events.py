@@ -774,7 +774,8 @@ async def setup_hook():
                             ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE,
                             ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT,
-                            ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all'
+                            ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all',
+                            ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE
                         """
                     )
                 except Exception:
@@ -1828,7 +1829,9 @@ async def on_command(ctx):
                     VALUES ($1, $2, $3)
                     ON CONFLICT (user_id) DO UPDATE SET
                         discord_username = EXCLUDED.discord_username,
-                        display_name = EXCLUDED.display_name
+                        -- Never stomp a name the user set via the website.
+                        display_name = CASE WHEN COALESCE(user_settings.display_name_custom, FALSE)
+                            THEN user_settings.display_name ELSE EXCLUDED.display_name END
                 """, str(ctx.author.id), ctx.author.name, ctx.author.display_name)
         except Exception:
             pass
@@ -5218,7 +5221,9 @@ async def on_interaction(interaction: discord.Interaction):
                     VALUES ($1, $2, $3)
                     ON CONFLICT (user_id) DO UPDATE SET 
                         discord_username = EXCLUDED.discord_username,
-                        display_name = EXCLUDED.display_name
+                        -- Never stomp a name the user set via the website.
+                        display_name = CASE WHEN COALESCE(user_settings.display_name_custom, FALSE)
+                            THEN user_settings.display_name ELSE EXCLUDED.display_name END
                 """, str(interaction.user.id), interaction.user.name, interaction.user.display_name)
         except Exception:
             pass
