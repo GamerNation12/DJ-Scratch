@@ -45,6 +45,7 @@ export const metadata: Metadata = {
 };
 
 import LayoutWrapper from "@/components/LayoutWrapper";
+import ReferralRedeemer from "@/components/ReferralRedeemer";
 import { headers } from "next/headers";
 
 export default async function RootLayout({
@@ -60,6 +61,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
+          <ReferralRedeemer />
           <Toaster 
             position="bottom-right"
             toastOptions={{

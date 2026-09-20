@@ -20,6 +20,37 @@ async function getUser(req: Request) {
   return token ? await verifyToken(token) : null;
 }
 
+// The bot creates these on boot, but the site must not depend on a reboot
+// having happened since deploy — ensure them here too (idempotent).
+async function ensureTables() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS referral_codes (
+      user_id VARCHAR(255) PRIMARY KEY,
+      code VARCHAR(32) UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS referral_clicks (
+      id SERIAL PRIMARY KEY,
+      code VARCHAR(32) NOT NULL,
+      sharer_id VARCHAR(255) NOT NULL,
+      friend_id VARCHAR(255) NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      rewarded_at TIMESTAMPTZ,
+      UNIQUE (code, friend_id)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_badges (
+      user_id VARCHAR(255) NOT NULL,
+      badge VARCHAR(64) NOT NULL,
+      awarded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, badge)
+    )
+  `;
+}
+
 function newCode(): string {
   const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
   const bytes = randomBytes(8);
@@ -35,6 +66,7 @@ export async function GET(req: Request) {
   const userId = String((user as any).id);
 
   try {
+    await ensureTables();
     let rows = await sql`SELECT code FROM referral_codes WHERE user_id = ${userId}`;
     let code: string | null = rows.length > 0 ? (rows[0] as any).code : null;
     if (!code) {
@@ -88,6 +120,7 @@ export async function POST(req: Request) {
   if (!code) return NextResponse.json({ error: "Missing code" }, { status: 400 });
 
   try {
+    await ensureTables();
     const codeRows = await sql`SELECT user_id FROM referral_codes WHERE code = ${code}`;
     if (codeRows.length === 0) return NextResponse.json({ error: "Invalid code" }, { status: 404 });
     const sharerId = String((codeRows[0] as any).user_id);

@@ -88,11 +88,24 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           const url = new URL(window.location.href);
           url.searchParams.delete("ref");
           window.history.replaceState({}, "", url.toString());
+        } else if ((data as any)?.error) {
+          // Own-link clicks are expected noise — clear and stay quiet.
+          if (/own link/i.test(String((data as any).error))) {
+            try { localStorage.removeItem("dj_referral_code"); } catch { /* ignore */ }
+          } else {
+            toast.error(String((data as any).error));
+          }
+        } else if (!res.ok) {
+          toast.error("Couldn't count that invite — please try again.");
         }
       } catch { /* offline — retry next visit */ }
     })();
     return () => { cancelled = true; };
   }, [status, searchParams]);
+
+  // Logged-out visitors arriving via ?ref=: nudge them to log in so the
+  // invite counts (the code is stashed above and redeemed after login).
+  const inviteRef = searchParams.get("ref");
 
   // Owner: load my referral code + stats for the invite card.
   useEffect(() => {
@@ -655,6 +668,21 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 relative z-10 max-w-7xl animate-fade-in-up">
         
+        {/* Invite banner for logged-out visitors arriving via ?ref= */}
+        {inviteRef && status === "unauthenticated" && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
+            <div className="text-amber-200 text-sm font-semibold">
+              🎁 You&apos;ve been invited to DJ Scratch! Log in to count the invite — you both earn badges.
+            </div>
+            <a
+              href="/api/auth/login"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100 text-sm font-bold rounded-xl transition-all whitespace-nowrap"
+            >
+              Login with Discord
+            </a>
+          </div>
+        )}
+
         {/* HERO BANNER (Modified to handle both owner view and public view) */}
         <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
