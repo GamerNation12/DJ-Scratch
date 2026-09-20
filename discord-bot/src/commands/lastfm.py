@@ -1356,7 +1356,8 @@ class LastFmCog(commands.Cog):
             )
         except Exception as e:
             return None, Theme.get_error_embed(description=f"Couldn't render the card: {e}")
-        file = discord.File(buf, filename="musiccard.jpg")
+        # Animated GIF while playing, still JPEG otherwise.
+        file = discord.File(buf, filename="musiccard.gif" if is_p else "musiccard.jpg")
         text = f"🎵 **{format_name(user)}'s music card** — share it around!"
         if invite_url:
             # Angle brackets suppress Discord's link-preview embed.

@@ -81,6 +81,18 @@ def _strip_feat(text: str) -> str:
     return cleaned or (text or "").strip()
 
 
+def _autofit_name(draw: ImageDraw.ImageDraw, text: str, max_px: int):
+    """Largest bold size (52→34) that fits — container fonts vary in width."""
+    for size in (52, 48, 44, 40, 36, 32):
+        font = _load_font_bold(size)
+        try:
+            if draw.textlength(text, font=font) <= max_px:
+                return font
+        except Exception:
+            return font
+    return _load_font_bold(32)
+
+
 async def generate_music_card(
     session: aiohttp.ClientSession,
     *,
@@ -102,12 +114,14 @@ async def generate_music_card(
     plays_24h: int = 0,
     total_plays: int = 0,
     invite_url: str = "",
+    animated: bool = True,
 ) -> io.BytesIO:
-    """Shareable stats music card (1000x640 JPEG, Wrapped-style).
+    """Shareable stats music card (1000x680; GIF when playing, JPEG when not).
 
-    Blurred album-art backdrop, rounded art thumb, track spotlight, 7-day
-    stats grid. Purely visual — the clickable invite link travels in the
-    message content alongside the image, since images can't carry links.
+    Wrapped-style: blurred album-art backdrop, rounded art thumb, track
+    spotlight, 7-day stats grid. The playing version loops a cheap equalizer
+    animation (frames share one base render). Purely visual — the clickable
+    invite link travels in the message content, since images can't carry links.
     """
     W, H = 1000, 680
     ACCENT = (10, 181, 205)
@@ -172,9 +186,10 @@ async def generate_music_card(
     right = W - 48
     max_px = right - x
 
-    # Header (name reserves room for the total top-right).
-    name_max = max_px - (190 if total_plays else 0)
-    draw.text((x, 34), _fit_text(draw, display_name or "Unknown", fonts["name"], name_max), font=fonts["name"], fill=WHITE)
+    # Header (name auto-fits; total top-right; brand tucks underneath it).
+    name_max = max_px - (200 if total_plays else 0)
+    name_font = _autofit_name(draw, display_name or "Unknown", name_max)
+    draw.text((x, 34), display_name or "Unknown", font=name_font, fill=WHITE)
     hy = 100
     if lastfm_username:
         draw.text((x, hy), _fit_text(draw, f"@{lastfm_username}", fonts["handle"], max_px), font=fonts["handle"], fill=GRAY)
@@ -184,6 +199,7 @@ async def generate_music_card(
     if total_plays:
         _right(draw, right, 44, f"{total_plays:,}", fonts["total"], WHITE)
         _right(draw, right, 86, "SCROBBLES", fonts["total_label"], DIM)
+        _right(draw, right, 112, "DJ SCRATCH", fonts["footer"], ACCENT)
 
     # Track spotlight.
     ty = 218
@@ -209,7 +225,7 @@ async def generate_music_card(
         ("LAST 24H", f"{plays_24h:,} plays" if plays_24h or plays_24h == 0 else "", 0),
     ]
     col_x = (52, 520)
-    row_y = (514, 578)
+    row_y = (500, 556)
     for i, (label, name, plays) in enumerate(stats):
         cx, cy = col_x[i % 2], row_y[i // 2]
         cw = 440
@@ -220,14 +236,44 @@ async def generate_music_card(
             val = f"{name} — {plays:,} plays" if name and plays else (name or "—")
             draw.text((cx, cy + 24), _fit_text(draw, val, fonts["stat_val"], cw), font=fonts["stat_val"], fill=WHITE)
 
-    # Invite footer (visual only — clickable link goes in the message).
+    # Invite footer on its own two lines (visual only — clickable link goes
+    # in the message). Never truncated mid-code: full-width smaller text.
     if invite_url:
         short = invite_url.replace("https://", "")
-        draw.text((52, H - 44), _fit_text(draw, f"Join me: {short}", fonts["invite"], 640), font=fonts["invite"], fill=ACCENT)
-    draw.text((W - 150, H - 40), "DJ Scratch", font=fonts["footer"], fill=DIM)
+        draw.text((52, H - 68), "JOIN WITH MY INVITE — WE BOTH EARN A BADGE", font=fonts["label"], fill=ACCENT)
+        draw.text((52, H - 42), _fit_text(draw, short, fonts["invite"], W - 104), font=fonts["invite"], fill=WHITE)
 
+    if animated and is_playing:
+        return _animate_card(card, draw, fonts, x)
     buffer = io.BytesIO()
     card.save(buffer, format="JPEG", quality=88)
+    buffer.seek(0)
+    return buffer
+
+
+def _animate_card(base: Image.Image, draw: ImageDraw.ImageDraw, fonts: dict, x: int) -> io.BytesIO:
+    """Loop a small equalizer next to NOW PLAYING. Frames share one base."""
+    import math
+    try:
+        label_w = draw.textlength("NOW PLAYING", font=fonts["label"])
+    except Exception:
+        label_w = 150
+    bx, baseline = x + int(label_w) + 18, 218 + 22
+    bars, gap, bw = 5, 7, 9
+    frames = []
+    for f in range(10):
+        frame = base.copy()
+        d = ImageDraw.Draw(frame)
+        for i in range(bars):
+            h = 6 + int(24 * abs(math.sin(f * 0.9 + i * 1.7)))
+            x0 = bx + i * (bw + gap)
+            shade = 120 + int(120 * (h / 30))
+            d.rounded_rectangle([(x0, baseline - h), (x0 + bw, baseline)], radius=4,
+                                fill=(10, min(255, 120 + shade // 3), min(255, 150 + shade // 2)))
+        frames.append(frame.convert("RGB"))
+    buffer = io.BytesIO()
+    frames[0].save(buffer, format="GIF", save_all=True, append_images=frames[1:],
+                   duration=110, loop=0)
     buffer.seek(0)
     return buffer
 
