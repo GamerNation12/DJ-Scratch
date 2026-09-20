@@ -263,20 +263,21 @@ async def spotify_unlike_track(session: aiohttp.ClientSession, user_id: str, tra
         if resp.status in [200, 202, 204]: return True
         return await resp.text()
 
-async def search_spotify_track(session: aiohttp.ClientSession, query: str):
+async def search_spotify_tracks(session: aiohttp.ClientSession, query: str, limit: int = 5):
+    """Search tracks. Returns a list of normalized info dicts (may be empty)."""
     token = await get_spotify_token(session)
-    if not token: return None
-    
+    if not token: return []
+    limit = max(1, min(int(limit or 1), 20))
+
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"q": query, "type": "track", "limit": 1}
+    params = {"q": query, "type": "track", "limit": limit}
     try:
         async with session.get("https://api.spotify.com/v1/search", headers=headers, params=params, timeout=3.0) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                tracks = data.get("tracks", {}).get("items", [])
-                if tracks:
-                    track = tracks[0]
-                    return {
+                out = []
+                for track in (data.get("tracks", {}).get("items", []) or []):
+                    out.append({
                         "uri": track.get("uri"),
                         "id": track.get("id"),
                         "name": track.get("name"),
@@ -284,10 +285,16 @@ async def search_spotify_track(session: aiohttp.ClientSession, query: str):
                         "spotify_url": track.get("external_urls", {}).get("spotify"),
                         "album_name": track.get("album", {}).get("name"),
                         "album_images": track.get("album", {}).get("images", [])
-                    }
+                    })
+                return out
     except Exception as e:
         print(f"{Log.RED}>>> Failed to search Spotify track: {type(e).__name__}: {e}{Log.RESET}")
-    return None
+    return []
+
+
+async def search_spotify_track(session: aiohttp.ClientSession, query: str):
+    res = await search_spotify_tracks(session, query, limit=1)
+    return res[0] if res else None
 
 async def search_spotify_artist(session: aiohttp.ClientSession, artist_name: str):
     token = await get_spotify_token(session)
@@ -422,7 +429,8 @@ async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: s
                     "artists": [a.get("name") for a in track.get("artists", [])],
                     "spotify_url": track.get("external_urls", {}).get("spotify"),
                     "album_name": track.get("album", {}).get("name"),
-                    "album_images": track.get("album", {}).get("images", [])
+                    "album_images": track.get("album", {}).get("images", []),
+                    "is_playing": bool(data.get("is_playing")),
                 }
             elif resp.status == 204:
                 return None

@@ -9,11 +9,54 @@ from src.core.config import OWNER_ID
 from src.core.spotify import (
     spotify_play_track, spotify_pause_playback, spotify_skip_to_next,
     spotify_skip_to_previous, spotify_add_to_queue, spotify_like_track,
-    spotify_unlike_track, search_spotify_track, search_spotify_album,
-    search_spotify_artist_full, fetch_spotify_by_id, parse_spotify_url,
-    get_user_spotify_access_token, get_currently_playing_track,
-    get_spotify_queue, is_track_liked
+    spotify_unlike_track, search_spotify_track, search_spotify_tracks,
+    search_spotify_album, search_spotify_artist_full, fetch_spotify_by_id,
+    parse_spotify_url, get_user_spotify_access_token,
+    get_currently_playing_track, get_spotify_queue, is_track_liked
 )
+
+
+def _norm_link_name(s):
+    import re
+    s = (s or "").lower()
+    s = re.sub(r"\(.*?\)|\[.*?]", "", s)  # drop (remastered...), [explicit]
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _titles_overlap(a, b):
+    na, nb = _norm_link_name(a), _norm_link_name(b)
+    if not na or not nb or len(na) < 3 or len(nb) < 3:
+        return False
+    return na == nb or na in nb or nb in na
+
+
+def _artist_agrees(want_artist, got_artists):
+    import re
+    wa = _norm_link_name(want_artist)
+    if not wa:
+        return False
+    for g in got_artists or []:
+        ng = _norm_link_name(g)
+        if not ng:
+            continue
+        sa, sb = re.sub(r"^the\s+", "", wa), re.sub(r"^the\s+", "", ng)
+        if sa and sa == sb:
+            return True
+        if len(wa) >= 4 and len(ng) >= 4 and (wa in ng or ng in wa):
+            return True
+    return False
+
+
+def _best_track_match(results, song, artist):
+    """First Spotify result that is actually the same song by the same artist.
+
+    Bare ,sp resolves your current track via search — without this, a fuzzy
+    top hit for a different song gets embedded as if it were yours.
+    """
+    for info in results or []:
+        if _titles_overlap(song, info.get("name")) and _artist_agrees(artist, info.get("artists")):
+            return info
+    return None
 
 
 def _link_required_embed(user_id):
@@ -463,9 +506,13 @@ class SpotifyRemote(commands.Cog):
                     return self._link_embed("track", current)
                 if not song:
                     return discord.Embed(color=0xFF0000, description="❌ Nothing is playing — give me a track to look up. (Link Last.fm with `,login` for automatic detection.)")
-                info = await search_spotify_track(session, f"{song} {artist or ''}".strip())
+                # Resolve via search, but only accept a result that is actually
+                # the same song by the same artist — blind top hits embed
+                # never-played tracks as if they were yours.
+                results = await search_spotify_tracks(session, f"{song} {artist or ''}".strip(), limit=10)
+                info = _best_track_match(results, song, artist)
                 if not info:
-                    return discord.Embed(color=0xFF0000, description="❌ Could not find that track on Spotify.")
+                    return discord.Embed(color=0xFF0000, description=f"❌ Couldn't find **{song}** by **{artist or 'Unknown Artist'}** on Spotify — closest results didn't match.")
                 return self._link_embed("track", info)
             if want == "album":
                 if not album:

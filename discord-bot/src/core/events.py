@@ -19,12 +19,6 @@ BOOT_T0 = time.monotonic()
 
 FM_TRACK_CACHE = {}
 
-# If Last.fm still flags a track as now-playing while the newest *finished*
-# scrobble ended longer ago than this, the flag is ambiguous: either frozen
-# scrobbling or the first song of a fresh session. Ambiguous cases ask
-# Spotify (when linked); unknown defaults to trusting the flag.
-NOWPLAYING_STALE_AFTER_SEC = 3 * 3600
-
 # A single track can't play forever: if the same (user, track) claims
 # now-playing for longer than this, the flag is frozen — no Spotify needed.
 NP_MAX_ALIVE_SEC = 90 * 60
@@ -52,11 +46,15 @@ def np_session_alive(user_id, artist, song) -> bool:
     return (now - first) <= NP_MAX_ALIVE_SEC
 
 
-async def spotify_match_now_playing(session, user_id, artist, song):
-    """Compare Spotify's current item with the Last.fm track.
+async def spotify_refutes_now_playing(session, user_id, artist, song):
+    """True if linked Spotify is actively playing a DIFFERENT track than the
+    Last.fm nowplaying claim (stale/frozen Last.fm flag, scrobbler lag).
 
-    Returns True (same session), False (different track playing) or
-    None (unknown — unlinked, offline, or lookup failed).
+    False if Spotify agrees. None when unknown — unlinked, nothing playing,
+    paused, or errors — in which case the Last.fm flag is trusted.
+
+    A paused Spotify session proves nothing (the user may be listening
+    elsewhere), so only an actively-playing mismatch refutes.
     """
     try:
         from src.core.spotify import get_currently_playing_track
@@ -64,6 +62,8 @@ async def spotify_match_now_playing(session, user_id, artist, song):
             return None
         cur = await get_currently_playing_track(session, str(user_id))
         if not cur or cur == "no_token":
+            return None
+        if not cur.get("is_playing"):
             return None
         import re
         norm = lambda s: re.sub(r'\s+', ' ', (s or '').lower()).strip()
@@ -74,7 +74,7 @@ async def spotify_match_now_playing(session, user_id, artist, song):
             return None
         song_hit = s_song in l_song or l_song in s_song
         art_hit = bool(l_artist) and any(l_artist in a or a in l_artist for a in s_artists)
-        return bool(song_hit and art_hit)
+        return not bool(song_hit and art_hit)
     except Exception:
         return None
 
@@ -2871,16 +2871,14 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         live = is_p
         if live and not np_session_alive(user.id, raw_artist, raw_song):
             live = False
-        if live and is_p and len(tracks) > 1:
+        if live and is_p and not from_lb:
+            # Last.fm nowplaying flags stick (scrobbler lag, frozen flag)
+            # while the user moved on. A linked Spotify that's actively
+            # playing something else proves staleness — word as "was".
+            # Paused/unknown Spotify trusts the Last.fm flag.
             try:
-                import time as _time
-                prev_uts = int((tracks[1].get('date') or {}).get('uts', 0) or 0)
-                if prev_uts and _time.time() - prev_uts > NOWPLAYING_STALE_AFTER_SEC:
-                    # Ambiguous: frozen flag or first song of a fresh session.
-                    # Spotify breaks the tie when linked; otherwise trust flag.
-                    confirmed = await spotify_match_now_playing(session, user.id, raw_artist, raw_song)
-                    if confirmed is False:
-                        live = False
+                if await spotify_refutes_now_playing(session, user.id, raw_artist, raw_song):
+                    live = False
             except Exception:
                 pass
         if is_cached and live and username:
