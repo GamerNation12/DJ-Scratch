@@ -4361,7 +4361,8 @@ async def process_share(user):
         f"🔗 {profile_url}\n\n"
         f"**Invite link (earn badges together):**\n🎁 {invite_url}\n"
         f"*When a friend opens your invite link and links Last.fm, "
-        f"you get 📣 **Recruiter** and they get 💫 **Referred**.*"
+        f"you get 📣 **Recruiter** and they get 💫 **Referred**.*\n"
+        f"*Want it as an image? Try `,musiccard`.*"
     )
     embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
     embed.set_author(name=f"Share {format_name(user)}'s profile")

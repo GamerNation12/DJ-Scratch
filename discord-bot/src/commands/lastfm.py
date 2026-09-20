@@ -1235,6 +1235,98 @@ class LastFmCog(commands.Cog):
         embed, view = await self._badges_result(ctx.author)
         await self._reply_and_delete(ctx, embed=embed, view=view)
 
+    async def _music_card_result(self, user):
+        """Builds (discord.File, share_text) or (None, error_embed)."""
+        from src.core.events import get_lastfm_username
+        from src.utils.api import fetch_now_playing, fetch_top_artists, fetch_user_profile
+        from src.utils.image_generator import generate_music_card
+        from src.core.database import get_or_create_referral_code, get_user_badges, REFERRAL_BADGES
+        from src.core.database import format_name
+        import urllib.parse
+
+        username = await get_lastfm_username(user.id)
+        if not username:
+            return None, Theme.get_error_embed(description="Link Last.fm first with `/login` — the music card shows your stats!")
+
+        data = await fetch_now_playing(username, 2)
+        tracks = ((data or {}).get("recenttracks") or {}).get("track") or []
+        if not tracks:
+            return None, Theme.get_error_embed(description="Could not find recent tracks.")
+        t = tracks[0]
+        artist = (t.get("artist") or {}).get("#text", "")
+        song = t.get("name", "")
+        album = (t.get("album") or {}).get("#text", "")
+        images = t.get("image") or []
+        img = images[-1].get("#text", "") if images else ""
+        is_p = isinstance(t.get("@attr"), dict) and t["@attr"].get("nowplaying") == "true"
+
+        try:
+            prof = await fetch_user_profile(username)
+            total_plays = int(((prof or {}).get("user") or {}).get("playcount") or 0)
+        except Exception:
+            total_plays = 0
+        top_artist, top_plays = "", 0
+        try:
+            top_data = await fetch_top_artists(username, "7day", 1)
+            top_list = ((top_data or {}).get("topartists") or {}).get("artist") or []
+            if top_list:
+                top_artist = top_list[0].get("name", "")
+                try:
+                    top_plays = int(top_list[0].get("playcount") or 0)
+                except Exception:
+                    top_plays = 0
+        except Exception:
+            pass
+
+        try:
+            code = await get_or_create_referral_code(user.id)
+        except Exception:
+            code = None
+        safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
+        invite_url = f"https://dj-scratch.vercel.app/{safe_name}?ref={code}" if code else ""
+        try:
+            badge_names = [REFERRAL_BADGES[b][1] for b in await get_user_badges(user.id) if b in REFERRAL_BADGES]
+        except Exception:
+            badge_names = []
+
+        try:
+            buf = await generate_music_card(
+                self.bot.session,
+                display_name=format_name(user),
+                lastfm_username=username,
+                badge_names=badge_names,
+                track_title=song, track_artist=artist, track_album=album,
+                art_url=img, is_playing=is_p,
+                top_artist=top_artist, top_artist_plays=top_plays,
+                total_plays=total_plays, invite_url=invite_url,
+            )
+        except Exception as e:
+            return None, Theme.get_error_embed(description=f"Couldn't render the card: {e}")
+        file = discord.File(buf, filename="musiccard.jpg")
+        text = f"🎵 **{format_name(user)}'s music card** — share it around!"
+        if invite_url:
+            text += f"\nJoin through my invite and we BOTH earn a badge: {invite_url}"
+        return (file, text), None
+
+    @commands.command(name="musiccard", aliases=["mcard", "mycard", "card"])
+    async def musiccard_prefix(self, ctx):
+        result, err = await self._music_card_result(ctx.author)
+        if err:
+            return await self._reply_and_delete(ctx, embed=err)
+        file, text = result
+        await self._reply_and_delete(ctx, content=text, file=file)
+
+    @app_commands.command(name="musiccard", description="Generate a shareable music stats card")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def musiccard_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        result, err = await self._music_card_result(interaction.user)
+        if err:
+            return await interaction.followup.send(embed=err)
+        file, text = result
+        await interaction.followup.send(content=text, file=file)
+
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
         if not suggestion:
