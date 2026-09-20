@@ -22,7 +22,9 @@ async def memory_monitor():
         mem_mb = process.memory_info().rss / 1024 / 1024
         
         # If the bot itself is using more than 500MB, auto-restart to prevent OOM
-        if mem_mb >= 500.0:
+        # (120MB on small 128MB hosts — a clean restart beats the host SIGKILL).
+        limit_mb = 120.0 if os.getenv("SMALL_HOST", "1") == "1" else 500.0
+        if mem_mb >= limit_mb:
             print(f"CRITICAL: Bot RAM usage is high ({mem_mb:.1f} MB). Auto-restarting...")
             try:
                 from src.core.config import OWNER_ID

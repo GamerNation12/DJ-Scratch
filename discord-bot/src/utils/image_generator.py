@@ -104,6 +104,7 @@ async def generate_music_card(
     track_album: str = "",
     track_plays: int = 0,
     art_url: str = "",
+    avatar_url: str = "",
     is_playing: bool = False,
     top_artist: str = "",
     top_artist_plays: int = 0,
@@ -116,19 +117,20 @@ async def generate_music_card(
     invite_url: str = "",
     animated: bool = True,
 ) -> io.BytesIO:
-    """Shareable stats music card (1000x680; GIF when playing, JPEG when not).
+    """Shareable stats music card (1000x720; GIF when playing, JPEG when not).
 
-    Wrapped-style: blurred album-art backdrop, rounded art thumb, track
-    spotlight, 7-day stats grid. The playing version loops a cheap equalizer
-    animation (frames share one base render). Purely visual — the clickable
-    invite link travels in the message content, since images can't carry links.
+    Ground-up pro UI: blurred art backdrop with gradient, glass stat chips,
+    status pill, avatar, rounded art. The playing
+    version loops a cheap equalizer (frames share one base render). Purely
+    visual — the clickable invite link travels in the message content.
     """
-    W, H = 1000, 680
+    W, H = 1000, 720
     ACCENT = (10, 181, 205)
     WHITE = (245, 245, 245)
-    GRAY = (185, 185, 195)
-    DIM = (140, 140, 150)
+    GRAY = (190, 190, 200)
+    DIM = (150, 150, 160)
     GOLD = (241, 196, 15)
+    INK = (10, 12, 16)
 
     def _fonts():
         return {
@@ -138,29 +140,44 @@ async def generate_music_card(
             "handle": _load_font("", 26),
             "badges": _load_font("", 22),
             "label": _load_font_bold(20),
-            "title": _load_font_bold(34),
+            "pill": _load_font_bold(19),
+            "title": _load_font_bold(36),
             "artist": _load_font("", 28),
             "album": _load_font("", 24),
             "plays": _load_font_bold(22),
-            "stat_val": _load_font_bold(25),
-            "stat_name": _load_font("", 22),
+            "chip_label": _load_font_bold(17),
+            "chip_val": _load_font_bold(23),
+            "chip_sub": _load_font("", 19),
             "invite": _load_font("", 21),
             "footer": _load_font("", 19),
         }
 
     fonts = await asyncio.to_thread(_fonts)
 
-    # Artwork: full-size for the blurred backdrop, thumb for the spotlight.
+    # Artwork: backdrop + thumb. Avatar: header identity.
     try:
         art_full = await download_image(session, art_url)
         art_full = art_full.convert("RGB")
     except Exception:
         art_full = Image.new("RGB", (400, 400), color=(34, 34, 40))
+    try:
+        avatar = await download_image(session, avatar_url) if avatar_url else None
+        if avatar is not None:
+            avatar = avatar.convert("RGB").resize((104, 104), Image.Resampling.LANCZOS)
+    except Exception:
+        avatar = None
 
     def _base() -> Image.Image:
-        bg = art_full.resize((W, H), Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(28))
-        black = Image.new("RGB", (W, H), color=(8, 8, 12))
-        card = Image.blend(bg, black, 0.68)
+        bg = art_full.resize((W, H), Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(30))
+        card = Image.blend(bg, Image.new("RGB", (W, H), color=(8, 8, 12)), 0.55)
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        od = ImageDraw.Draw(ov)
+        for yy in range(H):
+            od.line([(0, yy), (W, yy)], fill=(5, 5, 10, int(60 + 115 * yy / H)))
+        for bx0 in (48, 275, 502, 729):
+            od.rounded_rectangle([(bx0, 492), (bx0 + 211, 596)], radius=18,
+                                 fill=(255, 255, 255, 16), outline=(255, 255, 255, 30), width=2)
+        card = Image.alpha_composite(card.convert("RGBA"), ov).convert("RGB")
         d = ImageDraw.Draw(card)
         d.rectangle([(0, 0), (12, H)], fill=ACCENT)
         return card
@@ -170,6 +187,11 @@ async def generate_music_card(
         ImageDraw.Draw(mask).rounded_rectangle([(0, 0), mask.size], radius=radius, fill=255)
         base.paste(img, box[:2], mask)
 
+    def _circle_paste(base: Image.Image, img: Image.Image, xy, diameter: int):
+        mask = Image.new("L", (diameter, diameter), 0)
+        ImageDraw.Draw(mask).ellipse([(0, 0), (diameter, diameter)], fill=255)
+        base.paste(img, xy, mask)
+
     def _right(d: ImageDraw.ImageDraw, x_right: int, y: int, text: str, font, fill):
         try:
             w = d.textlength(text, font=font)
@@ -178,87 +200,98 @@ async def generate_music_card(
         d.text((x_right - w, y), text, font=font, fill=fill)
 
     card = await asyncio.to_thread(_base)
-    thumb = art_full.resize((280, 280), Image.Resampling.LANCZOS)
-    await asyncio.to_thread(_round_paste, card, thumb, (52, 218, 332, 498), 26)
+    if avatar is not None:
+        await asyncio.to_thread(_circle_paste, card, avatar, (48, 40), 104)
+    thumb = art_full.resize((260, 260), Image.Resampling.LANCZOS)
+    await asyncio.to_thread(_round_paste, card, thumb, (48, 204, 308, 464), 28)
     draw = ImageDraw.Draw(card)
 
-    x = 366
+    x = 340
     right = W - 48
     max_px = right - x
 
-    # Header (name auto-fits; total top-right; brand tucks underneath it).
-    name_max = max_px - (200 if total_plays else 0)
+    # Header.
+    nx = 168 if avatar is not None else 48
+    name_max = (right - nx) - (200 if total_plays else 0)
     name_font = _autofit_name(draw, display_name or "Unknown", name_max)
-    draw.text((x, 34), display_name or "Unknown", font=name_font, fill=WHITE)
-    hy = 100
+    draw.text((nx, 44), display_name or "Unknown", font=name_font, fill=WHITE)
+    hy = 108
     if lastfm_username:
-        draw.text((x, hy), _fit_text(draw, f"@{lastfm_username}", fonts["handle"], max_px), font=fonts["handle"], fill=GRAY)
+        draw.text((nx, hy), _fit_text(draw, f"@{lastfm_username}", fonts["handle"], right - nx), font=fonts["handle"], fill=GRAY)
         hy += 36
     if badge_names:
-        draw.text((x, hy), _fit_text(draw, "  •  ".join(badge_names), fonts["badges"], max_px), font=fonts["badges"], fill=GOLD)
+        draw.text((nx, hy), _fit_text(draw, "  •  ".join(badge_names), fonts["badges"], right - nx), font=fonts["badges"], fill=GOLD)
     if total_plays:
         _right(draw, right, 44, f"{total_plays:,}", fonts["total"], WHITE)
         _right(draw, right, 86, "SCROBBLES", fonts["total_label"], DIM)
         _right(draw, right, 112, "DJ SCRATCH", fonts["footer"], ACCENT)
 
-    # Track spotlight.
-    ty = 218
-    draw.text((x, ty), "NOW PLAYING" if is_playing else "LAST PLAYED", font=fonts["label"], fill=ACCENT if is_playing else DIM)
+    # Divider.
+    draw.line([(48, 178), (right, 178)], fill=(255, 255, 255, 28), width=2)
+
+    # Track spotlight with status pill.
+    pill_text = "NOW PLAYING" if is_playing else "LAST PLAYED"
+    try:
+        pill_w = draw.textlength(pill_text, font=fonts["pill"])
+    except Exception:
+        pill_w = 150
+    py, ph = 204, 32
+    if is_playing:
+        draw.rounded_rectangle([(x, py), (x + pill_w + 40, py + ph)], radius=16, fill=ACCENT)
+        draw.text((x + 20, py + 5), pill_text, font=fonts["pill"], fill=INK)
+        eq_x, eq_base = x + pill_w + 56, py + 27
+    else:
+        draw.rounded_rectangle([(x, py), (x + pill_w + 40, py + ph)], radius=16, outline=DIM, width=2)
+        draw.text((x + 20, py + 5), pill_text, font=fonts["pill"], fill=DIM)
+        eq_x = eq_base = 0
     title_lines = _wrap_text(draw, _strip_feat(track_title) or track_title, fonts["title"], max_px, 2)
-    ty += 30
+    ty = py + 44
     for line in title_lines or [_fit_text(draw, track_title or "Unknown track", fonts["title"], max_px)]:
         draw.text((x, ty), line, font=fonts["title"], fill=WHITE)
-        ty += 40
-    draw.text((x, ty + 4), _fit_text(draw, track_artist or "Unknown artist", fonts["artist"], max_px), font=fonts["artist"], fill=GRAY)
-    ty += 42
+        ty += 42
+    draw.text((x, ty + 2), _fit_text(draw, track_artist or "Unknown artist", fonts["artist"], max_px), font=fonts["artist"], fill=GRAY)
+    ty += 40
     if track_album:
         draw.text((x, ty), _fit_text(draw, track_album, fonts["album"], max_px), font=fonts["album"], fill=DIM)
-        ty += 34
+        ty += 32
     if track_plays:
         draw.text((x, ty), f"My plays  {track_plays:,}", font=fonts["plays"], fill=ACCENT)
 
-    # 7-day stats grid (2 x 2).
-    stats = [
+    # Glass stat chips.
+    chips = [
         ("TOP TRACK", top_track, top_track_plays),
         ("TOP ARTIST", top_artist, top_artist_plays),
         ("TOP ALBUM", top_album, top_album_plays),
-        ("LAST 24H", f"{plays_24h:,} plays" if plays_24h or plays_24h == 0 else "", 0),
+        ("LAST 24H", "", 0),
     ]
-    col_x = (52, 520)
-    row_y = (500, 556)
-    for i, (label, name, plays) in enumerate(stats):
-        cx, cy = col_x[i % 2], row_y[i // 2]
-        cw = 440
-        draw.text((cx, cy), label, font=fonts["label"], fill=DIM)
+    for i, (label, name, plays) in enumerate(chips):
+        cx = (48, 275, 502, 729)[i]
+        draw.text((cx + 18, 504), label, font=fonts["chip_label"], fill=DIM)
         if i == 3:
-            draw.text((cx, cy + 24), name, font=fonts["stat_val"], fill=WHITE)
+            draw.text((cx + 18, 528), f"{plays_24h:,}", font=fonts["chip_val"], fill=WHITE)
+            draw.text((cx + 18, 556), "plays", font=fonts["chip_sub"], fill=GRAY)
         else:
-            val = f"{name} — {plays:,} plays" if name and plays else (name or "—")
-            draw.text((cx, cy + 24), _fit_text(draw, val, fonts["stat_val"], cw), font=fonts["stat_val"], fill=WHITE)
+            val = name or "—"
+            draw.text((cx + 18, 528), _fit_text(draw, val, fonts["chip_val"], 175), font=fonts["chip_val"], fill=WHITE)
+            draw.text((cx + 18, 556), f"{plays:,} plays" if plays else "this week", font=fonts["chip_sub"], fill=GRAY)
 
-    # Invite footer on its own two lines (visual only — clickable link goes
-    # in the message). Never truncated mid-code: full-width smaller text.
+    # Invite footer (visual only — clickable link goes in the message).
     if invite_url:
         short = invite_url.replace("https://", "")
         draw.text((52, H - 68), "JOIN WITH MY INVITE — WE BOTH EARN A BADGE", font=fonts["label"], fill=ACCENT)
         draw.text((52, H - 42), _fit_text(draw, short, fonts["invite"], W - 104), font=fonts["invite"], fill=WHITE)
 
-    if animated and is_playing:
-        return _animate_card(card, draw, fonts, x)
+    if animated and is_playing and eq_x:
+        return _animate_card(card, eq_x, eq_base)
     buffer = io.BytesIO()
     card.save(buffer, format="JPEG", quality=88)
     buffer.seek(0)
     return buffer
 
 
-def _animate_card(base: Image.Image, draw: ImageDraw.ImageDraw, fonts: dict, x: int) -> io.BytesIO:
-    """Loop a small equalizer next to NOW PLAYING. Frames share one base."""
+def _animate_card(base: Image.Image, eq_x: int, eq_base: int) -> io.BytesIO:
+    """Loop a small equalizer by the status pill. Frames share one base."""
     import math
-    try:
-        label_w = draw.textlength("NOW PLAYING", font=fonts["label"])
-    except Exception:
-        label_w = 150
-    bx, baseline = x + int(label_w) + 18, 218 + 22
     bars, gap, bw = 5, 7, 9
     frames = []
     for f in range(10):
@@ -266,9 +299,9 @@ def _animate_card(base: Image.Image, draw: ImageDraw.ImageDraw, fonts: dict, x: 
         d = ImageDraw.Draw(frame)
         for i in range(bars):
             h = 6 + int(24 * abs(math.sin(f * 0.9 + i * 1.7)))
-            x0 = bx + i * (bw + gap)
+            x0 = eq_x + i * (bw + gap)
             shade = 120 + int(120 * (h / 30))
-            d.rounded_rectangle([(x0, baseline - h), (x0 + bw, baseline)], radius=4,
+            d.rounded_rectangle([(x0, eq_base - h), (x0 + bw, eq_base)], radius=4,
                                 fill=(10, min(255, 120 + shade // 3), min(255, 150 + shade // 2)))
         frames.append(frame.convert("RGB"))
     buffer = io.BytesIO()

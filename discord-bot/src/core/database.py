@@ -25,7 +25,7 @@ def _bundle_get(uid: str):
 
 def _bundle_set(uid: str, bundle: dict):
     _USER_BUNDLE_CACHE[uid] = (bundle, _time.monotonic() + _USER_BUNDLE_TTL)
-    if len(_USER_BUNDLE_CACHE) > 5000:
+    if len(_USER_BUNDLE_CACHE) > 1500:
         _USER_BUNDLE_CACHE.pop(next(iter(_USER_BUNDLE_CACHE)))
 
 

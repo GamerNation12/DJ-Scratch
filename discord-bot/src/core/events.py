@@ -327,7 +327,7 @@ def _should_touch(user_id, kind="activity", ttl=_TOUCH_TTL):
     if now - _TOUCH_STAMPS.get(key, 0.0) < ttl:
         return False
     _TOUCH_STAMPS[key] = now
-    if len(_TOUCH_STAMPS) > 20000:
+    if len(_TOUCH_STAMPS) > 5000:
         cutoff = now - ttl
         for k in [k for k, v in _TOUCH_STAMPS.items() if v < cutoff]:
             _TOUCH_STAMPS.pop(k, None)
@@ -2289,8 +2289,8 @@ class FMActionsView(discord.ui.View):
                 FM_TRACK_CACHE[unique_id] = track_data
             else:
                 FM_TRACK_CACHE[unique_id] = track_data
-            if len(FM_TRACK_CACHE) > 1000:
-                for k in list(FM_TRACK_CACHE.keys())[:100]:
+            if len(FM_TRACK_CACHE) > 200:
+                for k in list(FM_TRACK_CACHE.keys())[:40]:
                     FM_TRACK_CACHE.pop(k, None)
             # Durable copy: up/down buttons on this message keep working
             # after a bot restart (memory cache alone would be wiped).
@@ -2646,7 +2646,7 @@ async def apply_features(session, artist, song, s_artists=None, s_track_name=Non
 
     def _store(result):
         _FEATURES_CACHE[cache_key] = (result, now + _FEATURES_TTL)
-        if len(_FEATURES_CACHE) > 2000:
+        if len(_FEATURES_CACHE) > 500:
             _FEATURES_CACHE.pop(next(iter(_FEATURES_CACHE)))
         return result
 

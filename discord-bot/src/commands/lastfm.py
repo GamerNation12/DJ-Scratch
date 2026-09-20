@@ -1347,17 +1347,18 @@ class LastFmCog(commands.Cog):
                 badge_names=badge_names,
                 track_title=song, track_artist=artist, track_album=album,
                 track_plays=track_plays,
-                art_url=img, is_playing=is_p,
+                art_url=img, avatar_url=str(user.display_avatar.url), is_playing=is_p,
                 top_artist=top_artist, top_artist_plays=top_artist_plays,
                 top_track=top_track, top_track_plays=top_track_plays,
                 top_album=top_album, top_album_plays=top_album_plays,
                 plays_24h=plays_24h,
                 total_plays=total_plays, invite_url=invite_url,
+                animated=False,
             )
         except Exception as e:
             return None, Theme.get_error_embed(description=f"Couldn't render the card: {e}")
         # Animated GIF while playing, still JPEG otherwise.
-        file = discord.File(buf, filename="musiccard.gif" if is_p else "musiccard.jpg")
+        file = discord.File(buf, filename="musiccard.jpg")
         text = f"🎵 **{format_name(user)}'s music card** — share it around!"
         if invite_url:
             # Angle brackets suppress Discord's link-preview embed.

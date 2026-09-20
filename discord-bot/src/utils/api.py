@@ -25,9 +25,9 @@ def _cache_get(url):
 
 def _cache_set(url, data, ttl=300):
     _API_CACHE[url] = (data, time.monotonic() + ttl)
-    if len(_API_CACHE) > 2000:
+    if len(_API_CACHE) > 300:
         # evict oldest-ish entries
-        for k in list(_API_CACHE.keys())[:200]:
+        for k in list(_API_CACHE.keys())[:60]:
             _API_CACHE.pop(k, None)
 
 
