@@ -900,11 +900,49 @@ async def setup_hook():
                     "CREATE INDEX IF NOT EXISTS idx_listens_track ON listens (track_id)",
                     "CREATE INDEX IF NOT EXISTS idx_tracks_names ON tracks (artist_name, track_name, album_name)",
                     "CREATE INDEX IF NOT EXISTS idx_server_crowns_guild ON server_crowns (guild_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_referral_clicks_sharer ON referral_clicks (sharer_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_referral_clicks_friend ON referral_clicks (friend_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges (user_id)",
                 ):
                     try:
                         await conn.execute(_idx_sql)
                     except Exception:
                         pass
+
+                # Referrals + badges (shareable music cards: friend clicks your
+                # ?ref= link, links Last.fm, you BOTH earn a badge).
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS referral_codes (
+                        user_id VARCHAR(255) PRIMARY KEY,
+                        code VARCHAR(32) UNIQUE NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS referral_clicks (
+                        id SERIAL PRIMARY KEY,
+                        code VARCHAR(32) NOT NULL,
+                        sharer_id VARCHAR(255) NOT NULL,
+                        friend_id VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        rewarded_at TIMESTAMP WITH TIME ZONE,
+                        UNIQUE (code, friend_id)
+                    )
+                    """
+                )
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS user_badges (
+                        user_id VARCHAR(255) NOT NULL,
+                        badge VARCHAR(64) NOT NULL,
+                        awarded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (user_id, badge)
+                    )
+                    """
+                )
 
                 # One-time migration
                 if os.path.exists("lastfm_users.json"):
@@ -2901,6 +2939,12 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
         user_color = await get_color(user.id)
         color = user_color if live else discord.Color.dark_gray()
+        # Earned referral badges render next to the display name.
+        try:
+            from src.core.database import badge_suffix
+            dname = f"{format_name(user)}{await badge_suffix(user.id)}"
+        except Exception:
+            dname = format_name(user)
 
         if is_p:
             cd = await get_avatar_cooldown()
@@ -2910,9 +2954,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
         if mode == "compact":
             if live:
-                content = f"<a:movingnotes:1476084305229910159> **{format_name(user)}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content = f"<a:movingnotes:1476084305229910159> **{dname}** is listening to **[{song}](<{track_url}>)** by **{artist}**"
             else:
-                content = f"🎧 **{format_name(user)}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
+                content = f"🎧 **{dname}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
                 # Frozen hint only on fresh sends — re-rendered old messages
                 # stay clean. Never for ListenBrainz (Last.fm-only concept).
                 if not is_cached and not from_lb:
@@ -2927,7 +2971,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             
             desc = chr(10).join(desc_lines)
             embed = Theme.get_embed(description=desc, color=color)
-            embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
+            embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
             footer_text = scrobbler_label if from_lb else f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
@@ -2960,7 +3004,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     desc_lines.append(f"\n🔢 **{track_plays}** plays")
 
             embed = Theme.get_embed(description=chr(10).join(desc_lines), color=color)
-            embed.set_author(name=f"Now playing for {format_name(user)}" if live else f"Last played by {format_name(user)}")
+            embed.set_author(name=f"Now playing for {dname}" if live else f"Last played by {dname}")
             if img: embed.set_thumbnail(url=img)
             
             a_info_task = asyncio.create_task(fetch_artist_info(username, raw_artist)) if username else None
@@ -3072,7 +3116,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 
         desc = chr(10).join(desc_lines)
         embed = Theme.get_embed(description=desc, color=color)
-        embed.set_author(name=f"{format_name(user)}'s {status}", icon_url=user.display_avatar.url)
+        embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
         if not live and not is_cached and not from_lb:
@@ -3710,7 +3754,22 @@ async def process_profile(user):
     view = None
 
     embed = Theme.get_embed(color=LASTFM_COLOR)
-    embed.set_author(name=f"{format_name(user)}'s Profile", icon_url=user.display_avatar.url)
+    try:
+        from src.core.database import badge_suffix
+        _dname = f"{format_name(user)}{await badge_suffix(user.id)}"
+    except Exception:
+        _dname = format_name(user)
+    embed.set_author(name=f"{_dname}'s Profile", icon_url=user.display_avatar.url)
+    try:
+        from src.core.database import get_user_badges, REFERRAL_BADGES
+        _ub = await get_user_badges(user.id)
+        if _ub:
+            _blines = "\n".join(
+                f"{REFERRAL_BADGES[b][0]} **{REFERRAL_BADGES[b][1]}** — {REFERRAL_BADGES[b][2]}"
+                for b in _ub if b in REFERRAL_BADGES)
+            embed.add_field(name="🏅 Badges", value=_blines, inline=False)
+    except Exception:
+        pass
 
     if username:
         data = await fetch_user_profile(username)
@@ -4268,24 +4327,49 @@ async def process_insights(user):
     return embed, None
 
 async def process_share(user):
-    """Shareable DJ Scratch profile link card."""
+    """Shareable DJ Scratch profile link card (+ referral invite link).
+
+    Your link carries ?ref=CODE: when a friend opens it and links Last.fm,
+    you BOTH earn a badge (📣 Recruiter for you, 💫 Referred for them).
+    """
+    from src.core.database import get_or_create_referral_code, get_referral_stats
     username = await get_lastfm_username(user.id)
     safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
     profile_url = f"https://dj-scratch.vercel.app/{safe_name}"
+    try:
+        code = await get_or_create_referral_code(user.id)
+    except Exception:
+        code = None
+    invite_url = f"{profile_url}?ref={code}" if code else profile_url
+    try:
+        stats = await get_referral_stats(user.id)
+    except Exception:
+        stats = {"clicks": 0, "completed": 0}
 
     class ShareLinksView(discord.ui.View):
         def __init__(self):
             super().__init__(timeout=None)
             self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=profile_url))
+            if code:
+                self.add_item(discord.ui.Button(label="Copy Invite Link", style=discord.ButtonStyle.link, url=invite_url))
             if username:
                 self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=f"https://www.last.fm/user/{username}"))
 
     desc = (
         f"Send your friends here to see your stats, tops and recents:\n\n"
-        f"🔗 {profile_url}"
+        f"🔗 {profile_url}\n\n"
+        f"**Invite link (earn badges together):**\n🎁 {invite_url}\n"
+        f"*When a friend opens your invite link and links Last.fm, "
+        f"you get 📣 **Recruiter** and they get 💫 **Referred**.*"
     )
     embed = Theme.get_embed(description=desc, color=LASTFM_COLOR)
     embed.set_author(name=f"Share {format_name(user)}'s profile")
+    if stats.get("completed") or stats.get("clicks"):
+        embed.add_field(
+            name="📨 Your invites",
+            value=f"**{stats.get('completed', 0)}** joined • **{stats.get('clicks', 0)}** clicked",
+            inline=False,
+        )
     return embed, ShareLinksView()
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:

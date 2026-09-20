@@ -249,6 +249,49 @@ class AdminIPC(commands.Cog):
                     embed.add_field(name="Details", value=row['details'] or "None", inline=False)
                     
                     await log_to_channel("website-log", embed)
+
+                # Referral rewards: friends who clicked a ?ref= link and have
+                # since linked Last.fm earn badges for BOTH sides (self-healing
+                # sweep — unlinked friends are retried on later polls).
+                try:
+                    from src.core.database import process_pending_referrals, REFERRAL_BADGES
+                    for sharer_id, friend_id, friend_new, sharer_new in await process_pending_referrals():
+                        try:
+                            if friend_new:
+                                fnames = ", ".join(f"{REFERRAL_BADGES[b][0]} {REFERRAL_BADGES[b][1]}" for b in friend_new)
+                                try:
+                                    friend_u = await self.bot.fetch_user(int(friend_id))
+                                    if friend_u:
+                                        await friend_u.send(f"💫 You earned {fnames} for joining DJ Scratch through a friend's invite link!")
+                                except Exception:
+                                    pass
+                            if sharer_new:
+                                snames = ", ".join(f"{REFERRAL_BADGES[b][0]} {REFERRAL_BADGES[b][1]}" for b in sharer_new)
+                                try:
+                                    sharer_u = await self.bot.fetch_user(int(sharer_id))
+                                    if sharer_u:
+                                        await sharer_u.send(f"🎉 A friend joined through your invite link! You earned {snames}.")
+                                except Exception:
+                                    pass
+                            info = discord.Embed(
+                                title="🎁 Referral Completed",
+                                description=f"<@{sharer_id}> invited <@{friend_id}> (`{sharer_id}` → `{friend_id}`)",
+                                color=discord.Color.gold(),
+                            )
+                            if friend_new or sharer_new:
+                                info.add_field(
+                                    name="Badges",
+                                    value=" • ".join(
+                                        [f"<@{friend_id}>: {', '.join(friend_new)}" if friend_new else "",
+                                         f"<@{sharer_id}>: {', '.join(sharer_new)}" if sharer_new else ""]
+                                    ) or "—",
+                                    inline=False,
+                                )
+                            await log_to_channel("website-log", info)
+                        except Exception:
+                            pass
+                except Exception as e:
+                    print(f"[IPC] Referral sweep error: {e}")
                     
         except Exception as e:
             print(f"[IPC] Website logs poll error: {e}")

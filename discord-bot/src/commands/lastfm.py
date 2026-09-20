@@ -687,6 +687,13 @@ class LastFmCog(commands.Cog):
         else:
             await interaction.followup.send(embed=embed)
 
+    @app_commands.command(name="badges", description="Showcase your earned badges")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def badges_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await interaction.followup.send(embed=await self._badges_embed(interaction.user))
+
     @app_commands.command(name="suggest", description="Send a suggestion directly to the developer")
     @app_commands.describe(suggestion="Your idea or feedback for the bot")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -1166,6 +1173,33 @@ class LastFmCog(commands.Cog):
             await self._reply_and_delete(ctx, embed=embed, view=view)
         else:
             await self._reply_and_delete(ctx, embed=embed)
+
+    async def _badges_embed(self, user):
+        from src.core.database import get_user_badges, get_referral_stats, REFERRAL_BADGES, REFERRAL_BADGE_ORDER
+        from src.core.database import format_name
+        badges = await get_user_badges(user.id)
+        stats = await get_referral_stats(user.id)
+        if badges:
+            lines = "\n".join(
+                f"{REFERRAL_BADGES[b][0]} **{REFERRAL_BADGES[b][1]}** — {REFERRAL_BADGES[b][2]}"
+                for b in badges if b in REFERRAL_BADGES)
+        else:
+            lines = "*No badges yet.*"
+        locked = [b for b in REFERRAL_BADGE_ORDER if b not in badges and b in REFERRAL_BADGES]
+        desc = f"{lines}"
+        if locked:
+            desc += "\n\n**Locked:**\n" + "\n".join(
+                f"{REFERRAL_BADGES[b][0]} **{REFERRAL_BADGES[b][1]}** — {REFERRAL_BADGES[b][2]}"
+                for b in locked)
+        desc += (f"\n\n📨 **Your invites:** {stats.get('completed', 0)} joined • {stats.get('clicks', 0)} clicked\n"
+                 f"Share your invite link with `,share` — when a friend joins and links Last.fm, you BOTH earn a badge!")
+        embed = Theme.get_embed(title="🏅 Badges", description=desc, color=discord.Color.gold())
+        embed.set_author(name=f"{format_name(user)}'s Badges", icon_url=user.display_avatar.url)
+        return embed
+
+    @commands.command(name="badges", aliases=["badge", "bd"])
+    async def badges_prefix(self, ctx):
+        await self._reply_and_delete(ctx, embed=await self._badges_embed(ctx.author))
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):

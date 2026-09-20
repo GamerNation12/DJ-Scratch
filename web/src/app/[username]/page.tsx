@@ -52,6 +52,76 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     }
   }, [searchParams]);
 
+  // Referrals (?ref=CODE invite links): stash for logged-out visitors, redeem
+  // once authenticated. Both sides earn badges when the friend links Last.fm.
+  const [referral, setReferral] = useState<null | {
+    code: string; clicks: number; completed: number;
+    badges: { key: string; emoji: string; name: string; desc: string }[];
+  }>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      try { localStorage.setItem("dj_referral_code", ref.trim().toLowerCase()); } catch { /* ignore */ }
+    }
+    if (status !== "authenticated") return;
+    let pending: string | null = ref && ref.trim() ? ref.trim() : null;
+    if (!pending) {
+      try { pending = localStorage.getItem("dj_referral_code"); } catch { pending = null; }
+    }
+    if (!pending) return;
+    const code = pending.toLowerCase();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/referrals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && (data as any)?.success) {
+          try { localStorage.removeItem("dj_referral_code"); } catch { /* ignore */ }
+          toast.success(`🎉 Invite from ${(data as any).sharer} counted! Link Last.fm so you both earn badges.`);
+          const url = new URL(window.location.href);
+          url.searchParams.delete("ref");
+          window.history.replaceState({}, "", url.toString());
+        }
+      } catch { /* offline — retry next visit */ }
+    })();
+    return () => { cancelled = true; };
+  }, [status, searchParams]);
+
+  // Owner: load my referral code + stats for the invite card.
+  useEffect(() => {
+    if (status !== "authenticated" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/referrals");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && (data as any)?.code) setReferral(data);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [status, isOwner]);
+
+  const copyInviteLink = async () => {
+    if (!referral?.code) return;
+    const url = `${window.location.origin}/${encodeURIComponent(usernameParam)}?ref=${referral.code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInvite(true);
+      toast.success("Invite link copied — you both earn badges when they join!");
+      setTimeout(() => setCopiedInvite(false), 2000);
+    } catch {
+      toast.error("Could not copy link.");
+    }
+  };
+
   useEffect(() => {
     if (status !== "authenticated" || !isOwner) {
       setAdminRole(null);
@@ -617,6 +687,21 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                   >
                     {copiedLink ? "✓ Copied!" : "⧉ Share my profile"}
                   </button>
+                  {referral && (
+                    <div className="mt-3 p-4 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl w-fit">
+                      <div className="text-amber-300 text-sm font-bold mb-1">🎁 Invite friends — earn badges together</div>
+                      <div className="text-zinc-400 text-xs mb-2">
+                        {referral.completed} joined • {referral.clicks} clicked
+                        {referral.badges?.length > 0 && <> • {referral.badges.map((b) => b.emoji).join(" ")}</>}
+                      </div>
+                      <button
+                        onClick={copyInviteLink}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-sm font-bold rounded-xl transition-all"
+                      >
+                        {copiedInvite ? "✓ Copied!" : "⧉ Copy invite link"}
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>

@@ -3,7 +3,7 @@ import json
 import os
 import asyncpg
 from datetime import datetime, timedelta
-from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS
+from .config import POSTGRES_URL, DATABASE_URL, Log, PERIOD_TO_DAYS, OWNER_ID
 
 display_name_cache = {}
 name_cache_task = None
@@ -1316,4 +1316,213 @@ async def fm_cache_get(key: str):
     except Exception as e:
         print(f"{Log.RED}>>> fm_cache_get failed: {e}{Log.RESET}")
         return None
+
+
+# --- REFERRALS + BADGES (shareable music cards) ---
+# Flow: ,share gives you a profile link with ?ref=CODE. A friend clicks it
+# (website records the click), links Last.fm, and you BOTH earn a badge.
+
+REFERRAL_BADGES = {
+    "owner": ("🛠️", "Bot Owner", "Runs DJ Scratch."),
+    "owner_friend": ("🤝", "Owner's Friend", "Friends with the bot owner."),
+    "referred": ("💫", "Referred", "Joined DJ Scratch through a friend's invite link."),
+    "recruiter": ("📣", "Recruiter", "A friend joined through your invite link."),
+    "super_recruiter": ("🌟", "Super Recruiter", "5 friends joined through your invite link."),
+    "referral_royalty": ("👑", "Referral Royalty", "25 friends joined through your invite link."),
+}
+# Ordered for display (rarest last).
+REFERRAL_BADGE_ORDER = ["owner", "owner_friend", "referred", "recruiter", "super_recruiter", "referral_royalty"]
+# Completed-referral count -> sharer tier badge.
+REFERRAL_TIERS = [(25, "referral_royalty"), (5, "super_recruiter"), (1, "recruiter")]
+
+_BADGE_CACHE: dict = {}  # user_id -> (badge_list, expires)
+
+
+def _badge_cache_get(uid: str):
+    e = _BADGE_CACHE.get(uid)
+    if e and e[1] > _time.monotonic():
+        return e[0]
+    return None
+
+
+def _badge_cache_set(uid: str, badges: list):
+    _BADGE_CACHE[uid] = (badges, _time.monotonic() + 300.0)
+    if len(_BADGE_CACHE) > 5000:
+        _BADGE_CACHE.pop(next(iter(_BADGE_CACHE)))
+
+
+def _new_referral_code() -> str:
+    import secrets
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"  # no lookalikes
+    return "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+async def get_or_create_referral_code(user_id) -> str | None:
+    """Stable per-user invite code for ,share links."""
+    uid = str(user_id)
+    if not db_pool:
+        return None
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT code FROM referral_codes WHERE user_id = $1", uid)
+            if row and row["code"]:
+                return row["code"]
+            for _ in range(5):
+                code = _new_referral_code()
+                try:
+                    await conn.execute(
+                        "INSERT INTO referral_codes (user_id, code) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING",
+                        uid, code,
+                    )
+                    row = await conn.fetchrow("SELECT code FROM referral_codes WHERE user_id = $1", uid)
+                    if row and row["code"]:
+                        return row["code"]
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"{Log.RED}>>> referral code failed for {uid}: {e}{Log.RESET}")
+    return None
+
+
+async def get_referral_stats(user_id) -> dict:
+    """Clicks + completed referrals for a sharer (for ,share / profile)."""
+    uid = str(user_id)
+    stats = {"code": None, "clicks": 0, "completed": 0}
+    if not db_pool:
+        return stats
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT code FROM referral_codes WHERE user_id = $1", uid)
+            if row:
+                stats["code"] = row["code"]
+            if stats["code"] or True:
+                stats["clicks"] = await conn.fetchval(
+                    "SELECT COUNT(*) FROM referral_clicks WHERE sharer_id = $1", uid) or 0
+                stats["completed"] = await conn.fetchval(
+                    "SELECT COUNT(*) FROM referral_clicks WHERE sharer_id = $1 AND rewarded_at IS NOT NULL", uid) or 0
+    except Exception:
+        pass
+    return stats
+
+
+async def award_badge(user_id, badge: str) -> bool:
+    """Award a badge. Returns True if newly awarded."""
+    uid = str(user_id)
+    if not db_pool or badge not in REFERRAL_BADGES:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            res = await conn.execute(
+                "INSERT INTO user_badges (user_id, badge) VALUES ($1, $2) ON CONFLICT (user_id, badge) DO NOTHING",
+                uid, badge,
+            )
+            _BADGE_CACHE.pop(uid, None)
+            return res == "INSERT 0 1"
+    except Exception:
+        return False
+
+
+async def get_user_badges(user_id) -> list:
+    """Badge keys in display order (cached 5 min).
+
+    Stored referral badges come from user_badges; owner / owner's-friend are
+    computed live (owner by ID, friends via accepted friend rows with the
+    owner) so there's nothing to award or revoke by hand.
+    """
+    uid = str(user_id)
+    cached = _badge_cache_get(uid)
+    if cached is not None:
+        return cached
+    have: set = set()
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch("SELECT badge FROM user_badges WHERE user_id = $1", uid)
+                have = {r["badge"] for r in rows}
+        except Exception:
+            pass
+    try:
+        if uid == str(OWNER_ID):
+            have.add("owner")
+        elif db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT 1 FROM friends WHERE status = 'accepted' AND "
+                        "((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) LIMIT 1",
+                        uid, str(OWNER_ID),
+                    )
+                    if row:
+                        have.add("owner_friend")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    badges = [b for b in REFERRAL_BADGE_ORDER if b in have]
+    _badge_cache_set(uid, badges)
+    return badges
+
+
+async def badge_suffix(user_id) -> str:
+    """' 📣🌟' style suffix for display names. Empty string when none."""
+    try:
+        badges = await get_user_badges(user_id)
+        emojis = "".join(REFERRAL_BADGES[b][0] for b in badges if b in REFERRAL_BADGES)
+        return f" {emojis}" if emojis else ""
+    except Exception:
+        return ""
+
+
+async def process_pending_referrals(get_username_fn=None) -> list:
+    """Reward every referral click whose friend has linked Last.fm.
+
+    Returns [(sharer_id, friend_id, friend_badges_new, sharer_badges_new)].
+    Idempotent: rewarded rows are skipped via rewarded_at.
+    """
+    done: list = []
+    if not db_pool:
+        return done
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, code, sharer_id, friend_id FROM referral_clicks WHERE rewarded_at IS NULL"
+            )
+        for row in rows:
+            cid, sharer, friend = row["id"], str(row["sharer_id"]), str(row["friend_id"])
+            if sharer == friend:
+                continue
+            try:
+                async with db_pool.acquire() as conn:
+                    linked = await conn.fetchval(
+                        "SELECT lastfm_username FROM user_settings WHERE user_id = $1", friend)
+                if not linked:
+                    continue  # friend hasn't linked yet — retry on a later sweep
+                friend_new: list = []
+                if await award_badge(friend, "referred"):
+                    friend_new.append("referred")
+                try:
+                    async with db_pool.acquire() as conn:
+                        completed = await conn.fetchval(
+                            "SELECT COUNT(DISTINCT friend_id) FROM referral_clicks "
+                            "WHERE sharer_id = $1 AND (rewarded_at IS NOT NULL OR id = $2)",
+                            sharer, cid) or 0
+                except Exception:
+                    completed = 1
+                sharer_new: list = []
+                for threshold, badge in REFERRAL_TIERS:
+                    if completed >= threshold and await award_badge(sharer, badge):
+                        sharer_new.append(badge)
+                try:
+                    async with db_pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE referral_clicks SET rewarded_at = CURRENT_TIMESTAMP WHERE id = $1", cid)
+                except Exception:
+                    pass
+                done.append((sharer, friend, friend_new, sharer_new))
+            except Exception as e:
+                print(f"{Log.RED}>>> referral reward failed ({sharer} <- {friend}): {e}{Log.RESET}")
+                continue
+    except Exception as e:
+        print(f"{Log.RED}>>> referral sweep failed: {e}{Log.RESET}")
+    return done
 
