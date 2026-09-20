@@ -1254,13 +1254,12 @@ class LastFmCog(commands.Cog):
         if not username:
             return None, Theme.get_error_embed(description="Link Last.fm first with `/login` — the music card shows your stats!")
 
-        data, prof, top_art, top_trk, top_alb, recent = await _aio.gather(
+        data, prof, top_art, top_trk, top_alb = await _aio.gather(
             fetch_now_playing(username, 2),
             fetch_user_profile(username),
             fetch_top_artists(username, "7day", 1),
             fetch_top_tracks(username, "7day", 1),
             fetch_top_albums(username, "7day", 1),
-            fetch_recent_tracks(username, 200, 1),
             return_exceptions=True,
         )
         if isinstance(data, Exception):
@@ -1313,20 +1312,32 @@ class LastFmCog(commands.Cog):
         top_track, top_track_plays = tt.get("name", ""), _plays(tt)
         top_album, top_album_plays = tb.get("name", ""), _plays(tb)
 
+        # LAST 24H with no cap: page through recents until older than the
+        # cutoff (up to 5 pages x 200) instead of counting a single page.
         plays_24h = 0
         try:
             cutoff = _time.time() - 86400
-            recents = (((recent or {}) if not isinstance(recent, Exception) else {}).get("recenttracks") or {}).get("track") or []
-            for r in recents:
-                if isinstance(r.get("@attr"), dict) and r["@attr"].get("nowplaying") == "true":
-                    continue
-                try:
-                    if int((r.get("date") or {}).get("uts") or 0) >= cutoff:
+            for _page in range(1, 6):
+                _rd = await fetch_recent_tracks(username, 200, _page)
+                _rt = (((_rd or {}).get("recenttracks") or {}).get("track")) or []
+                if not _rt:
+                    break
+                _page_oldest = None
+                for r in _rt:
+                    if isinstance(r.get("@attr"), dict) and r["@attr"].get("nowplaying") == "true":
+                        continue
+                    try:
+                        uts = int((r.get("date") or {}).get("uts") or 0)
+                    except Exception:
+                        continue
+                    if _page_oldest is None or uts < _page_oldest:
+                        _page_oldest = uts
+                    if uts >= cutoff:
                         plays_24h += 1
-                except Exception:
-                    continue
+                if _page_oldest is not None and _page_oldest < cutoff:
+                    break
         except Exception:
-            plays_24h = 0
+            pass
 
         try:
             code = await get_or_create_referral_code(user.id)
