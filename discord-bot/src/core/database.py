@@ -1474,13 +1474,72 @@ async def get_user_badges(user_id) -> list:
 
 
 async def badge_suffix(user_id) -> str:
-    """' 📣🌟' style suffix for display names. Empty string when none."""
+    """' 📣🌟' style suffix for display names. Empty string when none.
+
+    Honors the user's display preference: 'all' (default), 'none', or one
+    specific earned badge key (see ,badges picker).
+    """
     try:
         badges = await get_user_badges(user_id)
+        pref = await get_badge_display(user_id)
+        if pref == "none":
+            return ""
+        if pref and pref != "all":
+            badges = [pref] if pref in badges else []
         emojis = "".join(REFERRAL_BADGES[b][0] for b in badges if b in REFERRAL_BADGES)
         return f" {emojis}" if emojis else ""
     except Exception:
         return ""
+
+
+_BADGE_DISPLAY_CACHE: dict = {}  # user_id -> (pref, expires)
+
+
+async def get_badge_display(user_id) -> str:
+    """Display preference: 'all' (default), 'none', or a badge key."""
+    uid = str(user_id)
+    e = _BADGE_DISPLAY_CACHE.get(uid)
+    if e and e[1] > _time.monotonic():
+        return e[0]
+    pref = "all"
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT badge_display FROM user_settings WHERE user_id = $1", uid)
+                if row and row["badge_display"]:
+                    pref = row["badge_display"]
+        except Exception:
+            pass
+    _BADGE_DISPLAY_CACHE[uid] = (pref, _time.monotonic() + 300.0)
+    if len(_BADGE_DISPLAY_CACHE) > 5000:
+        _BADGE_DISPLAY_CACHE.pop(next(iter(_BADGE_DISPLAY_CACHE)))
+    return pref
+
+
+async def set_badge_display(user_id, pref: str) -> bool:
+    """Set display preference. Returns False on bad value / DB error."""
+    uid = str(user_id)
+    if pref not in ("all", "none"):
+        try:
+            earned = await get_user_badges(uid)
+        except Exception:
+            return False
+        if pref not in earned:
+            return False
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO user_settings (user_id, badge_display) VALUES ($1, $2)"
+                " ON CONFLICT (user_id) DO UPDATE SET badge_display = EXCLUDED.badge_display",
+                uid, pref,
+            )
+        _BADGE_DISPLAY_CACHE.pop(uid, None)
+        _BADGE_CACHE.pop(uid, None)
+        return True
+    except Exception:
+        return False
 
 
 async def process_pending_referrals(get_username_fn=None) -> list:

@@ -773,7 +773,8 @@ async def setup_hook():
                             ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE,
                             ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT
+                            ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT,
+                            ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all'
                         """
                     )
                 except Exception:
@@ -5309,6 +5310,31 @@ async def on_interaction(interaction: discord.Interaction):
             target_id = custom_id.replace("reply_dm_", "")
             await interaction.response.send_modal(DirectMessageReplyModal(target_id=target_id))
             
+        elif custom_id.startswith("badge_pick:"):
+            parts = custom_id.split(":")
+            if len(parts) == 3:
+                _, target_id, choice = parts
+                if str(interaction.user.id) != target_id:
+                    await interaction.response.send_message(
+                        "These badge buttons aren't yours — run `,badges` to get your own!", ephemeral=True)
+                    return
+                from src.core.database import REFERRAL_BADGES, set_badge_display
+                if choice not in ("all", "none") and choice not in REFERRAL_BADGES:
+                    await interaction.response.send_message("❌ Unknown badge.", ephemeral=True)
+                    return
+                if await set_badge_display(target_id, choice):
+                    if choice == "all":
+                        msg = "✅ Showing all your earned badges next to your name. ✨"
+                    elif choice == "none":
+                        msg = "✅ Badges hidden — nothing will show next to your name. 🙈"
+                    else:
+                        emoji, name, _desc = REFERRAL_BADGES[choice]
+                        msg = f"✅ Now showing {emoji} **{name}** next to your name."
+                else:
+                    msg = "❌ You haven't earned that badge yet."
+                await interaction.response.send_message(msg, ephemeral=True)
+            return
+
         elif custom_id.startswith("spotify_"):
             parts = custom_id.split(":")
             if len(parts) == 2:
