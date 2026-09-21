@@ -775,7 +775,9 @@ async def setup_hook():
                             ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT,
                             ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all',
-                            ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE
+                            ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE,
+                            ADD COLUMN IF NOT EXISTS recap_pending_week TEXT,
+                            ADD COLUMN IF NOT EXISTS recap_pending_month TEXT
                         """
                     )
                 except Exception:
@@ -2087,6 +2089,69 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
             )
     except Exception as e:
         print(f"{Log.RED}>>> Failed to track command usage: {e}{Log.RESET}")
+
+    # Pending auto-recaps (DMs closed): deliver on next command, in background.
+    try:
+        asyncio.create_task(_maybe_post_pending_recap(
+            interaction.user,
+            lambda content, file: interaction.followup.send(content=content, file=file)))
+    except Exception:
+        pass
+
+@bot.event
+async def on_command_completion(ctx):
+    # Same pending-recap delivery for prefix commands (background, never
+    # blocks the invoked command).
+    try:
+        asyncio.create_task(_maybe_post_pending_recap(
+            ctx.author,
+            lambda content, file: ctx.send(content=content, file=file)))
+    except Exception:
+        pass
+
+
+async def _maybe_post_pending_recap(user, send_fn):
+    """Post a pending auto-recap (DMs were closed) in-channel. One-shot per
+    period via claim UPDATE; silent on any failure."""
+    try:
+        uid = str(user.id)
+        from .database import db_pool as _pool
+        if not _pool:
+            return
+        async with _pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT recap_pending_week, recap_pending_month FROM user_settings WHERE user_id = $1", uid)
+        if not row:
+            return
+        pending = None
+        if row["recap_pending_month"]:
+            pending = ("month", row["recap_pending_month"], "recap_pending_month")
+        elif row["recap_pending_week"]:
+            pending = ("week", row["recap_pending_week"], "recap_pending_week")
+        if not pending:
+            return
+        period, key, col = pending
+        async with _pool.acquire() as conn:
+            res = await conn.execute(
+                f"UPDATE user_settings SET {col} = NULL WHERE user_id = $1 AND {col} = $2", uid, key)
+            if res != "UPDATE 1":
+                return
+        cog = bot.get_cog("LastFmCog")
+        if cog is None:
+            return
+        result, err = await cog._recap_result(user, period)
+        if err or not result:
+            return
+        import io as _io
+        img_bytes, invite_url = result
+        word = "month" if period == "month" else "week"
+        caption = f"📊 **{getattr(user, 'display_name', None) or getattr(user, 'name', 'Your')} {word}ly recap** — your DMs are off, so here it is!"
+        if invite_url:
+            caption += f" Share it! Friends who join via <{invite_url}> earn badges with you."
+        await send_fn(content=caption,
+                      file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
+    except Exception:
+        pass
 
 # --- HELPER: AVATAR COOLDOWN ---
 async def get_avatar_cooldown():

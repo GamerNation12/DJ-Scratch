@@ -3,6 +3,7 @@ from src.core.config import Log
 import discord
 from discord.ext import commands
 from discord import app_commands
+import io
 
 from src.core.database import format_name
 from src.utils.autocomplete import (
@@ -1400,6 +1401,138 @@ class LastFmCog(commands.Cog):
             return await interaction.followup.send(embed=err)
         file, text, view = result
         await interaction.followup.send(content=text, file=file, view=view)
+
+    async def _recap_result(self, user, period="week"):
+        """Builds ((img_bytes, caption), err) for the stats.fm-style recap."""
+        import asyncio as _aio
+        from datetime import datetime as _dt, timedelta as _td
+        from src.core.events import get_lastfm_username
+        from src.utils.api import (
+            fetch_top_artists, fetch_top_tracks, fetch_top_albums,
+            fetch_recent_tracks,
+        )
+        from src.utils.image_generator import generate_recap_image
+        from src.core.database import get_or_create_referral_code, format_name
+        import urllib.parse
+
+        days = 30 if period == "month" else 7
+        username = await get_lastfm_username(user.id)
+        if not username:
+            return (None, None), Theme.get_error_embed(
+                description="Link Last.fm first with `/login` — the recap shows your stats!")
+
+        top_art, top_trk, top_alb, overall = await _aio.gather(
+            fetch_top_artists(username, f"{days}day", 5),
+            fetch_top_tracks(username, f"{days}day", 5),
+            fetch_top_albums(username, f"{days}day", 3),
+            fetch_top_artists(username, "overall", 50),
+            return_exceptions=True,
+        )
+
+        def _items(d, key, sub):
+            try:
+                if isinstance(d, Exception) or not d:
+                    return []
+                return ((d.get(key) or {}).get(sub)) or []
+            except Exception:
+                return []
+
+        def _plays(item):
+            try:
+                return int(item.get("playcount") or 0)
+            except Exception:
+                return 0
+
+        artists = _items(top_art, "topartists", "artist")[:5]
+        tracks = _items(top_trk, "toptracks", "track")[:5]
+        albums = _items(top_alb, "topalbums", "album")[:3]
+        if not artists and not tracks:
+            return (None, None), Theme.get_error_embed(
+                description=f"No plays in the last {'month' if days == 30 else 'week'} — go listen to something first!")
+
+        top_tracks = []
+        for t in tracks:
+            imgs = t.get("image") or []
+            top_tracks.append((
+                t.get("name", ""), (t.get("artist") or {}).get("name", ""),
+                _plays(t), imgs[-1].get("#text", "") if imgs else ""))
+        top_artists = [(a.get("name", ""), _plays(a)) for a in artists]
+        top_albums = [(
+            b.get("name", ""), (b.get("artist") or {}).get("name", ""), _plays(b),
+        ) for b in albums]
+
+        # New finds: period artists absent from all-time top 50.
+        try:
+            known = {(a.get("name") or "").strip().lower()
+                     for a in _items(overall, "topartists", "artist")}
+        except Exception:
+            known = set()
+        discoveries = [n for n, _p in top_artists
+                       if n and n.strip().lower() not in known][:5]
+
+        # Total plays in the window (paged, capped at 5x200 with a + marker).
+        total, capped = 0, False
+        try:
+            cutoff = _dt.now().timestamp() - days * 86400
+            for _page in range(1, 6):
+                _rd = await fetch_recent_tracks(username, 200, _page)
+                _rt = (((_rd or {}).get("recenttracks") or {}).get("track")) or []
+                if not _rt:
+                    break
+                _oldest = None
+                for r in _rt:
+                    if isinstance(r.get("@attr"), dict) and r["@attr"].get("nowplaying") == "true":
+                        continue
+                    try:
+                        uts = int((r.get("date") or {}).get("uts") or 0)
+                    except Exception:
+                        continue
+                    if _oldest is None or uts < _oldest:
+                        _oldest = uts
+                    if uts >= cutoff:
+                        total += 1
+                if _page == 5:
+                    capped = True
+                if _oldest is not None and _oldest < cutoff:
+                    break
+        except Exception:
+            pass
+
+        now = _dt.now()
+        start = now - _td(days=days)
+        if days == 7:
+            title, label = "YOUR WEEK IN MUSIC", f"{start:%b} {start.day} – {now:%b} {now.day}, {now.year}"
+        else:
+            title, label = "YOUR MONTH IN MUSIC", f"{start:%b} {start.day} – {now:%b} {now.day}, {now.year}"
+
+        try:
+            code = await get_or_create_referral_code(user.id)
+        except Exception:
+            code = None
+        safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
+        invite_url = f"https://dj-scratch.vercel.app/{safe_name}?ref={code}" if code else ""
+
+        try:
+            buf = await generate_recap_image(
+                self.bot.session,
+                display_name=await self._recap_name(user),
+                period_title=title, period_label=label,
+                total_plays=total, total_capped=capped,
+                top_tracks=top_tracks, top_artists=top_artists,
+                top_albums=top_albums, discoveries=discoveries,
+                invite_url=invite_url,
+            )
+            return ((buf.getvalue(), invite_url), None)
+        except Exception as e:
+            return (None, None), Theme.get_error_embed(description=f"Couldn't render the recap: {e}")
+
+    async def _recap_name(self, user):
+        try:
+            from src.core.database import get_card_name
+            return await get_card_name(user)
+        except Exception:
+            from src.core.database import format_name
+            return format_name(user)
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):

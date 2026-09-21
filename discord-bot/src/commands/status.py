@@ -11,13 +11,19 @@ class StatusCog(commands.Cog):
         self.bot = bot
         self.process = psutil.Process()
         self._presence_sig = None
+        self._recap_running = False
         self.status_loop.start()
         self.presence_loop.start()
+        self.recap_scheduler.start()
 
     def cog_unload(self):
         self.status_loop.cancel()
         try:
             self.presence_loop.cancel()
+        except Exception:
+            pass
+        try:
+            self.recap_scheduler.cancel()
         except Exception:
             pass
 
@@ -222,6 +228,105 @@ class StatusCog(commands.Cog):
         except Exception as e:
             from src.core.config import Log
             print(f"{Log.RED}>>> Error in presence loop: {e}{Log.RESET}")
+
+    @tasks.loop(minutes=30)
+    async def recap_scheduler(self):
+        """Auto-DM weekly/monthly recap images at each period rollover.
+
+        Once per ISO week / calendar month, every linked + recently-active
+        user with DMs on gets their recap DM'd (closed DMs are skipped).
+        First run only baselines the keys so deploys don't blast everyone
+        immediately. Sequential + paced for the small host."""
+        if getattr(self.bot, 'is_test_bot', False):
+            return
+        await self.bot.wait_until_ready()
+        if getattr(self.bot, 'is_restarting', False):
+            return
+        if self._recap_running:
+            return
+        self._recap_running = True
+        try:
+            import io as _io
+            import asyncio as _aio
+            from datetime import datetime, timezone
+            from src.core.config import Log
+            from src.core.database import get_global_setting, set_global_setting, db_pool
+            now = datetime.now(timezone.utc)
+            iso = now.isocalendar()
+            week_key = f"{iso[0]}-W{iso[1]:02d}"
+            month_key = now.strftime("%Y-%m")
+            last_week = await get_global_setting('recap_last_week')
+            last_month = await get_global_setting('recap_last_month')
+            due = []
+            if last_week is None:
+                await set_global_setting('recap_last_week', week_key)
+            elif last_week != week_key:
+                due.append(("week", week_key, 'recap_last_week'))
+            if last_month is None:
+                await set_global_setting('recap_last_month', month_key)
+            elif last_month != month_key:
+                due.append(("month", month_key, 'recap_last_month'))
+            if not due or not db_pool:
+                return
+            try:
+                async with db_pool.acquire() as conn:
+                    rows = await conn.fetch(
+                        "SELECT user_id FROM user_settings WHERE lastfm_username IS NOT NULL "
+                        "AND (last_active IS NULL OR last_active > CURRENT_TIMESTAMP - INTERVAL '14 days')")
+            except Exception:
+                rows = []
+            cog = self.bot.get_cog("LastFmCog")
+            if cog is None or not rows:
+                for _p, _k, _s in due:
+                    await set_global_setting(_s, _k)
+                return
+            for period, key, setting in due:
+                sent = 0
+                word = "month" if period == "month" else "week"
+                for row in rows:
+                    uid = row['user_id']
+                    try:
+                        u = self.bot.get_user(int(uid))
+                        if u is None:
+                            u = await self.bot.fetch_user(int(uid))
+                        if u is None:
+                            continue
+                        result, err = await cog._recap_result(u, period)
+                        if err or not result:
+                            continue
+                        img_bytes, invite_url = result
+                        caption = f"📊 Here's your {word}ly recap!"
+                        if invite_url:
+                            caption += f" Share it! Friends who join via <{invite_url}> earn badges with you."
+                        await u.send(content=caption,
+                                     file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
+                        sent += 1
+                        await _aio.sleep(2)
+                    except discord.Forbidden:
+                        # DMs closed: flag for in-channel delivery on their
+                        # next command (claimed one-shot by the hook).
+                        try:
+                            _col = 'recap_pending_month' if period == 'month' else 'recap_pending_week'
+                            async with db_pool.acquire() as _conn:
+                                await _conn.execute(
+                                    f"UPDATE user_settings SET {_col} = $2 WHERE user_id = $1",
+                                    uid, key)
+                        except Exception:
+                            pass
+                        continue
+                    except Exception as e:
+                        print(f"{Log.RED}>>> Auto-recap DM failed for {uid}: {e}{Log.RESET}")
+                        continue
+                await set_global_setting(setting, key)
+                print(f"{Log.GREEN}>>> Auto-recap ({period} {key}) sent to {sent} users{Log.RESET}")
+        except Exception as e:
+            try:
+                from src.core.config import Log
+                print(f"{Log.RED}>>> Error in recap scheduler: {e}{Log.RESET}")
+            except Exception:
+                pass
+        finally:
+            self._recap_running = False
 
 async def setup(bot):
     await bot.add_cog(StatusCog(bot))

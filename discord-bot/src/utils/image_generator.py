@@ -310,6 +310,178 @@ def _animate_card(base: Image.Image, eq_x: int, eq_base: int) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
+async def generate_recap_image(
+    session: aiohttp.ClientSession,
+    *,
+    display_name: str,
+    period_title: str = "YOUR WEEK IN MUSIC",
+    period_label: str = "",
+    total_plays: int = 0,
+    total_capped: bool = False,
+    top_tracks: list | None = None,   # [(title, artist, plays, img_url)]
+    top_artists: list | None = None,  # [(name, plays)]
+    top_albums: list | None = None,   # [(name, artist, plays)]
+    discoveries: list | None = None,  # [artist names]
+    invite_url: str = "",
+) -> io.BytesIO:
+    """stats.fm-style recap (1000px wide, dynamic height, JPEG)."""
+    W = 1000
+    ACCENT = (10, 181, 205)
+    WHITE = (245, 245, 245)
+    GRAY = (190, 190, 200)
+    DIM = (150, 150, 160)
+    GOLD = (241, 196, 15)
+
+    top_tracks = top_tracks or []
+    top_artists = top_artists or []
+    top_albums = top_albums or []
+    discoveries = discoveries or []
+
+    def _fonts():
+        return {
+            "hero": _load_font_bold(72),
+            "hero_label": _load_font_bold(22),
+            "name": _load_font_bold(40),
+            "period": _load_font("", 24),
+            "section": _load_font_bold(22),
+            "rank": _load_font_bold(28),
+            "track": _load_font_bold(27),
+            "sub": _load_font("", 23),
+            "plays": _load_font_bold(24),
+            "invite": _load_font("", 21),
+            "footer": _load_font("", 19),
+        }
+
+    fonts = await asyncio.to_thread(_fonts)
+
+    # Thumbnails for the top tracks (max 3 concurrent, like charts).
+    thumbs: list = []
+    try:
+        sem = asyncio.Semaphore(3)
+
+        async def _one(url):
+            async with sem:
+                try:
+                    img = await download_image(session, url)
+                    return img.convert("RGB").resize((104, 104), Image.Resampling.LANCZOS)
+                except Exception:
+                    return Image.new("RGB", (104, 104), color=(34, 34, 40))
+
+        thumbs = await asyncio.gather(*[_one(t[3] if len(t) > 3 else "") for t in top_tracks[:5]])
+    except Exception:
+        thumbs = [Image.new("RGB", (104, 104), color=(34, 34, 40)) for _ in top_tracks[:5]]
+
+    row_track, row_artist, row_album = 132, 60, 60
+    H = (200 + 130 + len(top_tracks[:5]) * row_track + 50
+         + len(top_artists[:5]) * row_artist + 50
+         + len(top_albums[:3]) * row_album + 50
+         + (100 if discoveries else 0) + 120)
+
+    card = Image.new("RGB", (W, H), color=(14, 14, 18))
+    draw = ImageDraw.Draw(card)
+    draw.rectangle([(0, 0), (12, H)], fill=ACCENT)
+
+    def _mask(size, radius):
+        m = Image.new("L", size, 0)
+        ImageDraw.Draw(m).rounded_rectangle([(0, 0), size], radius=radius, fill=255)
+        return m
+
+    y = 36
+    draw.text((48, y), _fit_text(draw, display_name or "Unknown", fonts["name"], W - 96),
+              font=fonts["name"], fill=WHITE)
+    y += 56
+    if period_label:
+        draw.text((48, y), period_label, font=fonts["period"], fill=GRAY)
+        y += 36
+    draw.text((48, y), period_title, font=fonts["section"], fill=ACCENT)
+    y += 40
+    total_txt = f"{total_plays:,}{'+' if total_capped else ''}"
+    try:
+        tw = draw.textlength(total_txt, font=fonts["hero"])
+    except Exception:
+        tw = 200
+    draw.text((48, y), total_txt, font=fonts["hero"], fill=WHITE)
+    draw.text((48 + tw + 18, y + 38), "PLAYS", font=fonts["hero_label"], fill=DIM)
+    y += 110
+
+    # Top tracks with thumbnails.
+    if top_tracks:
+        draw.text((48, y), "TOP TRACKS", font=fonts["section"], fill=DIM)
+        y += 36
+        for i, t in enumerate(top_tracks[:5]):
+            title, artist = (t[0] if len(t) > 0 else ""), (t[1] if len(t) > 1 else "")
+            plays = t[2] if len(t) > 2 else 0
+            if i < len(thumbs):
+                card.paste(thumbs[i], (48, y), _mask((104, 104), 20))
+            try:
+                rw = draw.textlength(f"{i + 1}", font=fonts["rank"])
+            except Exception:
+                rw = 20
+            draw.text((168, y + 8), f"{i + 1}", font=fonts["rank"], fill=DIM)
+            tx = 168 + rw + 16
+            draw.text((tx, y + 2), _fit_text(draw, title or "Unknown", fonts["track"], 560), font=fonts["track"], fill=WHITE)
+            draw.text((tx, y + 42), _fit_text(draw, artist or "Unknown", fonts["sub"], 560), font=fonts["sub"], fill=GRAY)
+            try:
+                pw = draw.textlength(f"{plays:,}", font=fonts["plays"])
+            except Exception:
+                pw = 60
+            draw.text((W - 48 - pw, y + 36), f"{plays:,}", font=fonts["plays"], fill=WHITE)
+            y += row_track
+        y += 18
+
+    # Top artists with bars.
+    if top_artists:
+        draw.text((48, y), "TOP ARTISTS", font=fonts["section"], fill=DIM)
+        y += 36
+        amax = max([p for _, p in top_artists[:5]] + [1])
+        for name, plays in top_artists[:5]:
+            draw.text((48, y), _fit_text(draw, name or "Unknown", fonts["track"], 420), font=fonts["track"], fill=WHITE)
+            bw = int(380 * (plays / amax)) if amax else 0
+            draw.rounded_rectangle([(500, y + 8), (500 + max(8, bw), y + 26)], radius=9, fill=ACCENT)
+            try:
+                pw = draw.textlength(f"{plays:,}", font=fonts["plays"])
+            except Exception:
+                pw = 60
+            draw.text((W - 48 - pw, y + 4), f"{plays:,}", font=fonts["plays"], fill=GRAY)
+            y += row_artist
+        y += 18
+
+    # Top albums.
+    if top_albums:
+        draw.text((48, y), "TOP ALBUMS", font=fonts["section"], fill=DIM)
+        y += 36
+        for a in top_albums[:3]:
+            name, artist, plays = (a[0] if len(a) > 0 else ""), (a[1] if len(a) > 1 else ""), (a[2] if len(a) > 2 else 0)
+            draw.text((48, y), _fit_text(draw, f"{name} — {artist}" if artist else name, fonts["track"], 640),
+                      font=fonts["track"], fill=WHITE)
+            try:
+                pw = draw.textlength(f"{plays:,}", font=fonts["plays"])
+            except Exception:
+                pw = 60
+            draw.text((W - 48 - pw, y + 2), f"{plays:,}", font=fonts["plays"], fill=GRAY)
+            y += row_album
+        y += 18
+
+    # New discoveries.
+    if discoveries:
+        draw.text((48, y), "NEW FINDS", font=fonts["section"], fill=GOLD)
+        y += 36
+        draw.text((48, y), _fit_text(draw, "  •  ".join(discoveries[:5]), fonts["sub"], W - 96),
+                  font=fonts["sub"], fill=WHITE)
+        y += 64
+
+    # Footer.
+    if invite_url:
+        short = invite_url.replace("https://", "")
+        draw.text((48, H - 68), "SHARED FROM DJ SCRATCH", font=fonts["section"], fill=ACCENT)
+        draw.text((48, H - 42), _fit_text(draw, short, fonts["invite"], W - 104), font=fonts["invite"], fill=WHITE)
+
+    buffer = io.BytesIO()
+    card.save(buffer, format="JPEG", quality=86)
+    buffer.seek(0)
+    return buffer
+
+
 async def download_image(session: aiohttp.ClientSession, url: str, artist: str = None, album: str = None) -> Image.Image:
     is_missing = not url or '2a96cbd8' in url or '4128a6eb' in url
     if is_missing and artist and album:
