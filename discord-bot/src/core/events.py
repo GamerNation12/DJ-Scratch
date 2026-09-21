@@ -2402,10 +2402,18 @@ async def update_bot_avatar_and_status(bot_instance, artist, img, track=None, al
                     async with db_pool.acquire() as conn:
                         await conn.execute("INSERT INTO global_settings (key, value) VALUES ('avatar_cooldown', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", now.isoformat())
                         await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", artist)
+                        # Track/album must move in lockstep with the artist —
+                        # otherwise a track-less update leaves the PREVIOUS
+                        # song attached to the new artist ("Beatles / Under My
+                        # Skin"). Clear them when not provided.
                         if track:
                             await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_track', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", track)
+                        else:
+                            await conn.execute("DELETE FROM global_settings WHERE key = 'bot_track'")
                         if album:
                             await conn.execute("INSERT INTO global_settings (key, value) VALUES ('bot_album', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", album)
+                        else:
+                            await conn.execute("DELETE FROM global_settings WHERE key = 'bot_album'")
                 return True, 300
     except Exception as e:
         print(f"{Log.RED}>>> Error updating bot avatar: {e}{Log.RESET}")
