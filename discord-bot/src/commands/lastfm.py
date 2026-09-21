@@ -684,8 +684,8 @@ class LastFmCog(commands.Cog):
         result, err = await self._music_card_result(interaction.user)
         if err:
             return await interaction.followup.send(embed=err)
-        file, text = result
-        await interaction.followup.send(content=text, file=file)
+        file, text, view = result
+        await interaction.followup.send(content=text, file=file, view=view)
 
     @app_commands.command(name="badges", description="Showcase your earned badges")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -1193,8 +1193,8 @@ class LastFmCog(commands.Cog):
         result, err = await self._music_card_result(ctx.author)
         if err:
             return await self._reply_and_delete(ctx, embed=err)
-        file, text = result
-        await self._reply_and_delete(ctx, content=text, file=file)
+        file, text, view = result
+        await self._reply_and_delete(ctx, content=text, file=file, view=view)
 
     async def _badges_embed(self, user):
         from src.core.database import get_user_badges, get_referral_stats, get_badge_display
@@ -1372,18 +1372,23 @@ class LastFmCog(commands.Cog):
         # Still image (GIF render exists but stays off for now).
         file = discord.File(buf, filename="musiccard.jpg")
         text = f"🎵 **{card_name}'s music card** — share it around!"
+        # Invite lives in buttons below the image (link previews suppressed).
+        view = discord.ui.View(timeout=None)
         if invite_url:
-            # Angle brackets suppress Discord's link-preview embed.
-            text += f"\nJoin through my invite and we BOTH earn a badge: <{invite_url}>"
-        return (file, text), None
+            view.add_item(discord.ui.Button(
+                label="Join — we both earn a badge", url=invite_url, emoji="🎁"))
+        view.add_item(discord.ui.Button(
+            label="DJ Scratch Profile",
+            url=f"https://dj-scratch.vercel.app/{safe_name}", emoji="🎵"))
+        return (file, text, view), None
 
     @commands.command(name="musiccard", aliases=["mcard", "mycard", "card"])
     async def musiccard_prefix(self, ctx):
         result, err = await self._music_card_result(ctx.author)
         if err:
             return await self._reply_and_delete(ctx, embed=err)
-        file, text = result
-        await self._reply_and_delete(ctx, content=text, file=file)
+        file, text, view = result
+        await self._reply_and_delete(ctx, content=text, file=file, view=view)
 
     @app_commands.command(name="musiccard", description="Generate a shareable music stats card")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -1393,8 +1398,8 @@ class LastFmCog(commands.Cog):
         result, err = await self._music_card_result(interaction.user)
         if err:
             return await interaction.followup.send(embed=err)
-        file, text = result
-        await interaction.followup.send(content=text, file=file)
+        file, text, view = result
+        await interaction.followup.send(content=text, file=file, view=view)
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):
