@@ -191,70 +191,34 @@ class StatusCog(commands.Cog):
 
     @tasks.loop(seconds=30)
     async def presence_loop(self):
-        """Billboard: bot's Listening status mirrors the owner's live Spotify
-        track (title, artists, cover, progress bar). Falls back to the
-        configured bot status when nothing is playing. Only updates Discord
-        when the track/state actually changes (client animates progress)."""
+        """Billboard: bot's Listening activity follows the avatar track.
+
+        When someone sets the bot avatar via ,fm, update_bot_avatar_and_status
+        stores that song (bot_status/bot_track/bot_album). This loop keeps a
+        rich Listening activity on it (also repairing it after reconnects,
+        which reset presence). Updates Discord only when the song changes."""
         if getattr(self.bot, 'is_test_bot', False):
             return
         await self.bot.wait_until_ready()
         if getattr(self.bot, 'is_restarting', False):
             return
         try:
-            from src.core.config import OWNER_ID
-            from src.core.spotify import get_currently_playing_track
-            session = getattr(self.bot, 'session', None)
-            track = None
-            if session is not None and not getattr(session, 'closed', True):
-                try:
-                    track = await get_currently_playing_track(session, str(OWNER_ID))
-                except Exception:
-                    track = None
-            if track and track != "no_token" and track.get("is_playing") and track.get("id"):
-                sig = ("sp", track.get("id"))
-            else:
-                sig = ("default",)
+            from src.core.database import get_global_setting
+            artist = await get_global_setting('bot_status')
+            if not artist:
+                return  # avatar never set — leave presence alone
+            track = await get_global_setting('bot_track')
+            album = await get_global_setting('bot_album')
+            sig = (artist, track, album)
             if sig == getattr(self, '_presence_sig', None):
                 return
             self._presence_sig = sig
-            if sig[0] == "sp":
-                import datetime as _dt
-                artists = ", ".join(track.get("artists") or []) or "Unknown Artist"
-                title = track.get("name") or "Unknown Track"
-                kwargs = dict(
-                    type=discord.ActivityType.listening,
-                    name="Spotify",
-                    details=title[:128],
-                    state=artists[:128],
-                )
-                try:
-                    prog = int(track.get("progress_ms") or 0)
-                    dur = int(track.get("duration_ms") or 0)
-                    if dur > 0 and 0 <= prog <= dur:
-                        start = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(milliseconds=prog)
-                        kwargs["start"] = start
-                        kwargs["end"] = start + _dt.timedelta(milliseconds=dur)
-                except Exception:
-                    pass
-                images = track.get("album_images") or []
-                # No custom art: Discord shows the bot's own avatar as the
-                # status image.
-                await self.bot.change_presence(activity=discord.Activity(**kwargs))
-            else:
-                from src.core.database import db_pool
-                restored = False
-                if db_pool:
-                    try:
-                        async with db_pool.acquire() as conn:
-                            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'bot_status'")
-                            if row and row['value']:
-                                await self.bot.change_presence(activity=discord.Activity(
-                                    type=discord.ActivityType.listening, name=row['value']))
-                                restored = True
-                    except Exception:
-                        pass
-                if not restored:
-                    await self.bot.change_presence(activity=None)
+            kwargs = dict(type=discord.ActivityType.listening, name=artist[:128])
+            if track:
+                kwargs["details"] = track[:128]
+            if album:
+                kwargs["state"] = album[:128]
+            await self.bot.change_presence(activity=discord.Activity(**kwargs))
         except Exception as e:
             from src.core.config import Log
             print(f"{Log.RED}>>> Error in presence loop: {e}{Log.RESET}")
