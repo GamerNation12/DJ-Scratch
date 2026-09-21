@@ -431,6 +431,8 @@ async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: s
                     "album_name": track.get("album", {}).get("name"),
                     "album_images": track.get("album", {}).get("images", []),
                     "is_playing": bool(data.get("is_playing")),
+                    "progress_ms": data.get("progress_ms") or 0,
+                    "duration_ms": (track.get("duration_ms") or 0),
                 }
             elif resp.status == 204:
                 return None
