@@ -1323,8 +1323,8 @@ async def fm_cache_get(key: str):
 # (website records the click), links Last.fm, and you BOTH earn a badge.
 
 REFERRAL_BADGES = {
-    "owner": ("🛠️", "Bot Owner", "Runs DJ Scratch."),
-    "owner_friend": ("🤝", "Owner's Friend", "Friends with the bot owner."),
+    "owner": ("🛠️", "Dev", "Develops DJ Scratch."),
+    "owner_friend": ("🤝", "Dev's Friend", "Friends with the dev."),
     "referred": ("💫", "Referred", "Joined DJ Scratch through a friend's invite link."),
     "recruiter": ("📣", "Recruiter", "A friend joined through your invite link."),
     "super_recruiter": ("🌟", "Super Recruiter", "5 friends joined through your invite link."),
