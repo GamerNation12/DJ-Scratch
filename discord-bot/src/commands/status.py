@@ -218,6 +218,33 @@ class StatusCog(commands.Cog):
                 kwargs["details"] = track[:128]
             if album:
                 kwargs["state"] = album[:128]
+            # Play button + cover: resolve the avatar song on Spotify (once
+            # per song change). discord.py forwards button objects to the
+            # gateway; unsupported bits are ignored, presence still applies.
+            try:
+                from src.core.spotify import search_spotify_tracks
+                session = getattr(self.bot, 'session', None)
+                if session is not None and not getattr(session, 'closed', True) and track and artist:
+                    _res = await search_spotify_tracks(
+                        session, f"{track} {artist}".strip(), limit=5)
+                    _best = None
+                    try:
+                        from src.commands.spotify_remote import _best_track_match
+                        _best = _best_track_match(_res, track, artist)
+                    except Exception:
+                        _best = _res[0] if _res else None
+                    _url = (_best or {}).get("spotify_url")
+                    if _url:
+                        kwargs["buttons"] = [{"label": "Play on Spotify", "url": _url}]
+                        kwargs["details_url"] = _url
+                    _imgs = (_best or {}).get("album_images") or []
+                    if _imgs and _imgs[0].get("url"):
+                        kwargs["assets"] = {
+                            "large_image": _imgs[0]["url"],
+                            "large_text": album or track,
+                        }
+            except Exception:
+                pass
             await self.bot.change_presence(activity=discord.Activity(**kwargs))
         except Exception as e:
             from src.core.config import Log
