@@ -2074,6 +2074,14 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
     if not hasattr(bot, 'active_users_dict'):
         bot.active_users_dict = {}
     bot.active_users_dict[interaction.user.id] = time.time()
+
+    # Inactivity clock: slash commands never hit the prefix @bot.check that
+    # refreshes last_active, so slash-only users were purged as "inactive"
+    # despite daily use. Refresh here (debounced inside, fire-and-forget).
+    try:
+        asyncio.create_task(update_user_activity(interaction.user.id))
+    except Exception:
+        pass
     
     global db_pool
     if not db_pool: return
@@ -2804,15 +2812,11 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     session = getattr(bot_instance, 'session', None)
 
     username = await get_lastfm_username(user.id)
-    from src.core.database import get_listenbrainz_username as _get_lb_user
-    lb_username = await _get_lb_user(user.id)
-    from_lb = False
-    if not username and not lb_username:
-        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm or ListenBrainz account! Link with `/login`")}, False
+    if not username:
+        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
 
-    # Footer label: Last.fm wording when we have a Last.fm user, LB wording otherwise.
-    scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}"
-                       if username else f"Listening via ListenBrainz as {lb_username}")
+    # Footer label.
+    scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}")
 
     is_cached = False
     if track_data is not None and isinstance(track_data, dict) and 'raw_data' in track_data:
@@ -2824,41 +2828,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         data = None
         if username:
             data = await fetch_now_playing(username, 2)
-        # ListenBrainz freshness check (read-only v1): fetch LB alongside and
-        # let it win when Last.fm is empty/errored, or when LB is currently
-        # playing and Last.fm isn't (stale Last.fm history must not shadow
-        # a live LB session from e.g. a YT Music app).
-        lb_data = None
-        lb_playing = False
-        if lb_username:
-            try:
-                from src.utils.listenbrainz import fetch_lb_now_playing_shape
-                lb_data = await fetch_lb_now_playing_shape(lb_username, 2)
-            except Exception:
-                lb_data = None
-            if lb_data:
-                try:
-                    _lb_first = ((lb_data.get('recenttracks') or {}).get('track') or [])[0]
-                    lb_playing = _lb_first.get('@attr', {}).get('nowplaying') == 'true'
-                except Exception:
-                    lb_playing = False
-        use_lb = False
-        if lb_data:
-            if (not isinstance(data, dict) or 'error' in data
-                    or 'recenttracks' not in data or not (data.get('recenttracks') or {}).get('track')):
-                use_lb = True  # Last.fm empty or errored
-            elif lb_playing:
-                try:
-                    _fm_first = (data.get('recenttracks') or {}).get('track')[0]
-                    _fm_live = _fm_first.get('@attr', {}).get('nowplaying') == 'true'
-                except Exception:
-                    _fm_live = False
-                if not _fm_live:
-                    use_lb = True  # LB live, Last.fm stale
-        if use_lb:
-            data = lb_data
-            from_lb = True
-            scrobbler_label = f"Listening via ListenBrainz as {lb_username}"
 
     if isinstance(data, dict) and 'error' in data:
         err_msg = data.get('message', 'Unknown error')
@@ -2985,7 +2954,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         live = is_p
         if live and not np_session_alive(user.id, raw_artist, raw_song):
             live = False
-        if live and is_p and not from_lb:
+        if live and is_p:
             # Last.fm nowplaying flags stick (scrobbler lag, frozen flag)
             # while the user moved on. A linked Spotify that's actively
             # playing something else proves staleness — word as "was".
@@ -3034,8 +3003,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             else:
                 content = f"🎧 **{dname}** was listening to **[{song}](<{track_url}>)** by **{artist}**"
                 # Frozen hint only on fresh sends — re-rendered old messages
-                # stay clean. Never for ListenBrainz (Last.fm-only concept).
-                if not is_cached and not from_lb:
+                # stay clean.
+                if not is_cached:
                     content += "\n*(⚠️ Scrobbles frozen? Run `,outofsync`)*"
 
             desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
@@ -3050,7 +3019,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
-            footer_text = scrobbler_label if from_lb else f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
+            footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
             if cd > 0:
                 m, s = divmod(int(cd), 60)
                 footer_text += f" • Avatar CD: {m}m {s}s"
@@ -3170,10 +3139,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if stats_line:
                 footer_parts.append(" • ".join(stats_line))
                 
-            disp_u = 'DJ Scratch' if (username or '').lower() == 'dj-scratch' else (username or lb_username)
+            disp_u = 'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username
             if not live:
-                frozen_note = "" if (is_cached or from_lb) else " | Scrobbles frozen? Run ,outofsync"
-                if not is_cached and not from_lb:
+                frozen_note = "" if is_cached else " | Scrobbles frozen? Run ,outofsync"
+                if not is_cached:
                     footer_parts.append("Scrobbles frozen? Run ,outofsync")
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"{scrobbler_label}{frozen_note}")
             else:
@@ -3195,7 +3164,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        if not live and not is_cached and not from_lb:
+        if not live and not is_cached:
             footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
         else:
             footer_text = scrobbler_label

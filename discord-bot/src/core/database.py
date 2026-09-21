@@ -931,52 +931,6 @@ async def unlink_user(user_id):
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")
         return False
 
-async def get_listenbrainz_username(user_id):
-    """ListenBrainz username for a Discord user (None if not linked)."""
-    b = _bundle_get(str(user_id))
-    if b is not None:
-        return b.get('listenbrainz_username') or None
-    if not db_pool: return None
-    try:
-        async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT listenbrainz_username FROM user_settings WHERE user_id=$1", str(user_id))
-            return row['listenbrainz_username'] if row and row['listenbrainz_username'] else None
-    except Exception:
-        return None
-
-async def set_listenbrainz_username(user_id, lb_username):
-    if not db_pool: return False
-    try:
-        async with db_pool.acquire() as conn:
-            try:
-                await conn.execute("""
-                    INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
-                    ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
-                """, str(user_id), lb_username)
-            except asyncpg.exceptions.UndefinedColumnError:
-                # Self-heal if the boot migration hasn't run yet.
-                await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT")
-                await conn.execute("""
-                    INSERT INTO user_settings (user_id, listenbrainz_username) VALUES ($1, $2)
-                    ON CONFLICT (user_id) DO UPDATE SET listenbrainz_username = $2
-                """, str(user_id), lb_username)
-        invalidate_user_cache(user_id)
-        return True
-    except Exception as e:
-        print(f"{Log.RED}>>> Error setting listenbrainz_username: {e}{Log.RESET}")
-        return False
-
-async def unlink_listenbrainz(user_id):
-    if not db_pool: return False
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute("UPDATE user_settings SET listenbrainz_username = NULL WHERE user_id=$1", str(user_id))
-            invalidate_user_cache(user_id)
-            return True
-    except Exception as e:
-        print(f"{Log.RED}>>> Error unlinking ListenBrainz for {user_id}: {e}{Log.RESET}")
-        return False
-
 async def clear_user_spotify(user_id):
     """Disconnect Spotify: drop all stored tokens. Returns True on success."""
     if not db_pool: return False
