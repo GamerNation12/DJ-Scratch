@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
+import SupportWidget from "@/components/SupportWidget";
 
 
 const INVITE_LINK = "/invite";
@@ -274,9 +275,9 @@ function HomeContent() {
             {/* Row 3: Large Span - Lightning Fast */}
             <div className="md:col-span-2 group relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 p-6 md:p-10 rounded-3xl md:rounded-[2rem] hover:border-zinc-400/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-white/5 flex flex-col justify-between">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05)_0%,transparent_70%)] pointer-events-none"></div>
-              
+
               <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.04] pointer-events-none mix-blend-overlay"></div>
-              
+
               <div className="absolute top-10 right-10 hidden sm:flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
                 <span className="flex h-3 w-3 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -292,6 +293,20 @@ function HomeContent() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Community / Support Server Section */}
+        <section className="container mx-auto px-4 pb-32 w-full max-w-7xl relative z-10 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 text-xs font-semibold mb-6 uppercase tracking-widest">
+            Community
+          </div>
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4 text-center">
+            Need help or want to hang out?
+          </h2>
+          <p className="text-zinc-400 text-lg font-medium max-w-xl text-center mb-10 leading-relaxed">
+            Join the support server for help, suggestions, bug reports, and update news.
+          </p>
+          <SupportWidget />
         </section>
       </main>
     </div>

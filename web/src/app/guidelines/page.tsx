@@ -56,7 +56,7 @@ export default function CommunityStandards() {
           <p className="text-gray-300">
             Think an action was a mistake? Reach out in our{" "}
             <a
-              href="https://discord.gg/9AByF7cM"
+              href="https://discord.gg/53sxaVWn92"
               target="_blank"
               rel="noreferrer"
               className="text-indigo-400 hover:text-indigo-300 underline"
