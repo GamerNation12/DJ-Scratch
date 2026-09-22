@@ -55,12 +55,17 @@ export async function GET() {
     if (token) {
       try {
         const mRes = await fetch(
-          `https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=12`,
+          `https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=100`,
           { headers: { Authorization: `Bot ${token}` } }
         );
         if (mRes.ok) {
           const list = await mRes.json();
-          members = (Array.isArray(list) ? list : [])
+          // Bots don't count: humans only.
+          const humans = (Array.isArray(list) ? list : []).filter((m: any) => !m?.user?.bot);
+          if (Array.isArray(list) && list.length < 100) {
+            memberCount = humans.length;
+          }
+          members = humans
             .map((m: any) => ({
               id: String(m?.user?.id || ""),
               name: m?.user?.global_name || m?.user?.username || "?",
