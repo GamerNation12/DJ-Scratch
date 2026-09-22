@@ -1663,6 +1663,73 @@ async def global_test_bot_interaction_check(interaction: discord.Interaction):
             await interaction.response.send_message("❌ This is the beta test bot. Only the developer can use it!", ephemeral=True)
             return False
     return True
+class LeaveGuildView(discord.ui.View):
+    """Owner tool on guild-join logs: leave a server with a stated reason.
+
+    Buttons carry the guild id and are routed centrally in on_interaction,
+    so they keep working without persistent-view registration.
+    """
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)
+        self.add_item(discord.ui.Button(
+            label="Leave Server", emoji="🛫", style=discord.ButtonStyle.danger,
+            custom_id=f"leave_guild:{guild_id}"))
+
+
+class LeaveGuildReasonModal(discord.ui.Modal, title="Leave Server"):
+    reason_input = discord.ui.TextInput(
+        label="Reason (posted in the server)",
+        style=discord.TextStyle.paragraph,
+        placeholder="Why is the bot leaving?",
+        required=True,
+        max_length=500,
+    )
+
+    def __init__(self, guild_id: int):
+        super().__init__()
+        self.guild_id = guild_id
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from src.core.config import OWNER_ID as _OWNER_ID
+        if interaction.user.id != _OWNER_ID:
+            return await interaction.response.send_message("Owner only.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        guild = bot.get_guild(self.guild_id)
+        if guild is None:
+            return await interaction.followup.send(
+                f"Guild `{self.guild_id}` not found (already left?).", ephemeral=True)
+        reason = str(self.reason_input.value or "").strip()
+        posted = False
+        try:
+            target = guild.system_channel
+            if not target or not target.permissions_for(guild.me).send_messages:
+                for ch in guild.text_channels:
+                    if ch.permissions_for(guild.me).send_messages:
+                        target = ch
+                        break
+            if target:
+                await target.send(
+                    f"👋 **DJ Scratch is leaving this server.**\n"
+                    f"**Reason from the developer:** {reason}")
+                posted = True
+        except Exception:
+            pass
+        try:
+            await guild.leave()
+        except Exception as e:
+            return await interaction.followup.send(
+                f"❌ Couldn't leave **{guild.name}**: {e}", ephemeral=True)
+        try:
+            await log_to_channel("guild-leave", Theme.get_embed(
+                title="📤 Left Server (manual)",
+                description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`\n**Reason:** {reason}\n**Farewell posted:** {posted}",
+                color=discord.Color.orange()))
+        except Exception:
+            pass
+        await interaction.followup.send(
+            f"✅ Left **{guild.name}**. Farewell posted: {posted}.", ephemeral=True)
+
+
 @bot.event
 async def on_guild_join(guild):
     print(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
@@ -1683,34 +1750,31 @@ async def on_guild_join(guild):
         print(f"Failed to send guide in {guild.name}: {e}")
         
     try:
-        owner = await bot.fetch_user(OWNER_ID)
         embed = Theme.get_embed(
             title="📥 Joined New Server!",
             description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`\n**Members:** {guild.member_count}\n**Owner:** {guild.owner if guild.owner else 'Unknown'}",
             color=discord.Color.green()
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
-        await owner.send(embed=embed)
-        await log_to_channel("guild-join", embed)
+        # No owner DM (was spammy) — the log channel carries a Leave button.
+        await log_to_channel("guild-join", embed, view=LeaveGuildView(guild.id))
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild join: {e}{Log.RESET}")
 
 @bot.event
 async def on_guild_remove(guild):
     print(f"LEFT GUILD: {guild.name} ({guild.id})")
     try:
-        owner = await bot.fetch_user(OWNER_ID)
         embed = Theme.get_embed(
             title="📤 Left Server",
             description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`",
             color=discord.Color.red()
         )
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
-        await owner.send(embed=embed)
         await log_to_channel("guild-leave", embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
 
 # --- HELPER: LOG TO CHANNEL ---
-async def log_to_channel(channel_name: str, embed: discord.Embed):
+async def log_to_channel(channel_name: str, embed: discord.Embed, view=None):
     try:
         await bot.wait_until_ready()
         
@@ -1724,7 +1788,7 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
         if channel_name in channel_ids:
             channel = bot.get_channel(channel_ids[channel_name])
             if channel:
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, view=view)
                 return
 
         # Fallback to older string search behavior (e.g. for website-log)
@@ -1738,7 +1802,7 @@ async def log_to_channel(channel_name: str, embed: discord.Embed):
                 
             channel = discord.utils.get(guild.text_channels, name=channel_name)
             if channel:
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, view=view)
                 return
     except Exception as e:
         print(f"{Log.RED}>>> Failed to log to {channel_name}: {e}{Log.RESET}")
@@ -5310,6 +5374,18 @@ async def on_interaction(interaction: discord.Interaction):
         elif custom_id.startswith("reply_dm_"):
             target_id = custom_id.replace("reply_dm_", "")
             await interaction.response.send_modal(DirectMessageReplyModal(target_id=target_id))
+
+        elif custom_id.startswith("leave_guild:"):
+            from src.core.config import OWNER_ID as _LEAVE_OWNER_ID
+            if interaction.user.id != _LEAVE_OWNER_ID:
+                await interaction.response.send_message("Owner only.", ephemeral=True)
+                return
+            try:
+                _gid = int(custom_id.split(":", 1)[1])
+            except Exception:
+                await interaction.response.send_message("Bad guild id.", ephemeral=True)
+                return
+            await interaction.response.send_modal(LeaveGuildReasonModal(_gid))
             
         elif custom_id.startswith("badge_pick:"):
             parts = custom_id.split(":")
