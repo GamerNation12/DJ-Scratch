@@ -13,17 +13,19 @@ type SupportData = {
 
 export default function SupportWidget() {
   const [data, setData] = useState<SupportData | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/support");
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(`support ${res.status}`);
         const json = await res.json();
         if (!cancelled && !json.error) setData(json);
+        else if (!cancelled) setFailed(true);
       } catch {
-        /* offline — section stays hidden */
+        if (!cancelled) setFailed(true);
       }
     })();
     return () => {
@@ -31,15 +33,27 @@ export default function SupportWidget() {
     };
   }, []);
 
-  if (!data) return null;
+  // Static fallback so the section never sits empty (route still deploying
+  // or Discord hiccup) — Join button always works.
+  const view = data ?? (failed
+    ? {
+        name: "DJ Scratch Support",
+        icon: null,
+        memberCount: null,
+        onlineCount: null,
+        members: [],
+        invite: "https://discord.gg/53sxaVWn92",
+      }
+    : null);
+  if (!view) return null;
 
   return (
     <div className="relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 rounded-3xl md:rounded-[2rem] p-6 md:p-10 max-w-3xl w-full hover:border-indigo-500/40 transition-all duration-500">
       <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] pointer-events-none"></div>
       <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
-        {data.icon ? (
+        {view.icon ? (
           <img
-            src={data.icon}
+            src={view.icon}
             alt="Server icon"
             className="w-20 h-20 rounded-2xl shadow-lg shrink-0"
           />
@@ -49,24 +63,24 @@ export default function SupportWidget() {
           </div>
         )}
         <div className="flex-1 text-center sm:text-left">
-          <h3 className="text-2xl font-bold text-white tracking-tight">{data.name}</h3>
+          <h3 className="text-2xl font-bold text-white tracking-tight">{view.name}</h3>
           <div className="flex items-center justify-center sm:justify-start gap-4 mt-1 text-sm text-zinc-400 font-medium">
-            {data.onlineCount !== null && (
+            {view.onlineCount !== null && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                {data.onlineCount} online
+                {view.onlineCount} online
               </span>
             )}
-            {data.memberCount !== null && (
+            {view.memberCount !== null && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-zinc-500"></span>
-                {data.memberCount} members
+                {view.memberCount} members
               </span>
             )}
           </div>
-          {data.members.length > 0 && (
+          {view.members.length > 0 && (
             <div className="flex -space-x-2 mt-3 justify-center sm:justify-start">
-              {data.members.slice(0, 10).map((m) => (
+              {view.members.slice(0, 10).map((m) => (
                 <div
                   key={m.id}
                   title={m.name}
@@ -85,7 +99,7 @@ export default function SupportWidget() {
           )}
         </div>
         <a
-          href={data.invite}
+          href={view.invite}
           target="_blank"
           rel="noreferrer"
           className="shrink-0 px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold rounded-xl text-sm transition-all duration-300 shadow-lg shadow-[#5865F2]/20"
