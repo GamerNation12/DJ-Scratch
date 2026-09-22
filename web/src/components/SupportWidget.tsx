@@ -9,6 +9,7 @@ type SupportData = {
   onlineCount: number | null;
   members: { id: string; name: string; avatar: string | null }[];
   invite: string;
+  ownerOnline?: boolean;
 };
 
 export default function SupportWidget() {
@@ -77,6 +78,12 @@ export default function SupportWidget() {
                 {view.memberCount} members
               </span>
             )}
+          </div>
+          <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-2 text-sm font-medium">
+            <span className={`w-2 h-2 rounded-full ${view.ownerOnline ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`}></span>
+            <span className={view.ownerOnline ? "text-emerald-300" : "text-zinc-500"}>
+              Owner {view.ownerOnline ? "online" : "offline"}
+            </span>
           </div>
           {view.members.length > 0 && (
             <div className="flex -space-x-2 mt-3 justify-center sm:justify-start">

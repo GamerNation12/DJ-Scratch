@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { discordAvatarUrl } from "@/lib/discord";
+import { sql } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -7,6 +8,7 @@ export const revalidate = 60;
 const GUILD_ID = "1527127381897383946";
 const INVITE = "https://discord.gg/53sxaVWn92";
 const INVITE_CODE = "53sxaVWn92";
+const OWNER_ID = "759433582107426816";
 
 // Public support-server widget data. Guild preview needs no widget toggle;
 // invite counts back it up if preview ever fails.
@@ -78,7 +80,20 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ name, icon, memberCount, onlineCount, members, invite: INVITE });
+    // Owner presence: true Discord presence needs the widget/presence
+    // intent, so approximate via recent bot activity (15 min window).
+    let ownerOnline = false;
+    try {
+      const rows = await sql`SELECT last_active FROM user_settings WHERE user_id = ${OWNER_ID}`;
+      const last = rows.length > 0 ? (rows[0] as any).last_active : null;
+      if (last) {
+        ownerOnline = Date.now() - new Date(last).getTime() < 15 * 60 * 1000;
+      }
+    } catch {
+      ownerOnline = false;
+    }
+
+    return NextResponse.json({ name, icon, memberCount, onlineCount, members, invite: INVITE, ownerOnline });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Unavailable" }, { status: 502 });
