@@ -42,7 +42,12 @@ export default function CommunityStandards() {
           <p className="text-gray-300">
             Violations may result in the bot leaving your server, loss of
             features or badges, or a permanent ban from DJ Scratch — with or
-            without notice, depending on severity. The developer's decision is final.
+            without notice, depending on severity. The developer&apos;s decision is final.
+          </p>
+          <p className="text-gray-300">
+            DJ Scratch is a free service run by its developer, who may also
+            remove the bot from any server at any time for any reason —
+            including personal discretion.
           </p>
         </section>
 
