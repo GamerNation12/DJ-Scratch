@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     images: ["https://dj-scratch.vercel.app/logo.png?v=2"],
   },
   icons: {
-    icon: "/api/icon?v=2",
+    icon: "/icon.png?v=2",
   },
 };
 
