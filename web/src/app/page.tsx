@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import SupportWidget from "@/components/SupportWidget";
+import { Reveal, CountUp, handleSpot } from "@/components/motion";
 
 
 const INVITE_LINK = "/invite";
@@ -63,7 +64,7 @@ function HomeContent() {
 
       <main className="relative z-10 w-full flex-grow flex flex-col items-center">
         {/* Hero Section */}
-        <section className="container mx-auto px-4 pt-36 pb-20 text-center flex flex-col items-center min-h-[88vh] justify-center">
+        <section className="container relative mx-auto px-4 pt-36 pb-20 text-center flex flex-col items-center min-h-[88vh] justify-center">
           {errorParam && (
             <div className="bg-red-500/20 border-2 border-red-500/60 text-red-200 px-6 py-4 rounded-2xl mb-8 max-w-2xl backdrop-blur-md animate-fade-in-up">
               <h2 className="text-xl font-bold mb-2">Login Failed ({errorParam})</h2>
@@ -78,7 +79,7 @@ function HomeContent() {
           <h1 className="font-display text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-extrabold tracking-tight mb-6 leading-[0.95] max-w-6xl mx-auto animate-fade-in-up animation-delay-100">
             Your server has
             <br className="hidden sm:block" /> a{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-amber-300 to-lime-300 drop-shadow-sm">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-amber-300 to-lime-300 drop-shadow-sm animate-shimmer">
               soundtrack.
             </span>
           </h1>
@@ -129,6 +130,25 @@ function HomeContent() {
             )}
           </div>
 
+          {/* Floating hero stickers (desktop only) */}
+          <div className="pointer-events-none absolute inset-0 hidden xl:block" aria-hidden="true">
+            <div className="absolute left-[6%] top-[30%] animate-float-y" style={{ ["--fl-rot" as string]: "-8deg" }}>
+              <div className="w-28 h-28 rounded-full border-4 border-fuchsia-400/60 shadow-[0_0_50px_rgba(255,47,179,0.35)] bg-[repeating-radial-gradient(circle_at_center,#150a24_0px,#150a24_3px,#f0abfc_3px,#f0abfc_4px)] animate-spin-slow"></div>
+            </div>
+            <div className="absolute right-[7%] top-[26%] animate-float-y" style={{ ["--fl-rot" as string]: "6deg", animationDelay: "1.2s" }}>
+              <div className="bg-[#170b28]/90 backdrop-blur-md border-2 border-amber-300/50 rounded-2xl px-4 py-3 shadow-[5px_5px_0_rgba(255,176,32,0.5)]">
+                <div className="text-amber-300 font-display font-extrabold text-sm">👑 Crown earned!</div>
+                <div className="text-zinc-400 text-xs font-medium">Top listener · David Kushner</div>
+              </div>
+            </div>
+            <div className="absolute right-[10%] bottom-[18%] animate-float-y" style={{ ["--fl-rot" as string]: "-5deg", animationDelay: "2.4s" }}>
+              <div className="bg-[#170b28]/90 backdrop-blur-md border-2 border-lime-300/50 rounded-2xl px-4 py-3 shadow-[5px_5px_0_rgba(198,241,53,0.4)]">
+                <div className="text-lime-200 font-display font-extrabold text-sm">♫ Now Playing</div>
+                <div className="text-zinc-400 text-xs font-medium">Ritual — David Kushner</div>
+              </div>
+            </div>
+          </div>
+
           <div className="mt-12 flex flex-col items-center gap-3 animate-fade-in-up animation-delay-400">
             <div className="flex -space-x-3">
               {displayAvatars.map((src, i) => (
@@ -141,7 +161,7 @@ function HomeContent() {
               </div>
             </div>
             <p className="text-sm text-zinc-300 font-medium text-center">
-              Join <span className="text-white font-extrabold">{stats.totalUsers ? stats.totalUsers.toLocaleString() : '...'} Last.fm users</span> in <span className="text-white font-extrabold">{stats.serverCount ? stats.serverCount.toLocaleString() : '...'} servers</span> across <br className="sm:hidden" /><span className="text-white font-extrabold">{stats.activeMembers ? stats.activeMembers.toLocaleString() : '...'} Discord members</span> using the bot right now.
+              Join <span className="text-white font-extrabold"><CountUp value={stats.totalUsers} /> Last.fm users</span> in <span className="text-white font-extrabold"><CountUp value={stats.serverCount} /> servers</span> across <br className="sm:hidden" /><span className="text-white font-extrabold"><CountUp value={stats.activeMembers} /> Discord members</span> using the bot right now.
             </p>
           </div>
         </section>
@@ -163,7 +183,7 @@ function HomeContent() {
 
         {/* Features grid */}
         <section id="features" className="container mx-auto px-4 py-28 w-full max-w-7xl relative z-10">
-          <div className="mb-16 text-center flex flex-col items-center gap-6">
+          <Reveal className="mb-16 text-center flex flex-col items-center gap-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-fuchsia-400/50 bg-fuchsia-500/10 text-fuchsia-200 text-xs font-extrabold uppercase tracking-widest rotate-1">
               Features
             </div>
@@ -173,11 +193,11 @@ function HomeContent() {
             <p className="text-zinc-400 text-lg md:text-xl font-medium max-w-xl leading-relaxed">
               Sharing and discovering music, made effortless, interactive, and beautiful.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:auto-rows-[340px]" onMouseMove={handleSpot}>
             {/* Deep Last.fm */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-fuchsia-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,47,179,0.4)] flex flex-col justify-between">
+            <div className="md:col-span-2 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-fuchsia-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,47,179,0.4)] flex flex-col justify-between">
               <div className="absolute -top-32 -right-32 w-96 h-96 bg-fuchsia-500/20 rounded-full blur-[100px] group-hover:bg-fuchsia-500/30 transition-colors duration-700"></div>
               <div className="relative z-10 mt-auto">
                 <div className="w-14 h-14 bg-fuchsia-500/20 border-2 border-fuchsia-400/40 rounded-2xl flex items-center justify-center text-3xl mb-6 rotate-3">🎵</div>
@@ -187,7 +207,7 @@ function HomeContent() {
             </div>
 
             {/* Avatar */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-lime-300/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(198,241,53,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-lime-300/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(198,241,53,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-lime-300/15 border-2 border-lime-300/40 rounded-2xl flex items-center justify-center text-2xl mb-5 -rotate-3">🤖</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Interactive Bot Avatar</h3>
@@ -196,7 +216,7 @@ function HomeContent() {
             </div>
 
             {/* Crowns */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-amber-300/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,176,32,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-amber-300/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,176,32,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-amber-300/15 border-2 border-amber-300/40 rounded-2xl flex items-center justify-center text-2xl mb-5 rotate-3">👑</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Server Leaderboards</h3>
@@ -205,7 +225,7 @@ function HomeContent() {
             </div>
 
             {/* Suggestions */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-sky-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(56,189,248,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-sky-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(56,189,248,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-sky-400/15 border-2 border-sky-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 -rotate-3">💬</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Interactive Suggestions</h3>
@@ -214,7 +234,7 @@ function HomeContent() {
             </div>
 
             {/* Privacy */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-rose-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(251,113,133,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-rose-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(251,113,133,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-rose-400/15 border-2 border-rose-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 rotate-3">🔒</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Privacy Focused</h3>
@@ -223,7 +243,7 @@ function HomeContent() {
             </div>
 
             {/* Spotify */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-emerald-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(52,211,153,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-emerald-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(52,211,153,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-emerald-400/15 border-2 border-emerald-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 -rotate-3">🎧</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Spotify Rich Data</h3>
@@ -232,7 +252,7 @@ function HomeContent() {
             </div>
 
             {/* Speed */}
-            <div className="md:col-span-2 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-white/40 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,255,255,0.25)] flex flex-col justify-between">
+            <div className="md:col-span-2 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-white/40 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,255,255,0.25)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-14 h-14 bg-white/10 border-2 border-white/25 rounded-2xl flex items-center justify-center text-3xl mb-6 rotate-2">⚡</div>
                 <h3 className="font-display text-3xl font-extrabold mb-3 text-white tracking-tight">Lightning Fast & Reliable</h3>
@@ -241,7 +261,7 @@ function HomeContent() {
             </div>
 
             {/* Music Cards */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-fuchsia-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,47,179,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-fuchsia-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(255,47,179,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-fuchsia-500/15 border-2 border-fuchsia-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 -rotate-3">🎴</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Shareable Music Cards</h3>
@@ -250,7 +270,7 @@ function HomeContent() {
             </div>
 
             {/* Recaps */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-sky-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(56,189,248,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-sky-400/60 hover:-rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(56,189,248,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-sky-400/15 border-2 border-sky-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 rotate-3">📊</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Weekly & Monthly Recaps</h3>
@@ -259,7 +279,7 @@ function HomeContent() {
             </div>
 
             {/* Badges */}
-            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 p-6 md:p-10 rounded-3xl hover:border-orange-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(251,146,60,0.35)] flex flex-col justify-between">
+            <div className="md:col-span-1 group relative overflow-hidden bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 bento-spot p-6 md:p-10 rounded-3xl hover:border-orange-400/60 hover:rotate-[0.5deg] transition-all duration-500 hover:shadow-[8px_8px_0_rgba(251,146,60,0.35)] flex flex-col justify-between">
               <div className="relative z-10 mt-auto">
                 <div className="w-12 h-12 bg-orange-400/15 border-2 border-orange-400/40 rounded-2xl flex items-center justify-center text-2xl mb-5 -rotate-3">🏅</div>
                 <h3 className="font-display text-2xl font-extrabold mb-2 text-white tracking-tight">Badges</h3>
@@ -271,6 +291,7 @@ function HomeContent() {
 
         {/* Community / Support Server Section */}
         <section className="container mx-auto px-4 pb-32 w-full max-w-7xl relative z-10 flex flex-col items-center">
+          <Reveal className="flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-lime-300/50 bg-lime-300/10 text-lime-200 text-xs font-extrabold mb-6 uppercase tracking-widest rotate-1">
             Community
           </div>
@@ -280,7 +301,10 @@ function HomeContent() {
           <p className="text-zinc-400 text-lg font-medium max-w-xl text-center mb-10 leading-relaxed">
             Join the support server for help, suggestions, bug reports, and update news.
           </p>
+          </Reveal>
+          <Reveal delay={120} className="w-full flex justify-center">
           <SupportWidget />
+          </Reveal>
         </section>
       </main>
     </div>
