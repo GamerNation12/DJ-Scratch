@@ -99,6 +99,40 @@ def _owner_only_embed():
     )
 
 
+async def _reference_query(ctx):
+    """Usable query from the replied-to message.
+
+    Prefers a Spotify link (embeds included — e.g. replying ,play/,q to a
+    ,sp result queues THAT track), else falls back to the message text.
+    Returns None when there's nothing usable.
+    """
+    try:
+        ref = getattr(ctx.message, "reference", None)
+        if not ref:
+            return None
+        if isinstance(getattr(ref, "resolved", None), discord.Message):
+            msg = ref.resolved
+        elif getattr(ref, "cached_message", None):
+            msg = ref.cached_message
+        else:
+            msg = await ctx.channel.fetch_message(ref.message_id)
+        texts = [msg.content or ""]
+        for e in (msg.embeds or []):
+            texts.append(getattr(e, "description", None) or "")
+            texts.append(getattr(e, "title", None) or "")
+        blob = "\n".join(t for t in texts if t)
+        if not blob.strip():
+            return None
+        parsed = parse_spotify_url(blob)
+        if parsed:
+            kind, sid = parsed
+            if kind in ("track", "album", "artist"):
+                return f"https://open.spotify.com/{kind}/{sid}"
+        return blob.strip() or None
+    except Exception:
+        return None
+
+
 async def _resolve_spotify_input(session, query):
     """Turn free text (or a pasted Spotify link) into playable content.
 
@@ -106,7 +140,7 @@ async def _resolve_spotify_input(session, query):
     Searches track first, then album, then artist — like fmbot.
     """
     if not query or not query.strip():
-        return {"error": "empty"}
+        return {"error": "❌ Give me something to look up — a track name or a Spotify link."}
     query = query.strip()
 
     parsed = parse_spotify_url(query)
@@ -371,15 +405,13 @@ class SpotifyRemote(commands.Cog):
         if not _is_owner(ctx.author.id):
             return await ctx.send(embed=_owner_only_embed())
         if not query:
-            if ctx.message.reference:
-                msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-                query = msg.content
-            else:
+            query = await _reference_query(ctx)
+            if not query:
                 kind, payload = await self._resume_result(ctx.author.id)
                 if kind == "view":
                     return await ctx.send(view=payload)
                 return await ctx.send(embed=payload)
-                    
+
         await self._handle_track_command(ctx, query, "play")
 
     @commands.command(aliases=['q', 'rq'])
@@ -387,10 +419,8 @@ class SpotifyRemote(commands.Cog):
         if not _is_owner(ctx.author.id):
             return await ctx.send(embed=_owner_only_embed())
         if not query:
-            if ctx.message.reference:
-                msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-                query = msg.content
-            else:
+            query = await _reference_query(ctx)
+            if not query:
                 # fmbot parity: default to the track currently playing.
                 kind, payload = await self._queue_current_result(ctx.author.id)
                 if kind == "view":
