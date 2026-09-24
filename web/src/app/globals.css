@@ -10,11 +10,29 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+/* Wrapped-energy brand tokens */
+@theme {
+  --color-plum-950: #0e0618;
+  --color-plum-900: #170b28;
+  --color-volt: #c6f135;
+  --color-candy: #ff2fb3;
+  --color-tang: #ffb020;
+  --color-grape: #7c3aed;
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-spin-slow: spin 14s linear infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #09090b; /* Zinc 950 */
+    --background: #0e0618; /* Plum black — Wrapped-energy base */
     --foreground: #fafafa;
   }
 }

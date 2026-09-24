@@ -45,7 +45,7 @@ export default function Navbar() {
 
   return (
     <div className="fixed top-0 w-full z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
-      <nav className="max-w-7xl mx-auto bg-zinc-950/50 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 pointer-events-auto">
+      <nav className="max-w-7xl mx-auto bg-[#150a24]/70 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl shadow-fuchsia-950/40 pointer-events-auto">
         <div className="flex justify-between h-14 items-center px-4">
           <div className="flex items-center space-x-4">
             {/* Mobile Menu Toggle */}
@@ -68,7 +68,7 @@ export default function Navbar() {
                 alt="DJ Scratch Logo" 
                 className="w-8 h-8 rounded-lg group-hover:scale-105 transition-transform"
               />
-              <span className="text-lg font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent hidden sm:block">
+              <span className="text-lg font-display font-extrabold bg-gradient-to-r from-white via-fuchsia-200 to-amber-200 bg-clip-text text-transparent hidden sm:block">
                 DJ Scratch
               </span>
             </Link>
@@ -78,7 +78,7 @@ export default function Navbar() {
                 href="/"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   pathname === "/"
-                    ? "bg-white/10 text-white"
+                    ? "bg-volt/15 text-volt"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -89,7 +89,7 @@ export default function Navbar() {
                   href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     isDashboard
-                      ? "bg-white/10 text-white"
+                      ? "bg-volt/15 text-volt"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
@@ -100,7 +100,7 @@ export default function Navbar() {
                   href="/api/auth/login"
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     isDashboard
-                      ? "bg-white/10 text-white"
+                      ? "bg-volt/15 text-volt"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
@@ -111,7 +111,7 @@ export default function Navbar() {
                 href="/leaderboard"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   pathname === "/leaderboard"
-                    ? "bg-white/10 text-white"
+                    ? "bg-volt/15 text-volt"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -121,7 +121,7 @@ export default function Navbar() {
                 href="/music"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   pathname === "/music"
-                    ? "bg-white/10 text-white"
+                    ? "bg-volt/15 text-volt"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -131,7 +131,7 @@ export default function Navbar() {
                 href="/tools"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                   pathname.startsWith("/tools")
-                    ? "bg-white/10 text-white"
+                    ? "bg-volt/15 text-volt"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -149,7 +149,7 @@ export default function Navbar() {
                   href="/friends"
                   className={`p-2 rounded-lg transition-all ${
                     pathname === "/friends"
-                      ? "bg-white/10 text-white"
+                      ? "bg-volt/15 text-volt"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
                   title="Friends"
@@ -224,13 +224,13 @@ export default function Navbar() {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-4 right-4 bg-zinc-950/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black pointer-events-auto animate-fade-in-up">
+        <div className="md:hidden absolute top-20 left-4 right-4 bg-[#150a24]/95 backdrop-blur-xl border border-fuchsia-500/20 rounded-2xl p-4 shadow-2xl shadow-fuchsia-950/50 pointer-events-auto animate-fade-in-up">
           <div className="flex flex-col space-y-2">
             <Link
               href="/"
               className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/"
-                  ? "bg-white/10 text-white"
+                  ? "bg-volt/15 text-volt"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -241,7 +241,7 @@ export default function Navbar() {
                 href={`/${session.user.name === "gamernation12" ? "GamerNation12" : session.user.name}`}
                 className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   pathname !== "/"
-                    ? "bg-white/10 text-white" 
+                    ? "bg-volt/15 text-volt" 
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -252,7 +252,7 @@ export default function Navbar() {
                 href="/api/auth/login"
                 className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   pathname !== "/"
-                    ? "bg-white/10 text-white" 
+                    ? "bg-volt/15 text-volt" 
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -263,7 +263,7 @@ export default function Navbar() {
               href="/leaderboard"
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/leaderboard"
-                  ? "bg-white/10 text-white" 
+                  ? "bg-volt/15 text-volt" 
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -273,7 +273,7 @@ export default function Navbar() {
               href="/music"
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/music"
-                  ? "bg-white/10 text-white" 
+                  ? "bg-volt/15 text-volt" 
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -283,7 +283,7 @@ export default function Navbar() {
               href="/tools"
               className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 pathname.startsWith("/tools")
-                  ? "bg-white/10 text-white"
+                  ? "bg-volt/15 text-volt"
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -296,7 +296,7 @@ export default function Navbar() {
                   href="/friends"
                   className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                     pathname === "/friends"
-                      ? "bg-white/10 text-white"
+                      ? "bg-volt/15 text-volt"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
