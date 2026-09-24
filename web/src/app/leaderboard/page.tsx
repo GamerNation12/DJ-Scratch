@@ -119,7 +119,7 @@ export default function LeaderboardPage() {
                           
                           <Link href={`/${user.username.replace(/ /g, '-')}`} className="flex items-center gap-3 sm:gap-4 group-hover:opacity-80 transition-opacity">
                             <img 
-                              src={user.avatar || "/logo.png"} 
+                              src={user.avatar || "/logo.png?v=2"} 
                               alt="Avatar" 
                               className={`rounded-full object-cover shadow-md ${isTop3 ? 'w-12 h-12 sm:w-16 sm:h-16 border-2 border-white/10' : 'w-10 h-10 border border-white/5'}`}
                             />

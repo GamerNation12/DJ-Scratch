@@ -64,7 +64,7 @@ export default function Navbar() {
 
             <Link href="/" className="flex items-center gap-2 group">
               <img 
-                src="/logo.png" 
+                src="/logo.png?v=2" 
                 alt="DJ Scratch Logo" 
                 className="w-8 h-8 rounded-lg group-hover:scale-105 transition-transform"
               />

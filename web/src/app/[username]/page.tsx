@@ -695,10 +695,10 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                   {(displayUsername || "?").charAt(0).toUpperCase()}
                 </span>
                 <img
-                  src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png"}
+                  src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png?v=2"}
                   alt="Avatar"
                   className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => { const t = e.currentTarget; if (!t.src.endsWith("/logo.png")) t.src = "/logo.png"; }}
+                  onError={(e) => { const t = e.currentTarget; if (!t.src.includes("/logo.png")) t.src = "/logo.png?v=2"; }}
                 />
               </span>
             </div>
