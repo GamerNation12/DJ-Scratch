@@ -2172,6 +2172,15 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
 
 @bot.event
 async def on_command_completion(ctx):
+    # Every successful prefix command auto-deletes its invocation (already-
+    # deleted ones just raise, swallowed below).
+    try:
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+    except Exception:
+        pass
     # Same pending-recap delivery for prefix commands (background, never
     # blocks the invoked command).
     try:
