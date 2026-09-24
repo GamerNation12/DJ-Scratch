@@ -21,6 +21,7 @@ const display = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://dj-scratch.vercel.app"),
   title: "DJ Scratch | Your Ultimate Music Stats Bot",
   description: "Track, share, and analyze your music listening habits with DJ Scratch. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
   openGraph: {
@@ -28,14 +29,14 @@ export const metadata: Metadata = {
     description: "Track, share, and analyze your music listening habits with DJ Scratch. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
     url: "https://dj-scratch.vercel.app",
     siteName: "DJ Scratch",
-    images: [
-      {
-        url: "https://dj-scratch.vercel.app/logo.png",
-        width: 800,
-        height: 800,
-        alt: "DJ Scratch Logo",
-      }
-    ],
+      images: [
+        {
+          url: "https://dj-scratch.vercel.app/logo.png",
+          width: 1024,
+          height: 1024,
+          alt: "DJ Scratch Logo",
+        },
+      ],
     locale: "en_US",
     type: "website",
   },
