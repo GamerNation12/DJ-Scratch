@@ -594,20 +594,37 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   };
 
   // Listening insights derived from the latest profile payload.
-  // Recents are always the latest activity, so these stay live on every poll.
+  // Recents always reflect the latest activity; the plays/artists cards
+  // follow the selected timeframe tab via server-computed windowStats
+  // (24h computation kept as fallback for stale payloads).
+  const WINDOW_SHORT: Record<string, string> = {
+    "7day": "7D", "1month": "1M", "3month": "3M",
+    "6month": "6M", "12month": "1Y", "overall": "ALL TIME",
+  };
+  const wlabel = WINDOW_SHORT[period] || period;
   const insights = (() => {
     const stats = profile?.stats;
     const recents: any[] = Array.isArray(stats?.recentTracks) ? stats.recentTracks : [];
     const now = Date.now();
-    const plays24h = recents.filter((t) => !t.nowPlaying && t.date && now - parseInt(t.date) * 1000 < 24 * 60 * 60 * 1000).length;
-    const uniqueArtists = new Set(recents.map((t) => (t.artist || "").toLowerCase()).filter(Boolean)).size;
+    const inWindow = (t: any) =>
+      !t.nowPlaying && t.date && now - parseInt(t.date) * 1000 < 24 * 60 * 60 * 1000;
+    const plays24h = recents.filter(inWindow).length;
+    // Same 24h window as plays (now-playing counts for neither until scrobbled).
+    const uniqueArtists24h = new Set(
+      recents.filter(inWindow).map((t) => (t.artist || "").toLowerCase()).filter(Boolean)
+    ).size;
+    const ws = (profile as any)?.windowStats;
+    const plays = ws && typeof ws.plays === "number" ? ws.plays : plays24h;
+    const playsPlus = ws ? !!ws.playsCapped : false;
+    const artists = ws && typeof ws.artists === "number" ? ws.artists : uniqueArtists24h;
+    const artistsPlus = ws ? !!ws.artistsCapped : false;
     const nowPlaying = recents.find((t) => t.nowPlaying) || null;
     const topArtist = stats?.topArtists?.[0] || null;
     const total = Number(stats?.playcount || 0);
     const share = topArtist && total > 0 ? Math.min(100, (Number(topArtist.playcount || 0) / total) * 100) : 0;
     const nextMilestone = total < 10 ? 10 : Math.pow(10, Math.ceil(Math.log10(total + 1)));
     const milestonePct = Math.min(100, (total / nextMilestone) * 100);
-    return { plays24h, uniqueArtists, nowPlaying, topArtist, total, share, nextMilestone, milestonePct };
+    return { plays, playsPlus, artists, artistsPlus, wlabel, nowPlaying, topArtist, total, share, nextMilestone, milestonePct };
   })();
 
   if (profileLoading || status === "loading") {
@@ -838,14 +855,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           {/* Listening insights */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Last 24 hours</div>
-              <div className="text-3xl font-black text-white">{insights.plays24h}</div>
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Plays · {insights.wlabel}</div>
+              <div className="text-3xl font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
               <div className="text-xs text-zinc-400 mt-1">plays scrobbled</div>
             </div>
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">In rotation</div>
-              <div className="text-3xl font-black text-white">{insights.uniqueArtists}</div>
-              <div className="text-xs text-zinc-400 mt-1">artists in recents</div>
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Artists · {insights.wlabel}</div>
+              <div className="text-3xl font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
+              <div className="text-xs text-zinc-400 mt-1">distinct artists</div>
             </div>
             <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Top artist share</div>

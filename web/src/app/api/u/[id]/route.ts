@@ -310,6 +310,86 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       finalStats.recentTracks = combinedRecents.slice(0, 10);
     }
 
+    // Window stats for the insight cards (tab-aware, exact where cheap).
+    // plays: overall -> all-time total; else exact Last.fm window total via
+    // limit=1 (@attr.total) MAXed with the imported period COUNT.
+    // artists: overall -> distinct across tops (floor, marked +); else exact
+    // distinct artists from paged recents (5x200 cap, marked + when capped).
+    let windowStats = { plays: 0, playsCapped: false, artists: 0, artistsCapped: true };
+    try {
+      if (period === "overall") {
+        windowStats.plays = finalStats.playcount;
+        const aset = new Set<string>();
+        for (const a of finalStats.topArtists) aset.add(String(a?.name || "").toLowerCase());
+        for (const t of finalStats.topTracks) aset.add(String(t?.artist || "").toLowerCase());
+        for (const b of finalStats.topAlbums) aset.add(String(b?.artist || "").toLowerCase());
+        aset.delete("");
+        windowStats.artists = aset.size;
+        windowStats.artistsCapped = true;
+      } else {
+        let fmPlays = 0, fmFloor = false;
+        const fmArtists = new Set<string>();
+        let fmCapped = false, fmOk = false;
+        if (lastfm_username && data_source !== 'imported_only' && cutoffDate) {
+          const fromSec = Math.floor(cutoffDate.getTime() / 1000);
+          const base = `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&from=${fromSec}`;
+          try {
+            const cRes = await fetch(`${base}&limit=1`);
+            const cData = await cRes.json();
+            const total = parseInt(cData?.recenttracks?.["@attr"]?.total || "0", 10);
+            if (Number.isFinite(total)) { fmPlays = total; fmOk = true; }
+          } catch { /* fall through to floor */ }
+          try {
+            for (let pg = 1; pg <= 5; pg++) {
+              const pRes = await fetch(`${base}&limit=200&page=${pg}`);
+              const pData = await pRes.json();
+              let items = pData?.recenttracks?.track || [];
+              if (!Array.isArray(items)) items = items ? [items] : [];
+              if (items.length === 0) break;
+              for (const t of items) {
+                const a = t?.artist?.["#text"] || t?.artist?.name || "";
+                if (a) fmArtists.add(String(a).toLowerCase());
+              }
+              if (items.length < 200) break;
+              if (pg === 5) fmCapped = true;
+            }
+            fmOk = true;
+          } catch { /* keep count-only */ }
+        }
+        if (!fmOk && data_source !== 'imported_only') {
+          fmPlays = (finalStats.topTracks || []).reduce(
+            (n: number, t: any) => n + (parseInt(t?.playcount) || 0), 0);
+          fmFloor = true;
+        }
+        let imPlays = 0;
+        const imArtists = new Set<string>();
+        let imCapped = false;
+        if (data_source !== 'lastfm_only') {
+          try {
+            if (cutoffDate) {
+              const c = await sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`;
+              imPlays = parseInt(c[0]?.count || "0", 10);
+            } else {
+              imPlays = importedData.playcount;
+            }
+            for (const a of importedData.topArtists) imArtists.add(String(a?.name || "").toLowerCase());
+            for (const t of importedData.topTracks) imArtists.add(String(t?.artist || "").toLowerCase());
+            for (const b of ((importedData as any).topAlbums || [])) imArtists.add(String(b?.artist || "").toLowerCase());
+            imArtists.delete("");
+            if (importedData.topArtists.length >= 50) imCapped = true;
+          } catch { /* ignore */ }
+        }
+        if (data_source === 'imported_only') {
+          windowStats = { plays: imPlays, playsCapped: false, artists: imArtists.size, artistsCapped: imCapped };
+        } else if (data_source === 'lastfm_only' || imPlays === 0) {
+          windowStats = { plays: fmPlays, playsCapped: fmFloor, artists: fmArtists.size, artistsCapped: fmCapped || fmFloor };
+        } else {
+          const union = new Set([...fmArtists, ...imArtists]);
+          windowStats = { plays: Math.max(fmPlays, imPlays), playsCapped: fmFloor, artists: union.size, artistsCapped: fmCapped || imCapped || fmFloor };
+        }
+      }
+    } catch { /* cards fall back client-side */ }
+
     // Fetch missing images
     for (const a of finalStats.topArtists) {
       if (!a.image) {
@@ -342,6 +422,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       lastfm_username: lastfm_username,
       users: discordUsers,
       stats: finalStats,
+      windowStats,
       _debug: debugLogs
     });
 
