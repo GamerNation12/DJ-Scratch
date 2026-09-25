@@ -313,19 +313,69 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Window stats for the insight cards (tab-aware, exact where cheap).
     // plays: overall -> all-time total; else exact Last.fm window total via
     // limit=1 (@attr.total) MAXed with the imported period COUNT.
-    // artists: overall -> distinct across tops (floor, marked +); else exact
-    // distinct artists from paged recents (5x200 cap, marked + when capped).
+    // artists: exact distinct artists — Last.fm top-artists paging (1000/page,
+    // capped at 3 pages) UNION imported distinct names (capped at 2000).
+    // "+" marks a capped (floor) value.
     let windowStats = { plays: 0, playsCapped: false, artists: 0, artistsCapped: true };
+    const fmDistinctArtists = async (periodParam: string) => {
+      const names = new Set<string>();
+      let capped = false;
+      try {
+        for (let pg = 1; pg <= 3; pg++) {
+          const r = await fetch(
+            `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1000&page=${pg}${periodParam}`);
+          const d = await r.json().catch(() => null);
+          let items = d?.topartists?.artist || [];
+          if (!Array.isArray(items)) items = items ? [items] : [];
+          for (const a of items) {
+            if (a?.name) names.add(String(a.name).toLowerCase());
+          }
+          const totalPages = parseInt(d?.topartists?.["@attr"]?.totalPages || "1", 10) || 1;
+          if (pg >= totalPages) break;
+          if (pg === 3) capped = true;
+        }
+      } catch { /* partial set stands */ }
+      return { names, capped };
+    };
+    const imDistinctArtists = async (cutoff: Date | null) => {
+      const names = new Set<string>();
+      let capped = false;
+      try {
+        const rows = cutoff
+          ? await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoff} LIMIT 2001`
+          : await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} LIMIT 2001`;
+        for (const r of rows) {
+          if ((r as any)?.artist_name) names.add(String((r as any).artist_name).toLowerCase());
+        }
+        if (rows.length >= 2001) capped = true;
+      } catch { /* partial set stands */ }
+      return { names, capped };
+    };
     try {
       if (period === "overall") {
         windowStats.plays = finalStats.playcount;
+        let cap = false;
         const aset = new Set<string>();
-        for (const a of finalStats.topArtists) aset.add(String(a?.name || "").toLowerCase());
-        for (const t of finalStats.topTracks) aset.add(String(t?.artist || "").toLowerCase());
-        for (const b of finalStats.topAlbums) aset.add(String(b?.artist || "").toLowerCase());
-        aset.delete("");
+        if (lastfm_username && data_source !== 'imported_only') {
+          const fm = await fmDistinctArtists("");
+          for (const n of fm.names) aset.add(n);
+          cap = cap || fm.capped;
+        }
+        if (data_source !== 'lastfm_only') {
+          const im = await imDistinctArtists(null);
+          for (const n of im.names) aset.add(n);
+          cap = cap || im.capped;
+        }
+        if (aset.size === 0) {
+          // Both sources failed: floor from displayed tops.
+          for (const a of finalStats.topArtists) aset.add(String(a?.name || "").toLowerCase());
+          for (const t of finalStats.topTracks) aset.add(String(t?.artist || "").toLowerCase());
+          for (const b of finalStats.topAlbums) aset.add(String(b?.artist || "").toLowerCase());
+          aset.delete("");
+          cap = true;
+        }
         windowStats.artists = aset.size;
-        windowStats.artistsCapped = true;
+        windowStats.artistsCapped = cap;
       } else {
         let fmPlays = 0, fmFloor = false;
         const fmArtists = new Set<string>();
@@ -340,20 +390,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             if (Number.isFinite(total)) { fmPlays = total; fmOk = true; }
           } catch { /* fall through to floor */ }
           try {
-            for (let pg = 1; pg <= 5; pg++) {
-              const pRes = await fetch(`${base}&limit=200&page=${pg}`);
-              const pData = await pRes.json();
-              let items = pData?.recenttracks?.track || [];
-              if (!Array.isArray(items)) items = items ? [items] : [];
-              if (items.length === 0) break;
-              for (const t of items) {
-                const a = t?.artist?.["#text"] || t?.artist?.name || "";
-                if (a) fmArtists.add(String(a).toLowerCase());
-              }
-              if (items.length < 200) break;
-              if (pg === 5) fmCapped = true;
-            }
-            fmOk = true;
+            const distinct = await fmDistinctArtists(`&period=${period}`);
+            for (const n of distinct.names) fmArtists.add(n);
+            fmCapped = distinct.capped;
           } catch { /* keep count-only */ }
         }
         if (!fmOk && data_source !== 'imported_only') {
@@ -372,20 +411,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             } else {
               imPlays = importedData.playcount;
             }
-            for (const a of importedData.topArtists) imArtists.add(String(a?.name || "").toLowerCase());
-            for (const t of importedData.topTracks) imArtists.add(String(t?.artist || "").toLowerCase());
-            for (const b of ((importedData as any).topAlbums || [])) imArtists.add(String(b?.artist || "").toLowerCase());
-            imArtists.delete("");
-            if (importedData.topArtists.length >= 50) imCapped = true;
+            const im = await imDistinctArtists(cutoffDate);
+            for (const n of im.names) imArtists.add(n);
+            imCapped = im.capped;
           } catch { /* ignore */ }
         }
         if (data_source === 'imported_only') {
           windowStats = { plays: imPlays, playsCapped: false, artists: imArtists.size, artistsCapped: imCapped };
         } else if (data_source === 'lastfm_only' || imPlays === 0) {
-          windowStats = { plays: fmPlays, playsCapped: fmFloor, artists: fmArtists.size, artistsCapped: fmCapped || fmFloor };
+          windowStats = { plays: fmPlays, playsCapped: fmFloor, artists: fmArtists.size, artistsCapped: fmCapped };
         } else {
           const union = new Set([...fmArtists, ...imArtists]);
-          windowStats = { plays: Math.max(fmPlays, imPlays), playsCapped: fmFloor, artists: union.size, artistsCapped: fmCapped || imCapped || fmFloor };
+          windowStats = { plays: Math.max(fmPlays, imPlays), playsCapped: fmFloor, artists: union.size, artistsCapped: fmCapped || imCapped };
         }
       }
     } catch { /* cards fall back client-side */ }

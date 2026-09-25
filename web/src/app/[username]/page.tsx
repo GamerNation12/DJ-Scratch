@@ -285,6 +285,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   // --- Public Profile State ---
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  // Period switches keep stale data on screen (no full-page spinner) with a
+  // small "updating" pill on the tops while the new period loads.
+  const [topsLoading, setTopsLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   // --- Dashboard Settings State ---
@@ -351,6 +354,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     let triedIdFallback = false;
     let useIdUrl = false;
     setProfileLoading(true);
+    setTopsLoading(true);
     setResolvedOwnProfile(false);
 
     const fetchProfile = async () => {
@@ -385,7 +389,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       } catch (err) {
         if (isMounted) setProfileError("Failed to load profile.");
       } finally {
-        if (isMounted) setProfileLoading(false);
+        if (isMounted) { setProfileLoading(false); setTopsLoading(false); }
       }
     };
 
@@ -627,7 +631,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     return { plays, playsPlus, artists, artistsPlus, wlabel, nowPlaying, topArtist, total, share, nextMilestone, milestonePct };
   })();
 
-  if (profileLoading || status === "loading") {
+  if ((profileLoading && !profile) || status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -850,6 +854,12 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 {p.label}
               </button>
             ))}
+            {topsLoading && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
+                <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+                Updating…
+              </span>
+            )}
           </div>
 
           {/* Listening insights */}
