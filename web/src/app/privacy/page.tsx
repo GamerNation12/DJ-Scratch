@@ -6,7 +6,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto space-y-8">
         <h1 className="text-4xl font-display font-extrabold mb-8">Privacy Policy</h1>
         
-        <p className="text-gray-400">Last updated: {new Date().toLocaleDateString()}</p>
+        <p className="text-gray-400">Last updated: 6/27/2026</p>
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Information We Collect</h2>

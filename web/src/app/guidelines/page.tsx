@@ -6,7 +6,7 @@ export default function CommunityStandards() {
       <div className="max-w-3xl mx-auto space-y-8">
         <h1 className="text-4xl font-display font-extrabold mb-8">Community Standards</h1>
 
-        <p className="text-gray-400">Last updated: {new Date().toLocaleDateString()}</p>
+        <p className="text-gray-400">Last updated: 9/25/2026</p>
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Be Respectful</h2>
