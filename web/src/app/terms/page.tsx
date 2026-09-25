@@ -2,9 +2,9 @@ import React from 'react';
 
 export default function TermsOfService() {
   return (
-    <div className="min-h-screen bg-black text-white p-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-[#0e0618] text-white p-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <div className="max-w-3xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold mb-8">Terms of Service</h1>
+        <h1 className="text-4xl font-display font-extrabold mb-8">Terms of Service</h1>
         
         <p className="text-gray-400">Last updated: {new Date().toLocaleDateString()}</p>
 

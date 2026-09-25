@@ -156,7 +156,7 @@ function HomeContent() {
                   <img src={src} alt="Top User" className="w-full h-full object-cover" />
                 </div>
               ))}
-              <div className="w-10 h-10 rounded-full border-2 border-lime-300/60 bg-zinc-900 flex items-center justify-center text-[11px] font-extrabold text-lime-200 shadow-lg shadow-lime-500/10 backdrop-blur-md">
+              <div className="w-10 h-10 rounded-full border-2 border-lime-300/60 bg-[#170b28] flex items-center justify-center text-[11px] font-extrabold text-lime-200 shadow-lg shadow-lime-500/10 backdrop-blur-md">
                 +{stats.totalUsers ? (stats.totalUsers > displayAvatars.length ? stats.totalUsers - displayAvatars.length : 0) : '...'}
               </div>
             </div>

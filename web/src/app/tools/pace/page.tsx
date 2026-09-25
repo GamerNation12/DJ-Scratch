@@ -53,7 +53,7 @@ export default function PacePage() {
   const pct = result ? Math.min(100, (result.total / result.nextMilestone) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       <Navbar />
       <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-emerald-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
 
@@ -63,14 +63,14 @@ export default function PacePage() {
         </Link>
 
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 to-teal-400 mb-3 flex items-center justify-center gap-3">
+          <h1 className="text-4xl md:text-5xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 to-teal-400 mb-3 flex items-center justify-center gap-3">
             <Gauge className="w-9 h-9 md:w-11 md:h-11 text-emerald-300" />
             Pace
           </h1>
           <p className="text-zinc-400">Milestones and ETAs for any Last.fm username. Bot: <span className="font-mono text-zinc-500">/pace · /milestone</span></p>
         </div>
 
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+        <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
           {recent.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {recent.map((r) => (
@@ -90,7 +90,7 @@ export default function PacePage() {
               onChange={(e) => setUser(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="Last.fm username"
-              className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+              className="flex-1 bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
             />
             <input
               value={goal}
@@ -98,7 +98,7 @@ export default function PacePage() {
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="Goal (optional, e.g. 50000)"
               inputMode="numeric"
-              className="sm:w-52 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+              className="sm:w-52 bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
             />
             <button
               onClick={search}
@@ -117,21 +117,21 @@ export default function PacePage() {
         {result && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center">
-                <p className="text-2xl font-black text-white">{result.total.toLocaleString()}</p>
+              <div className="bg-[#170b28]/50 border border-white/5 rounded-2xl p-4 text-center">
+                <p className="text-2xl font-display font-black text-white">{result.total.toLocaleString()}</p>
                 <p className="text-zinc-500 text-xs mt-1">total plays</p>
               </div>
-              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center">
-                <p className="text-2xl font-black text-white">{result.dailyRate}<span className="text-sm text-zinc-500">/day</span></p>
+              <div className="bg-[#170b28]/50 border border-white/5 rounded-2xl p-4 text-center">
+                <p className="text-2xl font-display font-black text-white">{result.dailyRate}<span className="text-sm text-zinc-500">/day</span></p>
                 <p className="text-zinc-500 text-xs mt-1">current rate</p>
               </div>
-              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 text-center">
-                <p className="text-2xl font-black text-emerald-300">{result.nextMilestone.toLocaleString()}</p>
+              <div className="bg-[#170b28]/50 border border-white/5 rounded-2xl p-4 text-center">
+                <p className="text-2xl font-display font-black text-emerald-300">{result.nextMilestone.toLocaleString()}</p>
                 <p className="text-zinc-500 text-xs mt-1">next milestone</p>
               </div>
             </div>
 
-            <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-lg">
+            <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Flag className="w-4 h-4 text-emerald-300" />
                 <span className="text-sm font-bold text-white">
@@ -145,10 +145,10 @@ export default function PacePage() {
             </div>
 
             {result.goal && (
-              <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-lg flex items-center gap-3">
+              <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-lg flex items-center gap-3">
                 <Rocket className="w-5 h-5 text-indigo-300 shrink-0" />
                 <p className="text-sm text-zinc-300">
-                  Goal <span className="font-black text-white">{result.goal.toLocaleString()}</span>:{" "}
+                  Goal <span className="font-display font-black text-white">{result.goal.toLocaleString()}</span>:{" "}
                   {result.goalEta.reached ? (
                     <span className="text-emerald-300 font-bold">already smashed it.</span>
                   ) : (

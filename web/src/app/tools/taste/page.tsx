@@ -52,7 +52,7 @@ export default function TastePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       <Navbar />
       <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-pink-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
 
@@ -62,14 +62,14 @@ export default function TastePage() {
         </Link>
 
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-rose-400 mb-3 flex items-center justify-center gap-3">
+          <h1 className="text-4xl md:text-5xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-rose-400 mb-3 flex items-center justify-center gap-3">
             <HeartHandshake className="w-9 h-9 md:w-11 md:h-11 text-pink-300" />
             Taste Compare
           </h1>
           <p className="text-zinc-400">Compatibility between any two Last.fm users. Bot: <span className="font-mono text-zinc-500">/taste</span></p>
         </div>
 
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+        <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
           {recent.length > 0 && (
             <div className="mb-3">
               <div className="flex gap-1.5 mb-2">
@@ -104,14 +104,14 @@ export default function TastePage() {
               onChange={(e) => setA(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="First Last.fm username"
-              className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50"
+              className="flex-1 bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50"
             />
             <input
               value={b}
               onChange={(e) => setB(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="Second Last.fm username"
-              className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50"
+              className="flex-1 bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50"
             />
             <button
               onClick={search}
@@ -128,9 +128,9 @@ export default function TastePage() {
         )}
 
         {result && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg">
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg">
             <div className="text-center mb-5">
-              <p className="text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-rose-400">{result.score}%</p>
+              <p className="text-6xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-rose-400">{result.score}%</p>
               <p className="text-zinc-300 font-bold mt-1">{tasteLabel(result.score)}</p>
               <p className="text-zinc-500 text-sm mt-1 truncate">{result.a} × {result.b}</p>
             </div>

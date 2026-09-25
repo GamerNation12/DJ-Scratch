@@ -550,7 +550,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full flex items-center justify-between gap-3 bg-zinc-900/50 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
+          className={`w-full flex items-center justify-between gap-3 bg-[#170b28]/60 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
         >
           <span className="truncate">{selectedOption.label}</span>
           <span className={`shrink-0 text-zinc-500 text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : ''}`}>▼</span>
@@ -559,7 +559,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
-            <div className="absolute z-50 w-full mt-2 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto overflow-x-hidden max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
+            <div className="absolute z-50 w-full mt-2 bg-[#170b28]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto overflow-x-hidden max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
               {options.map((opt) => (
                 <button
                   key={opt.value}
@@ -633,7 +633,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   if ((profileLoading && !profile) || status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+      <div className="min-h-screen flex items-center justify-center bg-[#0e0618]">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -660,13 +660,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       }
 
       return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#09090b] text-white p-4 relative overflow-hidden">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0e0618] text-white p-4 relative overflow-hidden">
         {/* Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
         
-        <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] max-w-md w-full text-center shadow-2xl relative z-10 animate-fade-in-up">
+        <div className="bg-[#170b28]/40 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] max-w-md w-full text-center shadow-2xl relative z-10 animate-fade-in-up">
           <div className="text-7xl mb-6 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transform transition-transform hover:scale-110">{icon}</div>
-          <h2 className="text-3xl font-black mb-3 tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400">{title}</h2>
+          <h2 className="text-3xl font-display font-black mb-3 tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400">{title}</h2>
           <p className="text-zinc-400 text-base mb-8 leading-relaxed font-medium">
             {profileError === "Internal Server Error" 
               ? "We hit a snag while trying to load this profile. Please try again later."
@@ -682,7 +682,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       {/* Background Blurs */}
       <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-indigo-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
       <div className="fixed bottom-0 right-1/4 w-1/3 h-[400px] bg-purple-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
@@ -705,14 +705,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         )}
 
         {/* HERO BANNER (Modified to handle both owner view and public view) */}
-        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
           
           <div className="relative flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
             <div className="relative">
               <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
               <span className="block w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10 overflow-hidden bg-zinc-800 shrink-0">
-                <span className="absolute inset-0 flex items-center justify-center text-3xl md:text-5xl font-black text-indigo-300">
+                <span className="absolute inset-0 flex items-center justify-center text-3xl md:text-5xl font-display font-black text-indigo-300">
                   {(displayUsername || "?").charAt(0).toUpperCase()}
                 </span>
                 <img
@@ -726,7 +726,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="flex flex-col justify-center h-full">
               {isOwner ? (
                 <>
-                  <h1 className="text-3xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
+                  <h1 className="font-display text-3xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
                     Welcome back, <span className="text-indigo-400">{displayUsername}</span>
                   </h1>
                   <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
@@ -754,7 +754,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
+                  <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
                   <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-4">DJ Scratch Profile</p>
                   <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
                   <a 
@@ -785,7 +785,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
           ) : (
             profile?.stats?.playcount > 0 && (
-              <div className="bg-zinc-900/50 border border-white/10 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
+              <div className="bg-[#170b28]/60 border border-white/10 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
                  <div className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Scrobbles</div>
                  <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
                    {profile.stats.playcount.toLocaleString()}
@@ -798,7 +798,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         {/* TAB SWITCHER (Only visible to owner) */}
         {isOwner && (
           <div className="flex items-center justify-center mb-8">
-            <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+            <div className="bg-[#170b28]/60 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
               <button 
                 onClick={() => setActiveTab("profile")}
                 className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-300 shadow-lg border border-indigo-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
@@ -864,28 +864,28 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
           {/* Listening insights */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Plays · {insights.wlabel}</div>
-              <div className="text-3xl font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
+              <div className="text-3xl font-display font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
               <div className="text-xs text-zinc-400 mt-1">plays scrobbled</div>
             </div>
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Artists · {insights.wlabel}</div>
-              <div className="text-3xl font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
+              <div className="text-3xl font-display font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
               <div className="text-xs text-zinc-400 mt-1">distinct artists</div>
             </div>
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Top artist share</div>
-              <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+              <div className="text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
                 {insights.share.toFixed(1)}%
               </div>
               <div className="text-xs text-zinc-400 mt-1 truncate">{insights.topArtist?.name || "—"}</div>
             </div>
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">
                 Next milestone · {insights.nextMilestone.toLocaleString()}
               </div>
-              <div className="text-3xl font-black text-white">{(insights.nextMilestone - insights.total).toLocaleString()}</div>
+              <div className="text-3xl font-display font-black text-white">{(insights.nextMilestone - insights.total).toLocaleString()}</div>
               <div className="text-xs text-zinc-400 mt-1 mb-2">plays to go</div>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <div
@@ -903,13 +903,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 <span className="font-bold text-white">{insights.nowPlaying.name}</span>
                 <span className="text-zinc-500"> — {insights.nowPlaying.artist}</span>
               </p>
-              <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-green-400 shrink-0">Now playing</span>
+              <span className="ml-auto text-[10px] font-display font-black uppercase tracking-widest text-green-400 shrink-0">Now playing</span>
             </div>
           )}
 
           <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
             {/* Top Artists Grid */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">⭐ Top Artists</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened artists ${periodLong}.` : `Their most listened artists ${periodLong}.`}</p>
@@ -921,7 +921,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                      href={artist.url} 
                      target="_blank"
                      rel="noreferrer"
-                     className="bg-zinc-900/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
                    >
                      <div className="w-16 h-16 rounded-full bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
@@ -940,7 +940,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
 
             {/* Recent Tracks List */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
                  <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
@@ -984,7 +984,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
 
             {/* Top Albums Grid */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /> Top Albums</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened albums ${periodLong}.` : `Their most listened albums ${periodLong}.`}</p>
@@ -996,7 +996,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                      href={album.url} 
                      target="_blank"
                      rel="noreferrer"
-                     className="bg-zinc-900/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
                    >
                      <div className="w-16 h-16 rounded-xl bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {album.image ? (
@@ -1016,7 +1016,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
 
             {/* Top Tracks List */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                  <h3 className="text-xl font-bold flex items-center gap-2">🔥 Top Tracks</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most played songs ${periodLong}.` : `Their most played songs ${periodLong}.`}</p>
@@ -1056,7 +1056,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
          )}
 
          {isOwner && activeTab === "profile" && profileError && (
-          <div className="text-center p-8 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-white/5 border-dashed">
+          <div className="text-center p-8 text-zinc-500 bg-[#170b28]/30 rounded-3xl border border-white/5 border-dashed">
             {profileError}
           </div>
         )}
@@ -1067,7 +1067,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             {/* LEFT COLUMN */}
             <div className="space-y-8">
               {/* Display Layout Card */}
-              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-20" />
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                   <h3 className="text-xl font-bold">Display Layout</h3>
@@ -1087,7 +1087,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         className={`relative flex flex-col items-start p-6 rounded-2xl border transition-all duration-300 text-left group ${
                           unsavedFmMode === mode.id
                             ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.15)] sm:scale-105 z-10"
-                            : "bg-zinc-900/30 border-white/5 hover:border-white/20 hover:bg-zinc-900/50"
+                            : "bg-[#170b28]/30 border-white/5 hover:border-white/20 hover:bg-[#170b28]/60"
                         }`}
                       >
                         <div className={`text-2xl mb-4 transition-transform duration-300 ${unsavedFmMode === mode.id ? 'scale-110' : 'group-hover:scale-110'}`}>{mode.icon}</div>
@@ -1104,7 +1104,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               </div>
 
               {/* Data Source & Timezone */}
-              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl shadow-2xl relative z-20">
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl shadow-2xl relative z-20">
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01] rounded-t-3xl">
                   <h3 className="text-xl font-bold">Localization</h3>
                   <p className="text-zinc-400 text-sm mt-1">Configure where the bot pulls stats and resets.</p>
@@ -1152,7 +1152,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               </div>
 
               {/* Connected Accounts */}
-              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                   <h3 className="text-xl font-bold">Connected Accounts</h3>
                   <p className="text-zinc-400 text-sm mt-1">Music services linked to your Discord account.</p>
@@ -1202,7 +1202,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             {/* RIGHT COLUMN */}
             <div className="space-y-8">
               {/* Profile Details Card */}
-              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                   <h3 className="text-xl font-bold">Profile Details</h3>
                   <p className="text-zinc-400 text-sm mt-1">Customize how you appear on the dashboard.</p>
@@ -1215,13 +1215,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     placeholder={usernameParam}
                     value={unsavedDisplayName}
                     onChange={(e) => setUnsavedDisplayName(e.target.value)}
-                    className="w-full bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Feature Toggles Card */}
-              <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                 <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                   <h3 className="text-xl font-bold">Feature & Privacy Toggles</h3>
                   <p className="text-zinc-400 text-sm mt-1">Fine-tune exactly how the bot behaves.</p>
@@ -1276,7 +1276,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         {isOwner && activeTab === "suggestions" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
             {/* Submit Suggestion Card */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20" />
               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                 <h3 className="text-xl font-bold flex items-center gap-2">💡 Submit Feedback</h3>
@@ -1291,7 +1291,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     value={newSuggestionTitle}
                     onChange={(e) => setNewSuggestionTitle(e.target.value)}
                     placeholder="e.g. Add a new embed layout"
-                    className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
+                    className="w-full bg-[#170b28]/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
                   />
                 </div>
                 <div>
@@ -1302,7 +1302,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     onChange={(e) => setNewSuggestionDesc(e.target.value)}
                     placeholder="Describe how it should work..."
                     rows={4}
-                    className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
+                    className="w-full bg-[#170b28]/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
                   />
                 </div>
                 <button 
@@ -1316,7 +1316,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
 
             {/* My Suggestions List */}
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
                 <h3 className="text-xl font-bold">My Submissions</h3>
                 <p className="text-zinc-400 text-sm mt-1">Track the status of your ideas submitted from Discord or the Web.</p>
@@ -1336,7 +1336,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         </div>
                         <div className="shrink-0">{getStatusBadge(s.status, s.title)}</div>
                       </div>
-                      <p className="text-zinc-400 text-sm mb-5 leading-relaxed bg-zinc-900/30 p-5 rounded-2xl border border-white/5">
+                      <p className="text-zinc-400 text-sm mb-5 leading-relaxed bg-[#170b28]/30 p-5 rounded-2xl border border-white/5">
                         {s.description}
                       </p>
                       {s.admin_feedback && (
@@ -1355,8 +1355,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         )}
         {/* --- IMPORT TAB --- */}
         {isOwner && activeTab === "import" && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in-up">
-            <h2 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
+          <div className="bg-[#170b28]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in-up">
+            <h2 className="text-2xl font-display font-black text-white mb-2 flex items-center gap-3">
               <span className="text-amber-400">📥</span> Import Data
             </h2>
             <p className="text-zinc-400 mb-8 max-w-2xl">
@@ -1374,7 +1374,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             )}
 
             <div className="space-y-6">
-              <div className="p-6 bg-zinc-900 border border-white/5 rounded-2xl">
+              <div className="p-6 bg-[#170b28] border border-white/5 rounded-2xl">
                 <input
                   type="file"
                   accept=".zip,.json,.csv"
@@ -1438,7 +1438,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         )}
         {/* --- ADMIN TAB (owner dashboard + admin role only) --- */}
         {isOwner && adminRole && activeTab === "admin" && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in">
+          <div className="bg-[#170b28]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in">
             <AdminClient embedded />
           </div>
         )}
@@ -1447,7 +1447,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       {/* Floating Save Pill (Only for owner when settings change) */}
       {isOwner && (
         <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 transition-all duration-500 z-50 ${hasUnsavedChanges ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
-          <div className="bg-zinc-900/95 backdrop-blur-3xl border border-indigo-500/40 p-3 pr-4 rounded-full shadow-[0_10px_50px_rgba(99,102,241,0.3)] flex items-center gap-6">
+          <div className="bg-[#170b28]/95 backdrop-blur-3xl border border-indigo-500/40 p-3 pr-4 rounded-full shadow-[0_10px_50px_rgba(99,102,241,0.3)] flex items-center gap-6">
             <div className="flex items-center gap-3 pl-4">
               <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
               <div className="text-indigo-100 text-sm font-bold tracking-wide">UNSAVED CHANGES</div>

@@ -28,15 +28,15 @@ export default function LeaderboardPage() {
 
   const getRankBadge = (index: number) => {
     switch (index) {
-      case 0: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 flex items-center justify-center text-black font-black text-sm shadow-[0_0_15px_rgba(250,204,21,0.5)]">1</div>;
-      case 1: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-300 to-zinc-500 flex items-center justify-center text-black font-black text-sm shadow-[0_0_15px_rgba(161,161,170,0.5)]">2</div>;
-      case 2: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-white font-black text-sm shadow-[0_0_15px_rgba(217,119,6,0.5)]">3</div>;
+      case 0: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 flex items-center justify-center text-black font-display font-black text-sm shadow-[0_0_15px_rgba(250,204,21,0.5)]">1</div>;
+      case 1: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-300 to-zinc-500 flex items-center justify-center text-black font-display font-black text-sm shadow-[0_0_15px_rgba(161,161,170,0.5)]">2</div>;
+      case 2: return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-white font-display font-black text-sm shadow-[0_0_15px_rgba(217,119,6,0.5)]">3</div>;
       default: return <div className="w-8 h-8 rounded-full bg-zinc-800/80 border border-white/10 flex items-center justify-center text-zinc-400 font-bold text-sm">{index + 1}</div>;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       <Navbar />
       
       {/* Background Blurs */}
@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
         
         {/* HEADER */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4 drop-shadow-sm flex items-center justify-center gap-4">
+          <h1 className="text-4xl md:text-6xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4 drop-shadow-sm flex items-center justify-center gap-4">
             <TrendingUp className="w-10 h-10 md:w-14 md:h-14 text-indigo-400" />
             Global Hub
           </h1>
@@ -58,7 +58,7 @@ export default function LeaderboardPage() {
 
         {/* TAB SWITCHER */}
         <div className="flex items-center justify-center mb-12">
-          <div className="bg-zinc-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+          <div className="bg-[#170b28]/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
             <button 
               onClick={() => setActiveTab("scrobbles")}
               className={`px-4 sm:px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'scrobbles' ? 'bg-indigo-500/20 text-indigo-300 shadow-lg border border-indigo-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
@@ -85,7 +85,7 @@ export default function LeaderboardPage() {
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : error ? (
-          <div className="text-center p-8 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-white/5 border-dashed">
+          <div className="text-center p-8 text-zinc-500 bg-[#170b28]/30 rounded-3xl border border-white/5 border-dashed">
             {error}
           </div>
         ) : (
@@ -93,7 +93,7 @@ export default function LeaderboardPage() {
             {/* SCROBBLES TAB */}
             {activeTab === "scrobbles" && (
               leaderboard.length === 0 ? (
-                <div className="text-center p-8 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-white/5 border-dashed">
+                <div className="text-center p-8 text-zinc-500 bg-[#170b28]/30 rounded-3xl border border-white/5 border-dashed">
                   No users have data available yet!
                 </div>
               ) : (
@@ -105,8 +105,8 @@ export default function LeaderboardPage() {
                         key={user.userId}
                         className={`relative overflow-hidden flex items-center justify-between p-4 sm:p-6 rounded-2xl transition-all duration-300 group
                           ${isTop3 
-                            ? 'bg-zinc-900/80 border border-white/10 shadow-xl hover:shadow-[0_0_25px_rgba(99,102,241,0.2)]' 
-                            : 'bg-zinc-900/30 border border-white/5 hover:bg-zinc-900/50 hover:border-white/10'
+                            ? 'bg-[#170b28]/80 border border-white/10 shadow-xl hover:shadow-[0_0_25px_rgba(99,102,241,0.2)]' 
+                            : 'bg-[#170b28]/30 border border-white/5 hover:bg-[#170b28]/50 hover:border-white/10'
                           }
                         `}
                       >
@@ -135,7 +135,7 @@ export default function LeaderboardPage() {
                         </div>
                         
                         <div className="relative z-10 text-right shrink-0 pl-4">
-                          <div className={`font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${isTop3 ? 'from-indigo-400 to-purple-400 text-2xl sm:text-4xl' : 'from-zinc-300 to-zinc-500 text-xl sm:text-2xl'}`}>
+                          <div className={`font-display font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${isTop3 ? 'from-indigo-400 to-purple-400 text-2xl sm:text-4xl' : 'from-zinc-300 to-zinc-500 text-xl sm:text-2xl'}`}>
                             {user.playcount.toLocaleString()}
                           </div>
                           <div className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-widest mt-0.5">
@@ -151,7 +151,7 @@ export default function LeaderboardPage() {
 
             {/* ARTISTS TAB */}
             {activeTab === "artists" && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 sm:p-8">
+              <div className="bg-[#170b28]/50 border border-white/5 rounded-3xl p-6 sm:p-8">
                 <div className="space-y-4">
                   {stats?.topArtists?.map((a: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center p-4 bg-zinc-800/30 rounded-xl hover:bg-zinc-800/50 transition-colors">
@@ -171,7 +171,7 @@ export default function LeaderboardPage() {
 
             {/* CHATTERS TAB */}
             {activeTab === "chatters" && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 sm:p-8">
+              <div className="bg-[#170b28]/50 border border-white/5 rounded-3xl p-6 sm:p-8">
                 <div className="space-y-4">
                   {stats?.topChatters?.map((c: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center p-4 bg-zinc-800/30 rounded-xl hover:bg-zinc-800/50 transition-colors">

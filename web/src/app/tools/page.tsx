@@ -32,13 +32,13 @@ const TOOLS = [
 
 export default function ToolsPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       <Navbar />
       <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-indigo-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 relative z-10 max-w-4xl animate-fade-in-up">
         <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4 flex items-center justify-center gap-4">
+          <h1 className="text-4xl md:text-6xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4 flex items-center justify-center gap-4">
             <Wrench className="w-10 h-10 md:w-14 md:h-14 text-indigo-400" />
             Tools
           </h1>
@@ -52,7 +52,7 @@ export default function ToolsPage() {
             <Link
               key={t.href}
               href={t.href}
-              className={`group bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 hover:border-indigo-500/30 ${t.glow} transition-all duration-300 shadow-lg flex flex-col`}
+              className={`group bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 hover:border-indigo-500/30 ${t.glow} transition-all duration-300 shadow-lg flex flex-col`}
             >
               <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
                 {t.icon}

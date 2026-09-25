@@ -47,7 +47,7 @@ export default function WhoKnowsPage() {
     : result?.artist || "";
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
       <Navbar />
       <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-amber-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
 
@@ -57,14 +57,14 @@ export default function WhoKnowsPage() {
         </Link>
 
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-300 to-orange-400 mb-3 flex items-center justify-center gap-3">
+          <h1 className="text-4xl md:text-5xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-300 to-orange-400 mb-3 flex items-center justify-center gap-3">
             <Crown className="w-9 h-9 md:w-11 md:h-11 text-amber-300" />
             WhoKnows
           </h1>
           <p className="text-zinc-400">Top listeners across the whole bot. Bot: <span className="font-mono text-zinc-500">/globalwhoknows</span></p>
         </div>
 
-        <div className="relative z-20 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
+        <div className="relative z-20 bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg mb-6">
           <div className="flex gap-2 mb-4">
             {(["artist", "track", "album"] as Kind[]).map((k) => (
               <button
@@ -90,7 +90,7 @@ export default function WhoKnowsPage() {
               value={artist}
               onChange={setArtist}
               placeholder="Artist (e.g. Taylor Swift)"
-              className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+              className="w-full bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
             />
             {kind !== "artist" && (
               <AutocompleteInput
@@ -103,7 +103,7 @@ export default function WhoKnowsPage() {
                   if (!artist.trim() && s.artist) setArtist(s.artist);
                 }}
                 placeholder={kind === "track" ? "Track" : "Album"}
-                className="w-full bg-zinc-950 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+                className="w-full bg-[#170b28] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
               />
             )}
             <button
@@ -121,7 +121,7 @@ export default function WhoKnowsPage() {
         )}
 
         {result && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg">
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 sm:p-6 shadow-lg">
             <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
               <h2 className="text-white font-bold text-lg truncate">{title}</h2>
               <span className="text-zinc-500 text-xs font-mono shrink-0">{result.listeners} listener{result.listeners === 1 ? "" : "s"}</span>
@@ -129,7 +129,7 @@ export default function WhoKnowsPage() {
             <div className="space-y-2">
               {result.leaderboard.map((r: any, i: number) => (
                 <div key={r.userId} className={`flex items-center gap-3 p-2.5 rounded-xl ${i === 0 ? "bg-amber-500/10 border border-amber-500/20" : "bg-white/[0.02] border border-transparent"}`}>
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? "bg-gradient-to-br from-yellow-300 to-yellow-600 text-black" : "bg-zinc-800 text-zinc-400"}`}>
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-display font-black shrink-0 ${i === 0 ? "bg-gradient-to-br from-yellow-300 to-yellow-600 text-black" : "bg-zinc-800 text-zinc-400"}`}>
                     {i === 0 ? <Crown className="w-3.5 h-3.5" /> : i + 1}
                   </span>
                   {r.avatar ? (

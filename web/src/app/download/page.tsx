@@ -27,7 +27,7 @@ export default function DownloadPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-indigo-500/30 overflow-hidden relative flex flex-col items-center">
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-hidden relative flex flex-col items-center">
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex justify-center items-center opacity-30">
         <div className="absolute w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] mix-blend-screen animate-blob"></div>
@@ -44,7 +44,7 @@ export default function DownloadPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-6 shadow-[0_0_30px_rgba(99,102,241,0.15)]">
             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
+          <h1 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
             Download DJ Scratch
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto font-medium">
@@ -64,7 +64,7 @@ export default function DownloadPage() {
             <p className="mt-4 text-sm opacity-80">Please check back later or visit our GitHub page directly.</p>
           </div>
         ) : releases.length === 0 ? (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-12 rounded-3xl text-center max-w-2xl mx-auto">
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/10 p-12 rounded-3xl text-center max-w-2xl mx-auto">
             <h3 className="text-2xl font-bold mb-3">No releases yet!</h3>
             <p className="text-zinc-400">We are currently preparing the first public release. Please check back soon.</p>
           </div>
@@ -77,7 +77,7 @@ export default function DownloadPage() {
               const isLatest = idx === 0;
 
               return (
-                <div key={release.id} className={`bg-zinc-900/40 backdrop-blur-md border ${isLatest ? 'border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.1)]' : 'border-white/10'} rounded-3xl p-6 md:p-8 overflow-hidden relative group`}>
+                <div key={release.id} className={`bg-[#170b28]/40 backdrop-blur-md border ${isLatest ? 'border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.1)]' : 'border-white/10'} rounded-3xl p-6 md:p-8 overflow-hidden relative group`}>
                   {isLatest && (
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none -mr-32 -mt-32"></div>
                   )}
@@ -87,12 +87,12 @@ export default function DownloadPage() {
                       <div className="flex items-center gap-3 mb-4">
                         <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{release.name || release.tag_name}</h2>
                         {isLatest && (
-                          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-black uppercase tracking-widest rounded-full border border-indigo-500/30">
+                          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-display font-black uppercase tracking-widest rounded-full border border-indigo-500/30">
                             Latest
                           </span>
                         )}
                         {release.prerelease && (
-                          <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-black uppercase tracking-widest rounded-full border border-amber-500/30">
+                          <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-display font-black uppercase tracking-widest rounded-full border border-amber-500/30">
                             Beta
                           </span>
                         )}
@@ -105,7 +105,7 @@ export default function DownloadPage() {
 
                       <div className="prose prose-invert prose-zinc max-w-none prose-p:text-zinc-400 prose-a:text-indigo-400 hover:prose-a:text-indigo-300">
                         {/* We use a simple whitespace pre-wrap for the markdown body to render it cleanly without a heavy markdown parser for now */}
-                        <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed bg-zinc-950/50 p-6 rounded-2xl border border-white/5">
+                        <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed bg-[#170b28]/50 p-6 rounded-2xl border border-white/5">
                           {release.body || "No release notes provided."}
                         </div>
                       </div>

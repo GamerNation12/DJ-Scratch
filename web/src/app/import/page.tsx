@@ -31,7 +31,7 @@ export default function ImportRedirect() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white">
+    <div className="min-h-screen bg-[#0e0618] flex flex-col items-center justify-center text-white">
       <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
       <h1 className="text-xl font-bold animate-pulse text-amber-500">Taking you to the import page...</h1>
     </div>

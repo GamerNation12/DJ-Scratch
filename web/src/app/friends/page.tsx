@@ -155,18 +155,18 @@ export default function FriendsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center pt-20">
+      <div className="min-h-screen bg-[#0e0618] flex items-center justify-center pt-20">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pt-24 px-4 sm:px-6 lg:px-8 pb-10">
+    <div className="min-h-screen bg-[#0e0618] text-white pt-24 px-4 sm:px-6 lg:px-8 pb-10">
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in-up">
         
         {/* Add Friend Section */}
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
+        <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-indigo-400" />
             Add a Friend
@@ -191,7 +191,7 @@ export default function FriendsPage() {
 
         {/* Live Now — what friends are playing */}
         {acceptedFriends.length > 0 && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Radio className="w-5 h-5 text-green-400" />
               Live Now
@@ -228,7 +228,7 @@ export default function FriendsPage() {
 
         {/* Pending Requests */}
         {(pendingIncoming.length > 0 || pendingOutgoing.length > 0) && (
-          <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
             <h2 className="text-xl font-semibold mb-4">Pending Requests</h2>
             <div className="space-y-4">
               {pendingIncoming.map(f => (
@@ -263,7 +263,7 @@ export default function FriendsPage() {
         )}
 
         {/* Friends List */}
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
+        <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
           <h2 className="text-xl font-semibold mb-4">Your Friends</h2>
           {acceptedFriends.length === 0 ? (
             <div className="text-center py-12 bg-black/20 rounded-xl border border-dashed border-white/10">
@@ -304,9 +304,9 @@ export default function FriendsPage() {
         {/* Taste Match Modal */}
         {matchFriend && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setMatchFriend(null)}>
-            <div className="bg-zinc-900 border border-white/10 rounded-3xl max-w-lg w-full p-8 shadow-2xl animate-fade-in-up max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#170b28] border border-white/10 rounded-3xl max-w-lg w-full p-8 shadow-2xl animate-fade-in-up max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-black flex items-center gap-2">
+                <h3 className="text-2xl font-display font-black flex items-center gap-2">
                   <Sparkles className="w-6 h-6 text-indigo-400" />
                   You × {matchFriend.display_name || matchFriend.friend_username}
                 </h3>
@@ -324,7 +324,7 @@ export default function FriendsPage() {
               ) : matchData ? (
                 <>
                   <div className="text-center mb-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-6">
-                    <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{matchData.score}%</div>
+                    <div className="text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{matchData.score}%</div>
                     <div className="text-indigo-300 font-bold mt-1">{matchData.label}</div>
                     <div className="text-xs text-zinc-500 mt-2">based on top artists · last month</div>
                   </div>

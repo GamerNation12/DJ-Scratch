@@ -31,7 +31,7 @@ export default function DashboardRedirect() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white">
+    <div className="min-h-screen bg-[#0e0618] flex flex-col items-center justify-center text-white">
       <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
       <h1 className="text-xl font-bold animate-pulse">Taking you to your dashboard...</h1>
     </div>
