@@ -53,6 +53,7 @@ export const metadata: Metadata = {
 
 import LayoutWrapper from "@/components/LayoutWrapper";
 import ReferralRedeemer from "@/components/ReferralRedeemer";
+import ActivityLoginNotice from "@/components/ActivityLoginNotice";
 import { headers } from "next/headers";
 
 export default async function RootLayout({
@@ -69,6 +70,7 @@ export default async function RootLayout({
       >
         <Providers>
           <ReferralRedeemer />
+          <ActivityLoginNotice />
           <Toaster 
             position="bottom-right"
             toastOptions={{
