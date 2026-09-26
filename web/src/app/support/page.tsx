@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 
 const FAQS = [
@@ -34,39 +34,138 @@ const FAQS = [
   },
 ];
 
-const TOPICS = ["General help", "Bug report", "Account / login", "Privacy / data", "Other"];
+type Msg = { id: number; sender: string; body: string; created_at: string };
 
 export default function SupportPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [topic, setTopic] = useState(TOPICS[0]);
-  const [message, setMessage] = useState("");
+  const [first, setFirst] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [thread, setThread] = useState<{ id: string; secret: string } | null>(null);
+  const [closed, setClosed] = useState(false);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
   const [open, setOpen] = useState<number | null>(0);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (sending) return;
-    setSending(true);
+  // Resume an existing chat.
+  useEffect(() => {
     try {
-      const res = await fetch("/api/support-tickets", {
+      const raw = localStorage.getItem("dj_support_thread");
+      if (raw) {
+        const t = JSON.parse(raw);
+        if (t?.id && t?.secret) setThread(t);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Poll for replies (also marks you present so no email is sent).
+  useEffect(() => {
+    if (!thread) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/support-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "poll", threadId: thread.id, secret: thread.secret }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          if (res.status === 404) {
+            try {
+              localStorage.removeItem("dj_support_thread");
+            } catch {
+              /* ignore */
+            }
+            setThread(null);
+          }
+          return;
+        }
+        setMsgs(Array.isArray(data.messages) ? data.messages : []);
+        setClosed(data.status === "closed");
+      } catch {
+        /* offline — retry next tick */
+      }
+    };
+    poll();
+    const id = setInterval(poll, 4000);
+    return () => {
+      clearInterval(id);
+      cancelled = true;
+    };
+  }, [thread]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [msgs.length]);
+
+  const start = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (starting) return;
+    setStarting(true);
+    try {
+      const res = await fetch("/api/support-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, topic, message }),
+        body: JSON.stringify({ name, email, message: first }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Send failed");
-      setSent(true);
-      setName("");
-      setEmail("");
-      setMessage("");
-      toast.success("Ticket sent! We'll reply by email.");
+      if (!res.ok) throw new Error(data?.error || "Couldn't start chat");
+      if (!data?.threadId) throw new Error("Couldn't start chat");
+      const t = { id: data.threadId, secret: data.secret };
+      try {
+        localStorage.setItem("dj_support_thread", JSON.stringify(t));
+      } catch {
+        /* ignore */
+      }
+      setThread(t);
+      setFirst("");
+      toast.success("Chat started! We'll reply here — or by email if you leave.");
     } catch (err: any) {
-      toast.error(err?.message || "Couldn't send — try again later.");
+      toast.error(err?.message || "Couldn't start chat — try again.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!thread || sending || !draft.trim()) return;
+    const text = draft.trim();
+    setDraft("");
+    setSending(true);
+    try {
+      const res = await fetch("/api/support-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", threadId: thread.id, secret: thread.secret, body: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Couldn't send");
+      setMsgs(Array.isArray(data.messages) ? data.messages : []);
+      setClosed(data.status === "closed");
+    } catch (err: any) {
+      setDraft(text);
+      toast.error(err?.message || "Couldn't send — try again.");
     } finally {
       setSending(false);
     }
+  };
+
+  const newChat = () => {
+    try {
+      localStorage.removeItem("dj_support_thread");
+    } catch {
+      /* ignore */
+    }
+    setThread(null);
+    setMsgs([]);
+    setClosed(false);
   };
 
   return (
@@ -88,7 +187,7 @@ export default function SupportPage() {
             </span>
           </h1>
           <p className="text-zinc-400 text-lg font-medium">
-            Answers first, human reply by email if you still need one.
+            Answers first, live chat if you still need us.
           </p>
         </div>
 
@@ -115,24 +214,13 @@ export default function SupportPage() {
         </div>
 
         <div className="bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 rounded-3xl p-6 md:p-8">
-          <h2 className="font-display text-2xl font-extrabold text-white mb-1">Contact us</h2>
+          <h2 className="font-display text-2xl font-extrabold text-white mb-1">Live chat</h2>
           <p className="text-zinc-400 text-sm mb-6">
-            No Discord account needed — we reply by email.
+            No Discord account needed. Stay here to chat live — leave and we&apos;ll email you the reply.
           </p>
-          {sent ? (
-            <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
-              <div className="text-3xl mb-2">✅</div>
-              <div className="font-bold text-white">Ticket received!</div>
-              <div className="text-sm text-zinc-400 mt-1">We&apos;ll get back to you by email.</div>
-              <button
-                onClick={() => setSent(false)}
-                className="mt-4 text-xs font-bold text-zinc-300 hover:text-white underline"
-              >
-                Send another
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
+
+          {!thread ? (
+            <form onSubmit={start} className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <input
                   value={name}
@@ -145,41 +233,84 @@ export default function SupportPage() {
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email for the reply"
+                  placeholder="Email (for replies if you leave)"
                   required
                   type="email"
                   maxLength={200}
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-fuchsia-400/60"
                 />
               </div>
-              <select
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-fuchsia-400/60"
-              >
-                {TOPICS.map((t) => (
-                  <option key={t} value={t} className="bg-zinc-900">
-                    {t}
-                  </option>
-                ))}
-              </select>
               <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                value={first}
+                onChange={(e) => setFirst(e.target.value)}
                 placeholder="What's going on? Include your Last.fm username if relevant."
-                required
-                rows={5}
+                rows={3}
                 maxLength={3000}
                 className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-fuchsia-400/60 resize-y"
               />
               <button
                 type="submit"
-                disabled={sending}
+                disabled={starting}
                 className="w-full sm:w-auto px-8 py-3 bg-white text-zinc-950 font-extrabold rounded-2xl text-sm hover:scale-[1.02] transition-all shadow-[5px_5px_0_rgba(255,47,179,0.9)] disabled:opacity-60"
               >
-                {sending ? "Sending…" : "Send ticket"}
+                {starting ? "Starting…" : "Start chat"}
               </button>
             </form>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${closed ? "text-zinc-400 border-white/10 bg-white/5" : "text-emerald-300 border-emerald-500/30 bg-emerald-500/10"}`}>
+                  <span className={`w-2 h-2 rounded-full ${closed ? "bg-zinc-500" : "bg-emerald-400 animate-pulse"}`}></span>
+                  {closed ? "Closed" : "Live — typically replies fast"}
+                </span>
+                <button onClick={newChat} className="text-xs font-bold text-zinc-400 hover:text-white underline">
+                  New chat
+                </button>
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1 mb-4">
+                {msgs.length === 0 && (
+                  <p className="text-sm text-zinc-500 text-center py-6">
+                    Say hi below — support sees it instantly. 👋
+                  </p>
+                )}
+                {msgs.map((m) => (
+                  <div key={m.id} className={`flex ${m.sender === "visitor" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                        m.sender === "visitor"
+                          ? "bg-fuchsia-600 text-white rounded-br-md"
+                          : "bg-white/10 border border-white/10 text-zinc-100 rounded-bl-md"
+                      }`}
+                    >
+                      {m.body}
+                    </div>
+                  </div>
+                ))}
+                <div ref={bottomRef} />
+              </div>
+              {closed ? (
+                <p className="text-sm text-zinc-500 text-center">
+                  This chat is closed — start a new one above if you need more help.
+                </p>
+              ) : (
+                <form onSubmit={send} className="flex gap-2">
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Type a message…"
+                    maxLength={3000}
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-fuchsia-400/60"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !draft.trim()}
+                    className="px-5 py-3 bg-white text-zinc-950 font-extrabold rounded-xl text-sm hover:scale-[1.02] transition-all disabled:opacity-60"
+                  >
+                    Send
+                  </button>
+                </form>
+              )}
+            </>
           )}
         </div>
 
