@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { artSrc } from "@/lib/art";
 
 interface TrackModalProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ export default function TrackModal({ isOpen, onClose, trackName, artistName, use
               {/* Album Art */}
               <div className="w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-2xl overflow-hidden shadow-2xl bg-zinc-900 border border-white/5 relative group">
                 {imageUrl ? (
-                  <img src={imageUrl} alt="Album Art" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={artSrc(imageUrl)} alt="Album Art" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-5xl">🎵</div>
                 )}

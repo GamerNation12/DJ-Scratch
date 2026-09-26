@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UserPlus, Check, X, MessageSquare, Trash2, Radio, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { tasteMatch, tasteLabel } from "@/lib/taste";
+import { artSrc } from "@/lib/art";
 import { loginWithDiscord } from "@/lib/activityAuth";
 
 function ownUsernameFromToken(): string | null {
@@ -203,7 +204,7 @@ export default function FriendsPage() {
                 return (
                   <div key={f.friend_id} className="flex items-center gap-4 bg-black/30 p-3 rounded-xl border border-white/5">
                     <div className="w-11 h-11 rounded-lg bg-zinc-800 overflow-hidden shrink-0">
-                      {entry?.image ? <img src={entry.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🎵</div>}
+                      {entry?.image ? <img src={artSrc(entry.image)} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🎵</div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{entry ? entry.track : (f.display_name || f.friend_username)}</p>

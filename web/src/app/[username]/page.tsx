@@ -1,6 +1,7 @@
 "use client";
 import { fetchApi } from "@/lib/fetchApi";
 import { loginWithDiscord } from "@/lib/activityAuth";
+import { artSrc } from "@/lib/art";
 import { useSession } from "@/app/providers";
 import { useState, useEffect, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -926,7 +927,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    >
                      <div className="w-16 h-16 rounded-full bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
-                          <img src={artist.image} alt={artist.name} className="w-full h-full object-cover" />
+                          <img src={artSrc(artist.image)} alt={artist.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">🎤</div>
                         )}
@@ -955,7 +956,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
-                         <img src={track.image} alt="Album Art" className="w-full h-full object-cover" />
+                         <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
                        ) : (
                          <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
                        )}
@@ -1001,7 +1002,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    >
                      <div className="w-16 h-16 rounded-xl bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {album.image ? (
-                          <img src={album.image} alt={album.name} className="w-full h-full object-cover" />
+                          <img src={artSrc(album.image)} alt={album.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-zinc-800"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-8 h-8 opacity-50" /></div>
                         )}
@@ -1031,7 +1032,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
-                         <img src={track.image} alt="Album Art" className="w-full h-full object-cover" />
+                         <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
                        ) : (
                          <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
                        )}

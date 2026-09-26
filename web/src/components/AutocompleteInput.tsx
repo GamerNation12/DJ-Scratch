@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { artSrc } from "@/lib/art";
 
 export interface Suggestion {
   name: string;
@@ -118,7 +119,7 @@ export default function AutocompleteInput({
               }`}
             >
               {s.image ? (
-                <img src={s.image} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" loading="lazy" />
+                <img src={artSrc(s.image)} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" loading="lazy" />
               ) : (
                 <span className="w-8 h-8 rounded-md bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-500 shrink-0">
                   {(s.name || "?").charAt(0).toUpperCase()}

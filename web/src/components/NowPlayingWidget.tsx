@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { fetchApi } from "@/lib/fetchApi";
+import { artSrc } from "@/lib/art";
 
 export default function NowPlayingWidget() {
   const [nowPlaying, setNowPlaying] = useState<any>(null);
@@ -39,7 +40,7 @@ export default function NowPlayingWidget() {
       </div>
       <a href={nowPlaying.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 bg-white/[0.02] hover:bg-white/[0.05] p-2.5 rounded-2xl border border-white/5 hover:border-white/10 transition-all shadow-lg">
         {nowPlaying.image ? (
-          <img src={nowPlaying.image} alt="Album Art" className="w-10 h-10 rounded-xl shadow-md group-hover:scale-105 transition-transform" />
+          <img src={artSrc(nowPlaying.image)} alt="Album Art" className="w-10 h-10 rounded-xl shadow-md group-hover:scale-105 transition-transform" />
         ) : (
           <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-lg">🎵</div>
         )}
