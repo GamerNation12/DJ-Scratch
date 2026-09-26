@@ -107,7 +107,8 @@ export async function GET(request: Request) {
       VALUES (${userData.id}, ${userData.username}, ${userData.global_name || userData.username})
       ON CONFLICT (user_id) DO UPDATE SET 
         discord_username = EXCLUDED.discord_username,
-        display_name = EXCLUDED.display_name
+        display_name = CASE WHEN COALESCE(user_settings.display_name_custom, FALSE)
+          THEN user_settings.display_name ELSE EXCLUDED.display_name END
     `;
     
     await sql`ALTER TABLE imported_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`;

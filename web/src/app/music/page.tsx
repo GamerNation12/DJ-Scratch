@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { loginWithDiscord } from "@/lib/activityAuth";
 import { Music, Play, Pause, SkipForward, SkipBack, Heart, ExternalLink } from "lucide-react";
 
 type NowPlaying = {
@@ -41,7 +42,7 @@ export default function MusicDashboard() {
   const fetchNowPlaying = useCallback(async () => {
     const token = localStorage.getItem("discord_jwt");
     if (!token) {
-      window.location.href = "/api/auth/login";
+      void loginWithDiscord();
       return;
     }
     try {

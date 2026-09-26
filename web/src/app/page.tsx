@@ -9,6 +9,7 @@ import { useEffect, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import SupportWidget from "@/components/SupportWidget";
 import { Reveal, CountUp, handleSpot } from "@/components/motion";
+import { loginWithDiscord, loginWithLastfm } from "@/lib/activityAuth";
 
 
 const INVITE_LINK = "/invite";
@@ -115,13 +116,13 @@ function HomeContent() {
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
                 <button
-                  onClick={() => { window.location.href = '/api/auth/login'; }}
+                  onClick={() => { void loginWithDiscord(); }}
                   className="w-full sm:w-auto justify-center px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold rounded-2xl text-sm md:text-base transition-all duration-300 flex items-center gap-2 shadow-[6px_6px_0_rgba(0,0,0,0.9)] border-2 border-black"
                 >
                   Login with Discord
                 </button>
                 <button
-                  onClick={() => { window.location.href = '/api/auth/lastfm/login'; }}
+                  onClick={() => { void loginWithLastfm(); }}
                   className="w-full sm:w-auto justify-center px-8 py-4 bg-[#D51007] hover:bg-[#B00C05] text-white font-bold rounded-2xl text-sm md:text-base transition-all duration-300 hidden sm:flex items-center gap-2 shadow-[6px_6px_0_rgba(0,0,0,0.9)] border-2 border-black"
                 >
                   Login with Last.fm

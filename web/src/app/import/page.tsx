@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { loginWithDiscord } from "@/lib/activityAuth";
 
 export default function ImportRedirect() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function ImportRedirect() {
     const token = localStorage.getItem("discord_jwt");
     if (!token) {
       localStorage.setItem("postLoginRedirect", "/import");
-      window.location.href = "/api/auth/login";
+      void loginWithDiscord();
       return;
     }
 
@@ -22,11 +23,11 @@ export default function ImportRedirect() {
         router.replace(`/${username}?tab=import`);
       } else {
         localStorage.setItem("postLoginRedirect", "/import");
-        window.location.href = "/api/auth/login";
+        void loginWithDiscord();
       }
     } catch (e) {
       localStorage.setItem("postLoginRedirect", "/import");
-      window.location.href = "/api/auth/login";
+      void loginWithDiscord();
     }
   }, [router]);
 

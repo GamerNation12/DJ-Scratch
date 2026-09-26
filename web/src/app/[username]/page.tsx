@@ -1,5 +1,6 @@
 "use client";
 import { fetchApi } from "@/lib/fetchApi";
+import { loginWithDiscord } from "@/lib/activityAuth";
 import { useSession } from "@/app/providers";
 import { useState, useEffect, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -695,12 +696,12 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="text-amber-200 text-sm font-semibold">
               🎁 You&apos;ve been invited to DJ Scratch! Log in to count the invite — you both earn badges.
             </div>
-            <a
-              href="/api/auth/login"
+            <button
+              onClick={() => { void loginWithDiscord(); }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100 text-sm font-bold rounded-xl transition-all whitespace-nowrap"
             >
               Login with Discord
-            </a>
+            </button>
           </div>
         )}
 

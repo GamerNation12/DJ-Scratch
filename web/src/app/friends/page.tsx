@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UserPlus, Check, X, MessageSquare, Trash2, Radio, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { tasteMatch, tasteLabel } from "@/lib/taste";
+import { loginWithDiscord } from "@/lib/activityAuth";
 
 function ownUsernameFromToken(): string | null {
   try {
@@ -42,7 +43,7 @@ export default function FriendsPage() {
   const fetchFriends = async () => {
     const token = localStorage.getItem("discord_jwt");
     if (!token) {
-      window.location.href = "/api/auth/login";
+      void loginWithDiscord();
       return;
     }
     try {

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/app/providers";
+import { loginWithDiscord } from "@/lib/activityAuth";
 
 // /admin is not a page anymore — the console lives in the user dashboard.
 // This just forwards you to your own dashboard's Admin tab (or login).
@@ -18,7 +19,7 @@ export default function AdminRedirect() {
       router.replace(`/${username}?tab=admin`);
     } else {
       localStorage.setItem("postLoginRedirect", "/admin");
-      window.location.href = "/api/auth/login";
+      void loginWithDiscord();
     }
   }, [session, status, router]);
 

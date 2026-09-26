@@ -5,6 +5,7 @@ import { useSession } from "@/app/providers";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Users, MessageSquare, Wrench } from "lucide-react";
+import { loginWithDiscord, loginWithLastfm } from "@/lib/activityAuth";
 
 export default function Navbar() {
   const { data: session, logout } = useSession();
@@ -96,8 +97,8 @@ export default function Navbar() {
                   Dashboard
                 </Link>
               ) : (
-                <a
-                  href="/api/auth/login"
+                <button
+                  onClick={() => { void loginWithDiscord(); }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     isDashboard
                       ? "bg-volt/15 text-volt"
@@ -105,7 +106,7 @@ export default function Navbar() {
                   }`}
                 >
                   Dashboard
-                </a>
+                </button>
               )}
               <Link
                 href="/leaderboard"
@@ -204,13 +205,13 @@ export default function Navbar() {
                 </a>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { window.location.href = '/api/auth/login'; }}
+                    onClick={() => { void loginWithDiscord(); }}
                     className="px-4 py-1.5 text-sm font-medium text-white bg-[#5865F2] hover:bg-[#4752C4] rounded-lg shadow-lg shadow-[#5865F2]/20 transition-all"
                   >
                     Discord
                   </button>
                   <button
-                    onClick={() => { window.location.href = '/api/auth/lastfm/login'; }}
+                    onClick={() => { void loginWithLastfm(); }}
                     className="px-4 py-1.5 text-sm font-medium text-white bg-[#D51007] hover:bg-[#B00C05] rounded-lg shadow-lg shadow-[#D51007]/20 transition-all hidden sm:block"
                   >
                     Last.fm
@@ -248,16 +249,16 @@ export default function Navbar() {
                 Dashboard
               </Link>
             ) : (
-              <a 
-                href="/api/auth/login"
+              <button
+                onClick={() => { void loginWithDiscord(); }}
                 className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   pathname !== "/"
-                    ? "bg-volt/15 text-volt" 
+                    ? "bg-volt/15 text-volt"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
                 }`}
               >
                 Dashboard
-              </a>
+              </button>
             )}
             <Link
               href="/leaderboard"
