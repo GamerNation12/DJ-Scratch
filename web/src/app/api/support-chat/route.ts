@@ -44,9 +44,37 @@ async function adminUser(req: Request) {
 }
 
 async function sendReplyEmail(to: string, name: string, reply: string) {
+  const subject = "DJ Scratch support replied to your chat";
+  const text =
+    `Hi ${name},\n\nSupport replied to your chat on DJ Scratch:\n\n"${reply}"\n\n` +
+    `Open https://dj-scratch.vercel.app/support to continue the conversation.\n\n— DJ Scratch`;
+
+  // Gmail SMTP needs no custom domain: a Gmail address + app password
+  // (Google Account → Security → 2-Step Verification → App passwords).
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    try {
+      const nodemailer = (await import("nodemailer")).default;
+      const transport = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      });
+      await transport.sendMail({
+        from: `DJ Scratch Support <${process.env.GMAIL_USER}>`,
+        to: [to],
+        subject,
+        text,
+      });
+      return true;
+    } catch (e) {
+      console.error("Gmail send failed:", e);
+      return false;
+    }
+  }
+
+  // Fallback: Resend (needs RESEND_API_KEY + verified sender).
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.log("RESEND_API_KEY not set — skipping reply email.");
+    console.log("No mail provider configured (GMAIL_* or RESEND_API_KEY) — skipping reply email.");
     return false;
   }
   const from = process.env.RESEND_FROM || "DJ Scratch Support <support@dj-scratch.vercel.app>";
@@ -54,14 +82,7 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: "DJ Scratch support replied to your chat",
-        text:
-          `Hi ${name},\n\nSupport replied to your chat on DJ Scratch:\n\n"${reply}"\n\n` +
-          `Open https://dj-scratch.vercel.app/support to continue the conversation.\n\n— DJ Scratch`,
-      }),
+      body: JSON.stringify({ from, to: [to], subject, text }),
     });
     if (!res.ok) {
       console.error("Resend failed:", await res.text().catch(() => res.status));

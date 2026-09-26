@@ -136,7 +136,7 @@ export default function SupportInbox() {
         <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2">Support inbox</h1>
         <p className="text-zinc-400 text-sm mb-8">
           Replies email the visitor automatically when they&apos;ve left the chat.{" "}
-          <span className="text-zinc-500">(Needs RESEND_API_KEY + verified sender for email.)</span>
+          <span className="text-zinc-500">(Needs GMAIL_USER + GMAIL_APP_PASSWORD on Vercel.)</span>
         </p>
         <div className="grid md:grid-cols-[300px_1fr] gap-4">
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
