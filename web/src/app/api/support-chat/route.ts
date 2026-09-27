@@ -49,50 +49,41 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
     `Hi ${name},\n\nSupport replied to your chat on DJ Scratch:\n\n"${reply}"\n\n` +
     `Open https://dj-scratch.is-a-fullstack.dev/support to continue the conversation.\n\n— DJ Scratch`;
 
-  // Gmail SMTP needs no custom domain: a Gmail address + app password
-  // (Google Account → Security → 2-Step Verification → App passwords).
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  // Mailjet (needs MAILJET_API_KEY + MAILJET_SECRET_KEY, verified sender domain).
+  // MAILJET_FROM may be "Name <email>" or a bare address.
+  if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) {
     try {
-      const nodemailer = (await import("nodemailer")).default;
-      const transport = nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      const raw = process.env.MAILJET_FROM || "DJ Scratch Support <support@dj-scratch.is-a-fullstack.dev>";
+      const m = raw.match(/^(.*)<([^<>]+)>\s*$/);
+      const fromName = (m ? m[1] : "DJ Scratch Support").trim() || "DJ Scratch Support";
+      const fromEmail = (m ? m[2] : raw).trim();
+      const creds = Buffer.from(`${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`).toString("base64");
+      const res = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: { Authorization: `Basic ${creds}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Messages: [
+            {
+              From: { Email: fromEmail, Name: fromName },
+              To: [{ Email: to, Name: name }],
+              Subject: subject,
+              TextPart: text,
+            },
+          ],
+        }),
       });
-      await transport.sendMail({
-        from: `DJ Scratch Support <${process.env.GMAIL_USER}>`,
-        to: [to],
-        subject,
-        text,
-      });
-      return true;
+      if (!res.ok) {
+        console.error("Mailjet failed:", await res.text().catch(() => res.status));
+      } else {
+        return true;
+      }
     } catch (e) {
-      console.error("Gmail send failed:", e);
-      return false;
+      console.error("Mailjet error:", e);
     }
   }
 
-  // Fallback: Resend (needs RESEND_API_KEY + verified sender).
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    console.log("No mail provider configured (GMAIL_* or RESEND_API_KEY) — skipping reply email.");
-    return false;
-  }
-  const from = process.env.RESEND_FROM || "DJ Scratch Support <support@dj-scratch.is-a-fullstack.dev>";
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject, text }),
-    });
-    if (!res.ok) {
-      console.error("Resend failed:", await res.text().catch(() => res.status));
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error("Resend error:", e);
-    return false;
-  }
+  console.log("No mail provider configured (MAILJET_API_KEY + MAILJET_SECRET_KEY) — skipping reply email.");
+  return false;
 }
 
 // Owner inbox (admin JWT): threads with preview + unread counts.
