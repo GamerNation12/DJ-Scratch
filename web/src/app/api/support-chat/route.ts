@@ -3,8 +3,18 @@ import { randomUUID } from "crypto";
 import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 import { getAdminRole } from "@/lib/admin";
+import { sendDiscordDM } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
+
+const ADMIN_ID = "759433582107426816";
+const INBOX_URL = "https://dj-scratch.is-a-fullstack.dev/admin/support";
+const INBOX_BUTTON = [
+  {
+    type: 1,
+    components: [{ type: 2, style: 5, label: "Open support inbox", url: INBOX_URL }],
+  },
+];
 
 async function ensureTables() {
   await sql`
@@ -153,6 +163,20 @@ export async function POST(req: Request) {
       if (first) {
         await sql`INSERT INTO support_messages (thread_id, sender, body) VALUES (${id}, 'visitor', ${first})`;
       }
+      // Ping the owner on Discord so the chat doesn't sit unseen.
+      void sendDiscordDM(
+        ADMIN_ID,
+        "",
+        INBOX_BUTTON,
+        [
+          {
+            title: `💬 New support chat from ${name}`,
+            description: (first || "(no message yet)").slice(0, 1800),
+            color: 5814783,
+            fields: [{ name: "Email", value: email, inline: true }],
+          },
+        ]
+      );
       return NextResponse.json({ threadId: id, secret });
     }
 
@@ -171,6 +195,20 @@ export async function POST(req: Request) {
         }
         await sql`INSERT INTO support_messages (thread_id, sender, body) VALUES (${threadId}, 'visitor', ${text})`;
         await sql`UPDATE support_threads SET updated_at = CURRENT_TIMESTAMP, last_visitor_seen = CURRENT_TIMESTAMP WHERE id = ${threadId}`;
+        const who = await sql`SELECT name, email FROM support_threads WHERE id = ${threadId}`;
+        const wname = String((who[0] as any)?.name || "Guest");
+        void sendDiscordDM(
+          ADMIN_ID,
+          "",
+          INBOX_BUTTON,
+          [
+            {
+              title: `💬 Reply in support chat (${wname})`,
+              description: text.slice(0, 1800),
+              color: 5814783,
+            },
+          ]
+        );
       } else {
         await sql`UPDATE support_threads SET last_visitor_seen = CURRENT_TIMESTAMP WHERE id = ${threadId}`;
       }

@@ -139,6 +139,16 @@ export default function Navbar() {
                 <Wrench className="w-3.5 h-3.5" />
                 Tools
               </Link>
+              <Link
+                href="/support"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/support"
+                    ? "bg-volt/15 text-volt"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Support
+              </Link>
 
             </div>
           </div>
@@ -289,6 +299,16 @@ export default function Navbar() {
               }`}
             >
               Tools
+            </Link>
+            <Link
+              href="/support"
+              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname === "/support"
+                  ? "bg-volt/15 text-volt" 
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Support
             </Link>
 
             {session && (
