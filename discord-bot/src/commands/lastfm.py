@@ -14,7 +14,7 @@ from src.utils.autocomplete import (
 
 def _spotify_login_url(user_id: int, channel_id=None, message_id=None) -> str:
     import os
-    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.is-a-fullstack.dev")
     url = f"{app_url}/api/auth/spotify?user_id={user_id}"
     # Passed through Spotify's state so the callback can refresh this message.
     if channel_id and message_id:
@@ -342,7 +342,7 @@ class LastFmCog(commands.Cog):
 
             import urllib.parse
             from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-            cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
+            cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
             auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
 
             # Send first so we have a message id: callbacks PATCH this message
@@ -943,7 +943,7 @@ class LastFmCog(commands.Cog):
 
         import urllib.parse
         from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-        cb_url = f"https://dj-scratch.vercel.app/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
+        cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
         auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
 
         view = discord.ui.View()
@@ -1256,7 +1256,7 @@ class LastFmCog(commands.Cog):
         except Exception:
             code = None
         safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
-        invite_url = f"https://dj-scratch.vercel.app/{safe_name}?ref={code}" if code else ""
+        invite_url = f"https://dj-scratch.is-a-fullstack.dev/{safe_name}?ref={code}" if code else ""
         card_name = await get_card_name(user)
         try:
             badge_names = [REFERRAL_BADGES[b][1] for b in await get_user_badges(user.id) if b in REFERRAL_BADGES]
@@ -1291,7 +1291,7 @@ class LastFmCog(commands.Cog):
                 label="Join — we both earn a badge", url=invite_url, emoji="🎁"))
         view.add_item(discord.ui.Button(
             label="DJ Scratch Profile",
-            url=f"https://dj-scratch.vercel.app/{safe_name}", emoji="🎵"))
+            url=f"https://dj-scratch.is-a-fullstack.dev/{safe_name}", emoji="🎵"))
         return (file, text, view), None
 
     @commands.command(name="musiccard", aliases=["mcard", "mycard", "card"])
@@ -1421,7 +1421,7 @@ class LastFmCog(commands.Cog):
         except Exception:
             code = None
         safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
-        invite_url = f"https://dj-scratch.vercel.app/{safe_name}?ref={code}" if code else ""
+        invite_url = f"https://dj-scratch.is-a-fullstack.dev/{safe_name}?ref={code}" if code else ""
 
         try:
             buf = await generate_recap_image(

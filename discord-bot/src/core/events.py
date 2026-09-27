@@ -2068,7 +2068,7 @@ async def check_if_logged_in(interaction: discord.Interaction) -> bool:
             title="Link Your Account",
             description=(
                 "This command needs your **Last.fm** account linked.\n\n"
-                "🔗 **[Log in on the website](https://dj-scratch.vercel.app/)** "
+                "🔗 **[Log in on the website](https://dj-scratch.is-a-fullstack.dev/)** "
                 "or run `/login` to connect.\n\n"
                 "*New here? Run `/guide` for a quick start!*"
             ),
@@ -2116,7 +2116,7 @@ async def global_login_check_prefix(ctx) -> bool:
             title="Link Your Account",
             description=(
                 "This command needs your **Last.fm** account linked.\n\n"
-                "🔗 **[Log in on the website](https://dj-scratch.vercel.app/)** "
+                "🔗 **[Log in on the website](https://dj-scratch.is-a-fullstack.dev/)** "
                 "or run `,login` to connect.\n\n"
                 "*New here? Run `,guide` for a quick start!*"
             ),
@@ -3865,7 +3865,7 @@ async def process_profile(user):
         def __init__(self, username, lastfm_url):
             super().__init__(timeout=None)
             safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
-            self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=f"https://dj-scratch.vercel.app/{safe_name}"))
+            self.add_item(discord.ui.Button(label="DJ Scratch Profile", style=discord.ButtonStyle.link, url=f"https://dj-scratch.is-a-fullstack.dev/{safe_name}"))
             if lastfm_url:
                 self.add_item(discord.ui.Button(label="Last.fm Profile", style=discord.ButtonStyle.link, url=lastfm_url))
 
@@ -3897,7 +3897,7 @@ async def process_profile(user):
             info = data['user']
             embed.title = f"{info['name']}'s DJ Scratch Profile"
             safe_name = urllib.parse.quote(format_name(user).replace(' ', '-'))
-            embed.url = f"https://dj-scratch.vercel.app/{safe_name}"
+            embed.url = f"https://dj-scratch.is-a-fullstack.dev/{safe_name}"
             lastfm_plays = int(info['playcount'])
             view = ProfileLinksView(username, info['url'])
             
@@ -5304,7 +5304,7 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                     sender_name = interaction.user.name
                     
                 view = discord.ui.View()
-                btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://the-goats-dj.vercel.app/messages")
+                btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/messages")
                 view.add_item(btn)
                 
                 embed = Theme.get_embed(
@@ -5447,7 +5447,7 @@ async def on_interaction(interaction: discord.Interaction):
                     return
                 
                 await interaction.response.defer()
-                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+                app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.is-a-fullstack.dev")
                 
                 from src.core.spotify import (
                     spotify_skip_to_previous, spotify_pause_playback,

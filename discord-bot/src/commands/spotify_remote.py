@@ -60,7 +60,7 @@ def _best_track_match(results, song, artist):
 
 
 def _link_required_embed(user_id):
-    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+    app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.is-a-fullstack.dev")
     return discord.Embed(color=0xFF0000, description=f"❌ You need to link your Spotify account first! [Connect here]({app_url}/api/auth/spotify?user_id={user_id})")
 
 
@@ -177,7 +177,7 @@ def get_spotify_remote_layout(track, user_id, action="Now playing", queue=None, 
     # Not linked: show a Connect button instead of dead controls (like fmbot).
     if track == "no_token":
         import os
-        app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.vercel.app")
+        app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.is-a-fullstack.dev")
         section = discord.ui.Section(
             discord.ui.TextDisplay("**Spotify Remote**\nLink your Spotify account to control playback straight from Discord."),
             accessory=discord.ui.Thumbnail(spotify_icon)

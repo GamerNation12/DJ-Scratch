@@ -45,7 +45,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="dj-scratch.vercel.app" android:pathPrefix="/open" />
+                <data android:scheme="https" android:host="dj-scratch.is-a-fullstack.dev" android:pathPrefix="/open" />
             </intent-filter>
         </activity>
         <!-- FileProvider for one-tap APK installs (in-app updater) -->

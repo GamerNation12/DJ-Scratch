@@ -21,7 +21,7 @@ const PROXYABLE_HOSTS = [
 export function isProxyableArtwork(url: string | null | undefined): boolean {
   if (!url) return false;
   try {
-    const host = new URL(url, "https://dj-scratch.vercel.app").hostname.toLowerCase();
+    const host = new URL(url, "https://dj-scratch.is-a-fullstack.dev").hostname.toLowerCase();
     return PROXYABLE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
   } catch {
     return false;

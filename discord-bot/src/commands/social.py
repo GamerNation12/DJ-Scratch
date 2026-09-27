@@ -92,7 +92,7 @@ class SocialCog(commands.Cog):
         )
         
         view = discord.ui.View()
-        btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://the-goats-dj.vercel.app/messages")
+        btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/messages")
         view.add_item(btn)
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

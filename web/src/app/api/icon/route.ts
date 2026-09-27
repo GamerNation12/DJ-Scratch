@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     if (!DB_URL) {
       console.error("No database URL provided");
-      return NextResponse.redirect(new URL('/vercel.svg', 'https://dj-scratch.vercel.app'));
+      return NextResponse.redirect(new URL('/vercel.svg', 'https://dj-scratch.is-a-fullstack.dev'));
     }
     const rows = await sql`SELECT value FROM global_settings WHERE key = 'current_avatar'`;
     if (rows.length > 0 && rows[0].value) {
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   }
   
   // Fallback to Vercel default icon if nothing in DB
-  const fallbackRes = await fetch(new URL('/vercel.svg', 'https://dj-scratch.vercel.app'));
+  const fallbackRes = await fetch(new URL('/vercel.svg', 'https://dj-scratch.is-a-fullstack.dev'));
   const fallbackBuffer = await fallbackRes.arrayBuffer();
   return new NextResponse(fallbackBuffer, {
     headers: { 'Content-Type': 'image/svg+xml' }

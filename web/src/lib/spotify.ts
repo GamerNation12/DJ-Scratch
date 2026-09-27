@@ -42,7 +42,7 @@ export function getSpotifyRedirectUri(): string {
   const base = (
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    "https://dj-scratch.vercel.app"
+    "https://dj-scratch.is-a-fullstack.dev"
   ).replace(/\/+$/, "");
   return `${base}/api/auth/spotify/callback`;
 }

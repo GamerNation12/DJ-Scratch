@@ -1,4 +1,4 @@
-export const API_BASE = 'https://dj-scratch.vercel.app';
+export const API_BASE = 'https://dj-scratch.is-a-fullstack.dev';
 export const POLL_MS = 15000;
 export const APP_VERSION = '1.0.0';
 

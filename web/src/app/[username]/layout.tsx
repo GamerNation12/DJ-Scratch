@@ -11,11 +11,11 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
     openGraph: {
       title: `${username}'s Profile | DJ Scratch`,
       description: `Check out ${username}'s music profile, top artists, and recent tracks on DJ Scratch.`,
-      url: `https://dj-scratch.vercel.app/${encodeURIComponent(username)}`,
+      url: `https://dj-scratch.is-a-fullstack.dev/${encodeURIComponent(username)}`,
       siteName: "DJ Scratch",
       images: [
         {
-          url: "https://dj-scratch.vercel.app/logo.png?v=2",
+          url: "https://dj-scratch.is-a-fullstack.dev/logo.png?v=2",
           width: 1024,
           height: 1024,
           alt: `${username}'s DJ Scratch profile`,
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
       card: "summary_large_image",
       title: `${username}'s Profile | DJ Scratch`,
       description: `Check out ${username}'s music profile, top artists, and recent tracks on DJ Scratch.`,
-      images: ["https://dj-scratch.vercel.app/logo.png?v=2"],
+      images: ["https://dj-scratch.is-a-fullstack.dev/logo.png?v=2"],
     },
   };
 }

@@ -14,7 +14,7 @@ const FAQS = [
   },
   {
     q: "I can't log in (website or Discord Activity).",
-    a: "Log into the website (dj-scratch.vercel.app) with Discord first, then open the Activity and log in there — Discord connects instantly. Last.fm always opens in your real browser, since it can't log in inside the Activity.",
+    a: "Log into the website (dj-scratch.is-a-fullstack.dev) with Discord first, then open the Activity and log in there — Discord connects instantly. Last.fm always opens in your real browser, since it can't log in inside the Activity.",
   },
   {
     q: "How do I link Spotify?",

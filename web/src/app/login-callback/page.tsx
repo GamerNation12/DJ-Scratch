@@ -25,7 +25,7 @@ function LoginCallbackInner() {
 
     const processLogin = async () => {
       try {
-        let url = `https://dj-scratch.vercel.app/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
+        let url = `https://dj-scratch.is-a-fullstack.dev/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
         if (interactionToken) url += `&interaction_token=${interactionToken}`;
         if (appId) url += `&app_id=${appId}`;
         // Prefix flow: lets the API refresh the original Discord message.

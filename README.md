@@ -69,7 +69,7 @@ npm run build
 npm start
 ```
 
-Create `web/.env.local` with your Discord OAuth credentials, `NEXTAUTH_SECRET`, `DATABASE_URL`, and Spotify keys (see `SPOTIFY_CLIENT_ID`, `NEXT_PUBLIC_BASE_URL` usage in the app). Production lives at `https://dj-scratch.vercel.app`.
+Create `web/.env.local` with your Discord OAuth credentials, `NEXTAUTH_SECRET`, `DATABASE_URL`, and Spotify keys (see `SPOTIFY_CLIENT_ID`, `NEXT_PUBLIC_BASE_URL` usage in the app). Production lives at `https://dj-scratch.is-a-fullstack.dev`.
 
 ## Mobile / desktop apps
 

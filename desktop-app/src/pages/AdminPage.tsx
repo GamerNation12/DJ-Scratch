@@ -51,7 +51,7 @@ export default function AdminPage({ token }: { token: string | null }) {
       <Card className="p-6 mt-6">
         <h2 className="font-bold mb-2">Open full console</h2>
         <p className="text-sm text-zinc-400 mb-4">User management, permissions, suggestions and system tools are on the web dashboard.</p>
-        <button onClick={() => window.open('https://dj-scratch.vercel.app/admin', '_blank')} className="px-5 py-2.5 rounded-xl bg-indigo-600 font-bold hover:bg-indigo-500">
+        <button onClick={() => window.open('https://dj-scratch.is-a-fullstack.dev/admin', '_blank')} className="px-5 py-2.5 rounded-xl bg-indigo-600 font-bold hover:bg-indigo-500">
           Open web admin
         </button>
       </Card>

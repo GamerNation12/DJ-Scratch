@@ -1,6 +1,6 @@
 // v1 core config
 class AppConfig {
-  static const apiBase = 'https://dj-scratch.vercel.app';
+  static const apiBase = 'https://dj-scratch.is-a-fullstack.dev';
   static const discordClientId = '1521582398188290049';
   static const authCallbackPath = '/api/auth/callback';
   static const updatePubspecUrl =

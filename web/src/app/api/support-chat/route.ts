@@ -47,7 +47,7 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
   const subject = "DJ Scratch support replied to your chat";
   const text =
     `Hi ${name},\n\nSupport replied to your chat on DJ Scratch:\n\n"${reply}"\n\n` +
-    `Open https://dj-scratch.vercel.app/support to continue the conversation.\n\n— DJ Scratch`;
+    `Open https://dj-scratch.is-a-fullstack.dev/support to continue the conversation.\n\n— DJ Scratch`;
 
   // Gmail SMTP needs no custom domain: a Gmail address + app password
   // (Google Account → Security → 2-Step Verification → App passwords).
@@ -77,7 +77,7 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
     console.log("No mail provider configured (GMAIL_* or RESEND_API_KEY) — skipping reply email.");
     return false;
   }
-  const from = process.env.RESEND_FROM || "DJ Scratch Support <support@dj-scratch.vercel.app>";
+  const from = process.env.RESEND_FROM || "DJ Scratch Support <support@dj-scratch.is-a-fullstack.dev>";
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

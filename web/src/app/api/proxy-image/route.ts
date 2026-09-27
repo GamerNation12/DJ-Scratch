@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "DJScratch/1.0 (+https://dj-scratch.vercel.app)" },
+      headers: { "User-Agent": "DJScratch/1.0 (+https://dj-scratch.is-a-fullstack.dev)" },
     });
     if (!res.ok) {
       return new NextResponse('Error fetching image', { status: res.status });
