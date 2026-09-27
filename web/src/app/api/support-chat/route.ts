@@ -58,6 +58,21 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
       const fromName = (m ? m[1] : "DJ Scratch Support").trim() || "DJ Scratch Support";
       const fromEmail = (m ? m[2] : raw).trim();
       const creds = Buffer.from(`${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`).toString("base64");
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const html =
+        `<div style="background:#0e0618;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">` +
+        `<div style="max-width:560px;margin:0 auto;background:#1a0b2e;border:1px solid #ffffff1a;border-radius:16px;overflow:hidden;">` +
+        `<div style="background:linear-gradient(135deg,#7c3aed,#d946ef);padding:24px;text-align:center;">` +
+        `<img src="https://dj-scratch.is-a-fullstack.dev/logo.png?v=2" alt="DJ Scratch" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 8px;" />` +
+        `<div style="color:#fff;font-size:20px;font-weight:bold;">DJ Scratch Support</div></div>` +
+        `<div style="padding:28px;color:#e4e4e7;font-size:15px;line-height:1.6;">` +
+        `<p style="margin:0 0 12px;">Hi ${esc(name)},</p>` +
+        `<p style="margin:0 0 12px;color:#a1a1aa;">Support replied to your chat:</p>` +
+        `<div style="background:#00000066;border-left:3px solid #d946ef;border-radius:0 12px 12px 0;padding:14px 16px;margin:0 0 20px;color:#fff;">${esc(reply).replace(/\n/g, "<br />")}</div>` +
+        `<a href="https://dj-scratch.is-a-fullstack.dev/support" style="display:inline-block;background:#fff;color:#09090b;font-weight:bold;font-size:14px;padding:12px 28px;border-radius:12px;text-decoration:none;">Continue the conversation</a>` +
+        `</div><div style="padding:16px;text-align:center;color:#71717a;font-size:12px;">— DJ Scratch</div>` +
+        `</div></div>`;
       const res = await fetch("https://api.mailjet.com/v3.1/send", {
         method: "POST",
         headers: { Authorization: `Basic ${creds}`, "Content-Type": "application/json" },
@@ -68,6 +83,7 @@ async function sendReplyEmail(to: string, name: string, reply: string) {
               To: [{ Email: to, Name: name }],
               Subject: subject,
               TextPart: text,
+              HTMLPart: html,
             },
           ],
         }),
