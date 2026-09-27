@@ -112,7 +112,7 @@ export default function SupportPage() {
       const res = await fetch("/api/support-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message: first }),
+        body: JSON.stringify({ action: "start", name, email, message: first }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Couldn't start chat");
