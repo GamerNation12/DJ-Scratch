@@ -101,9 +101,15 @@ class _SupportTabState extends State<SupportTab> {
     final name = _name.text.trim();
     final email = _email.text.trim();
     final message = _firstMessage.text.trim();
-    if (name.isEmpty || email.isEmpty || message.isEmpty) {
+    if (name.isEmpty || message.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fill in name, email and your message.'), backgroundColor: Colors.redAccent),
+        const SnackBar(content: Text('Fill in your name and message.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    if (email.isNotEmpty && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That email doesn\'t look valid.'), backgroundColor: Colors.redAccent),
       );
       return;
     }
@@ -275,7 +281,7 @@ class _SupportTabState extends State<SupportTab> {
         const SizedBox(height: 20),
         _field(_name, 'Your name'),
         const SizedBox(height: 10),
-        _field(_email, 'Email address', keyboard: TextInputType.emailAddress),
+        _field(_email, 'Email (optional)', keyboard: TextInputType.emailAddress),
         const SizedBox(height: 10),
         _field(_firstMessage, 'How can we help?', maxLines: 5),
         const SizedBox(height: 16),

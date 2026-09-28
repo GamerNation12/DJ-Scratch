@@ -216,7 +216,7 @@ export default function SupportPage() {
         <div className="bg-[#170b28]/80 backdrop-blur-md border-2 border-white/10 rounded-3xl p-6 md:p-8">
           <h2 className="font-display text-2xl font-extrabold text-white mb-1">Live chat</h2>
           <p className="text-zinc-400 text-sm mb-6">
-            No Discord account needed. Stay here to chat live — leave and we&apos;ll email you the reply.
+            No Discord account needed. Stay here to chat live — leave an email and we&apos;ll send the reply there if you go.
           </p>
 
           {!thread ? (
@@ -233,8 +233,7 @@ export default function SupportPage() {
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email (for replies if you leave)"
-                  required
+                  placeholder="Email (optional — for replies if you leave)"
                   type="email"
                   maxLength={200}
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-fuchsia-400/60"

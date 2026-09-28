@@ -153,8 +153,8 @@ export async function POST(req: Request) {
       const first = String(body?.message || "").trim().slice(0, 3000);
       if (body?.website) return NextResponse.json({ threadId: null, secret: null }); // honeypot
       if (!name) return NextResponse.json({ error: "Name required." }, { status: 400 });
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return NextResponse.json({ error: "Valid email required (for replies)." }, { status: 400 });
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json({ error: "That email doesn't look valid." }, { status: 400 });
       }
       const id = randomUUID().replace(/-/g, "").slice(0, 16);
       const secret = randomUUID().replace(/-/g, "");
@@ -232,15 +232,17 @@ export async function POST(req: Request) {
         INSERT INTO support_messages (thread_id, sender, body) VALUES (${threadId}, 'owner', ${text}) RETURNING id
       `;
       await sql`UPDATE support_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ${threadId}`;
-      // Away = never seen or silent 60s+ → email them so they know.
+      // Away = never seen or silent 60s+ → email them (if they left an
+      // address) so they know.
       let emailed = false;
       try {
+        const dest = String((rows[0] as any).email || "");
         const seen = (rows[0] as any).last_visitor_seen
           ? new Date((rows[0] as any).last_visitor_seen).getTime()
           : 0;
-        if (Date.now() - seen > 60 * 1000) {
+        if (dest && Date.now() - seen > 60 * 1000) {
           emailed = await sendReplyEmail(
-            String((rows[0] as any).email),
+            dest,
             String((rows[0] as any).name || "there"),
             text.slice(0, 1000)
           );

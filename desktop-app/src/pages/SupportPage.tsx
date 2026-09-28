@@ -168,7 +168,7 @@ export default function SupportPage({ token }: { token: string | null }) {
         <h1 className="text-4xl font-black mb-2 flex items-center gap-3">
           <LifeBuoy size={32} className="text-indigo-400" /> Support
         </h1>
-        <p className="text-zinc-400 text-sm mb-8">Chat with the team — no login required. Replies appear here live.</p>
+        <p className="text-zinc-400 text-sm mb-8">Chat with the team — no login required. Replies appear here live; leave an email for replies if you go.</p>
         <Card className="p-6">
           <form onSubmit={start} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
