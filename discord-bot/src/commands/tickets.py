@@ -20,37 +20,67 @@ def _slug(name: str, prefix: str, fallback: str) -> str:
 
 
 async def _ticket_category(guild: discord.Guild) -> discord.CategoryChannel | None:
-    """Find or create the private Tickets category. ID is shared with the
+    """Find or create the Tickets category. ID is shared with the
     website via global_settings so web tickets land in the same place."""
-    try:
-        for c in guild.categories:
-            if c.name.lower() == "tickets":
-                await _save_ticket_category(str(c.id))
-                return c
-        for c in guild.categories:
-            # Misspelled leftovers from earlier ("Tikets") get renamed.
-            if "tiket" in c.name.lower() or "ticket" in c.name.lower():
-                try:
-                    await c.edit(name="Tickets", reason="DJ Scratch ticket category")
-                except Exception:
-                    pass
-                await _save_ticket_category(str(c.id))
-                return c
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        }
+    import asyncio as _aio
+    for attempt in range(2):
         try:
-            overwrites[guild.me] = discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, manage_channels=True,
-                manage_messages=True)
-        except Exception:
-            pass
-        cat = await guild.create_category("Tickets", overwrites=overwrites,
-                                          reason="DJ Scratch ticket channels")
-        await _save_ticket_category(str(cat.id))
-        return cat
+            for c in guild.categories:
+                if c.name.lower() == "tickets":
+                    await _save_ticket_category(str(c.id))
+                    return c
+            for c in guild.categories:
+                # Misspelled leftovers from earlier ("Tikets") get renamed.
+                if "tiket" in c.name.lower() or "ticket" in c.name.lower():
+                    try:
+                        await c.edit(name="Tickets", reason="DJ Scratch ticket category")
+                    except Exception:
+                        pass
+                    await _save_ticket_category(str(c.id))
+                    return c
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            }
+            try:
+                me = guild.me
+                if me is not None:
+                    overwrites[me] = discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True, manage_channels=True,
+                        manage_messages=True)
+            except Exception as e:
+                print(f">>> Ticket category overwrite setup failed: {e}")
+            cat = await guild.create_category("Tickets", overwrites=overwrites,
+                                              reason="DJ Scratch ticket channels")
+            await _save_ticket_category(str(cat.id))
+            return cat
+        except Exception as e:
+            print(f">>> Ticket category attempt {attempt + 1} failed: {e}")
+            try:
+                await _aio.sleep(5)
+            except Exception:
+                pass
+    return None
+
+
+async def _sweep_orphan_tickets(guild: discord.Guild, category: discord.CategoryChannel):
+    """Move top-level ticket-* / web-* channels into the category."""
+    try:
+        moved = 0
+        for ch in list(guild.text_channels):
+            try:
+                if ch.category_id is not None:
+                    continue
+                n = (ch.name or "").lower()
+                if not (n.startswith("ticket-") or n.startswith("web-")):
+                    continue
+                await ch.edit(category=category, reason="DJ Scratch ticket grouping")
+                moved += 1
+                if moved >= 10:
+                    break
+            except Exception:
+                continue
     except Exception:
-        return None
+        pass
 
 
 async def _save_ticket_category(cat_id: str):
@@ -380,6 +410,8 @@ class TicketPanelView(discord.ui.View):
             return await interaction.followup.send(
                 "Tickets channel not found. Tell the bot owner.", ephemeral=True)
         category = await _ticket_category(interaction.guild)
+        if category is not None:
+            await _sweep_orphan_tickets(interaction.guild, category)
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
             user: discord.PermissionOverwrite(view_channel=True, send_messages=True,
