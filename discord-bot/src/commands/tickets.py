@@ -11,6 +11,54 @@ TICKETS_CHANNEL_ID = 1527127384053121036
 APP_BASE = "https://dj-scratch.is-a-fullstack.dev"
 
 
+def _slug(name: str, prefix: str, fallback: str) -> str:
+    """Discord channel names: lowercase letters, numbers, dashes."""
+    import re
+    s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    s = f"{prefix}-{s}" if s else fallback
+    return s[:90] or fallback
+
+
+async def _ticket_category(guild: discord.Guild) -> discord.CategoryChannel | None:
+    """Find or create the private Tickets category. ID is shared with the
+    website via global_settings so web tickets land in the same place."""
+    try:
+        for c in guild.categories:
+            if "tiket" in c.name.lower() or "ticket" in c.name.lower():
+                await _save_ticket_category(str(c.id))
+                return c
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        }
+        try:
+            overwrites[guild.me] = discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, manage_channels=True,
+                manage_messages=True)
+        except Exception:
+            pass
+        cat = await guild.create_category("Tikets", overwrites=overwrites,
+                                          reason="DJ Scratch ticket channels")
+        await _save_ticket_category(str(cat.id))
+        return cat
+    except Exception:
+        return None
+
+
+async def _save_ticket_category(cat_id: str):
+    try:
+        pool = dbmod.db_pool
+        if not pool:
+            return
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "CREATE TABLE IF NOT EXISTS global_settings (key VARCHAR(255) PRIMARY KEY, value TEXT)")
+            await conn.execute(
+                "INSERT INTO global_settings (key, value) VALUES ('ticket_category_id', $1) "
+                "ON CONFLICT (key) DO UPDATE SET value = $1", str(cat_id))
+    except Exception:
+        pass
+
+
 def _service_key() -> str:
     return (os.getenv("SERVICE_KEY") or "").strip()
 
@@ -151,9 +199,10 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
 
     async def on_submit(self, interaction: discord.Interaction):
         ch = interaction.channel
-        if ch is None or not isinstance(ch, discord.Thread):
+        if ch is None or (not isinstance(ch, discord.Thread)
+                          and not isinstance(ch, discord.TextChannel)):
             return await interaction.response.send_message(
-                "Use this inside a ticket thread.", ephemeral=True)
+                "Use this inside a ticket.", ephemeral=True)
         if not _is_staff(interaction.user, ch):
             return await interaction.response.send_message(
                 "Only support staff can close tickets.", ephemeral=True)
@@ -164,6 +213,7 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
         await interaction.response.defer(ephemeral=True)
         row = await _ticket_row(str(ch.id))
         web_thread = (row["web_thread_id"] if row and row["web_thread_id"] else None)
+        ticket_user_id = str(row["user_id"]) if row and row["user_id"] else None
         if web_thread:
             ok, data = await _web_api("close", {"threadId": web_thread, "reason": reason})
             if not ok:
@@ -179,19 +229,45 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
                         str(ch.id), reason)
         except Exception:
             pass
-        try:
-            embed = discord.Embed(
-                title="🔒 Ticket closed",
-                description=f"**Reason:** {reason}",
-                color=0x808080,
-            )
-            await ch.send(embed=embed)
-        except Exception:
-            pass
-        try:
-            await ch.edit(archived=True, reason=f"Closed: {reason[:100]}")
-        except Exception:
-            pass
+        closer = getattr(interaction.user, "display_name", "Staff")
+        if isinstance(ch, discord.Thread):
+            # Legacy thread ticket: post the reason and archive.
+            try:
+                embed = discord.Embed(
+                    title="🔒 Ticket closed",
+                    description=f"**Reason:** {reason}",
+                    color=0x808080,
+                )
+                await ch.send(embed=embed)
+            except Exception:
+                pass
+            try:
+                await ch.edit(archived=True, reason=f"Closed: {reason[:100]}")
+            except Exception:
+                pass
+        else:
+            # Channel ticket: log the summary in the tickets channel, then delete.
+            try:
+                panel = ch.guild.get_channel(TICKETS_CHANNEL_ID) if ch.guild else None
+                if panel is None and ch.guild:
+                    try:
+                        panel = await ch.guild.fetch_channel(TICKETS_CHANNEL_ID)
+                    except Exception:
+                        panel = None
+                if panel is not None and isinstance(panel, discord.TextChannel):
+                    who = f"<@{ticket_user_id}>" if ticket_user_id else "unknown user"
+                    summary = discord.Embed(
+                        title="🔒 Ticket closed",
+                        description=f"**User:** {who}\n**Closed by:** {closer}\n**Reason:** {reason}",
+                        color=0x808080,
+                    )
+                    await panel.send(embed=summary)
+            except Exception:
+                pass
+            try:
+                await ch.delete(reason=f"Ticket closed by {closer}: {reason[:100]}")
+            except Exception:
+                pass
         await interaction.followup.send("Ticket closed.", ephemeral=True)
 
 
@@ -237,32 +313,33 @@ class TicketPanelView(discord.ui.View):
                 channel = await interaction.guild.fetch_channel(TICKETS_CHANNEL_ID)
             except Exception:
                 channel = None
-        if channel is None or not isinstance(channel, discord.TextChannel):
+        if channel is None:
             return await interaction.followup.send(
                 "Tickets channel not found. Tell the bot owner.", ephemeral=True)
-        thread = None
+        category = await _ticket_category(interaction.guild)
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            user: discord.PermissionOverwrite(view_channel=True, send_messages=True,
+                                              read_message_history=True, attach_files=True,
+                                              embed_links=True),
+        }
         try:
-            thread = await channel.create_thread(
-                name=f"🎫-{user.display_name}"[:100],
-                type=discord.ChannelType.private_thread,
-                auto_archive_duration=4320,
+            overwrites[interaction.guild.me] = discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, manage_channels=True,
+                manage_messages=True, embed_links=True)
+        except Exception:
+            pass
+        ticket_ch = None
+        try:
+            ticket_ch = await interaction.guild.create_text_channel(
+                _slug(user.display_name, "ticket", f"ticket-{user.id}"),
+                category=category,
+                overwrites=overwrites,
                 reason=f"Support ticket for {user.id}",
             )
-            try:
-                await thread.add_user(user)
-            except Exception:
-                pass
-        except Exception:
-            try:
-                thread = await channel.create_thread(
-                    name=f"🎫-{user.display_name}"[:100],
-                    type=discord.ChannelType.public_thread,
-                    auto_archive_duration=4320,
-                    reason=f"Support ticket for {user.id}",
-                )
-            except Exception as e:
-                return await interaction.followup.send(
-                    f"Couldn't open a ticket: {e}", ephemeral=True)
+        except Exception as e:
+            return await interaction.followup.send(
+                f"Couldn't open a ticket: {e}", ephemeral=True)
         try:
             pool = dbmod.db_pool
             if pool:
@@ -271,7 +348,7 @@ class TicketPanelView(discord.ui.View):
                         "INSERT INTO discord_tickets (thread_id, user_id, kind, status) "
                         "VALUES ($1, $2, 'discord', 'open') "
                         "ON CONFLICT (thread_id) DO UPDATE SET status = 'open', reason = NULL",
-                        str(thread.id), str(user.id))
+                        str(ticket_ch.id), str(user.id))
         except Exception:
             pass
         try:
@@ -280,10 +357,10 @@ class TicketPanelView(discord.ui.View):
                 description="Support will be with you shortly.\nType your issue below.",
                 color=0x5865F2,
             )
-            await thread.send(content=user.mention, embed=embed, view=TicketControlsView())
+            await ticket_ch.send(content=user.mention, embed=embed, view=TicketControlsView())
         except Exception:
             pass
-        await interaction.followup.send(f"Ticket opened: {thread.mention}", ephemeral=True)
+        await interaction.followup.send(f"Ticket opened: {ticket_ch.mention}", ephemeral=True)
 
 
 class TicketsCog(commands.Cog):
@@ -462,10 +539,6 @@ class TicketsCog(commands.Cog):
             if message.guild.id != SUPPORT_GUILD_ID:
                 return
             ch = message.channel
-            if not isinstance(ch, discord.Thread):
-                return
-            if not ch.parent or ch.parent.id != TICKETS_CHANNEL_ID:
-                return
             if not message.content or not message.content.strip():
                 return
             staff = _is_staff(message.author, ch)
@@ -473,7 +546,8 @@ class TicketsCog(commands.Cog):
             web_id = None
             ticket_user = None
             if row and (row["status"] or "open") == "open":
-                ticket_user = str(row["user_id"] or "")
+                # Tracked ticket: works for channels and legacy threads.
+                ticket_user = str(row["user_id"] or "") or None
                 if row["web_thread_id"]:
                     web_id = str(row["web_thread_id"])
                 elif (row["kind"] or "discord") == "discord":

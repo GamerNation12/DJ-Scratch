@@ -16,9 +16,9 @@ const INBOX_BUTTON = [
   },
 ];
 
-// Discord ticket mirror: web chats also open a thread in the support
-// server's tickets channel so the owner can reply from Discord.
-const TICKETS_CHANNEL_ID = "1527127384053121036";
+// Discord ticket mirror: web chats also open a private channel in the
+// support server's Tikets category so the owner can reply from Discord.
+const SUPPORT_GUILD_ID = "1527127381897383946";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 // Bot-to-web auth for Discord-originated replies/closes. Set the same
@@ -29,7 +29,7 @@ function serviceAuthed(req: Request): boolean {
   return req.headers.get("x-service-key") === key;
 }
 
-async function openDiscordTicketThread(
+async function openDiscordTicketChannel(
   name: string, first: string, email: string, threadId: string
 ): Promise<string | null> {
   if (!DISCORD_TOKEN) return null;
@@ -38,25 +38,27 @@ async function openDiscordTicketThread(
       Authorization: `Bot ${DISCORD_TOKEN}`,
       "Content-Type": "application/json",
     };
-    // Private thread first (falls back to public if the server can't).
-    let thread: any = null;
-    for (const type of [12, 11]) {
-      const r = await fetch(`https://discord.com/api/v10/channels/${TICKETS_CHANNEL_ID}/threads`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name: `🌐 ${name}`.slice(0, 100),
-          auto_archive_duration: 4320,
-          type,
-        }),
-      });
-      if (r.ok) {
-        thread = await r.json().catch(() => null);
-        break;
-      }
-    }
-    if (!thread?.id) return null;
-    await fetch(`https://discord.com/api/v10/channels/${thread.id}/messages`, {
+    let parent: string | null = null;
+    try {
+      const rows = await sql`SELECT value FROM global_settings WHERE key = 'ticket_category_id'`;
+      parent = (rows[0] as any)?.value || null;
+    } catch { /* bot publishes it on first panel use */ }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const body: any = {
+      name: (slug ? `web-${slug}` : `web-chat-${threadId.slice(0, 8)}`).slice(0, 90),
+      type: 0,
+      permission_overwrites: [{ id: SUPPORT_GUILD_ID, type: 0, deny: "1024" }],
+    };
+    if (parent) body.parent_id = parent;
+    const r = await fetch(`https://discord.com/api/v10/guilds/${SUPPORT_GUILD_ID}/channels`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) return null;
+    const channel = await r.json().catch(() => null);
+    if (!channel?.id) return null;
+    await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -67,7 +69,7 @@ async function openDiscordTicketThread(
             color: 5814783,
             fields: [
               { name: "Email", value: email || "—", inline: true },
-              { name: "Reply", value: "Just type in this thread — it sends to the visitor.", inline: false },
+              { name: "Reply", value: "Just type in this channel — it sends to the visitor.", inline: false },
             ],
           },
         ],
@@ -81,7 +83,7 @@ async function openDiscordTicketThread(
         ],
       }),
     }).catch(() => null);
-    return String(thread.id);
+    return String(channel.id);
   } catch {
     return null;
   }
@@ -271,10 +273,10 @@ export async function POST(req: Request) {
           },
         ]
       );
-      // Mirror as a ticket thread in the support server (best-effort).
+      // Mirror as a ticket channel in the support server (best-effort).
       void (async () => {
         try {
-          const discordId = await openDiscordTicketThread(name, first, email, id);
+          const discordId = await openDiscordTicketChannel(name, first, email, id);
           if (discordId) {
             await sql`UPDATE support_threads SET discord_thread_id = ${discordId} WHERE id = ${id}`;
           }
