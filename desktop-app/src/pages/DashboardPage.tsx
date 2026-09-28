@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { CalendarDays, Clock, Disc3, Flame, Sparkles } from 'lucide-react';
 import { API_BASE, PERIODS, POLL_MS, type Period } from '../lib/config';
 import { api } from '../lib/api';
-import type { UserStats } from '../lib/types';
+import type { RhythmData, UserStats } from '../lib/types';
 import { Card, Empty, ErrorBox, SectionTitle, Spinner } from '../components/ui';
+
+function mergeStats(data: { stats?: UserStats | null; rhythm?: RhythmData | null }): UserStats {
+  const stats = { ...(data.stats || {}) } as UserStats;
+  const topRhythm = data.rhythm ?? stats.rhythm ?? null;
+  if (topRhythm) stats.rhythm = topRhythm;
+  return stats;
+}
 
 export default function DashboardPage({ token, username }: { token: string | null; username: string }) {
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -22,7 +30,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
     setError('');
     try {
       const data = await api.getProfile(username, token, periodRef.current);
-      setStats((data.stats || {}) as UserStats);
+      setStats(mergeStats(data));
       setUpdatedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
@@ -38,7 +46,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
     if (localStorage.getItem('ds_polling') === 'off') return;
     try {
       const data = await api.getProfile(username, token, periodRef.current);
-      setStats((data.stats || {}) as UserStats);
+      setStats(mergeStats(data));
       setError('');
       setUpdatedAt(Date.now());
     } catch {
@@ -89,6 +97,39 @@ export default function DashboardPage({ token, username }: { token: string | nul
     const next = total < 10 ? 10 : Math.pow(10, Math.ceil(Math.log10(total + 1)));
     return { plays24h, uniqueArtists, topArtist, total, share, next, pct: Math.min(100, (total / next) * 100) };
   })();
+
+  const rhythm = stats?.rhythm ?? null;
+  const clock: number[] = Array.from({ length: 24 }, (_, i) => {
+    const v = Array.isArray(rhythm?.clock) ? Number(rhythm?.clock?.[i] || 0) : 0;
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  });
+  const clockMax = Math.max(0, ...clock);
+  const hasClock = clockMax > 0;
+
+  const daily = (Array.isArray(rhythm?.daily) ? rhythm.daily : [])
+    .filter((d) => d && typeof d.date === 'string' && d.date.length > 0)
+    .slice(-14)
+    .map((d) => ({ date: d.date, plays: Number(d.plays || 0) > 0 ? Number(d.plays) : 0 }));
+  const dailyMax = daily.reduce((m, d) => Math.max(m, d.plays), 0);
+  const hasDaily = dailyMax > 0;
+
+  const streak = Number(rhythm?.streak || 0) > 0 ? Number(rhythm?.streak) : 0;
+  const longestStreak = Number(rhythm?.longestStreak || 0) > 0 ? Number(rhythm?.longestStreak) : 0;
+  const avgPerDay = Number(rhythm?.avgPerDay || 0) > 0 ? Number(rhythm?.avgPerDay) : 0;
+  const showStrip = streak > 0 || avgPerDay > 0;
+
+  const genres = (Array.isArray(rhythm?.genres) ? rhythm.genres : [])
+    .filter((g) => g && typeof g.name === 'string' && g.name.trim().length > 0 && Number(g.count || 0) > 0)
+    .map((g) => ({ name: g.name.trim(), count: Number(g.count) }))
+    .slice(0, 6);
+  const genreMax = genres.reduce((m, g) => Math.max(m, g.count), 0);
+  const hasGenres = genres.length > 0 && genreMax > 0;
+
+  const discoveries = (Array.isArray(rhythm?.discoveries) ? rhythm.discoveries : [])
+    .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
+    .map((d) => d.trim())
+    .slice(0, 8);
+  const hasDiscoveries = discoveries.length > 0;
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto pb-28">
@@ -177,6 +218,111 @@ export default function DashboardPage({ token, username }: { token: string | nul
               </div>
             </Card>
           </div>
+
+          {showStrip && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {streak > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-sm font-bold">
+                  <Flame className="w-4 h-4" />
+                  {streak} day streak{longestStreak > streak ? ` · best ${longestStreak}` : ''}
+                </span>
+              )}
+              {avgPerDay > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-zinc-200 text-sm font-bold">
+                  <CalendarDays className="w-4 h-4 text-indigo-300" />
+                  {avgPerDay.toLocaleString(undefined, { maximumFractionDigits: 1 })} / day
+                </span>
+              )}
+            </div>
+          )}
+
+          {hasClock && (
+            <Card className="p-6 mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-4 h-4 text-indigo-300" />
+                <div className="text-zinc-200 text-sm font-bold">Listening clock</div>
+                <div className="text-zinc-500 text-xs font-semibold ml-auto">UTC hour</div>
+              </div>
+              <div className="flex items-end gap-1 h-24 mt-4">
+                {clock.map((v, i) => (
+                  <div
+                    key={i}
+                    title={`${i}:00 — ${v.toLocaleString()} plays`}
+                    style={{ height: v > 0 ? `${Math.max(8, (v / clockMax) * 100)}%` : '6px' }}
+                    className={`flex-1 rounded-md ${v > 0 ? 'bg-gradient-to-t from-indigo-500/70 to-purple-400/90' : 'bg-white/5'}`}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[11px] text-zinc-500 mt-2 font-semibold">
+                <span>0</span>
+                <span>6</span>
+                <span>12</span>
+                <span>18</span>
+              </div>
+            </Card>
+          )}
+
+          {hasDaily && (
+            <Card className="p-6 mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <CalendarDays className="w-4 h-4 text-indigo-300" />
+                <div className="text-zinc-200 text-sm font-bold">Last 14 days</div>
+                <div className="text-zinc-500 text-xs font-semibold ml-auto">{daily.length} days</div>
+              </div>
+              <div className="flex items-end gap-1.5 h-28 mt-4">
+                {daily.map((d) => (
+                  <div key={d.date} className="flex-1 flex flex-col items-center justify-end gap-1.5 h-full min-w-0" title={`${d.date} — ${d.plays.toLocaleString()} plays`}>
+                    <div
+                      style={{ height: d.plays > 0 ? `${Math.max(8, (d.plays / dailyMax) * 100)}%` : '6px' }}
+                      className={`w-full rounded-md ${d.plays > 0 ? 'bg-gradient-to-t from-indigo-500/70 to-purple-400/90' : 'bg-white/5'}`}
+                    />
+                    <div className="text-[10px] text-zinc-500 font-semibold truncate w-full text-center">{d.date.slice(3) || d.date}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {hasGenres && (
+            <Card className="p-6 mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Disc3 className="w-4 h-4 text-indigo-300" />
+                <div className="text-zinc-200 text-sm font-bold">Top genres</div>
+              </div>
+              <div className="space-y-3">
+                {genres.map((g) => (
+                  <div key={g.name}>
+                    <div className="flex items-center justify-between gap-3 text-sm mb-1.5">
+                      <span className="font-bold text-zinc-200 truncate">{g.name}</span>
+                      <span className="text-zinc-500 font-semibold shrink-0">{g.count.toLocaleString()}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                        style={{ width: `${genreMax > 0 ? Math.max(4, (g.count / genreMax) * 100) : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {hasDiscoveries && (
+            <Card className="p-6 mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-4 h-4 text-indigo-300" />
+                <div className="text-zinc-200 text-sm font-bold">New discoveries</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {discoveries.map((d) => (
+                  <span key={d} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-semibold text-zinc-200 truncate max-w-full">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </Card>
+          )}
 
           <div className="flex items-center justify-between mb-5 gap-4">
             <div className="flex-1"><SectionTitle>Recent tracks</SectionTitle></div>

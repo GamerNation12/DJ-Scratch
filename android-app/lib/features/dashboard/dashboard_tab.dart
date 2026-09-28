@@ -23,6 +23,7 @@ class _DashboardTabState extends State<DashboardTab> {
   String _query = '';
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _user;
+  Map<String, dynamic>? _rhythm;
 
   @override
   void initState() {
@@ -53,7 +54,10 @@ class _DashboardTabState extends State<DashboardTab> {
       final data = await api.getJson('/api/u/${Uri.encodeComponent(name)}?period=$_period');
       if (data['error'] != null) throw ApiException(data['error'].toString(), 400);
       if (!mounted) return;
-      setState(() { _stats = (data['stats'] as Map?)?.cast<String, dynamic>(); _loading = false; _error = ''; });
+      final statsRaw = (data['stats'] as Map?)?.cast<String, dynamic>();
+      final rhythmRaw = (data['rhythm'] as Map?)?.cast<String, dynamic>() ??
+          (statsRaw?['rhythm'] as Map?)?.cast<String, dynamic>();
+      setState(() { _stats = statsRaw; _rhythm = rhythmRaw; _loading = false; _error = ''; });
     } on ApiException catch (e) {
       if (!mounted) return;
       // Silent polls never wipe good data with an error screen.
@@ -144,6 +148,7 @@ class _DashboardTabState extends State<DashboardTab> {
             _statHero(),
             const SizedBox(height: 12),
             _insightsRow(),
+            ..._rhythmBlocks(),
             const SizedBox(height: 24),
             const SectionHeader(title: 'Recent tracks'),
             const SizedBox(height: 12),
@@ -260,6 +265,313 @@ class _DashboardTabState extends State<DashboardTab> {
       p *= 10;
     }
     return p;
+  }
+
+  int _asInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('$v') ?? 0;
+  }
+
+  double _asDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse('$v') ?? 0.0;
+  }
+
+  List<Widget> _rhythmBlocks() {
+    final r = _rhythm;
+    if (r == null) return [];
+    final clockRaw = (r['clock'] as List?) ?? [];
+    final clock = List<int>.generate(24, (i) {
+      if (i < clockRaw.length) {
+        final v = _asInt(clockRaw[i]);
+        return v < 0 ? 0 : v;
+      }
+      return 0;
+    });
+    final clockHas = clock.any((v) => v > 0);
+
+    final dailyRaw = (r['daily'] as List?) ?? [];
+    final daily = dailyRaw.whereType<Map>().map((e) {
+      final m = e.cast<String, dynamic>();
+      return {'date': '${m['date'] ?? ''}', 'plays': _asInt(m['plays']) < 0 ? 0 : _asInt(m['plays'])};
+    }).where((d) => (d['date'] as String).isNotEmpty).toList();
+    final dailyTrimmed = daily.length > 14 ? daily.sublist(daily.length - 14) : daily;
+    final dailyHas = dailyTrimmed.any((d) => (d['plays'] as int) > 0);
+
+    final streak = _asInt(r['streak']);
+    final avg = _asDouble(r['avgPerDay']);
+
+    final genresRaw = (r['genres'] as List?) ?? [];
+    final genres = genresRaw.whereType<Map>().map((e) {
+      final m = e.cast<String, dynamic>();
+      final count = _asInt(m['count'] ?? m['plays'] ?? m['playcount']);
+      return {'name': '${m['name'] ?? ''}'.trim(), 'count': count < 0 ? 0 : count};
+    }).where((g) => (g['name'] as String).isNotEmpty && (g['count'] as int) > 0).take(6).toList();
+
+    final discRaw = (r['discoveries'] as List?) ?? [];
+    final seen = <String>{};
+    final discoveries = <String>[];
+    for (final d in discRaw) {
+      final name = '$d'.trim();
+      if (name.isEmpty || seen.contains(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      discoveries.add(name);
+      if (discoveries.length >= 8) break;
+    }
+
+    if (!clockHas && !dailyHas && genres.isEmpty && discoveries.isEmpty && streak <= 0) {
+      return [];
+    }
+
+    const accent = Color(0xFF0AB5CD);
+    final out = <Widget>[];
+
+    // (1) Compact strip: streak + avg/day chips.
+    final chips = <Widget>[];
+    if (streak > 0) {
+      chips.add(_rhythmChip(
+        icon: LucideIcons.flame,
+        iconColor: Colors.orangeAccent,
+        label: '$streak day streak${streak == 1 ? '' : 's'}',
+      ));
+    }
+    if (avg > 0) {
+      final avgLabel = avg % 1 == 0 ? avg.toStringAsFixed(0) : avg.toStringAsFixed(1);
+      chips.add(_rhythmChip(
+        icon: LucideIcons.activity,
+        iconColor: Colors.greenAccent,
+        label: '$avgLabel/day avg',
+      ));
+    }
+    if (chips.isNotEmpty) {
+      out.add(const SizedBox(height: 12));
+      out.add(Row(
+        children: [
+          for (var i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            chips[i],
+          ],
+        ],
+      ));
+    }
+
+    // (2) Listening clock: 24 bars.
+    if (clockHas) {
+      final maxClock = clock.reduce((a, b) => a > b ? a : b);
+      out.add(const SizedBox(height: 20));
+      out.add(const SectionHeader(title: 'Listening clock'));
+      out.add(const SizedBox(height: 12));
+      out.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Column(children: [
+          SizedBox(
+            height: 72,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(24, (h) {
+                final v = clock[h];
+                final frac = maxClock > 0 ? v / maxClock : 0.0;
+                final isMax = v == maxClock && v > 0;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                    child: Container(
+                      height: v <= 0 ? 4 : 6 + frac * 60,
+                      decoration: BoxDecoration(
+                        color: v <= 0
+                            ? Colors.white.withOpacity(0.1)
+                            : isMax
+                                ? accent
+                                : accent.withOpacity(0.35 + 0.4 * frac),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: ['0', '6', '12', '18'].map((h) => Text(
+              h,
+              style: GoogleFonts.inter(fontSize: 9, color: Colors.white38),
+            )).toList(),
+          ),
+        ]),
+      ));
+    }
+
+    // (3) Last 14 days: 14 bars with tiny date labels.
+    if (dailyHas) {
+      final maxDaily = dailyTrimmed.isEmpty ? 0 : dailyTrimmed.map((d) => d['plays'] as int).reduce((a, b) => a > b ? a : b);
+      out.add(const SizedBox(height: 20));
+      out.add(const SectionHeader(title: 'Last 14 days'));
+      out.add(const SizedBox(height: 12));
+      out.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Column(children: [
+          SizedBox(
+            height: 72,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: dailyTrimmed.map((d) {
+                final v = d['plays'] as int;
+                final frac = maxDaily > 0 ? v / maxDaily : 0.0;
+                final isMax = v == maxDaily && v > 0;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Container(
+                      height: v <= 0 ? 4 : 6 + frac * 60,
+                      decoration: BoxDecoration(
+                        color: v <= 0
+                            ? Colors.white.withOpacity(0.1)
+                            : isMax
+                                ? accent
+                                : accent.withOpacity(0.35 + 0.4 * frac),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: dailyTrimmed.map((d) {
+              final raw = d['date'] as String;
+              final day = raw.contains('-') ? raw.split('-').last : raw;
+              return Expanded(
+                child: Text(
+                  day,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: GoogleFonts.inter(fontSize: 8, color: Colors.white38),
+                ),
+              );
+            }).toList(),
+          ),
+        ]),
+      ));
+    }
+
+    // (4) Top genres.
+    if (genres.isNotEmpty) {
+      final maxGenre = (genres.first['count'] as int) <= 0
+          ? 1
+          : genres.map((g) => g['count'] as int).reduce((a, b) => a > b ? a : b);
+      out.add(const SizedBox(height: 20));
+      out.add(const SectionHeader(title: 'Top genres'));
+      out.add(const SizedBox(height: 12));
+      out.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Column(
+          children: [
+            for (var i = 0; i < genres.length; i++) ...[
+              Row(children: [
+                Expanded(
+                  child: Text(
+                    '${genres[i]['name']}',
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${genres[i]['count']}',
+                  style: GoogleFonts.inter(fontSize: 12, color: accent),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: (((genres[i]['count'] as int) / maxGenre).clamp(0.0, 1.0)).toDouble(),
+                  minHeight: 6,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  valueColor: const AlwaysStoppedAnimation(accent),
+                ),
+              ),
+              if (i < genres.length - 1) const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    // (5) New discoveries.
+    if (discoveries.isNotEmpty) {
+      out.add(const SizedBox(height: 20));
+      out.add(const SectionHeader(title: 'New discoveries'));
+      out.add(const SizedBox(height: 12));
+      out.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: discoveries.map((name) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: Text(
+              name,
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white),
+            ),
+          )).toList(),
+        ),
+      ));
+    }
+
+    return out;
+  }
+
+  Widget _rhythmChip({required IconData icon, required Color iconColor, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.07)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: iconColor),
+        const SizedBox(width: 6),
+        Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+      ]),
+    );
   }
 
   Widget _recentRow(Map t) {

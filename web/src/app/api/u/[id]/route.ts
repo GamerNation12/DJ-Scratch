@@ -427,6 +427,108 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
     } catch { /* cards fall back client-side */ }
 
+    // stats.fm-style rhythm insights (best-effort, never fails the request):
+    // listening clock (plays per UTC hour), 14-day activity, day streaks,
+    // top genres, and new discoveries in the selected window.
+    let rhythm: any = {
+      clock: new Array(24).fill(0), daily: [], streak: 0,
+      longestStreak: 0, genres: [], discoveries: [], avgPerDay: 0, samplePlays: 0,
+    };
+    try {
+      const useFm = !!lastfm_username && data_source !== "imported_only";
+      const useIm = data_source !== "lastfm_only" && hasImported;
+      const stamps: number[] = [];
+      if (useFm) {
+        const fromPart = cutoffDate ? `&from=${Math.floor(cutoffDate.getTime() / 1000)}` : "";
+        for (let pg = 1; pg <= 5; pg++) {
+          const r = await fetch(
+            `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${pg}${fromPart}`);
+          const d = await r.json().catch(() => null);
+          let items = d?.recenttracks?.track || [];
+          if (!Array.isArray(items)) items = items ? [items] : [];
+          if (items.length === 0) break;
+          for (const t of items) {
+            const uts = parseInt(t?.date?.uts || "0", 10);
+            if (Number.isFinite(uts) && uts > 0) stamps.push(uts);
+          }
+          const totalPages = parseInt(d?.recenttracks?.["@attr"]?.totalPages || "1", 10) || 1;
+          if (pg >= totalPages) break;
+        }
+      }
+      if (useIm) {
+        const imRows = cutoffDate
+          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} ORDER BY played_at DESC LIMIT 5000`
+          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} ORDER BY played_at DESC LIMIT 5000`;
+        for (const r of imRows) {
+          const ms = new Date((r as any).played_at).getTime();
+          if (Number.isFinite(ms) && ms > 0) stamps.push(Math.floor(ms / 1000));
+        }
+      }
+      const clock = new Array(24).fill(0);
+      const dayMap = new Map<string, number>();
+      for (const s of stamps) {
+        const dt = new Date(s * 1000);
+        clock[dt.getUTCHours()]++;
+        const key = dt.toISOString().slice(0, 10);
+        dayMap.set(key, (dayMap.get(key) || 0) + 1);
+      }
+      const daily: { date: string; plays: number }[] = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        daily.push({ date: d.slice(5), plays: dayMap.get(d) || 0 });
+      }
+      const daySet = new Set(dayMap.keys());
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const yKey = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let cursor: string | null = daySet.has(todayKey) ? todayKey : daySet.has(yKey) ? yKey : null;
+      let streak = 0;
+      while (cursor && daySet.has(cursor)) {
+        streak++;
+        cursor = new Date(new Date(cursor).getTime() - 86400000).toISOString().slice(0, 10);
+      }
+      let longest = 0, run = 0, prev = "";
+      for (const d of [...daySet.keys()].sort()) {
+        if (prev && new Date(d).getTime() - new Date(prev).getTime() === 86400000) run++;
+        else run = 1;
+        if (run > longest) longest = run;
+        prev = d;
+      }
+      const avgPerDay = Math.round((daily.reduce((n, x) => n + x.plays, 0) / 14) * 10) / 10;
+      rhythm = {
+        clock, daily, streak, longestStreak: longest,
+        avgPerDay, samplePlays: stamps.length, genres: [], discoveries: [],
+      };
+      // Top genres (single Last.fm call).
+      if (useFm) {
+        try {
+          const gRes = await fetch(
+            `http://ws.audioscrobbler.com/2.0/?method=user.getTopTags&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json`);
+          const gData = await gRes.json().catch(() => null);
+          let tags = gData?.toptags?.tag || [];
+          if (!Array.isArray(tags)) tags = tags ? [tags] : [];
+          rhythm.genres = tags.slice(0, 8).map((t: any) => ({
+            name: t?.name || "Unknown",
+            count: parseInt(t?.count || "0", 10) || 0,
+          }));
+        } catch { /* genres stay empty */ }
+      }
+      // New discoveries: window top artists absent from all-time top 50.
+      if (useFm && period !== "overall") {
+        try {
+          const oRes = await fetch(
+            `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=50&period=overall`);
+          const oData = await oRes.json().catch(() => null);
+          let items = oData?.topartists?.artist || [];
+          if (!Array.isArray(items)) items = items ? [items] : [];
+          const known = new Set(items.map((a: any) => String(a?.name || "").toLowerCase()));
+          rhythm.discoveries = (finalStats.topArtists || [])
+            .map((a: any) => a?.name)
+            .filter((n: any) => n && !known.has(String(n).toLowerCase()))
+            .slice(0, 8);
+        } catch { /* discoveries stay empty */ }
+      }
+    } catch { /* rhythm falls back to empties */ }
+
     // Fetch missing images
     for (const a of finalStats.topArtists) {
       if (!a.image) {
@@ -460,6 +562,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       users: discordUsers,
       stats: finalStats,
       windowStats,
+      rhythm,
       _debug: debugLogs
     });
 

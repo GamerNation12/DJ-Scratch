@@ -1,4 +1,5 @@
 import { API_BASE } from './config';
+import type { RhythmData, UserStats } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -40,7 +41,7 @@ export type SpotifyControlBody =
 
 export const api = {
   getProfile: (username: string, token: string | null, period = 'overall') =>
-    request<{ stats?: Record<string, unknown> }>(`/api/u/${encodeURIComponent(username)}?period=${period}`, token),
+    request<{ stats?: UserStats; rhythm?: RhythmData }>(`/api/u/${encodeURIComponent(username)}?period=${period}`, token),
   getLeaderboard: (token: string | null) =>
     request<{ leaderboard: unknown[] }>(`/api/leaderboard`, token),
   checkAdmin: (token: string | null) =>

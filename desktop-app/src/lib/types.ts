@@ -22,11 +22,33 @@ export interface TopItem {
   playcount?: number | string;
 }
 
+export interface RhythmDailyPoint {
+  date: string;
+  plays: number | string;
+}
+
+export interface RhythmGenre {
+  name: string;
+  count: number | string;
+}
+
+export interface RhythmData {
+  clock?: number[];
+  daily?: RhythmDailyPoint[];
+  streak?: number | string;
+  longestStreak?: number | string;
+  genres?: RhythmGenre[];
+  discoveries?: string[];
+  avgPerDay?: number | string;
+  samplePlays?: number | string;
+}
+
 export interface UserStats {
   playcount?: number;
   recentTracks?: RecentTrack[];
   topArtists?: TopItem[];
   topTracks?: TopItem[];
+  rhythm?: RhythmData | null;
 }
 
 export interface LeaderboardEntry {

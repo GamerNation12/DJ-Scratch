@@ -898,6 +898,119 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
           </div>
 
+          {/* Listening rhythm (stats.fm-style, server-computed) */}
+          {(() => {
+            const r = (profile as any)?.rhythm;
+            if (!r) return null;
+            const clock: number[] = Array.isArray(r.clock) && r.clock.length === 24 ? r.clock : [];
+            const cmax = Math.max(1, ...clock);
+            const daily: any[] = Array.isArray(r.daily) ? r.daily : [];
+            const dmax = Math.max(1, ...daily.map((d: any) => Number(d?.plays) || 0));
+            const genres: any[] = Array.isArray(r.genres) ? r.genres : [];
+            const gmax = Math.max(1, ...genres.map((g: any) => Number(g?.count) || 0));
+            const discoveries: string[] = Array.isArray(r.discoveries) ? r.discoveries.filter(Boolean) : [];
+            const hasAny = clock.some((c) => c > 0) || daily.some((d: any) => (d?.plays || 0) > 0)
+              || genres.length > 0 || discoveries.length > 0 || (r.streak || 0) > 0;
+            if (!hasAny) return null;
+            const hourLabel = (h: number) => {
+              if (h === 0) return "12a";
+              if (h === 12) return "12p";
+              return h < 12 ? `${h}a` : `${h - 12}p`;
+            };
+            return (
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <h3 className="text-xl font-bold">🕓 Listening rhythm</h3>
+                  {(r.streak || 0) > 0 && (
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20">
+                      🔥 {r.streak}-day streak
+                    </span>
+                  )}
+                  {(r.avgPerDay || 0) > 0 && (
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+                      ~{r.avgPerDay} plays/day
+                    </span>
+                  )}
+                </div>
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Plays by hour · UTC</div>
+                    <div className="flex items-end gap-[3px] h-28">
+                      {clock.map((c: number, h: number) => (
+                        <div key={h} className="flex-1 flex flex-col items-center justify-end h-full" title={`${hourLabel(h)}: ${c} plays`}>
+                          <div
+                            className={`w-full rounded-t ${c === cmax && c > 0 ? "bg-gradient-to-t from-fuchsia-600 to-fuchsia-400" : "bg-indigo-500/50"}`}
+                            style={{ height: `${Math.max(3, (c / cmax) * 100)}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-[3px] mt-1.5">
+                      {clock.map((_: number, h: number) => (
+                        <div key={h} className="flex-1 text-center text-[9px] text-zinc-600">
+                          {h % 6 === 0 ? hourLabel(h) : ""}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Last 14 days</div>
+                    <div className="flex items-end gap-1.5 h-28">
+                      {daily.map((d: any, i: number) => (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d?.date}: ${d?.plays} plays`}>
+                          <div
+                            className={`w-full rounded-t ${i === daily.length - 1 ? "bg-gradient-to-t from-emerald-600 to-emerald-400" : "bg-indigo-500/50"}`}
+                            style={{ height: `${Math.max(3, ((Number(d?.plays) || 0) / dmax) * 100)}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5 mt-1.5">
+                      {daily.map((d: any, i: number) => (
+                        <div key={i} className="flex-1 text-center text-[9px] text-zinc-600">
+                          {i % 2 === 0 ? String(d?.date || "") : ""}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {genres.length > 0 && (
+                    <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+                      <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Top genres</div>
+                      <div className="space-y-2">
+                        {genres.slice(0, 6).map((g: any, i: number) => (
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-zinc-200 font-semibold truncate">{g?.name}</span>
+                              <span className="text-zinc-500 ml-2">{Number(g?.count || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full"
+                                style={{ width: `${Math.max(4, ((Number(g?.count) || 0) / gmax) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {discoveries.length > 0 && (
+                    <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+                      <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">New discoveries · {wlabel}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {discoveries.map((n: string, i: number) => (
+                          <span key={i} className="text-xs font-semibold px-3 py-1.5 rounded-full text-fuchsia-200 bg-fuchsia-500/10 border border-fuchsia-500/20">
+                            ✨ {n}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {insights.nowPlaying && (
             <div className="mb-8 bg-green-500/5 border border-green-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-4">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
