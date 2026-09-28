@@ -113,6 +113,7 @@ async function ensureTables() {
   await sql`CREATE INDEX IF NOT EXISTS idx_support_messages_thread ON support_messages (thread_id, id)`;
   await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT`;
   await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT`;
+  await sql`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE`;
 }
 
 async function adminUser(req: Request) {

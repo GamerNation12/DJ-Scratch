@@ -1,6 +1,7 @@
 import os
+import secrets
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 from src.core.config import OWNER_ID
 import src.core.database as dbmod
@@ -49,6 +50,56 @@ async def _ensure_tables():
                 "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT")
             await conn.execute(
                 "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT")
+            await conn.execute(
+                "ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS "
+                "discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE")
+    except Exception:
+        pass
+
+
+async def _web_thread_for_discord(thread_id: str):
+    """Open web thread linked to a Discord thread (pure-web threads have no tracker row)."""
+    try:
+        pool = dbmod.db_pool
+        if not pool:
+            return None
+        async with pool.acquire() as conn:
+            return await conn.fetchrow(
+                "SELECT id, name, status FROM support_threads WHERE discord_thread_id = $1",
+                str(thread_id))
+    except Exception:
+        return None
+
+
+async def _new_web_thread(name: str) -> str | None:
+    try:
+        pool = dbmod.db_pool
+        if not pool:
+            return None
+        tid = secrets.token_hex(8)
+        secret = secrets.token_hex(16)
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO support_threads (id, secret, name, email, last_visitor_seen) "
+                "VALUES ($1, $2, $3, '', CURRENT_TIMESTAMP)",
+                tid, secret, (name or "Discord user")[:120])
+        return tid
+    except Exception:
+        return None
+
+
+async def _insert_visitor(web_thread_id: str, body: str):
+    try:
+        pool = dbmod.db_pool
+        if not pool:
+            return
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO support_messages (thread_id, sender, body) VALUES ($1, 'visitor', $2)",
+                str(web_thread_id), (body or "")[:3000])
+            await conn.execute(
+                "UPDATE support_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+                str(web_thread_id))
     except Exception:
         pass
 
@@ -241,6 +292,122 @@ class TicketsCog(commands.Cog):
 
     async def cog_load(self):
         await _ensure_tables()
+        await self._backfill_native()
+        if not self._forward_loop.is_running():
+            self._forward_loop.start()
+
+    async def cog_unload(self):
+        try:
+            if self._forward_loop.is_running():
+                self._forward_loop.cancel()
+        except Exception:
+            pass
+
+    async def _backfill_native(self):
+        """Link pre-existing native tickets to web threads (and import their history)."""
+        try:
+            pool = dbmod.db_pool
+            if not pool:
+                return
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    "SELECT thread_id, user_id FROM discord_tickets "
+                    "WHERE kind = 'discord' AND status = 'open' AND web_thread_id IS NULL")
+            for r in rows:
+                try:
+                    tid = str(r["thread_id"])
+                    user = self.bot.get_user(int(r["user_id"]))
+                    if user is None:
+                        try:
+                            user = await self.bot.fetch_user(int(r["user_id"]))
+                        except Exception:
+                            user = None
+                    name = (getattr(user, "display_name", None)
+                            or getattr(user, "name", None) or "Discord user")
+                    web_id = await _new_web_thread(name)
+                    if not web_id:
+                        continue
+                    try:
+                        pool = dbmod.db_pool
+                        if pool:
+                            async with pool.acquire() as conn:
+                                await conn.execute(
+                                    "UPDATE discord_tickets SET web_thread_id = $2 WHERE thread_id = $1",
+                                    tid, web_id)
+                                await conn.execute(
+                                    "UPDATE support_threads SET discord_thread_id = $2 WHERE id = $1",
+                                    web_id, tid)
+                    except Exception:
+                        pass
+                    # Import recent thread history as visitor messages.
+                    try:
+                        ch = self.bot.get_channel(int(tid))
+                        if ch is None:
+                            ch = await self.bot.fetch_channel(int(tid))
+                        if ch is not None:
+                            async for m in ch.history(limit=50, oldest_first=True):
+                                try:
+                                    if m.author.bot or not (m.content or "").strip():
+                                        continue
+                                    await _insert_visitor(web_id, m.content)
+                                except Exception:
+                                    continue
+                    except Exception:
+                        pass
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    @tasks.loop(seconds=15)
+    async def _forward_loop(self):
+        """Post owner inbox replies into linked Discord threads."""
+        try:
+            if not self.bot.is_ready():
+                return
+            pool = dbmod.db_pool
+            if not pool:
+                return
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """SELECT m.id, m.body, t.discord_thread_id FROM support_messages m
+                       JOIN support_threads t ON t.id = m.thread_id
+                       WHERE m.sender = 'owner'
+                       AND COALESCE(m.discord_forwarded, FALSE) = FALSE
+                       AND t.discord_thread_id IS NOT NULL
+                       ORDER BY m.id ASC LIMIT 20""")
+            for r in rows:
+                try:
+                    ch = self.bot.get_channel(int(r["discord_thread_id"]))
+                    if ch is None:
+                        try:
+                            ch = await self.bot.fetch_channel(int(r["discord_thread_id"]))
+                        except Exception:
+                            ch = None
+                    if ch is not None:
+                        try:
+                            embed = discord.Embed(
+                                description=str(r["body"] or "")[:4000],
+                                color=0x5865F2,
+                            )
+                            embed.set_author(name="Support")
+                            await ch.send(embed=embed)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        pool = dbmod.db_pool
+                        if pool:
+                            async with pool.acquire() as conn:
+                                await conn.execute(
+                                    "UPDATE support_messages SET discord_forwarded = TRUE WHERE id = $1",
+                                    r["id"])
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def _panel_embed(self) -> discord.Embed:
         return discord.Embed(
@@ -301,32 +468,69 @@ class TicketsCog(commands.Cog):
                 return
             if not message.content or not message.content.strip():
                 return
+            staff = _is_staff(message.author, ch)
             row = await _ticket_row(str(ch.id))
-            if not row or (row["status"] or "open") != "open":
+            web_id = None
+            ticket_user = None
+            if row and (row["status"] or "open") == "open":
+                ticket_user = str(row["user_id"] or "")
+                if row["web_thread_id"]:
+                    web_id = str(row["web_thread_id"])
+                elif (row["kind"] or "discord") == "discord":
+                    # Native ticket without a web link yet — create one.
+                    try:
+                        u = message.author if str(message.author.id) == ticket_user else None
+                        nm = (getattr(u or message.author, "display_name", None)
+                              or getattr(message.author, "name", None) or "Discord user")
+                    except Exception:
+                        nm = "Discord user"
+                    web_id = await _new_web_thread(nm)
+                    if web_id:
+                        try:
+                            pool = dbmod.db_pool
+                            if pool:
+                                async with pool.acquire() as conn:
+                                    await conn.execute(
+                                        "UPDATE discord_tickets SET web_thread_id = $2 WHERE thread_id = $1",
+                                        str(ch.id), web_id)
+                                    await conn.execute(
+                                        "UPDATE support_threads SET discord_thread_id = $2 WHERE id = $1",
+                                        web_id, str(ch.id))
+                        except Exception:
+                            pass
+            if not web_id:
+                # Pure-web thread (created via REST, no tracker row).
+                wrow = await _web_thread_for_discord(str(ch.id))
+                if wrow and (wrow["status"] or "open") == "open":
+                    web_id = str(wrow["id"])
+            if not web_id:
                 return
-            # Discord-native tickets live on Discord — nothing to forward.
-            if (row["kind"] or "discord") != "web" or not row["web_thread_id"]:
+            if ticket_user and str(message.author.id) == ticket_user:
+                # Ticket owner talking in their own ticket → visitor message
+                # (even if they're staff testing — their replies to others
+                # go in threads they didn't open).
+                await _insert_visitor(web_id, message.content)
                 return
-            if not _is_staff(message.author, ch):
-                return
-            ok, data = await _web_api("reply", {
-                "threadId": row["web_thread_id"],
-                "body": message.content.strip()[:3000],
-            })
-            if ok:
-                try:
-                    await message.add_reaction("✅")
-                except Exception:
-                    pass
-            else:
-                try:
-                    await ch.send(
-                        f"⚠️ Couldn't deliver that to the web chat: "
-                        f"{data.get('error', 'unknown error')}",
-                        delete_after=60,
-                    )
-                except Exception:
-                    pass
+            if staff:
+                # Staff reply → deliver to the visitor (web chat + email).
+                ok, data = await _web_api("reply", {
+                    "threadId": web_id,
+                    "body": message.content.strip()[:3000],
+                })
+                if ok:
+                    try:
+                        await message.add_reaction("✅")
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        await ch.send(
+                            f"⚠️ Couldn't deliver that to the web chat: "
+                            f"{data.get('error', 'unknown error')}",
+                            delete_after=60,
+                        )
+                    except Exception:
+                        pass
         except Exception:
             pass
 
