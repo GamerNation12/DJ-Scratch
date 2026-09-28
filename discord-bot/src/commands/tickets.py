@@ -280,8 +280,12 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
         if not reason:
             return await interaction.response.send_message(
                 "Give a reason so the user knows why.", ephemeral=True)
-        await interaction.response.defer(ephemeral=True)
         row = await _ticket_row(str(ch.id))
+        if row and (row["status"] or "open") == "closed":
+            # Double-submit (or a second staffer): already done, don't error.
+            return await interaction.response.send_message(
+                "This ticket is already closed.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
         web_thread = (row["web_thread_id"] if row and row["web_thread_id"] else None)
         ticket_user_id = str(row["user_id"]) if row and row["user_id"] else None
         if web_thread:
@@ -300,44 +304,50 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
         except Exception:
             pass
         closer = getattr(interaction.user, "display_name", "Staff")
-        if isinstance(ch, discord.Thread):
-            # Legacy thread ticket: post the reason and archive.
-            try:
-                embed = discord.Embed(
-                    title="🔒 Ticket closed",
-                    description=f"**Reason:** {reason}",
-                    color=0x808080,
-                )
-                await ch.send(embed=embed)
-            except Exception:
-                pass
-            try:
-                await ch.edit(archived=True, reason=f"Closed: {reason[:100]}")
-            except Exception:
-                pass
-        else:
-            # Channel ticket: log the summary in the tickets channel, then delete.
-            try:
-                panel = ch.guild.get_channel(TICKETS_CHANNEL_ID) if ch.guild else None
-                if panel is None and ch.guild:
-                    try:
-                        panel = await ch.guild.fetch_channel(TICKETS_CHANNEL_ID)
-                    except Exception:
-                        panel = None
-                if panel is not None and isinstance(panel, discord.TextChannel):
-                    who = f"<@{ticket_user_id}>" if ticket_user_id else "unknown user"
-                    summary = discord.Embed(
+        try:
+            if isinstance(ch, discord.Thread):
+                # Legacy thread ticket: post the reason and archive.
+                try:
+                    embed = discord.Embed(
                         title="🔒 Ticket closed",
-                        description=f"**User:** {who}\n**Closed by:** {closer}\n**Reason:** {reason}",
+                        description=f"**Reason:** {reason}",
                         color=0x808080,
                     )
-                    await panel.send(embed=summary)
-            except Exception:
-                pass
-            try:
-                await ch.delete(reason=f"Ticket closed by {closer}: {reason[:100]}")
-            except Exception:
-                pass
+                    await ch.send(embed=embed)
+                except Exception:
+                    pass
+                try:
+                    await ch.edit(archived=True, reason=f"Closed: {reason[:100]}")
+                except Exception:
+                    pass
+            else:
+                # Channel ticket: log the summary in the tickets channel, then delete.
+                try:
+                    panel = ch.guild.get_channel(TICKETS_CHANNEL_ID) if ch.guild else None
+                    if panel is None and ch.guild:
+                        try:
+                            panel = await ch.guild.fetch_channel(TICKETS_CHANNEL_ID)
+                        except Exception:
+                            panel = None
+                    if panel is not None and isinstance(panel, discord.TextChannel):
+                        who = f"<@{ticket_user_id}>" if ticket_user_id else "unknown user"
+                        summary = discord.Embed(
+                            title="🔒 Ticket closed",
+                            description=f"**User:** {who}\n**Closed by:** {closer}\n**Reason:** {reason}",
+                            color=0x808080,
+                        )
+                        await panel.send(embed=summary)
+                except Exception:
+                    pass
+                try:
+                    await ch.delete(reason=f"Ticket closed by {closer}: {reason[:100]}")
+                except Exception:
+                    pass
+        except (discord.NotFound, discord.HTTPException):
+            # Channel/thread already gone (double close) — DB already updated.
+            pass
+        except Exception:
+            pass
         await interaction.followup.send("Ticket closed.", ephemeral=True)
 
 
