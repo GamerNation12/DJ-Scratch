@@ -282,7 +282,6 @@ class StatusCog(commands.Cog):
                 return
             for period, key, setting in due:
                 sent = 0
-                word = "month" if period == "month" else "week"
                 for row in rows:
                     uid = row['user_id']
                     try:
@@ -294,11 +293,9 @@ class StatusCog(commands.Cog):
                         result, err = await cog._recap_result(u, period)
                         if err or not result:
                             continue
-                        img_bytes, invite_url = result
-                        caption = f"📊 Here's your {word}ly recap!"
-                        if invite_url:
-                            caption += f" Share it! Friends who join via <{invite_url}> earn badges with you."
-                        await u.send(content=caption,
+                        img_bytes, _invite_url, _profile_url, total, label = result
+                        embed = cog._recap_message(u, period, total, label)
+                        await u.send(embed=embed,
                                      file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
                         sent += 1
                         await _aio.sleep(2)

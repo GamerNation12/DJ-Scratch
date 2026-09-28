@@ -2166,7 +2166,7 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
     try:
         asyncio.create_task(_maybe_post_pending_recap(
             interaction.user,
-            lambda content, file: interaction.followup.send(content=content, file=file)))
+            lambda embed, file: interaction.followup.send(embed=embed, file=file)))
     except Exception:
         pass
 
@@ -2186,7 +2186,7 @@ async def on_command_completion(ctx):
     try:
         asyncio.create_task(_maybe_post_pending_recap(
             ctx.author,
-            lambda content, file: ctx.send(content=content, file=file)))
+            lambda embed, file: ctx.send(embed=embed, file=file)))
     except Exception:
         pass
 
@@ -2224,12 +2224,9 @@ async def _maybe_post_pending_recap(user, send_fn):
         if err or not result:
             return
         import io as _io
-        img_bytes, invite_url = result
-        word = "month" if period == "month" else "week"
-        caption = f"📊 **{getattr(user, 'display_name', None) or getattr(user, 'name', 'Your')} {word}ly recap** — your DMs are off, so here it is!"
-        if invite_url:
-            caption += f" Share it! Friends who join via <{invite_url}> earn badges with you."
-        await send_fn(content=caption,
+        img_bytes, _invite_url, _profile_url, total, label = result
+        embed = cog._recap_message(user, period, total, label, dm_closed=True)
+        await send_fn(embed=embed,
                       file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
     except Exception:
         pass

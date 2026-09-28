@@ -1364,9 +1364,15 @@ class LastFmCog(commands.Cog):
         top_tracks = []
         for t in tracks:
             imgs = t.get("image") or []
+            best = ""
+            for im in reversed(imgs):
+                u = ((im or {}).get("#text") or "")
+                if u and "2a96cbd8" not in u and "4128a6eb" not in u:
+                    best = u
+                    break
             top_tracks.append((
                 t.get("name", ""), (t.get("artist") or {}).get("name", ""),
-                _plays(t), imgs[-1].get("#text", "") if imgs else ""))
+                _plays(t), best))
         top_artists = [(a.get("name", ""), _plays(a)) for a in artists]
         top_albums = [(
             b.get("name", ""), (b.get("artist") or {}).get("name", ""), _plays(b),
@@ -1421,6 +1427,7 @@ class LastFmCog(commands.Cog):
         except Exception:
             code = None
         safe_name = urllib.parse.quote(format_name(user).replace(" ", "-"))
+        profile_url = f"https://dj-scratch.is-a-fullstack.dev/{safe_name}"
         invite_url = f"https://dj-scratch.is-a-fullstack.dev/{safe_name}?ref={code}" if code else ""
 
         try:
@@ -1433,7 +1440,7 @@ class LastFmCog(commands.Cog):
                 top_albums=top_albums, discoveries=discoveries,
                 invite_url=invite_url,
             )
-            return ((buf.getvalue(), invite_url), None)
+            return ((buf.getvalue(), invite_url, profile_url, total, label), None)
         except Exception as e:
             return (None, None), Theme.get_error_embed(description=f"Couldn't render the recap: {e}")
 
@@ -1444,6 +1451,19 @@ class LastFmCog(commands.Cog):
         except Exception:
             from src.core.database import format_name
             return format_name(user)
+
+    def _recap_message(self, user, period, total, label, dm_closed=False):
+        """Embed for a recap — the image itself is the shareable thing."""
+        word = "month" if period == "month" else "week"
+        name = getattr(user, "display_name", None) or getattr(user, "name", None) or "Your"
+        desc = f"**{total:,}** plays · {label}"
+        if dm_closed:
+            desc += "\n*Your DMs are off, so here it is!*"
+        desc += "\n\nForward this message or save the image to share it anywhere."
+        embed = Theme.get_embed(
+            title=f"📊 {name}'s {word.capitalize()}ly Recap", description=desc)
+        embed.set_image(url="attachment://recap.jpg")
+        return embed
 
     @commands.command(name="suggest", aliases=["suggestion", "su", "sug"])
     async def suggest_prefix(self, ctx, *, suggestion: str = None):

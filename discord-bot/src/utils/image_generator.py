@@ -355,19 +355,47 @@ async def generate_recap_image(
     fonts = await asyncio.to_thread(_fonts)
 
     # Thumbnails for the top tracks (max 3 concurrent, like charts).
+    # Missing Last.fm art falls back to an iTunes song search so covers
+    # rarely end up blank (the old star placeholder is gone).
     thumbs: list = []
     try:
         sem = asyncio.Semaphore(3)
 
-        async def _one(url):
+        async def _itunes_song_art(artist, title):
+            try:
+                import urllib.parse
+                query = urllib.parse.quote(f"{artist or ''} {title or ''}".strip())
+                if not query:
+                    return ""
+                async with session.get(
+                    f"https://itunes.apple.com/search?term={query}&entity=song&limit=1",
+                    timeout=5,
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json(content_type=None)
+                        if data.get("results"):
+                            return (data["results"][0].get("artworkUrl100", "")
+                                    .replace("100x100bb", "600x600bb"))
+            except Exception:
+                pass
+            return ""
+
+        async def _one(t):
+            url = t[3] if len(t) > 3 else ""
+            title = t[0] if len(t) > 0 else ""
+            artist = t[1] if len(t) > 1 else ""
             async with sem:
                 try:
+                    if not url:
+                        url = await _itunes_song_art(artist, title)
+                    if not url:
+                        return Image.new("RGB", (104, 104), color=(34, 34, 40))
                     img = await download_image(session, url)
                     return img.convert("RGB").resize((104, 104), Image.Resampling.LANCZOS)
                 except Exception:
                     return Image.new("RGB", (104, 104), color=(34, 34, 40))
 
-        thumbs = await asyncio.gather(*[_one(t[3] if len(t) > 3 else "") for t in top_tracks[:5]])
+        thumbs = await asyncio.gather(*[_one(t) for t in top_tracks[:5]])
     except Exception:
         thumbs = [Image.new("RGB", (104, 104), color=(34, 34, 40)) for _ in top_tracks[:5]]
 
