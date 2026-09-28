@@ -16,6 +16,8 @@ from ..utils.api import *
 
 # Monotonic clock for boot timing logs (cold start diagnostics).
 BOOT_T0 = time.monotonic()
+# Bump whenever the boot schema DDL below changes — applied once, then skipped.
+BOOT_SCHEMA_VERSION = "6"
 
 FM_TRACK_CACHE = {}
 
@@ -737,245 +739,264 @@ async def setup_hook():
             
             print(f"{Log.GREEN}>>> Connected to Postgres DB (pool took {time.monotonic() - _t_setup:.1f}s){Log.RESET}")
             _t_ddl = time.monotonic()
-            async with db_pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS user_settings (
-                        user_id VARCHAR(255) PRIMARY KEY,
-                        fm_mode VARCHAR(50) DEFAULT 'full',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-                try:
-                    await conn.execute("ALTER TABLE user_settings ADD CONSTRAINT user_settings_user_id_key UNIQUE (user_id)")
-                except Exception:
-                    pass
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS website_logs (
-                        id SERIAL PRIMARY KEY,
-                        user_id TEXT,
-                        username TEXT,
-                        action TEXT,
-                        details TEXT,
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                # One round trip instead of thirteen: every action is
-                # IF NOT EXISTS, so a single statement never errors.
-                # Wrapped in a transaction with a short lock timeout: user_settings
-                # is hot (last_active updates on every command), so an ALTER can
-                # otherwise queue behind traffic for minutes. On lock timeout we
-                # just skip — next boot retries.
-                try:
-                    async with conn.transaction():
-                        await conn.execute("SET LOCAL lock_timeout = '20s'")
-                        await conn.execute(
-                            """
-                            ALTER TABLE user_settings
-                            ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE,
-                            ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined',
-                            ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE,
-                            ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC',
-                            ADD COLUMN IF NOT EXISTS lastfm_username TEXT,
-                            ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE,
-                            ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE,
-                            ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT '',
-                            ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT,
-                            ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE,
-                            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT,
-                            ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all',
-                            ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE,
-                            ADD COLUMN IF NOT EXISTS recap_pending_week TEXT,
-                            ADD COLUMN IF NOT EXISTS recap_pending_month TEXT
+            _need_ddl = True
+            try:
+                async with db_pool.acquire() as _vconn:
+                    _vv = await _vconn.fetchval(
+                        "SELECT value FROM global_settings WHERE key = 'schema_version'", timeout=15)
+                    if _vv == BOOT_SCHEMA_VERSION:
+                        _need_ddl = False
+            except Exception:
+                pass
+            if not _need_ddl:
+                print(f"{Log.GREEN}>>> Schema v{BOOT_SCHEMA_VERSION} up to date — skipping DDL{Log.RESET}")
+            else:
+                async with db_pool.acquire() as conn:
+                    await conn.execute(
                         """
+                        CREATE TABLE IF NOT EXISTS user_settings (
+                            user_id VARCHAR(255) PRIMARY KEY,
+                            fm_mode VARCHAR(50) DEFAULT 'full',
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )
-                except Exception:
-                    pass
-                    
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS global_settings (
-                        key VARCHAR(255) PRIMARY KEY,
-                        value TEXT
+                        """
                     )
-                    """
-                )
-
-                # Durable fm button payloads (up/down keep working after restarts)
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS fm_track_cache (
-                        key VARCHAR(32) PRIMARY KEY,
-                        data JSONB NOT NULL,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-
-                # Live fm messages watched until the song ends ("is" -> "was")
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS fm_live_messages (
-                        message_id VARCHAR(32) PRIMARY KEY,
-                        channel_id VARCHAR(32) NOT NULL,
-                        guild_id VARCHAR(32),
-                        user_id VARCHAR(32) NOT NULL,
-                        artist TEXT NOT NULL,
-                        song TEXT NOT NULL,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-                
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS suggestions (
-                        id SERIAL PRIMARY KEY,
-                        user_id VARCHAR(255) NOT NULL,
-                        username VARCHAR(255) NOT NULL,
-                        title VARCHAR(255) NOT NULL,
-                        description TEXT NOT NULL,
-                        status VARCHAR(50) DEFAULT 'pending',
-                        admin_feedback TEXT,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-                
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS bot_actions (
-                        id SERIAL PRIMARY KEY,
-                        action_type VARCHAR(50) NOT NULL,
-                        status VARCHAR(20) DEFAULT 'PENDING',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-                
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS command_usage (
-                        command_name VARCHAR(100) PRIMARY KEY,
-                        usage_count INT DEFAULT 0
-                    )
-                    """
-                )
-                
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS server_crowns (
-                        guild_id VARCHAR(255),
-                        user_id VARCHAR(255),
-                        artist_name VARCHAR(255),
-                        plays INT,
-                        PRIMARY KEY (guild_id, artist_name)
-                    )
-                    """
-                )
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS crown_history (
-                        id SERIAL PRIMARY KEY,
-                        guild_id VARCHAR(255),
-                        artist_name VARCHAR(255),
-                        previous_user_id VARCHAR(255),
-                        new_user_id VARCHAR(255),
-                        plays INT,
-                        stolen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-                
-                try:
-                    await conn.execute("ALTER TABLE server_crowns ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to add claimed_at column to server_crowns: {e}{Log.RESET}")
-                
-                # NOTE: lastfm_username / timezone / show_track_playcount re-adds
-                # lived here — removed, already covered by the combined ALTER above.
-                
-                try:
+                    try:
+                        await conn.execute("ALTER TABLE user_settings ADD CONSTRAINT user_settings_user_id_key UNIQUE (user_id)")
+                    except Exception:
+                        pass
                     await conn.execute("""
-                        CREATE TABLE IF NOT EXISTS server_settings (
-                            guild_id TEXT PRIMARY KEY,
-                            prefix TEXT DEFAULT ','
+                        CREATE TABLE IF NOT EXISTS website_logs (
+                            id SERIAL PRIMARY KEY,
+                            user_id TEXT,
+                            username TEXT,
+                            action TEXT,
+                            details TEXT,
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """)
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to create server_settings table: {e}{Log.RESET}")
-
-                # Hot-path indexes (IF NOT EXISTS = safe to run every boot).
-                # listens(user_id, played_at) powers /fm, tops, streaks, whoknows.
-                for _idx_sql in (
-                    "CREATE INDEX IF NOT EXISTS idx_listens_user_played ON listens (user_id, played_at DESC)",
-                    "CREATE INDEX IF NOT EXISTS idx_listens_track ON listens (track_id)",
-                    "CREATE INDEX IF NOT EXISTS idx_tracks_names ON tracks (artist_name, track_name, album_name)",
-                    "CREATE INDEX IF NOT EXISTS idx_server_crowns_guild ON server_crowns (guild_id)",
-                    "CREATE INDEX IF NOT EXISTS idx_referral_clicks_sharer ON referral_clicks (sharer_id)",
-                    "CREATE INDEX IF NOT EXISTS idx_referral_clicks_friend ON referral_clicks (friend_id)",
-                    "CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges (user_id)",
-                ):
+                    # One round trip instead of thirteen: every action is
+                    # IF NOT EXISTS, so a single statement never errors.
+                    # Wrapped in a transaction with a short lock timeout: user_settings
+                    # is hot (last_active updates on every command), so an ALTER can
+                    # otherwise queue behind traffic for minutes. On lock timeout we
+                    # just skip — next boot retries.
                     try:
-                        await conn.execute(_idx_sql)
+                        async with conn.transaction():
+                            await conn.execute("SET LOCAL lock_timeout = '20s'")
+                            await conn.execute(
+                                """
+                                ALTER TABLE user_settings
+                                ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined',
+                                ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC',
+                                ADD COLUMN IF NOT EXISTS lastfm_username TEXT,
+                                ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS update_notifs BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS last_update_seen TEXT DEFAULT '',
+                                ADD COLUMN IF NOT EXISTS spotify_refresh_token TEXT,
+                                ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                                ADD COLUMN IF NOT EXISTS purge_warning_sent BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                                ADD COLUMN IF NOT EXISTS listenbrainz_username TEXT,
+                                ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all',
+                                ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS recap_pending_week TEXT,
+                                ADD COLUMN IF NOT EXISTS recap_pending_month TEXT
+                            """
+                            )
                     except Exception:
                         pass
 
-                # Referrals + badges (shareable music cards: friend clicks your
-                # ?ref= link, links Last.fm, you BOTH earn a badge).
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS referral_codes (
-                        user_id VARCHAR(255) PRIMARY KEY,
-                        code VARCHAR(32) UNIQUE NOT NULL,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS global_settings (
+                            key VARCHAR(255) PRIMARY KEY,
+                            value TEXT
+                        )
+                        """
                     )
-                    """
-                )
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS referral_clicks (
-                        id SERIAL PRIMARY KEY,
-                        code VARCHAR(32) NOT NULL,
-                        sharer_id VARCHAR(255) NOT NULL,
-                        friend_id VARCHAR(255) NOT NULL,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        rewarded_at TIMESTAMP WITH TIME ZONE,
-                        UNIQUE (code, friend_id)
-                    )
-                    """
-                )
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS user_badges (
-                        user_id VARCHAR(255) NOT NULL,
-                        badge VARCHAR(64) NOT NULL,
-                        awarded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY (user_id, badge)
-                    )
-                    """
-                )
 
-                # One-time migration
-                if os.path.exists("lastfm_users.json"):
+                    # Durable fm button payloads (up/down keep working after restarts)
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS fm_track_cache (
+                            key VARCHAR(32) PRIMARY KEY,
+                            data JSONB NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+
+                    # Live fm messages watched until the song ends ("is" -> "was")
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS fm_live_messages (
+                            message_id VARCHAR(32) PRIMARY KEY,
+                            channel_id VARCHAR(32) NOT NULL,
+                            guild_id VARCHAR(32),
+                            user_id VARCHAR(32) NOT NULL,
+                            artist TEXT NOT NULL,
+                            song TEXT NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS suggestions (
+                            id SERIAL PRIMARY KEY,
+                            user_id VARCHAR(255) NOT NULL,
+                            username VARCHAR(255) NOT NULL,
+                            title VARCHAR(255) NOT NULL,
+                            description TEXT NOT NULL,
+                            status VARCHAR(50) DEFAULT 'pending',
+                            admin_feedback TEXT,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS bot_actions (
+                            id SERIAL PRIMARY KEY,
+                            action_type VARCHAR(50) NOT NULL,
+                            status VARCHAR(20) DEFAULT 'PENDING',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS command_usage (
+                            command_name VARCHAR(100) PRIMARY KEY,
+                            usage_count INT DEFAULT 0
+                        )
+                        """
+                    )
+
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS server_crowns (
+                            guild_id VARCHAR(255),
+                            user_id VARCHAR(255),
+                            artist_name VARCHAR(255),
+                            plays INT,
+                            PRIMARY KEY (guild_id, artist_name)
+                        )
+                        """
+                    )
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS crown_history (
+                            id SERIAL PRIMARY KEY,
+                            guild_id VARCHAR(255),
+                            artist_name VARCHAR(255),
+                            previous_user_id VARCHAR(255),
+                            new_user_id VARCHAR(255),
+                            plays INT,
+                            stolen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+
                     try:
-                        with open("lastfm_users.json", "r") as f:
-                            old_users = json.load(f)
-                        for uid, uname in old_users.items():
-                            await conn.execute(
-                                "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
-                                str(uid), uname
-                            )
-                        os.rename("lastfm_users.json", "lastfm_users.json.bak")
-                        print(f"{Log.GREEN}>>> Migrated lastfm_users.json to Postgres!{Log.RESET}")
+                        await conn.execute("ALTER TABLE server_crowns ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
                     except Exception as e:
-                        print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
+                        print(f"{Log.RED}>>> Failed to add claimed_at column to server_crowns: {e}{Log.RESET}")
 
-                print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+                    # NOTE: lastfm_username / timezone / show_track_playcount re-adds
+                    # lived here — removed, already covered by the combined ALTER above.
+
+                    try:
+                        await conn.execute("""
+                            CREATE TABLE IF NOT EXISTS server_settings (
+                                guild_id TEXT PRIMARY KEY,
+                                prefix TEXT DEFAULT ','
+                            )
+                        """)
+                    except Exception as e:
+                        print(f"{Log.RED}>>> Failed to create server_settings table: {e}{Log.RESET}")
+
+                    # Hot-path indexes (IF NOT EXISTS = safe to run every boot).
+                    # listens(user_id, played_at) powers /fm, tops, streaks, whoknows.
+                    for _idx_sql in (
+                        "CREATE INDEX IF NOT EXISTS idx_listens_user_played ON listens (user_id, played_at DESC)",
+                        "CREATE INDEX IF NOT EXISTS idx_listens_track ON listens (track_id)",
+                        "CREATE INDEX IF NOT EXISTS idx_tracks_names ON tracks (artist_name, track_name, album_name)",
+                        "CREATE INDEX IF NOT EXISTS idx_server_crowns_guild ON server_crowns (guild_id)",
+                        "CREATE INDEX IF NOT EXISTS idx_referral_clicks_sharer ON referral_clicks (sharer_id)",
+                        "CREATE INDEX IF NOT EXISTS idx_referral_clicks_friend ON referral_clicks (friend_id)",
+                        "CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges (user_id)",
+                    ):
+                        try:
+                            await conn.execute(_idx_sql)
+                        except Exception:
+                            pass
+
+                    # Referrals + badges (shareable music cards: friend clicks your
+                    # ?ref= link, links Last.fm, you BOTH earn a badge).
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS referral_codes (
+                            user_id VARCHAR(255) PRIMARY KEY,
+                            code VARCHAR(32) UNIQUE NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS referral_clicks (
+                            id SERIAL PRIMARY KEY,
+                            code VARCHAR(32) NOT NULL,
+                            sharer_id VARCHAR(255) NOT NULL,
+                            friend_id VARCHAR(255) NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            rewarded_at TIMESTAMP WITH TIME ZONE,
+                            UNIQUE (code, friend_id)
+                        )
+                        """
+                    )
+                    await conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS user_badges (
+                            user_id VARCHAR(255) NOT NULL,
+                            badge VARCHAR(64) NOT NULL,
+                            awarded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            PRIMARY KEY (user_id, badge)
+                        )
+                        """
+                    )
+
+                    # One-time migration
+                    if os.path.exists("lastfm_users.json"):
+                        try:
+                            with open("lastfm_users.json", "r") as f:
+                                old_users = json.load(f)
+                            for uid, uname in old_users.items():
+                                await conn.execute(
+                                    "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
+                                    str(uid), uname
+                                )
+                            os.rename("lastfm_users.json", "lastfm_users.json.bak")
+                            print(f"{Log.GREEN}>>> Migrated lastfm_users.json to Postgres!{Log.RESET}")
+                        except Exception as e:
+                            print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
+
+                    print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
+                try:
+                    async with db_pool.acquire() as _sconn:
+                        await _sconn.execute(
+                            "INSERT INTO global_settings (key, value) VALUES ('schema_version', $1) "
+                            "ON CONFLICT (key) DO UPDATE SET value = $1", BOOT_SCHEMA_VERSION, timeout=20)
+                except Exception:
+                    pass
             print(f"{Log.CYAN}>>> Boot: schema DDL took {time.monotonic() - _t_ddl:.1f}s{Log.RESET}")
             _t_cogs = time.monotonic()
             bot.db_pool = db_pool

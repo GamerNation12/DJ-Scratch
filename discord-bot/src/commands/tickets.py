@@ -77,11 +77,25 @@ def _is_staff(member: discord.Member | discord.User, channel=None) -> bool:
     return False
 
 
+TICKET_SCHEMA_VERSION = "1"
+
+
 async def _ensure_tables():
+    # Version-gated like boot DDL: these statements take locks, and support
+    # tables are hot (polls every few seconds), so never run them every boot.
     try:
         pool = dbmod.db_pool
         if not pool:
             return
+        try:
+            async with pool.acquire() as conn:
+                v = await conn.fetchval(
+                    "SELECT value FROM global_settings WHERE key = 'schema_tickets_v'",
+                    timeout=15)
+                if v == TICKET_SCHEMA_VERSION:
+                    return
+        except Exception:
+            pass
         async with pool.acquire() as conn:
             await conn.execute(
                 """CREATE TABLE IF NOT EXISTS discord_tickets (
@@ -92,15 +106,32 @@ async def _ensure_tables():
                     status TEXT NOT NULL DEFAULT 'open',
                     reason TEXT,
                     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                )"""
-            )
-            await conn.execute(
-                "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT")
-            await conn.execute(
-                "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT")
-            await conn.execute(
-                "ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS "
-                "discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE")
+                )""", timeout=20)
+            try:
+                await conn.execute(
+                    "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT",
+                    timeout=20)
+            except Exception:
+                pass
+            try:
+                await conn.execute(
+                    "ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT",
+                    timeout=20)
+            except Exception:
+                pass
+            try:
+                await conn.execute(
+                    "ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS "
+                    "discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE", timeout=20)
+            except Exception:
+                pass
+            try:
+                await conn.execute(
+                    "INSERT INTO global_settings (key, value) VALUES ('schema_tickets_v', $1) "
+                    "ON CONFLICT (key) DO UPDATE SET value = $1",
+                    TICKET_SCHEMA_VERSION, timeout=20)
+            except Exception:
+                pass
     except Exception:
         pass
 
