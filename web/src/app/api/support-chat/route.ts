@@ -17,7 +17,7 @@ const INBOX_BUTTON = [
 ];
 
 // Discord ticket mirror: web chats also open a private channel in the
-// support server's Tikets category so the owner can reply from Discord.
+// support server's Tickets category so the owner can reply from Discord.
 const SUPPORT_GUILD_ID = "1527127381897383946";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 

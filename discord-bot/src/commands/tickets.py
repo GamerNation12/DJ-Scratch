@@ -24,7 +24,16 @@ async def _ticket_category(guild: discord.Guild) -> discord.CategoryChannel | No
     website via global_settings so web tickets land in the same place."""
     try:
         for c in guild.categories:
+            if c.name.lower() == "tickets":
+                await _save_ticket_category(str(c.id))
+                return c
+        for c in guild.categories:
+            # Misspelled leftovers from earlier ("Tikets") get renamed.
             if "tiket" in c.name.lower() or "ticket" in c.name.lower():
+                try:
+                    await c.edit(name="Tickets", reason="DJ Scratch ticket category")
+                except Exception:
+                    pass
                 await _save_ticket_category(str(c.id))
                 return c
         overwrites = {
@@ -36,7 +45,7 @@ async def _ticket_category(guild: discord.Guild) -> discord.CategoryChannel | No
                 manage_messages=True)
         except Exception:
             pass
-        cat = await guild.create_category("Tikets", overwrites=overwrites,
+        cat = await guild.create_category("Tickets", overwrites=overwrites,
                                           reason="DJ Scratch ticket channels")
         await _save_ticket_category(str(cat.id))
         return cat
@@ -333,9 +342,32 @@ class TicketPanelView(discord.ui.View):
                         "WHERE user_id = $1 AND kind = 'discord' AND status = 'open' "
                         "ORDER BY created_at DESC LIMIT 1", str(user.id))
                     if existing:
-                        return await interaction.followup.send(
-                            f"You already have an open ticket: <#{existing['thread_id']}>",
-                            ephemeral=True)
+                        tid = str(existing["thread_id"])
+                        ch = None
+                        try:
+                            ch = interaction.guild.get_channel(int(tid))
+                            if ch is None:
+                                ch = await interaction.guild.fetch_channel(int(tid))
+                        except Exception:
+                            ch = None
+                        if ch is None:
+                            # Stale row (thread deleted) — drop it and open fresh.
+                            try:
+                                await conn.execute(
+                                    "UPDATE discord_tickets SET status = 'closed', "
+                                    "reason = 'thread gone' WHERE thread_id = $1", tid)
+                            except Exception:
+                                pass
+                        else:
+                            try:
+                                if isinstance(ch, discord.Thread):
+                                    await ch.add_user(user)
+                            except Exception:
+                                pass
+                            jump = f"https://discord.com/channels/{interaction.guild.id}/{tid}"
+                            return await interaction.followup.send(
+                                f"You already have an open ticket: {ch.mention}\n{jump}",
+                                ephemeral=True)
         except Exception:
             pass
         channel = interaction.guild.get_channel(TICKETS_CHANNEL_ID)
