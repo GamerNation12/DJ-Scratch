@@ -18,6 +18,7 @@
   "build": {
     "appId": "com.djscratch.desktop",
     "productName": "DJ Scratch",
+    "artifactName": "DJ-Scratch-Setup-${version}.${ext}",
     "publish": [
       {
         "provider": "github",
