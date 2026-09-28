@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/auth_store.dart';
 import '../../core/config.dart';
 import '../shell/main_screen.dart';
@@ -14,6 +15,15 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((p) {
+      if (mounted) setState(() => _version = '${p.version}+${p.buildNumber}');
+    });
+  }
 
   Future<void> _login() async {
     setState(() => _busy = true);
@@ -58,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               Text('DJ Scratch', style: GoogleFonts.outfit(fontSize: 36, fontWeight: FontWeight.w800, color: Colors.white)),
               const SizedBox(height: 4),
-              Text('v1.0.0 · music stats & control', style: GoogleFonts.inter(color: Colors.white54)),
+              Text('v${_version.isEmpty ? '…' : _version} · music stats & control', style: GoogleFonts.inter(color: Colors.white54)),
               const SizedBox(height: 12),
               Text('Live scrobbles, leaderboard, friends, messages and Spotify controls.',
                   style: GoogleFonts.inter(color: Colors.white60), textAlign: TextAlign.center),

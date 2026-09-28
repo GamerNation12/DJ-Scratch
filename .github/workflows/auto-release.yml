@@ -28,6 +28,12 @@ on:
         required: true
         type: boolean
         default: true
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/**'
+      - 'desktop-app/**'
+      - '.github/workflows/auto-release.yml'
 
 jobs:
   build-and-release:
@@ -67,13 +73,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Resolve options
+        id: opts
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "BUMP=${{ github.event.inputs.bump }}" >> $env:GITHUB_OUTPUT
+            "BUILD_PC=${{ github.event.inputs.build_pc }}" >> $env:GITHUB_OUTPUT
+            "BUILD_ANDROID=${{ github.event.inputs.build_android }}" >> $env:GITHUB_OUTPUT
+            "BUILD_LINUX=${{ github.event.inputs.build_linux }}" >> $env:GITHUB_OUTPUT
+          } else {
+            # Automatic run from a push: patch bump, build everything.
+            "BUMP=patch" >> $env:GITHUB_OUTPUT
+            "BUILD_PC=true" >> $env:GITHUB_OUTPUT
+            "BUILD_ANDROID=true" >> $env:GITHUB_OUTPUT
+            "BUILD_LINUX=true" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Auto-Bump Versions
         id: version_bump
         run: |
           git config --global user.name "GamerNation12"
           git config --global user.email "GamerNation12@users.noreply.github.com"
 
-          if ("${{ github.event.inputs.bump }}" -eq "none") {
+          if ("${{ steps.opts.outputs.BUMP }}" -eq "none") {
             $VERSION = node -p "require('./desktop-app/package.json').version"
             $TAG = "v$VERSION"
             echo "NEW_VERSION=$TAG" >> $env:GITHUB_OUTPUT
@@ -81,10 +103,14 @@ jobs:
           }
 
           cd desktop-app
-          npm version ${{ github.event.inputs.bump }} --no-git-tag-version
+          npm version ${{ steps.opts.outputs.BUMP }} --no-git-tag-version
           $VERSION = node -p "require('./package.json').version"
           $TAG = "v$VERSION"
           echo "NEW_VERSION=$TAG" >> $env:GITHUB_OUTPUT
+          # Keep the in-app version label in sync with package.json.
+          $cfg = Get-Content src/lib/config.ts -Raw
+          $cfg = [System.Text.RegularExpressions.Regex]::Replace($cfg, "APP_VERSION = '[^']*'", "APP_VERSION = '$VERSION'")
+          Set-Content src/lib/config.ts $cfg -NoNewline
           cd ..
 
           cd android-app
@@ -93,23 +119,23 @@ jobs:
           Set-Content pubspec.yaml $content -NoNewline
           cd ..
 
-          git add desktop-app/package.json desktop-app/package-lock.json android-app/pubspec.yaml
-          git commit -m "chore: auto-bump version to $TAG"
+          git add desktop-app/package.json desktop-app/package-lock.json desktop-app/src/lib/config.ts android-app/pubspec.yaml
+          git commit -m "chore: auto-bump version to $TAG [skip ci]"
           git tag $TAG
           git push origin HEAD --follow-tags
 
       - name: Install Desktop App Dependencies
-        if: ${{ github.event.inputs.build_pc == 'true' }}
+        if: ${{ steps.opts.outputs.BUILD_PC == 'true' }}
         working-directory: desktop-app
         run: npm install
 
       - name: Build Windows Executable
-        if: ${{ github.event.inputs.build_pc == 'true' }}
+        if: ${{ steps.opts.outputs.BUILD_PC == 'true' }}
         working-directory: desktop-app
         run: npm run build:vite && npx electron-builder -w --publish never
 
       - name: Build Android APK
-        if: ${{ github.event.inputs.build_android == 'true' }}
+        if: ${{ steps.opts.outputs.BUILD_ANDROID == 'true' }}
         working-directory: android-app
         run: |
           flutter pub get
@@ -138,7 +164,7 @@ jobs:
   build-linux:
     # Runs after the Windows job so version bumps are already pushed to main.
     needs: build-and-release
-    if: ${{ github.event.inputs.build_linux == 'true' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.build_linux == 'true' }}
     runs-on: ubuntu-latest
 
     steps:

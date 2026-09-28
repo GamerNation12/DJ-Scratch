@@ -22,6 +22,22 @@ async function request<T>(path: string, token: string | null, init?: RequestInit
   return data as T;
 }
 
+export interface SpotifyDevice {
+  id: string;
+  name: string;
+  type: string;
+  is_active: boolean;
+  volume_percent?: number;
+}
+
+export type SpotifyControlBody =
+  | { action: 'play' | 'pause' | 'next' | 'previous' }
+  | { action: 'shuffle'; state: boolean }
+  | { action: 'repeat'; state: 'track' | 'context' | 'off' }
+  | { action: 'volume'; volume: number }
+  | { action: 'seek'; position_ms: number }
+  | { action: 'transfer'; device_id: string; play: boolean };
+
 export const api = {
   getProfile: (username: string, token: string | null, period = 'overall') =>
     request<{ stats?: Record<string, unknown> }>(`/api/u/${encodeURIComponent(username)}?period=${period}`, token),
@@ -44,10 +60,42 @@ export const api = {
     }),
   spotifyNowPlaying: (token: string | null) =>
     request<Record<string, unknown>>(`/api/spotify/now-playing`, token),
-  spotifyControl: (token: string | null, action: string) =>
-    request(`/api/spotify/control`, token, { method: 'POST', body: JSON.stringify({ action }) }),
+  spotifyControl: (token: string | null, action: string | SpotifyControlBody) =>
+    request(`/api/spotify/control`, token, {
+      method: 'POST',
+      body: JSON.stringify(typeof action === 'string' ? { action } : action),
+    }),
+  spotifyDevices: (token: string | null) =>
+    request<{ devices: SpotifyDevice[] }>(`/api/spotify/devices`, token),
   spotifyLike: (token: string | null, id: string, action: 'like' | 'unlike') =>
     request(`/api/spotify/like`, token, { method: 'POST', body: JSON.stringify({ id, action }) }),
+  supportChat: (token: string | null, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/support-chat`, token, { method: 'POST', body: JSON.stringify(body) }),
+  toolsWhoKnows: (token: string | null, params: { kind: string; artist?: string; track?: string; album?: string }) => {
+    const q = new URLSearchParams({ kind: params.kind });
+    if (params.artist) q.set('artist', params.artist);
+    if (params.track) q.set('track', params.track);
+    if (params.album) q.set('album', params.album);
+    return request<Record<string, unknown>>(`/api/tools/whoknows?${q.toString()}`, token);
+  },
+  toolsPace: (token: string | null, params: { user?: string; goal?: string }) => {
+    const q = new URLSearchParams();
+    if (params.user) q.set('user', params.user);
+    if (params.goal) q.set('goal', params.goal);
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return request<Record<string, unknown>>(`/api/tools/pace${suffix}`, token);
+  },
+  toolsTaste: (token: string | null, a: string, b: string) => {
+    const q = new URLSearchParams({ a, b });
+    return request<Record<string, unknown>>(`/api/tools/taste?${q.toString()}`, token);
+  },
+  toolsAutocomplete: (token: string | null, kind: string, q: string) => {
+    const params = new URLSearchParams({ kind, q });
+    return request<{ suggestions: Array<{ name: string; artist?: string; image?: string }> }>(
+      `/api/tools/autocomplete?${params.toString()}`,
+      token
+    );
+  },
   getSettings: (token: string | null) =>
     request<{
       fmMode?: string;

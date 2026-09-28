@@ -128,37 +128,11 @@ export async function GET(request: Request) {
   }
 
   if (isMobile) {
-    const appUrl = `djscratch://auth?token=${jwt}`;
-    return new Response(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Login Successful</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          body { background-color: #09090b; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-          a { background-color: #5865F2; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; margin-top: 24px; box-shadow: 0 4px 15px rgba(88,101,242,0.4); }
-          .spinner { width: 40px; height: 40px; border: 4px solid rgba(88,101,242,0.3); border-top-color: #5865F2; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
-          @keyframes spin { to { transform: rotate(360deg); } }
-        </style>
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.location.replace("${appUrl}");
-            }, 500);
-          }
-        </script>
-      </head>
-      <body>
-        <div class="spinner"></div>
-        <h2>Login Successful!</h2>
-        <p style="color: #a1a1aa; max-width: 80%;">You should be automatically redirected back to the app in a few seconds.</p>
-        <a href="${appUrl}">Open App Manually</a>
-      </body>
-      </html>
-    `, {
-      headers: { 'Content-Type': 'text/html' }
-    });
+    // Server-side 302 straight to the custom scheme: flutter_web_auth_2
+    // intercepts this navigation and returns to the app. (The old
+    // HTML + JS-redirect page stranded users in the browser tab because
+    // Custom Tabs don't auto-dispatch custom-scheme JS navigations.)
+    return NextResponse.redirect(`djscratch://auth?token=${jwt}`);
   }
   
   if (state === 'desktop') {

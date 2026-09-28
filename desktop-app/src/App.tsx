@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home, Trophy, Users, MessageSquare, Shield, Settings } from 'lucide-react';
+import { Home, Trophy, Users, MessageSquare, Shield, Settings, LifeBuoy, Wrench } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import logoUrl from './assets/logo.png';
 import { POLL_MS } from './lib/config';
@@ -13,10 +13,12 @@ import DashboardPage from './pages/DashboardPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import FriendsPage from './pages/FriendsPage';
 import MessagesPage from './pages/MessagesPage';
+import SupportPage from './pages/SupportPage';
+import ToolsPage from './pages/ToolsPage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 
-type Tab = 'dashboard' | 'leaderboard' | 'friends' | 'messages' | 'admin' | 'settings';
+type Tab = 'dashboard' | 'leaderboard' | 'friends' | 'messages' | 'tools' | 'support' | 'admin' | 'settings';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => getToken());
@@ -105,6 +107,8 @@ export default function App() {
     { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy size={18} /> },
     { id: 'friends', label: 'Friends', icon: <Users size={18} /> },
     { id: 'messages', label: 'Messages', icon: <MessageSquare size={18} /> },
+    { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
+    { id: 'support', label: 'Support', icon: <LifeBuoy size={18} /> },
     { id: 'admin', label: 'Admin', icon: <Shield size={18} />, hidden: !isAdmin },
     { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
   ];
@@ -162,6 +166,8 @@ export default function App() {
           {tab === 'leaderboard' && <LeaderboardPage token={token} />}
           {tab === 'friends' && <FriendsPage token={token} />}
           {tab === 'messages' && <MessagesPage token={token} user={user} />}
+          {tab === 'tools' && <ToolsPage token={token} />}
+          {tab === 'support' && <SupportPage token={token} />}
           {tab === 'admin' && <AdminPage token={token} />}
           {tab === 'settings' && <SettingsPage token={token} user={user} onLogout={logout} />}
         </main>

@@ -53,8 +53,19 @@ export interface ChatMessage {
 export interface SpotifyNowPlaying {
   id?: string;
   title?: string;
+  song?: string;
   artist?: string;
+  album?: string;
   image?: string;
+  album_art?: string;
   is_playing?: boolean;
   is_liked?: boolean;
+  progress_ms?: number;
+  duration_ms?: number;
+  uri?: string;
+  spotify_url?: string;
+  device?: string | { id?: string; name?: string } | null;
+  shuffle_state?: boolean;
+  repeat_state?: 'off' | 'track' | 'context' | string;
+  volume_percent?: number;
 }
