@@ -321,18 +321,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const names = new Set<string>();
       let capped = false;
       try {
-        for (let pg = 1; pg <= 3; pg++) {
-          const r = await fetch(
-            `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1000&page=${pg}${periodParam}`);
-          const d = await r.json().catch(() => null);
+        const pages = await Promise.all(
+          [1, 2, 3].map((pg) =>
+            fetch(
+              `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1000&page=${pg}${periodParam}`
+            ).then((r) => r.json().catch(() => null))
+          )
+        );
+        const totalPages = parseInt(pages[0]?.topartists?.["@attr"]?.totalPages || "1", 10) || 1;
+        capped = totalPages > 3;
+        for (const d of pages) {
           let items = d?.topartists?.artist || [];
           if (!Array.isArray(items)) items = items ? [items] : [];
           for (const a of items) {
             if (a?.name) names.add(String(a.name).toLowerCase());
           }
-          const totalPages = parseInt(d?.topartists?.["@attr"]?.totalPages || "1", 10) || 1;
-          if (pg >= totalPages) break;
-          if (pg === 3) capped = true;
         }
       } catch { /* partial set stands */ }
       return { names, capped };
@@ -440,19 +443,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const stamps: number[] = [];
       if (useFm) {
         const fromPart = cutoffDate ? `&from=${Math.floor(cutoffDate.getTime() / 1000)}` : "";
-        for (let pg = 1; pg <= 5; pg++) {
-          const r = await fetch(
-            `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${pg}${fromPart}`);
-          const d = await r.json().catch(() => null);
+        const collect = (d: any) => {
           let items = d?.recenttracks?.track || [];
           if (!Array.isArray(items)) items = items ? [items] : [];
-          if (items.length === 0) break;
           for (const t of items) {
             const uts = parseInt(t?.date?.uts || "0", 10);
             if (Number.isFinite(uts) && uts > 0) stamps.push(uts);
           }
-          const totalPages = parseInt(d?.recenttracks?.["@attr"]?.totalPages || "1", 10) || 1;
-          if (pg >= totalPages) break;
+        };
+        const pageUrl = (pg: number) =>
+          `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${pg}${fromPart}`;
+        const first = await fetch(pageUrl(1)).then((r) => r.json().catch(() => null));
+        collect(first);
+        const totalPages = Math.min(
+          5, parseInt(first?.recenttracks?.["@attr"]?.totalPages || "1", 10) || 1);
+        if (totalPages > 1) {
+          const rest = await Promise.all(
+            Array.from({ length: totalPages - 1 }, (_, i) =>
+              fetch(pageUrl(i + 2)).then((r) => r.json().catch(() => null)))
+          );
+          for (const d of rest) collect(d);
         }
       }
       if (useIm) {
@@ -498,62 +508,56 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         clock, daily, streak, longestStreak: longest,
         avgPerDay, samplePlays: stamps.length, genres: [], discoveries: [],
       };
-      // Top genres (single Last.fm call).
+      // Top genres (single Last.fm call) and new discoveries run in parallel.
+      const extraJobs: Promise<void>[] = [];
       if (useFm) {
-        try {
-          const gRes = await fetch(
-            `http://ws.audioscrobbler.com/2.0/?method=user.getTopTags&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json`);
-          const gData = await gRes.json().catch(() => null);
-          let tags = gData?.toptags?.tag || [];
-          if (!Array.isArray(tags)) tags = tags ? [tags] : [];
-          rhythm.genres = tags.slice(0, 8).map((t: any) => ({
-            name: t?.name || "Unknown",
-            count: parseInt(t?.count || "0", 10) || 0,
-          }));
-        } catch { /* genres stay empty */ }
+        extraJobs.push((async () => {
+          try {
+            const gRes = await fetch(
+              `http://ws.audioscrobbler.com/2.0/?method=user.getTopTags&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json`);
+            const gData = await gRes.json().catch(() => null);
+            let tags = gData?.toptags?.tag || [];
+            if (!Array.isArray(tags)) tags = tags ? [tags] : [];
+            rhythm.genres = tags.slice(0, 8).map((t: any) => ({
+              name: t?.name || "Unknown",
+              count: parseInt(t?.count || "0", 10) || 0,
+            }));
+          } catch { /* genres stay empty */ }
+        })());
       }
       // New discoveries: window top artists absent from all-time top 50.
       if (useFm && period !== "overall") {
-        try {
-          const oRes = await fetch(
-            `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=50&period=overall`);
-          const oData = await oRes.json().catch(() => null);
-          let items = oData?.topartists?.artist || [];
-          if (!Array.isArray(items)) items = items ? [items] : [];
-          const known = new Set(items.map((a: any) => String(a?.name || "").toLowerCase()));
-          rhythm.discoveries = (finalStats.topArtists || [])
-            .map((a: any) => a?.name)
-            .filter((n: any) => n && !known.has(String(n).toLowerCase()))
-            .slice(0, 8);
-        } catch { /* discoveries stay empty */ }
+        extraJobs.push((async () => {
+          try {
+            const oRes = await fetch(
+              `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=50&period=overall`);
+            const oData = await oRes.json().catch(() => null);
+            let items = oData?.topartists?.artist || [];
+            if (!Array.isArray(items)) items = items ? [items] : [];
+            const known = new Set(items.map((a: any) => String(a?.name || "").toLowerCase()));
+            rhythm.discoveries = (finalStats.topArtists || [])
+              .map((a: any) => a?.name)
+              .filter((n: any) => n && !known.has(String(n).toLowerCase()))
+              .slice(0, 8);
+          } catch { /* discoveries stay empty */ }
+        })());
       }
+      await Promise.all(extraJobs);
     } catch { /* rhythm falls back to empties */ }
 
-    // Fetch missing images
+    // Fetch missing images (parallel — the old sequential awaits were the
+    // main profile latency).
+    const fillJobs: Promise<void>[] = [];
     for (const a of finalStats.topArtists) {
-      if (!a.image) {
-        const imgRes = await getDeezerArtistImage(a.name);
-        a.image = imgRes?.url || null;
-      }
+      if (!a.image) fillJobs.push(getDeezerArtistImage(a.name).then((r) => { a.image = r?.url || null; }));
     }
-    for (const t of finalStats.recentTracks) {
-      if (!t.image) {
-        const imgRes = await getDeezerTrackImage(t.name, t.artist || "");
-        t.image = imgRes?.url || null;
-      }
-    }
-    for (const t of finalStats.topTracks) {
-      if (!t.image) {
-        const imgRes = await getDeezerTrackImage(t.name, t.artist || "");
-        t.image = imgRes?.url || null;
-      }
+    for (const t of [...finalStats.recentTracks, ...finalStats.topTracks]) {
+      if (!t.image) fillJobs.push(getDeezerTrackImage(t.name, t.artist || "").then((r) => { t.image = r?.url || null; }));
     }
     for (const a of finalStats.topAlbums) {
-      if (!a.image) {
-        const imgRes = await getDeezerTrackImage(a.name, a.artist || "");
-        a.image = imgRes?.url || null;
-      }
+      if (!a.image) fillJobs.push(getDeezerTrackImage(a.name, a.artist || "").then((r) => { a.image = r?.url || null; }));
     }
+    await Promise.all(fillJobs);
 
     return NextResponse.json({
       success: true,

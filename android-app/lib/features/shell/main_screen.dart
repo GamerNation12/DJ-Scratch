@@ -33,15 +33,13 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _boot() async {
-    // Await the admin check BEFORE building the nav so destinations never
-    // shift underneath the selected index.
+    // Render the nav immediately — admin lives only in the More sheet, so a
+    // late role result can never shift indexed destinations.
+    setState(() => _ready = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkUpdate());
     final role = await _fetchRole();
     if (!mounted) return;
-    setState(() {
-      _role = role;
-      _ready = true;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkUpdate());
+    setState(() => _role = role);
   }
 
   Future<String?> _fetchRole() async {

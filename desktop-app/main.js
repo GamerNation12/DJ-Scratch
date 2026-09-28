@@ -31,6 +31,7 @@ function createWindow() {
           titleBarOverlay: { color: '#09090b', symbolColor: '#ffffff', height: 40 },
         }),
     backgroundColor: '#09090b',
+    show: false,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -45,6 +46,15 @@ function createWindow() {
   });
 
   loadURL(mainWindow);
+
+  // Show only when the first frame is ready — no blank-window flash.
+  mainWindow.once('ready-to-show', () => {
+    try { mainWindow.show(); } catch (_) {}
+  });
+  // Fallback: never trap the user with a hidden window if the event misfires.
+  setTimeout(() => {
+    try { if (mainWindow && !mainWindow.isVisible()) mainWindow.show(); } catch (_) {}
+  }, 8000);
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.insertCSS(

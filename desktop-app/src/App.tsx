@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Home, Trophy, Users, MessageSquare, Shield, Settings, LifeBuoy, Wrench } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import logoUrl from './assets/logo.png';
@@ -9,14 +9,15 @@ import type { JwtUser, RecentTrack, SpotifyNowPlaying, LeaderboardEntry, UserSta
 import LoginScreen from './components/LoginScreen';
 import UpdateBanner from './components/UpdateBanner';
 import PlayerBar from './components/PlayerBar';
-import DashboardPage from './pages/DashboardPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import FriendsPage from './pages/FriendsPage';
-import MessagesPage from './pages/MessagesPage';
-import SupportPage from './pages/SupportPage';
-import ToolsPage from './pages/ToolsPage';
-import AdminPage from './pages/AdminPage';
-import SettingsPage from './pages/SettingsPage';
+// Route pages are lazy so first paint only parses the dashboard bundle.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const FriendsPage = lazy(() => import('./pages/FriendsPage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const SupportPage = lazy(() => import('./pages/SupportPage'));
+const ToolsPage = lazy(() => import('./pages/ToolsPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 type Tab = 'dashboard' | 'leaderboard' | 'friends' | 'messages' | 'tools' | 'support' | 'admin' | 'settings';
 
@@ -162,6 +163,7 @@ export default function App() {
       <div className="flex-1 flex flex-col relative z-10 pt-10">
         <UpdateBanner />
         <main className="flex-1 overflow-y-auto p-8">
+          <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>}>
           {tab === 'dashboard' && <DashboardPage token={token} username={username} />}
           {tab === 'leaderboard' && <LeaderboardPage token={token} />}
           {tab === 'friends' && <FriendsPage token={token} />}
@@ -170,6 +172,7 @@ export default function App() {
           {tab === 'support' && <SupportPage token={token} />}
           {tab === 'admin' && <AdminPage token={token} />}
           {tab === 'settings' && <SettingsPage token={token} user={user} onLogout={logout} />}
+          </Suspense>
         </main>
         <PlayerBar token={token} lastfmTrack={lastfmTrack} spotify={np} refresh={refreshLight} />
       </div>
