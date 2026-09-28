@@ -16,6 +16,77 @@ const INBOX_BUTTON = [
   },
 ];
 
+// Discord ticket mirror: web chats also open a thread in the support
+// server's tickets channel so the owner can reply from Discord.
+const TICKETS_CHANNEL_ID = "1527127384053121036";
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+
+// Bot-to-web auth for Discord-originated replies/closes. Set the same
+// SERVICE_KEY on Vercel and the bot host; never expose it client-side.
+function serviceAuthed(req: Request): boolean {
+  const key = process.env.SERVICE_KEY;
+  if (!key) return false;
+  return req.headers.get("x-service-key") === key;
+}
+
+async function openDiscordTicketThread(
+  name: string, first: string, email: string, threadId: string
+): Promise<string | null> {
+  if (!DISCORD_TOKEN) return null;
+  try {
+    const headers = {
+      Authorization: `Bot ${DISCORD_TOKEN}`,
+      "Content-Type": "application/json",
+    };
+    // Private thread first (falls back to public if the server can't).
+    let thread: any = null;
+    for (const type of [12, 11]) {
+      const r = await fetch(`https://discord.com/api/v10/channels/${TICKETS_CHANNEL_ID}/threads`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name: `🌐 ${name}`.slice(0, 100),
+          auto_archive_duration: 4320,
+          type,
+        }),
+      });
+      if (r.ok) {
+        thread = await r.json().catch(() => null);
+        break;
+      }
+    }
+    if (!thread?.id) return null;
+    await fetch(`https://discord.com/api/v10/channels/${thread.id}/messages`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: `🌐 Website chat from ${name}`,
+            description: (first || "(no message yet)").slice(0, 1800),
+            color: 5814783,
+            fields: [
+              { name: "Email", value: email || "—", inline: true },
+              { name: "Reply", value: "Just type in this thread — it sends to the visitor.", inline: false },
+            ],
+          },
+        ],
+        components: [
+          {
+            type: 1,
+            components: [
+              { type: 2, style: 4, label: "Close with reason", custom_id: "ticket_close", emoji: { name: "🔒" } },
+            ],
+          },
+        ],
+      }),
+    }).catch(() => null);
+    return String(thread.id);
+  } catch {
+    return null;
+  }
+}
+
 async function ensureTables() {
   await sql`
     CREATE TABLE IF NOT EXISTS support_threads (
@@ -40,6 +111,8 @@ async function ensureTables() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_support_messages_thread ON support_messages (thread_id, id)`;
+  await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT`;
+  await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT`;
 }
 
 async function adminUser(req: Request) {
@@ -128,7 +201,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ messages: msgs });
     }
     const threads = await sql`
-      SELECT t.id, t.name, t.email, t.status, t.updated_at,
+      SELECT t.id, t.name, t.email, t.status, t.updated_at, t.close_reason, t.discord_thread_id,
         (SELECT body FROM support_messages m WHERE m.thread_id = t.id ORDER BY id DESC LIMIT 1) AS preview,
         (SELECT COUNT(*)::int FROM support_messages m WHERE m.thread_id = t.id AND m.sender = 'visitor') AS visitor_msgs
       FROM support_threads t ORDER BY t.updated_at DESC LIMIT 100
@@ -177,6 +250,15 @@ export async function POST(req: Request) {
           },
         ]
       );
+      // Mirror as a ticket thread in the support server (best-effort).
+      void (async () => {
+        try {
+          const discordId = await openDiscordTicketThread(name, first, email, id);
+          if (discordId) {
+            await sql`UPDATE support_threads SET discord_thread_id = ${discordId} WHERE id = ${id}`;
+          }
+        } catch { /* chat works without the mirror */ }
+      })();
       return NextResponse.json({ threadId: id, secret });
     }
 
@@ -219,10 +301,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ messages: msgs, status: rows[0].status });
     }
 
-    // --- Owner: reply (emails visitor if they're away) ---
+    // --- Owner (or bot service): reply (emails visitor if they're away) ---
     if (action === "reply") {
       const user = await adminUser(req);
-      if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const authed = user || serviceAuthed(req);
+      if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const threadId = String(body?.threadId || "");
       const text = String(body?.body || "").trim().slice(0, 3000);
       if (!threadId || !text) return NextResponse.json({ error: "Missing thread/message." }, { status: 400 });
@@ -256,13 +339,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, emailed });
     }
 
-    // --- Owner or visitor: close ---
+    // --- Owner / service / visitor: close (reason stored when given) ---
     if (action === "close") {
       const threadId = String(body?.threadId || "");
       const secret = String(body?.secret || "");
+      const reason = String(body?.reason || "").trim().slice(0, 500);
       const user = await adminUser(req);
-      if (user) {
-        await sql`UPDATE support_threads SET status = 'closed' WHERE id = ${threadId}`;
+      if (user || serviceAuthed(req)) {
+        await sql`UPDATE support_threads SET status = 'closed', close_reason = ${reason || null} WHERE id = ${threadId}`;
         return NextResponse.json({ success: true });
       }
       if (!threadId || !secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -713,6 +713,12 @@ async def setup_hook():
     bot.add_view(SuggestionView())
     bot.add_view(BugReportView())
     try:
+        from src.commands.tickets import TicketPanelView, TicketControlsView
+        bot.add_view(TicketPanelView())
+        bot.add_view(TicketControlsView())
+    except Exception as e:
+        print("Failed to add TicketViews:", e)
+    try:
         from src.commands.settings import SettingsView
         bot.add_view(SettingsView())
     except Exception as e:
@@ -1007,7 +1013,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing', 'src.commands.tickets']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)

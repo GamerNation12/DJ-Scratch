@@ -620,7 +620,7 @@ class SpotifyRemote(commands.Cog):
         await self._maybe_add_sp_reactions(msg, embed)
 
     # --- SLASH COMMANDS (same cores as prefix above) ---
-    @app_commands.command(name="remote", description="Open the Spotify remote panel with live controls")
+    @app_commands.command(name="remote", description="Open the Spotify remote panel with live controls (Owner only)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def remote_slash(self, interaction: discord.Interaction):
@@ -629,7 +629,7 @@ class SpotifyRemote(commands.Cog):
         await interaction.response.defer()
         await self._send_result(interaction, await self._remote_result(interaction.user.id))
 
-    @app_commands.command(name="play", description="Play a track, album or artist on Spotify (empty = resume)")
+    @app_commands.command(name="play", description="Play a track, album or artist on Spotify (empty = resume) (Owner only)")
     @app_commands.describe(query="Track, album, artist, or Spotify link")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -642,7 +642,7 @@ class SpotifyRemote(commands.Cog):
         else:
             await self._send_result(interaction, await self._act_result(interaction.user.id, query, "play"))
 
-    @app_commands.command(name="queue", description="Queue a track on Spotify (empty = current track)")
+    @app_commands.command(name="queue", description="Queue a track on Spotify (empty = current track) (Owner only)")
     @app_commands.describe(query="Track or Spotify track link")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -655,7 +655,7 @@ class SpotifyRemote(commands.Cog):
         else:
             await self._send_result(interaction, await self._act_result(interaction.user.id, query, "queue"))
 
-    @app_commands.command(name="pause", description="Pause Spotify playback")
+    @app_commands.command(name="pause", description="Pause Spotify playback (Owner only)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def pause_slash(self, interaction: discord.Interaction):
@@ -664,7 +664,7 @@ class SpotifyRemote(commands.Cog):
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "pause"))
 
-    @app_commands.command(name="skip", description="Skip to the next Spotify track")
+    @app_commands.command(name="skip", description="Skip to the next Spotify track (Owner only)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def skip_slash(self, interaction: discord.Interaction):
@@ -673,7 +673,7 @@ class SpotifyRemote(commands.Cog):
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "skip"))
 
-    @app_commands.command(name="previous", description="Go back to the previous Spotify track")
+    @app_commands.command(name="previous", description="Go back to the previous Spotify track (Owner only)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def previous_slash(self, interaction: discord.Interaction):
@@ -682,7 +682,7 @@ class SpotifyRemote(commands.Cog):
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "previous"))
 
-    @app_commands.command(name="rclike", description="Like a track on Spotify (empty = current track)")
+    @app_commands.command(name="rclike", description="Like a track on Spotify (empty = current track) (Owner only)")
     @app_commands.describe(query="Track or Spotify track link")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -692,7 +692,7 @@ class SpotifyRemote(commands.Cog):
         await interaction.response.defer()
         await self._send_result(interaction, await self._like_result(interaction.user.id, query, like=True))
 
-    @app_commands.command(name="rcunlike", description="Unlike a track on Spotify (empty = current track)")
+    @app_commands.command(name="rcunlike", description="Unlike a track on Spotify (empty = current track) (Owner only)")
     @app_commands.describe(query="Track or Spotify track link")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
