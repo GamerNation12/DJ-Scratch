@@ -1,4 +1,5 @@
 import os
+import io
 import secrets
 import discord
 from discord.ext import commands, tasks
@@ -258,6 +259,60 @@ async def _web_api(action: str, payload: dict):
         return False, {"error": str(e)}
 
 
+async def _ensure_transcripts_channel(guild: discord.Guild,
+                                        category: discord.CategoryChannel | None):
+    """Staff-only #transcripts channel for closed-ticket logs."""
+    try:
+        for ch in guild.text_channels:
+            if ch.name == "transcripts":
+                return ch
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        }
+        try:
+            me = guild.me
+            if me is not None:
+                overwrites[me] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, embed_links=True,
+                    attach_files=True)
+        except Exception:
+            pass
+        return await guild.create_text_channel(
+            "transcripts", category=category, overwrites=overwrites,
+            reason="DJ Scratch ticket transcripts")
+    except Exception as e:
+        print(f">>> Transcripts channel setup failed: {e}")
+        return None
+
+
+async def _build_transcript(ch) -> str:
+    """Plain-text log of a ticket (oldest first, capped)."""
+    lines = []
+    try:
+        async for m in ch.history(limit=200, oldest_first=True):
+            try:
+                ts = m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "?"
+                author = getattr(m.author, "display_name", None) or getattr(m.author, "name", "?")
+                body = (m.content or "").strip()
+                atts = ""
+                try:
+                    atts = " ".join(a.url for a in m.attachments)
+                except Exception:
+                    pass
+                text = body + (f" [attachments: {atts}]" if atts else "")
+                if m.embeds and not body:
+                    try:
+                        text = (m.embeds[0].description or m.embeds[0].title or "[embed]").strip()
+                    except Exception:
+                        text = "[embed]"
+                lines.append(f"[{ts}] {author}: {text}")
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return "\n".join(lines)[:200000] or "(no messages)"
+
+
 class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
     reason_input = discord.ui.TextInput(
         label="Reason (shown to the user)",
@@ -305,6 +360,31 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
             pass
         closer = getattr(interaction.user, "display_name", "Staff")
         try:
+            # Transcript first — nothing is ever deleted, the log survives.
+            transcript = await _build_transcript(ch)
+            category = getattr(ch, "category", None)
+            transcripts = None
+            try:
+                if ch.guild:
+                    transcripts = await _ensure_transcripts_channel(ch.guild, category)
+            except Exception:
+                transcripts = None
+            if transcripts is not None:
+                try:
+                    who = f"<@{ticket_user_id}>" if ticket_user_id else "unknown user"
+                    summary = discord.Embed(
+                        title=f"🔒 Ticket closed — {getattr(ch, 'name', 'ticket')}",
+                        description=f"**User:** {who}\n**Closed by:** {closer}\n**Reason:** {reason}",
+                        color=0x808080,
+                    )
+                    await transcripts.send(
+                        embed=summary,
+                        file=discord.File(
+                            io.BytesIO(transcript.encode("utf-8", "replace")),
+                            filename=f"transcript-{ch.id}.txt"),
+                    )
+                except Exception:
+                    pass
             if isinstance(ch, discord.Thread):
                 # Legacy thread ticket: post the reason and archive.
                 try:
@@ -321,28 +401,36 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
                 except Exception:
                     pass
             else:
-                # Channel ticket: log the summary in the tickets channel, then delete.
+                # Channel ticket: lock it in place (never deleted).
                 try:
-                    panel = ch.guild.get_channel(TICKETS_CHANNEL_ID) if ch.guild else None
-                    if panel is None and ch.guild:
-                        try:
-                            panel = await ch.guild.fetch_channel(TICKETS_CHANNEL_ID)
-                        except Exception:
-                            panel = None
-                    if panel is not None and isinstance(panel, discord.TextChannel):
-                        who = f"<@{ticket_user_id}>" if ticket_user_id else "unknown user"
-                        summary = discord.Embed(
-                            title="🔒 Ticket closed",
-                            description=f"**User:** {who}\n**Closed by:** {closer}\n**Reason:** {reason}",
-                            color=0x808080,
-                        )
-                        await panel.send(embed=summary)
+                    embed = discord.Embed(
+                        title="🔒 Ticket closed",
+                        description=f"**Reason:** {reason}\n*A copy was saved to transcripts.*",
+                        color=0x808080,
+                    )
+                    await ch.send(embed=embed)
                 except Exception:
                     pass
                 try:
-                    await ch.delete(reason=f"Ticket closed by {closer}: {reason[:100]}")
+                    base = (getattr(ch, "name", "") or "ticket").removeprefix("ticket-")
+                    new_name = f"closed-{base}"[:90] or "closed-ticket"
+                    await ch.edit(name=new_name, reason=f"Ticket closed by {closer}")
                 except Exception:
                     pass
+                if ticket_user_id and ch.guild:
+                    try:
+                        member = ch.guild.get_member(int(ticket_user_id))
+                        if member is None:
+                            try:
+                                member = await ch.guild.fetch_member(int(ticket_user_id))
+                            except Exception:
+                                member = None
+                        if member is not None:
+                            await ch.set_permissions(
+                                member, send_messages=False,
+                                reason="Ticket closed")
+                    except Exception:
+                        pass
         except (discord.NotFound, discord.HTTPException):
             # Channel/thread already gone (double close) — DB already updated.
             pass
