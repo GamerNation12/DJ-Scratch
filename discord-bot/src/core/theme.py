@@ -14,6 +14,12 @@ class Theme:
     # Formatting
     FOOTER_TEXT = "DJ Scratch • Seamless Music Experience"
     
+    # Support redirect appended to every error embed.
+    SUPPORT_LINE = (
+        "\n\n🆘 Still stuck? [Join the support server](https://discord.gg/53sxaVWn92) "
+        "and click **🎫 Get Support** in the tickets channel."
+    )
+
     @classmethod
     def get_embed(cls, title=None, description=None, color=None, user=None, include_timestamp=True, **kwargs):
         """Creates a standardized embed with the bot's theme."""
@@ -39,7 +45,10 @@ class Theme:
 
     @classmethod
     def get_error_embed(cls, title="Error", description=None, user=None):
-        return cls.get_embed(title=f"❌ {title}", description=description, color=cls.ERROR, user=user)
+        desc = description or ""
+        if "discord.gg/53sxaVWn92" not in desc:
+            desc = f"{desc}{cls.SUPPORT_LINE}" if desc else cls.SUPPORT_LINE.strip()
+        return cls.get_embed(title=f"❌ {title}", description=desc, color=cls.ERROR, user=user)
 
     @classmethod
     def get_warning_embed(cls, title="Warning", description=None, user=None):

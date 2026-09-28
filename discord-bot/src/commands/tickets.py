@@ -168,7 +168,7 @@ class TicketCloseModal(discord.ui.Modal, title="Close Ticket"):
             ok, data = await _web_api("close", {"threadId": web_thread, "reason": reason})
             if not ok:
                 return await interaction.followup.send(
-                    f"⚠️ Web close failed: {data.get('error', 'unknown error')}. "
+                    f"⚠️ Web close failed: {data.get('error') or 'the website timed out'}. "
                     "Is SERVICE_KEY set on Vercel and the bot host?", ephemeral=True)
         try:
             pool = dbmod.db_pool
@@ -526,7 +526,7 @@ class TicketsCog(commands.Cog):
                     try:
                         await ch.send(
                             f"⚠️ Couldn't deliver that to the web chat: "
-                            f"{data.get('error', 'unknown error')}",
+                            f"{data.get('error') or 'the website timed out'}",
                             delete_after=60,
                         )
                     except Exception:

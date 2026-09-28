@@ -87,33 +87,53 @@ async function openDiscordTicketThread(
   }
 }
 
+// DDL runs at most once per 10 minutes per instance, and each statement
+// gets 8s before we give up: every poll hits this route, so lock-waiting
+// ALTERs here used to hang requests for a minute behind DB traffic.
+let lastEnsured = 0;
+async function ensureTablesCached() {
+  if (Date.now() - lastEnsured < 10 * 60 * 1000) return;
+  const withTimeout = <T>(p: Promise<T>): Promise<T> =>
+    Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("ddl-timeout")), 8000))]);
+  const stmts: (() => Promise<unknown>)[] = [
+    () => sql`
+      CREATE TABLE IF NOT EXISTS support_threads (
+        id TEXT PRIMARY KEY,
+        secret TEXT NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        email VARCHAR(200) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        last_visitor_seen TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    () => sql`
+      CREATE TABLE IF NOT EXISTS support_messages (
+        id SERIAL PRIMARY KEY,
+        thread_id TEXT NOT NULL REFERENCES support_threads(id) ON DELETE CASCADE,
+        sender VARCHAR(10) NOT NULL,
+        body TEXT NOT NULL,
+        email_sent BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    () => sql`CREATE INDEX IF NOT EXISTS idx_support_messages_thread ON support_messages (thread_id, id)`,
+    () => sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT`,
+    () => sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT`,
+    () => sql`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE`,
+  ];
+  for (const s of stmts) {
+    try {
+      await withTimeout(s());
+    } catch { /* next boot/retry completes it */ }
+  }
+  lastEnsured = Date.now();
+}
+
 async function ensureTables() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS support_threads (
-      id TEXT PRIMARY KEY,
-      secret TEXT NOT NULL,
-      name VARCHAR(120) NOT NULL,
-      email VARCHAR(200) NOT NULL,
-      status VARCHAR(20) NOT NULL DEFAULT 'open',
-      last_visitor_seen TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-  await sql`
-    CREATE TABLE IF NOT EXISTS support_messages (
-      id SERIAL PRIMARY KEY,
-      thread_id TEXT NOT NULL REFERENCES support_threads(id) ON DELETE CASCADE,
-      sender VARCHAR(10) NOT NULL,
-      body TEXT NOT NULL,
-      email_sent BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_support_messages_thread ON support_messages (thread_id, id)`;
-  await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS discord_thread_id TEXT`;
-  await sql`ALTER TABLE support_threads ADD COLUMN IF NOT EXISTS close_reason TEXT`;
-  await sql`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS discord_forwarded BOOLEAN NOT NULL DEFAULT FALSE`;
+  lastEnsured = 0;
+  await ensureTablesCached();
 }
 
 async function adminUser(req: Request) {
@@ -191,7 +211,7 @@ export async function GET(req: Request) {
   const user = await adminUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    await ensureTables();
+    await ensureTablesCached();
     const { searchParams } = new URL(req.url);
     const threadId = searchParams.get("threadId");
     if (threadId) {
@@ -216,7 +236,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    await ensureTables();
+    await ensureTablesCached();
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
 
