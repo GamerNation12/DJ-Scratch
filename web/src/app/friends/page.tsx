@@ -35,6 +35,9 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [targetUsername, setTargetUsername] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [live, setLive] = useState<Record<string, LiveEntry>>({});
   const [matchFriend, setMatchFriend] = useState<any | null>(null);
   const [matchData, setMatchData] = useState<{ score: number; shared: any[]; label: string } | null>(null);
@@ -64,7 +67,43 @@ export default function FriendsPage() {
 
   useEffect(() => {
     fetchFriends();
+    const token = localStorage.getItem("discord_jwt");
+    if (token) {
+      fetch("/api/friends/suggestions", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
+        })
+        .catch(() => {});
+    }
   }, []);
+
+  // Username search-as-you-type for the add-friend box.
+  useEffect(() => {
+    const q = targetUsername.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem("discord_jwt");
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setSearchResults(Array.isArray(data.users) ? data.users : []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [targetUsername]);
 
   // Live feed: what accepted friends are playing right now.
   useEffect(() => {
@@ -141,7 +180,16 @@ export default function FriendsPage() {
       if (data.success) {
         toast.success(`Successfully ${action === 'request' ? 'sent request' : action + 'ed'}`);
         setTargetUsername("");
+        setSearchResults([]);
         fetchFriends();
+        fetch("/api/friends/suggestions", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => res.json())
+          .then((sdata) => {
+            if (Array.isArray(sdata.suggestions)) setSuggestions(sdata.suggestions);
+          })
+          .catch(() => {});
       } else {
         console.error(data);
         toast.error(data.details || data.error || "An error occurred");
@@ -174,13 +222,46 @@ export default function FriendsPage() {
             Add a Friend
           </h2>
           <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              value={targetUsername}
-              onChange={(e) => setTargetUsername(e.target.value)}
-              placeholder="Discord Username"
-              className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={targetUsername}
+                onChange={(e) => setTargetUsername(e.target.value)}
+                placeholder="Search by username…"
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              {(searching || searchResults.length > 0) && targetUsername.trim().length >= 2 && (
+                <div className="absolute z-20 left-0 right-0 mt-2 bg-[#170b28] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                  {searching && searchResults.length === 0 ? (
+                    <div className="p-4 text-sm text-zinc-500">Searching…</div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-4 text-sm text-zinc-500">No matches — you can still send by exact name.</div>
+                  ) : (
+                    searchResults.map((u) => (
+                      <div key={u.userId} className="flex items-center gap-3 p-3 hover:bg-white/5 transition-colors">
+                        {u.avatar ? (
+                          <img src={u.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold">
+                            {(u.displayName || u.username).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{u.displayName || u.username}</p>
+                          <p className="text-xs text-zinc-500 truncate">@{u.username}</p>
+                        </div>
+                        <button
+                          onClick={() => handleAction("request", u.userId)}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <button
               onClick={() => handleAction("request", undefined, targetUsername)}
               disabled={!targetUsername}
@@ -190,6 +271,39 @@ export default function FriendsPage() {
             </button>
           </div>
         </div>
+
+        {/* Suggested for you */}
+        {suggestions.length > 0 && (
+          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-xl">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              Suggested for you
+            </h2>
+            <div className="grid gap-3">
+              {suggestions.map((u) => (
+                <div key={u.userId} className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5">
+                  {u.avatar ? (
+                    <img src={u.avatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-lg">
+                      {(u.displayName || u.username).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{u.displayName || u.username}</p>
+                    <p className="text-xs text-zinc-500 truncate">@{u.username} · {u.reason}</p>
+                  </div>
+                  <button
+                    onClick={() => handleAction("request", u.userId)}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-medium transition-colors shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Live Now — what friends are playing */}
         {acceptedFriends.length > 0 && (
