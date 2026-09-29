@@ -399,13 +399,84 @@ async def generate_recap_image(
     except Exception:
         thumbs = [Image.new("RGB", (104, 104), color=(34, 34, 40)) for _ in top_tracks[:5]]
 
-    row_track, row_artist, row_album = 132, 60, 60
+    # Artist + album thumbnails (Deezer artist pics / iTunes album art).
+    artist_thumbs: list = []
+    album_thumbs: list = []
+    try:
+        async def _deezer_artist_art(artist):
+            try:
+                import urllib.parse
+                q = urllib.parse.quote((artist or "").strip())
+                if not q:
+                    return ""
+                async with session.get(f"https://api.deezer.com/search/artist?q={q}", timeout=5) as resp:
+                    if resp.status == 200:
+                        data = await resp.json(content_type=None)
+                        results = data.get("data") or []
+                        if results:
+                            return results[0].get("picture_big") or results[0].get("picture_medium") or ""
+            except Exception:
+                pass
+            return ""
+
+        async def _art_one(url, artist, album, size, artist_only=False):
+            async with sem:
+                try:
+                    if not url and artist_only:
+                        url = await _deezer_artist_art(artist)
+                    if not url:
+                        return Image.new("RGB", (size, size), color=(34, 34, 40))
+                    img = await download_image(session, url, artist, album)
+                    return img.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
+                except Exception:
+                    return Image.new("RGB", (size, size), color=(34, 34, 40))
+
+        artist_thumbs = await asyncio.gather(*[
+            _art_one("", (a[0] if len(a) > 0 else ""), None, 56, artist_only=True)
+            for a in top_artists[:5]
+        ])
+        album_thumbs = await asyncio.gather(*[
+            _art_one(a[3] if len(a) > 3 else "", (a[1] if len(a) > 1 else ""),
+                     (a[0] if len(a) > 0 else ""), 72)
+            for a in top_albums[:3]
+        ])
+    except Exception:
+        artist_thumbs = [Image.new("RGB", (56, 56), color=(34, 34, 40)) for _ in top_artists[:5]]
+        album_thumbs = [Image.new("RGB", (72, 72), color=(34, 34, 40)) for _ in top_albums[:3]]
+
+    row_track, row_artist, row_album = 132, 76, 96
     H = (200 + 130 + len(top_tracks[:5]) * row_track + 50
          + len(top_artists[:5]) * row_artist + 50
          + len(top_albums[:3]) * row_album + 50
          + (100 if discoveries else 0) + 120)
 
-    card = Image.new("RGB", (W, H), color=(14, 14, 18))
+    # Blurred-artwork backdrop like the share card (top track art, else top
+    # album art, else flat). Heavy blur + dark blend keeps text readable.
+    try:
+        burl = ""
+        for t in top_tracks[:3]:
+            if len(t) > 3 and t[3]:
+                burl = t[3]
+                break
+        if not burl:
+            for a in top_albums[:3]:
+                if len(a) > 3 and a[3]:
+                    burl = a[3]
+                    break
+        if burl:
+            bimg = await download_image(session, burl)
+            bimg = (bimg.convert("RGB").resize((W, H), Image.Resampling.LANCZOS)
+                    .filter(ImageFilter.GaussianBlur(40)))
+            card = Image.blend(bimg, Image.new("RGB", (W, H), color=(10, 10, 16)), 0.62)
+            ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            od = ImageDraw.Draw(ov)
+            for yy in range(0, H, 4):
+                od.line([(0, yy), (W, yy)], fill=(5, 5, 10, int(70 + 110 * yy / H)))
+            card = Image.alpha_composite(card.convert("RGBA"), ov).convert("RGB")
+        else:
+            card = Image.new("RGB", (W, H), color=(14, 14, 18))
+    except Exception:
+        card = Image.new("RGB", (W, H), color=(14, 14, 18))
     draw = ImageDraw.Draw(card)
     draw.rectangle([(0, 0), (12, H)], fill=ACCENT)
 
@@ -457,15 +528,20 @@ async def generate_recap_image(
             y += row_track
         y += 18
 
-    # Top artists with bars.
+    # Top artists with thumbnails + bars.
     if top_artists:
         draw.text((48, y), "TOP ARTISTS", font=fonts["section"], fill=DIM)
         y += 36
         amax = max([p for _, p in top_artists[:5]] + [1])
-        for name, plays in top_artists[:5]:
-            draw.text((48, y), _fit_text(draw, name or "Unknown", fonts["track"], 420), font=fonts["track"], fill=WHITE)
-            bw = int(380 * (plays / amax)) if amax else 0
-            draw.rounded_rectangle([(500, y + 8), (500 + max(8, bw), y + 26)], radius=9, fill=ACCENT)
+        for i, apair in enumerate(top_artists[:5]):
+            name = apair[0] if len(apair) > 0 else ""
+            plays = apair[1] if len(apair) > 1 else 0
+            if i < len(artist_thumbs):
+                card.paste(artist_thumbs[i], (48, y), _mask((56, 56), 14))
+            draw.text((120, y + 2), _fit_text(draw, name or "Unknown", fonts["track"], 340),
+                      font=fonts["track"], fill=WHITE)
+            bw = int(300 * (plays / amax)) if amax else 0
+            draw.rounded_rectangle([(470, y + 8), (470 + max(8, bw), y + 26)], radius=9, fill=ACCENT)
             try:
                 pw = draw.textlength(f"{plays:,}", font=fonts["plays"])
             except Exception:
@@ -474,19 +550,23 @@ async def generate_recap_image(
             y += row_artist
         y += 18
 
-    # Top albums.
+    # Top albums with covers.
     if top_albums:
         draw.text((48, y), "TOP ALBUMS", font=fonts["section"], fill=DIM)
         y += 36
-        for a in top_albums[:3]:
+        for i, a in enumerate(top_albums[:3]):
             name, artist, plays = (a[0] if len(a) > 0 else ""), (a[1] if len(a) > 1 else ""), (a[2] if len(a) > 2 else 0)
-            draw.text((48, y), _fit_text(draw, f"{name} — {artist}" if artist else name, fonts["track"], 640),
+            if i < len(album_thumbs):
+                card.paste(album_thumbs[i], (48, y), _mask((72, 72), 16))
+            draw.text((136, y + 4), _fit_text(draw, name or "Unknown", fonts["track"], 560),
                       font=fonts["track"], fill=WHITE)
+            draw.text((136, y + 40), _fit_text(draw, artist or "Unknown", fonts["sub"], 560),
+                      font=fonts["sub"], fill=GRAY)
             try:
                 pw = draw.textlength(f"{plays:,}", font=fonts["plays"])
             except Exception:
                 pw = 60
-            draw.text((W - 48 - pw, y + 2), f"{plays:,}", font=fonts["plays"], fill=GRAY)
+            draw.text((W - 48 - pw, y + 22), f"{plays:,}", font=fonts["plays"], fill=GRAY)
             y += row_album
         y += 18
 
@@ -521,6 +601,20 @@ async def download_image(session: aiohttp.ClientSession, url: str, artist: str =
                     data = await resp.json(content_type=None)
                     if data.get('results'):
                         url = data['results'][0].get('artworkUrl100', '').replace('100x100bb', '600x600bb')
+        except Exception:
+            pass
+
+    # Artist cells have no album: use the artist picture instead.
+    if (not url or '2a96cbd8' in url or '4128a6eb' in url) and artist and not album:
+        try:
+            import urllib.parse
+            query = urllib.parse.quote(artist)
+            async with session.get(f"https://api.deezer.com/search/artist?q={query}", timeout=5) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    results = data.get('data') or []
+                    if results:
+                        url = results[0].get('picture_big') or results[0].get('picture_medium') or url
         except Exception:
             pass
 

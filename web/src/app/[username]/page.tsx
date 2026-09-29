@@ -318,6 +318,43 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [newSuggestionDesc, setNewSuggestionDesc] = useState("");
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [editingSuggId, setEditingSuggId] = useState<string | null>(null);
+  const [editSuggTitle, setEditSuggTitle] = useState("");
+  const [editSuggDesc, setEditSuggDesc] = useState("");
+
+  const saveSuggestionEdit = async (id: string) => {
+    if (!editSuggTitle.trim() || !editSuggDesc.trim()) {
+      toast.error("Title and description can't be empty.");
+      return;
+    }
+    try {
+      const res = await fetchApi(`/api/suggestions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editSuggTitle.trim(), description: editSuggDesc.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.error || "Couldn't save.");
+      setEditingSuggId(null);
+      fetchSuggestions();
+      toast.success("Suggestion updated!");
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't save.");
+    }
+  };
+
+  const cancelSuggestion = async (id: string) => {
+    if (!window.confirm("Cancel this suggestion? It will be removed.")) return;
+    try {
+      const res = await fetchApi(`/api/suggestions/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.error || "Couldn't cancel.");
+      fetchSuggestions();
+      toast.success("Suggestion cancelled.");
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't cancel.");
+    }
+  };
 
   const [userStats, setUserStats] = useState<any>(null);
   const [userStatsLoading, setUserStatsLoading] = useState(true);
@@ -922,8 +959,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 <div className="flex items-center gap-3 mb-4 flex-wrap">
                   <h3 className="text-xl font-bold">🕓 Listening rhythm</h3>
                   {(r.streak || 0) > 0 && (
-                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20">
-                      🔥 {r.streak}-day streak
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20 inline-flex items-center gap-1.5">
+                      <img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-4 h-4" />
+                      {r.streak}-day streak
                     </span>
                   )}
                   {(r.avgPerDay || 0) > 0 && (
@@ -1133,7 +1171,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             {/* Top Tracks List */}
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-xl font-bold flex items-center gap-2">🔥 Top Tracks</h3>
+                  <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-6 h-6" /> Top Tracks</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most played songs ${periodLong}.` : `Their most played songs ${periodLong}.`}</p>
                </div>
                <div className="divide-y divide-white/5">
@@ -1454,6 +1492,53 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                       <p className="text-zinc-400 text-sm mb-5 leading-relaxed bg-[#170b28]/30 p-5 rounded-2xl border border-white/5">
                         {s.description}
                       </p>
+                      {s.status === "pending" && editingSuggId !== String(s.id) && (
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => { setEditingSuggId(String(s.id)); setEditSuggTitle(s.title || ""); setEditSuggDesc(s.description || ""); }}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => cancelSuggestion(String(s.id))}
+                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-xs font-bold text-red-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                      {s.status === "pending" && editingSuggId === String(s.id) && (
+                        <div className="space-y-3 mb-2">
+                          <input
+                            value={editSuggTitle}
+                            onChange={(e) => setEditSuggTitle(e.target.value)}
+                            maxLength={120}
+                            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-fuchsia-400/60"
+                          />
+                          <textarea
+                            value={editSuggDesc}
+                            onChange={(e) => setEditSuggDesc(e.target.value)}
+                            rows={3}
+                            maxLength={2000}
+                            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-fuchsia-400/60 resize-y"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => saveSuggestionEdit(String(s.id))}
+                              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-lg transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingSuggId(null)}
+                              className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {s.admin_feedback && (
                         <div className="bg-indigo-500/10 border border-indigo-500/20 p-5 rounded-2xl relative shadow-[0_0_15px_rgba(99,102,241,0.05)]">
                           <div className="absolute -left-1.5 top-6 w-3 h-3 bg-[#13131c] rotate-45 border-l border-t border-indigo-500/20"></div>

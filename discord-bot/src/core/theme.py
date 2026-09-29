@@ -13,6 +13,8 @@ class Theme:
 
     # Formatting
     FOOTER_TEXT = "DJ Scratch • Seamless Music Experience"
+    # Custom animated fire (mc_fire) used for streaks / top-track markers.
+    FIRE = "<a:mc_fire:1551046550862569561>"
     
     # Support redirect appended to every error embed.
     SUPPORT_LINE = (

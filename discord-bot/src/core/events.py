@@ -2282,7 +2282,7 @@ async def get_avatar_cooldown():
 
 async def add_custom_reactions(message):
     try:
-        await message.add_reaction("<a:mc_Fire:1423825520516141138>")
+        await message.add_reaction(Theme.FIRE)
         await message.add_reaction("<a:Jamming:1441565477313970259>")
     except: pass
 
@@ -3869,7 +3869,7 @@ async def process_judge(user):
             color=0xFF7A01,
 
         )
-        embed.set_author(name=f"{format_name(user)}'s .fmbot AI judgement - Roast 🔥", icon_url=user.display_avatar.url)
+        embed.set_author(name=f"{format_name(user)}'s .fmbot AI judgement - Roast {Theme.FIRE}", icon_url=user.display_avatar.url)
         embed.set_footer(text="Powered by Groq")
         return embed, None
     except Exception as e:
@@ -5742,7 +5742,9 @@ async def process_artist_chart(user, target_user, size: str = '3x3', period: str
         items = []
         for a in artists:
             items.append({
-                'image_url': None, # Fallback, no Last.fm artist images available currently without another API
+                'image_url': None,  # Resolved via Deezer artist pictures in download_image.
+                'fallback_artist': a['name'],
+                'fallback_album': None,
                 'primary_text': a['name'],
                 'secondary_text': f"{a['plays']} plays"
             })
@@ -5793,10 +5795,10 @@ def _fmbot_streak_emoji(count: int):
     if count == 69:
         return "😎"
     if count > 50:
-        return "🔥"
-    # fmbot shows fire for active streaks even under 50 (see screenshot: 70 plays -> 🔥,
-    # and small streaks still get 🔥 in overview). Keep overview parity: fire for any shown streak.
-    return "🔥"
+        return Theme.FIRE
+    # fmbot shows fire for active streaks even under 50 (see screenshot: 70 plays -> fire,
+    # and small streaks still get fire in overview). Keep overview parity: fire for any shown streak.
+    return Theme.FIRE
 
 
 def _fmbot_plural(count: int):

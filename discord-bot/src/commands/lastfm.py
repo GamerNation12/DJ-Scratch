@@ -1362,20 +1362,22 @@ class LastFmCog(commands.Cog):
                 description=f"No plays in the last {'month' if days == 30 else 'week'} — go listen to something first!")
 
         top_tracks = []
-        for t in tracks:
-            imgs = t.get("image") or []
-            best = ""
-            for im in reversed(imgs):
+
+        def _best_img(item):
+            for im in reversed(item.get("image") or []):
                 u = ((im or {}).get("#text") or "")
                 if u and "2a96cbd8" not in u and "4128a6eb" not in u:
-                    best = u
-                    break
+                    return u
+            return ""
+
+        for t in tracks:
             top_tracks.append((
                 t.get("name", ""), (t.get("artist") or {}).get("name", ""),
-                _plays(t), best))
+                _plays(t), _best_img(t)))
         top_artists = [(a.get("name", ""), _plays(a)) for a in artists]
         top_albums = [(
             b.get("name", ""), (b.get("artist") or {}).get("name", ""), _plays(b),
+            _best_img(b),
         ) for b in albums]
 
         # New finds: period artists absent from all-time top 50.

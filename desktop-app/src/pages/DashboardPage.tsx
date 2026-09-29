@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { CalendarDays, Clock, Disc3, Flame, Sparkles } from 'lucide-react';
+import { CalendarDays, Clock, Disc3, Sparkles } from 'lucide-react';
 import { API_BASE, PERIODS, POLL_MS, type Period } from '../lib/config';
 import { api } from '../lib/api';
 import type { RhythmData, UserStats } from '../lib/types';
@@ -223,7 +223,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
             <div className="flex flex-wrap gap-2 mb-6">
               {streak > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-sm font-bold">
-                  <Flame className="w-4 h-4" />
+                  <img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-4 h-4" />
                   {streak} day streak{longestStreak > streak ? ` · best ${longestStreak}` : ''}
                 </span>
               )}

@@ -331,8 +331,7 @@ class _DashboardTabState extends State<DashboardTab> {
     final chips = <Widget>[];
     if (streak > 0) {
       chips.add(_rhythmChip(
-        icon: LucideIcons.flame,
-        iconColor: Colors.orangeAccent,
+        imageUrl: 'https://cdn.discordapp.com/emojis/1551046550862569561.gif',
         label: '$streak day streak${streak == 1 ? '' : 's'}',
       ));
     }
@@ -558,7 +557,7 @@ class _DashboardTabState extends State<DashboardTab> {
     return out;
   }
 
-  Widget _rhythmChip({required IconData icon, required Color iconColor, required String label}) {
+  Widget _rhythmChip({IconData? icon, Color? iconColor, String? imageUrl, required String label}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -567,7 +566,11 @@ class _DashboardTabState extends State<DashboardTab> {
         border: Border.all(color: Colors.white.withOpacity(0.07)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 14, color: iconColor),
+        if (imageUrl != null)
+          Image.network(imageUrl, width: 14, height: 14,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink())
+        else if (icon != null)
+          Icon(icon, size: 14, color: iconColor),
         const SizedBox(width: 6),
         Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
       ]),

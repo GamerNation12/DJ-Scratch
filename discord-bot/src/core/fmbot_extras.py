@@ -70,7 +70,7 @@ async def process_overview(user, target=None, days=4):
     t = _pick(tt, "toptracks", "track")
     lines = [f"**{total}** total scrobbles • last ~{days} days snapshot"]
     if t:
-        lines.append(f"🔥 Top track (7d): **{t.get('name')}** by **{t.get('artist', {}).get('name', '?')}** ({t.get('playcount', '?')} plays)")
+        lines.append(f"{Theme.FIRE} Top track (7d): **{t.get('name')}** by **{t.get('artist', {}).get('name', '?')}** ({t.get('playcount', '?')} plays)")
     if b:
         an = b.get("artist", {}).get("name", "?") if isinstance(b.get("artist"), dict) else b.get("artist", "?")
         lines.append(f"💿 Top album (7d): **{b.get('name')}** by **{an}** ({b.get('playcount', '?')} plays)")
@@ -141,7 +141,7 @@ async def process_year(user, target=None, year=None):
     desc = (f"📅 **{year} overview for {lname}** (12-month proxy)\n\n"
             f"🎤 Artist: {_top(ta, 'topartists', 'artist')}\n"
             f"💿 Album: {_top(tb, 'topalbums', 'album')}\n"
-            f"🔥 Track: {_top(tt, 'toptracks', 'track')}")
+             f"{Theme.FIRE} Track: {_top(tt, 'toptracks', 'track')}")
     return _embed(user, f"Year {year} • {lname}", desc, color), None
 
 
@@ -622,7 +622,7 @@ async def process_search(user, query, target=None):
     hits = []
     for fetcher, k1, k2, emoji in ((fetch_top_artists, "topartists", "artist", "🎤"),
                                    (fetch_top_albums, "topalbums", "album", "💿"),
-                                   (fetch_top_tracks, "toptracks", "track", "🔥")):
+                                   (fetch_top_tracks, "toptracks", "track", Theme.FIRE)):
         try:
             d = await fetcher(lname, "overall", 200)
             arr = d[k1][k2]

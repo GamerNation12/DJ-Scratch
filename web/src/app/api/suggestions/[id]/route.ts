@@ -86,3 +86,58 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+// Author edits their own suggestion while it's still pending.
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  if (!user || !(user as any)?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = (user as any).id;
+  const { id } = await params;
+  try {
+    const { title, description } = await req.json();
+    const t = String(title || "").trim().slice(0, 120);
+    const d = String(description || "").trim().slice(0, 2000);
+    if (!t || !d) {
+      return NextResponse.json({ error: "Title and description required" }, { status: 400 });
+    }
+    const [updated] = await sql`
+      UPDATE suggestions SET title = ${t}, description = ${d}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id} AND user_id = ${userId} AND status = 'pending' RETURNING *
+    `;
+    if (!updated) {
+      return NextResponse.json({ error: "Suggestion not found or no longer editable." }, { status: 404 });
+    }
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error("Failed to edit suggestion:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+// Author cancels their own pending suggestion.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.split(" ")[1];
+  const user = token ? await verifyToken(token) : null;
+  if (!user || !(user as any)?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = (user as any).id;
+  const { id } = await params;
+  try {
+    const [deleted] = await sql`
+      DELETE FROM suggestions WHERE id = ${id} AND user_id = ${userId} AND status = 'pending' RETURNING id
+    `;
+    if (!deleted) {
+      return NextResponse.json({ error: "Suggestion not found or no longer cancellable." }, { status: 404 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Failed to cancel suggestion:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
