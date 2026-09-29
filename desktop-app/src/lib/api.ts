@@ -52,13 +52,6 @@ export const api = {
     request<{ friends: unknown[] }>(`/api/friends`, token),
   friendAction: (token: string | null, body: Record<string, unknown>) =>
     request<{ success?: boolean; error?: string }>(`/api/friends`, token, { method: 'POST', body: JSON.stringify(body) }),
-  getMessages: (token: string | null, friendId: string) =>
-    request<{ messages: unknown[] }>(`/api/messages/${encodeURIComponent(friendId)}`, token),
-  sendMessage: (token: string | null, friendId: string, content: string) =>
-    request<{ success?: boolean; message?: unknown }>(`/api/messages/${encodeURIComponent(friendId)}`, token, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    }),
   spotifyNowPlaying: (token: string | null) =>
     request<Record<string, unknown>>(`/api/spotify/now-playing`, token),
   spotifyControl: (token: string | null, action: string | SpotifyControlBody) =>

@@ -8,7 +8,6 @@ import '../dashboard/dashboard_tab.dart';
 import '../player/player_tab.dart';
 import '../leaderboard/leaderboard_tab.dart';
 import '../friends/friends_tab.dart';
-import '../messages/messages_tab.dart';
 import '../admin/admin_tab.dart';
 import '../settings/settings_tab.dart';
 import '../tools/tools_tab.dart';
@@ -122,20 +121,20 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _moreTile(BuildContext ctx, String key, String label, IconData icon) {
-    final selected = _index == 4 && _more == key;
+    final selected = _index == 3 && _more == key;
     return ListTile(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       tileColor: selected ? const Color(0xFF0AB5CD).withOpacity(0.15) : null,
       leading: Icon(icon, color: selected ? const Color(0xFF0AB5CD) : Colors.white70),
       title: Text(label, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
       trailing: selected ? const Icon(LucideIcons.check, color: Color(0xFF0AB5CD), size: 18) : null,
-      onTap: () {
-        Navigator.pop(ctx);
-        setState(() {
-          _more = key;
-          _index = 4;
-        });
-      },
+        onTap: () {
+          Navigator.pop(ctx);
+          setState(() {
+            _more = key;
+            _index = 3;
+          });
+        },
     );
   }
 
@@ -145,28 +144,27 @@ class _MainScreenState extends State<MainScreen> {
       return const Scaffold(backgroundColor: Color(0xFF030712), body: Center(child: CircularProgressIndicator(color: Color(0xFF0AB5CD))));
     }
     final Widget body;
-    if (_index == 4) {
+    if (_index == 3) {
       body = _currentMorePage();
     } else {
       const primaries = [
         DashboardTab(),
         PlayerTab(),
         LeaderboardTab(),
-        MessagesTab(),
       ];
-      body = primaries[_index.clamp(0, 3).toInt()];
+      body = primaries[_index.clamp(0, 2).toInt()];
     }
     return Scaffold(
       backgroundColor: const Color(0xFF030712),
       body: body,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index.clamp(0, 4).toInt(),
+        selectedIndex: _index.clamp(0, 3).toInt(),
         onDestinationSelected: (i) {
-          if (i == 4) {
+          if (i == 3) {
             _openMoreSheet();
             // Still highlight "More" so the bar reflects where the user is
             // headed; the sheet picks the actual sub-page.
-            setState(() => _index = 4);
+            setState(() => _index = 3);
           } else {
             setState(() => _index = i);
           }
@@ -178,7 +176,6 @@ class _MainScreenState extends State<MainScreen> {
           const NavigationDestination(icon: Icon(LucideIcons.layoutDashboard, color: Colors.white54), selectedIcon: Icon(LucideIcons.layoutDashboard, color: Color(0xFF0AB5CD)), label: 'Home'),
           const NavigationDestination(icon: Icon(LucideIcons.music, color: Colors.white54), selectedIcon: Icon(LucideIcons.music, color: Color(0xFF22C55E)), label: 'Player'),
           const NavigationDestination(icon: Icon(LucideIcons.trophy, color: Colors.white54), selectedIcon: Icon(LucideIcons.trophy, color: Color(0xFF0AB5CD)), label: 'Ranks'),
-          const NavigationDestination(icon: Icon(LucideIcons.messageSquare, color: Colors.white54), selectedIcon: Icon(LucideIcons.messageSquare, color: Color(0xFF0AB5CD)), label: 'Chat'),
           NavigationDestination(
             icon: const Icon(LucideIcons.menu, color: Colors.white54),
             selectedIcon: const Icon(LucideIcons.menu, color: Color(0xFF0AB5CD)),

@@ -5334,7 +5334,7 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                     sender_name = interaction.user.name
                     
                 view = discord.ui.View()
-                btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/messages")
+                btn = discord.ui.Button(label="Open Friends", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/friends")
                 view.add_item(btn)
                 
                 embed = Theme.get_embed(
@@ -5349,7 +5349,7 @@ class DirectMessageReplyModal(discord.ui.Modal, title="Reply via DM"):
                 )
                 embed.set_footer(text="DJ Scratch • Activity DM")
                 
-                await target_user.send("*(To reply, launch the DJ Scratch Activity using the 🚀 icon below, or click the button)*", embed=embed, view=view)
+                await target_user.send("*(To reply, message them back right here on Discord)*", embed=embed, view=view)
                 await interaction.response.send_message("Reply sent successfully!", ephemeral=True)
             except Exception as e:
                 print(e)

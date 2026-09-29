@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 4),
               Text('v${_version.isEmpty ? '…' : _version} · music stats & control', style: GoogleFonts.inter(color: Colors.white54)),
               const SizedBox(height: 12),
-              Text('Live scrobbles, leaderboard, friends, messages and Spotify controls.',
+              Text('Live scrobbles, leaderboard, friends and Spotify controls.',
                   style: GoogleFonts.inter(color: Colors.white60), textAlign: TextAlign.center),
               const SizedBox(height: 36),
               SizedBox(

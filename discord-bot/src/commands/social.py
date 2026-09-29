@@ -83,18 +83,18 @@ class SocialCog(commands.Cog):
             embed = discord.Embed(color=0xFF0000, description="❌ Failed to accept request (make sure they sent one first).")
             await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="dms", description="Open your DJ Scratch Direct Messages")
+    @app_commands.command(name="dms", description="About DJ Scratch Direct Messages (retired)")
     async def open_dms(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="💬 DJ Scratch DMs",
-            description="We've upgraded our messaging system to a full Discord Activity!\n\n**To open your DMs on any platform:**\n1. Click the **App Launcher** (rocket ship icon 🚀 or '+' button) next to the chat bar.\n2. Select **DJ Scratch**.\n3. Chat with your friends in a custom full-screen UI!",
+            description="Direct Messages have been retired — chat with your friends right here on Discord instead!\n\nUse the **Friends** tab on the website or apps to manage your friend list.",
             color=discord.Color.blurple()
         )
-        
+
         view = discord.ui.View()
-        btn = discord.ui.Button(label="Open Web Dashboard", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/messages")
+        btn = discord.ui.Button(label="Open Friends", style=discord.ButtonStyle.link, url="https://dj-scratch.is-a-fullstack.dev/friends")
         view.add_item(btn)
-        
+
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 async def setup(bot):

@@ -12,15 +12,8 @@ export async function GET() {
       LIMIT 10
     `;
 
-    // 2. Most Active Chatters
-    const topChatters = await sql`
-      SELECT u.username, u.id as user_id, COUNT(d.id) as message_count
-      FROM imported_users u
-      JOIN direct_messages d ON d.sender_id = u.id
-      GROUP BY u.id, u.username
-      ORDER BY message_count DESC
-      LIMIT 10
-    `;
+    // 2. Most Active Chatters (DM feature retired — kept empty for compat).
+    const topChatters: unknown[] = [];
 
     return NextResponse.json({
       topArtists,

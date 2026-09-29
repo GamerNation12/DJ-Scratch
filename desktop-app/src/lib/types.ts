@@ -65,13 +65,6 @@ export interface Friend {
   direction?: 'incoming' | 'outgoing';
 }
 
-export interface ChatMessage {
-  id: string | number;
-  sender_id: string;
-  content: string;
-  sent_at: string;
-}
-
 export interface SpotifyNowPlaying {
   id?: string;
   title?: string;

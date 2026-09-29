@@ -14,7 +14,7 @@ export default function LoginScreen() {
         <img src={logoUrl} alt="DJ Scratch logo" className="w-24 h-24 rounded-full object-cover mb-6 border-4 border-white/10" />
         <h1 className="text-4xl font-black mb-2 tracking-tight text-center">DJ Scratch</h1>
         <p className="text-zinc-500 text-xs font-mono mb-4">Desktop v{APP_VERSION}</p>
-        <p className="text-zinc-400 mb-8 text-center">Sign in with Discord for live stats, leaderboard, friends, messages and Spotify controls.</p>
+        <p className="text-zinc-400 mb-8 text-center">Sign in with Discord for live stats, leaderboard, friends and Spotify controls.</p>
         <button
           onClick={login}
           className="px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] rounded-xl font-bold transition-all hover:scale-105 flex items-center gap-3"

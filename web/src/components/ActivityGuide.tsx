@@ -216,7 +216,6 @@ export default function ActivityGuide({ onComplete }: { onComplete?: () => void 
           </h2>
           <div className="space-y-4 text-sm text-[#b5bac1]">
             <p>
-              The <strong>Messages</strong> tab inside this Activity allows you to chat securely with your friends using DJ Scratch.
               Click the <strong>Friends</strong> button to send or accept friend requests using Discord User IDs.
             </p>
           </div>

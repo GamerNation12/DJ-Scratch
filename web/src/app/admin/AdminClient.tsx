@@ -4,7 +4,6 @@ import { toast } from 'react-hot-toast';
 import { useState, useEffect } from "react";
 import { useSession } from "@/app/providers";
 import AdminTerminal from "./AdminTerminal";
-import AdminChatLogs from "./AdminChatLogs";
 
 function AdminActionCard({ title, description, actionType, icon, colorClass }: any) {
   const [loading, setLoading] = useState(false);
@@ -743,13 +742,6 @@ export default function AdminClient({ embedded = false }: { embedded?: boolean }
               </button>
             )}
             {(role === 'owner' || role === 'admin') && (
-              <button onClick={() => setActiveTab('chat-logs')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'chat-logs' ? 'bg-emerald-500/10 text-emerald-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                Chat Activity
-              </button>
-            )}
-          
-            {(role === 'owner' || role === 'admin') && (
               <button onClick={() => setActiveTab('command-locks')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'command-locks' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 Command Locks
@@ -770,7 +762,6 @@ export default function AdminClient({ embedded = false }: { embedded?: boolean }
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('system')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'system' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>System Tools</button>}
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('terminal')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'terminal' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Terminal</button>}
         {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('command-locks')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'command-locks' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Command Locks</button>}
-        {(role === 'owner' || role === 'admin') && <button onClick={() => setActiveTab('chat-logs')} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold ${activeTab === 'chat-logs' ? 'bg-emerald-500 text-white' : 'bg-white/5 text-zinc-400'}`}>Chat Logs</button>}
       </div>
 
       <ContentTag className={embedded ? "w-full block" : "flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-6xl mx-auto"}>
@@ -1241,9 +1232,6 @@ export default function AdminClient({ embedded = false }: { embedded?: boolean }
           <AdminTerminal />
         )}
 
-        {activeTab === 'chat-logs' && (role === 'owner' || role === 'admin') && (
-          <AdminChatLogs />
-        )}
         {activeTab === 'command-locks' && (
           <div className="space-y-6 animate-fade-in">
             <div>

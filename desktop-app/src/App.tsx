@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Home, Trophy, Users, MessageSquare, Shield, Settings, LifeBuoy, Wrench } from 'lucide-react';
+import { Home, Trophy, Users, Shield, Settings, LifeBuoy, Wrench } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import logoUrl from './assets/logo.png';
 import { POLL_MS } from './lib/config';
@@ -13,13 +13,12 @@ import PlayerBar from './components/PlayerBar';
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const FriendsPage = lazy(() => import('./pages/FriendsPage'));
-const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const ToolsPage = lazy(() => import('./pages/ToolsPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
-type Tab = 'dashboard' | 'leaderboard' | 'friends' | 'messages' | 'tools' | 'support' | 'admin' | 'settings';
+type Tab = 'dashboard' | 'leaderboard' | 'friends' | 'tools' | 'support' | 'admin' | 'settings';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => getToken());
@@ -107,7 +106,6 @@ export default function App() {
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={18} /> },
     { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy size={18} /> },
     { id: 'friends', label: 'Friends', icon: <Users size={18} /> },
-    { id: 'messages', label: 'Messages', icon: <MessageSquare size={18} /> },
     { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
     { id: 'support', label: 'Support', icon: <LifeBuoy size={18} /> },
     { id: 'admin', label: 'Admin', icon: <Shield size={18} />, hidden: !isAdmin },
@@ -167,7 +165,6 @@ export default function App() {
           {tab === 'dashboard' && <DashboardPage token={token} username={username} />}
           {tab === 'leaderboard' && <LeaderboardPage token={token} />}
           {tab === 'friends' && <FriendsPage token={token} />}
-          {tab === 'messages' && <MessagesPage token={token} user={user} />}
           {tab === 'tools' && <ToolsPage token={token} />}
           {tab === 'support' && <SupportPage token={token} />}
           {tab === 'admin' && <AdminPage token={token} />}

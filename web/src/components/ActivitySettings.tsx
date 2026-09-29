@@ -8,7 +8,7 @@ export default function ActivitySettings({ onReplayGuide }: { onReplayGuide?: ()
 
   useEffect(() => {
     const savedTab = localStorage.getItem('activity_default_tab');
-    if (savedTab) setDefaultTab(savedTab);
+    if (savedTab && savedTab !== 'messages') setDefaultTab(savedTab);
   }, []);
 
   const handleDefaultTabChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -84,7 +84,6 @@ export default function ActivitySettings({ onReplayGuide }: { onReplayGuide?: ()
                   onChange={handleDefaultTabChange}
                 >
                   <option value="guide">Guide</option>
-                  <option value="messages">Messages</option>
                   <option value="music">Music</option>
                   <option value="settings">Settings</option>
                 </select>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Check, X, MessageSquare, Trash2, Radio, Sparkles } from "lucide-react";
+import { UserPlus, Check, X, Trash2, Radio, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { tasteMatch, tasteLabel } from "@/lib/taste";
 import { artSrc } from "@/lib/art";

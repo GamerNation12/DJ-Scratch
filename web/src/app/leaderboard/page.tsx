@@ -3,14 +3,14 @@ import { fetchApi } from "@/lib/fetchApi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import { TrendingUp, MessageSquare, Music, Trophy } from "lucide-react";
+import { TrendingUp, Music, Trophy } from "lucide-react";
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"scrobbles" | "artists" | "chatters">("scrobbles");
+  const [activeTab, setActiveTab] = useState<"scrobbles" | "artists">("scrobbles");
 
   useEffect(() => {
     Promise.all([
@@ -70,12 +70,6 @@ export default function LeaderboardPage() {
               className={`px-4 sm:px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'artists' ? 'bg-green-500/20 text-green-300 shadow-lg border border-green-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               <Music className="w-4 h-4" /> Top Artists
-            </button>
-            <button 
-              onClick={() => setActiveTab("chatters")}
-              className={`px-4 sm:px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'chatters' ? 'bg-blue-500/20 text-blue-300 shadow-lg border border-blue-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-            >
-              <MessageSquare className="w-4 h-4" /> Active Chatters
             </button>
           </div>
         </div>
@@ -169,25 +163,6 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            {/* CHATTERS TAB */}
-            {activeTab === "chatters" && (
-              <div className="bg-[#170b28]/50 border border-white/5 rounded-3xl p-6 sm:p-8">
-                <div className="space-y-4">
-                  {stats?.topChatters?.map((c: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center p-4 bg-zinc-800/30 rounded-xl hover:bg-zinc-800/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <span className="text-zinc-500 font-bold w-6">{idx + 1}.</span>
-                        <span className="font-semibold text-lg">{c.username}</span>
-                      </div>
-                      <span className="text-blue-400 font-bold text-xl">{c.message_count} <span className="text-xs text-zinc-500 font-normal">msgs</span></span>
-                    </div>
-                  ))}
-                  {!stats?.topChatters?.length && (
-                    <div className="text-center text-zinc-500 py-8">No chatter data available.</div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
