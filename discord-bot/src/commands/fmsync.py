@@ -81,7 +81,7 @@ class SyncCog(commands.Cog):
         except Exception:
             pass
 
-    @commands.command(name="syncnow", aliases=["sync", "fmbackfill"])
+    @commands.command(name="syncnow", aliases=["fmbackfill", "fsyncnow"])
     async def syncnow_prefix(self, ctx, target: discord.Member = None):
         """Sync your Last.fm history (exact playcounts). Owner can sync others."""
         me = str(ctx.author.id)

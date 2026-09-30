@@ -751,6 +751,7 @@ async def setup_hook():
             if not _need_ddl:
                 print(f"{Log.GREEN}>>> Schema v{BOOT_SCHEMA_VERSION} up to date — skipping DDL{Log.RESET}")
             else:
+                print(f"{Log.CYAN}>>> Running boot DDL...{Log.RESET}")
                 async with db_pool.acquire() as conn:
                     await conn.execute(
                         """
