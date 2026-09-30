@@ -727,6 +727,39 @@ async def setup_hook():
         print("Failed to add SettingsView:", e)
     global db_pool
     db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _db_conn():
+        """Pool acquire that survives stale pooled connections.
+
+        Supabase's pooler occasionally kills an idle server connection; the
+        next acquire then hands back a dead holder ("released back to the
+        pool"). On exactly that failure we rebuild the pool once and retry.
+        """
+        global db_pool
+        try:
+            async with db_pool.acquire() as conn:
+                yield conn
+        except Exception as e:
+            msg = str(e)
+            if "released back to the pool" not in msg and "connection was closed" not in msg:
+                raise
+            try:
+                await db_pool.close()
+            except Exception:
+                pass
+            _url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+            if "pooler.supabase.com" in _url and ":5432" in _url:
+                _url = _url.replace(":5432", ":6543")
+            db_pool = await asyncpg.create_pool(dsn=_url, ssl="require", min_size=1, max_size=5, statement_cache_size=0)
+            import src.core.database as db_module
+            db_module.db_pool = db_pool
+            print(f"{Log.YELLOW}>>> DB pool rebuilt after stale connection; retrying{Log.RESET}")
+            async with db_pool.acquire() as conn:
+                yield conn
+
     if db_url:
         try:
             if "pooler.supabase.com" in db_url and ":5432" in db_url:
@@ -741,7 +774,7 @@ async def setup_hook():
             _t_ddl = time.monotonic()
             _need_ddl = True
             try:
-                async with db_pool.acquire() as _vconn:
+                async with _db_conn() as _vconn:
                     _vv = await _vconn.fetchval(
                         "SELECT value FROM global_settings WHERE key = 'schema_version'", timeout=15)
                     if _vv == BOOT_SCHEMA_VERSION:
@@ -752,7 +785,7 @@ async def setup_hook():
                 print(f"{Log.GREEN}>>> Schema v{BOOT_SCHEMA_VERSION} up to date — skipping DDL{Log.RESET}")
             else:
                 print(f"{Log.CYAN}>>> Running boot DDL...{Log.RESET}")
-                async with db_pool.acquire() as conn:
+                async with _db_conn() as conn:
                     await conn.execute(
                         """
                         CREATE TABLE IF NOT EXISTS user_settings (
