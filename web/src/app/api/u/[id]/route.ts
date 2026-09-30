@@ -191,21 +191,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       try {
         const [playcountRes, topArtistsRes, topTracksRes, recentTracksRes] = await Promise.all([
           useEra
-            ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at < ${regDate!}`
+            ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at < ${regDate!} AND COALESCE(source,'import') != 'lastfm'`
             : cutoffDate
-              ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`
-              : sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId}`,
+              ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm'`
+              : sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm'`,
           useEra
-            ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
+            ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
             : cutoffDate
-              ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
-              : sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`,
+              ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
+              : sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`,
           useEra
-            ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
+            ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
             : cutoffDate
-              ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
-              : sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`,
-          sql`SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} ORDER BY l.played_at DESC LIMIT 50`
+              ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
+              : sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`,
+          sql`SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND COALESCE(l.source,'import') != 'lastfm' ORDER BY l.played_at DESC LIMIT 50`
         ]);
 
         importedData.playcount = parseInt(playcountRes[0]?.count || "0", 10);
@@ -371,8 +371,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       let capped = false;
       try {
         const rows = cutoff
-          ? await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoff} LIMIT 2001`
-          : await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} LIMIT 2001`;
+          ? await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoff} AND COALESCE(l.source,'import') != 'lastfm' LIMIT 2001`
+          : await sql`SELECT DISTINCT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND COALESCE(l.source,'import') != 'lastfm' LIMIT 2001`;
         for (const r of rows) {
           if ((r as any)?.artist_name) names.add(String((r as any).artist_name).toLowerCase());
         }
@@ -435,7 +435,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (data_source !== 'lastfm_only') {
           try {
             if (cutoffDate) {
-              const c = await sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`;
+              const c = await sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm'`;
               imPlays = parseInt(c[0]?.count || "0", 10);
             } else {
               imPlays = importedData.playcount;
@@ -493,8 +493,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
       if (useIm) {
         const imRows = cutoffDate
-          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} ORDER BY played_at DESC LIMIT 5000`
-          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} ORDER BY played_at DESC LIMIT 5000`;
+          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 5000`
+          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 5000`;
         for (const r of imRows) {
           const ms = new Date((r as any).played_at).getTime();
           if (Number.isFinite(ms) && ms > 0) stamps.push(Math.floor(ms / 1000));

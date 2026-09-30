@@ -620,9 +620,9 @@ async def get_local_artist_playcount(user_id, artist_name, before_dt=None):
     try:
         async with db_pool.acquire() as conn:
             if before_dt:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND l.played_at < $3", str(user_id), artist_name, before_dt)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND l.played_at < $3 AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name, before_dt)
             else:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2)", str(user_id), artist_name)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -631,9 +631,9 @@ async def get_local_track_playcount(user_id, artist_name, track_name, before_dt=
     try:
         async with db_pool.acquire() as conn:
             if before_dt:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3) AND l.played_at < $4", str(user_id), artist_name, track_name, before_dt)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3) AND l.played_at < $4 AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name, track_name, before_dt)
             else:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3)", str(user_id), artist_name, track_name)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3) AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name, track_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -642,9 +642,9 @@ async def get_local_album_playcount(user_id, artist_name, album_name, before_dt=
     try:
         async with db_pool.acquire() as conn:
             if before_dt:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3) AND l.played_at < $4", str(user_id), artist_name, album_name, before_dt)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3) AND l.played_at < $4 AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name, album_name, before_dt)
             else:
-                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3)", str(user_id), artist_name, album_name)
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3) AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), artist_name, album_name)
             return row['count'] if row else 0
     except Exception: return 0
 
@@ -660,7 +660,7 @@ async def db_fetch(query, *args):
 async def get_local_top_artists(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["l.user_id=$1"]
+    query_parts = ["l.user_id=$1", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
@@ -689,7 +689,7 @@ async def get_local_top_artists(user_id, limit=10, api_period='overall', before_
 async def get_local_top_albums(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["l.user_id=$1", "t.album_name IS NOT NULL AND t.album_name != ''"]
+    query_parts = ["l.user_id=$1", "t.album_name IS NOT NULL AND t.album_name != ''", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
@@ -717,7 +717,7 @@ async def get_local_top_albums(user_id, limit=10, api_period='overall', before_d
 async def get_local_top_tracks(user_id, limit=10, api_period='overall', before_dt=None):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["l.user_id=$1"]
+    query_parts = ["l.user_id=$1", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [str(user_id)]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
@@ -749,7 +749,7 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
     from .config import PERIOD_TO_DAYS
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["l.user_id=$1", "LOWER(t.artist_name)=LOWER($2)"]
+    query_parts = ["l.user_id=$1", "LOWER(t.artist_name)=LOWER($2)", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [str(user_id), artist_name]
     
     if api_period and str(api_period).isdigit() and len(str(api_period)) == 4:
@@ -778,17 +778,17 @@ async def get_local_artist_top_tracks(user_id, artist_name, limit=10, api_period
 async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
     days = PERIOD_TO_DAYS.get(api_period)
     
-    query_parts = ["user_id = ANY($1)"]
+    query_parts = ["user_id = ANY($1)", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [member_ids]
-    
+
     if days:
         since = datetime.utcnow() - timedelta(days=days)
         args.append(since)
         query_parts.append(f"l.played_at >= ${len(args)}")
-        
+
     where_clause = " AND ".join(query_parts)
     args.append(limit)
-    
+
     rows = await db_fetch(
         f"SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id WHERE {where_clause} GROUP BY t.artist_name ORDER BY plays DESC LIMIT ${len(args)}",
         *args
@@ -797,8 +797,8 @@ async def get_server_top_artists(member_ids, limit=10, api_period='overall'):
 
 async def get_server_top_albums(member_ids, limit=10, api_period='overall'):
     days = PERIOD_TO_DAYS.get(api_period)
-    
-    query_parts = ["user_id = ANY($1)", "t.album_name IS NOT NULL AND t.album_name != ''"]
+
+    query_parts = ["user_id = ANY($1)", "t.album_name IS NOT NULL AND t.album_name != ''", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [member_ids]
     
     if days:
@@ -817,8 +817,8 @@ async def get_server_top_albums(member_ids, limit=10, api_period='overall'):
 
 async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
     days = PERIOD_TO_DAYS.get(api_period)
-    
-    query_parts = ["user_id = ANY($1)"]
+
+    query_parts = ["user_id = ANY($1)", "COALESCE(l.source,'import') != 'lastfm'"]
     args = [member_ids]
     
     if days:
@@ -837,46 +837,48 @@ async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
 
 async def get_global_whoknows(artist_name: str, limit: int = 15):
     rows = await db_fetch("""
-        SELECT user_id, COUNT(*) as plays 
-        FROM listens l JOIN tracks t ON l.track_id = t.id 
-        WHERE LOWER(t.artist_name) = LOWER($1) 
-        GROUP BY user_id 
-        ORDER BY plays DESC 
+        SELECT user_id, COUNT(*) as plays
+        FROM listens l JOIN tracks t ON l.track_id = t.id
+        WHERE LOWER(t.artist_name) = LOWER($1) AND COALESCE(l.source,'import') != 'lastfm'
+        GROUP BY user_id
+        ORDER BY plays DESC
         LIMIT $2
     """, artist_name, limit)
     return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_global_whoknows_track(artist_name: str, track_name: str, limit: int = 15):
     rows = await db_fetch("""
-        SELECT user_id, COUNT(*) as plays 
-        FROM listens l JOIN tracks t ON l.track_id = t.id 
+        SELECT user_id, COUNT(*) as plays
+        FROM listens l JOIN tracks t ON l.track_id = t.id
         WHERE LOWER(t.artist_name) = LOWER($1) AND LOWER(t.track_name) = LOWER($2)
-        GROUP BY user_id 
-        ORDER BY plays DESC 
+        AND COALESCE(l.source,'import') != 'lastfm'
+        GROUP BY user_id
+        ORDER BY plays DESC
         LIMIT $3
     """, artist_name, track_name, limit)
     return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_global_whoknows_album(artist_name: str, album_name: str, limit: int = 15):
     rows = await db_fetch("""
-        SELECT user_id, COUNT(*) as plays 
-        FROM listens l JOIN tracks t ON l.track_id = t.id 
+        SELECT user_id, COUNT(*) as plays
+        FROM listens l JOIN tracks t ON l.track_id = t.id
         WHERE LOWER(t.artist_name) = LOWER($1) AND LOWER(t.album_name) = LOWER($2)
-        GROUP BY user_id 
-        ORDER BY plays DESC 
+        AND COALESCE(l.source,'import') != 'lastfm'
+        GROUP BY user_id
+        ORDER BY plays DESC
         LIMIT $3
     """, artist_name, album_name, limit)
     return [(r['user_id'], r['plays']) for r in rows]
 
 async def get_local_total_plays(user_id):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1", str(user_id))
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND COALESCE(l.source,'import') != 'lastfm'", str(user_id))
     return rows[0]['total'] if rows else 0
 async def get_local_plays_before(user_id, before_dt):
-    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND played_at < $2", str(user_id), before_dt)
+    rows = await db_fetch("SELECT COUNT(*) as total FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND played_at < $2 AND COALESCE(l.source,'import') != 'lastfm'", str(user_id), before_dt)
     return rows[0]['total'] if rows else 0
 async def get_local_recent_tracks(user_id, limit=10):
     rows = await db_fetch(
-        "SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 ORDER BY l.played_at DESC LIMIT $2",
+        "SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND COALESCE(l.source,'import') != 'lastfm' ORDER BY l.played_at DESC LIMIT $2",
         str(user_id), limit
     )
     return [(r['track_name'], r['artist_name'], r['played_at']) for r in rows]

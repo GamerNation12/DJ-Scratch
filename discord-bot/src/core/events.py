@@ -17,7 +17,7 @@ from ..utils.api import *
 # Monotonic clock for boot timing logs (cold start diagnostics).
 BOOT_T0 = time.monotonic()
 # Bump whenever the boot schema DDL below changes — applied once, then skipped.
-BOOT_SCHEMA_VERSION = "6"
+BOOT_SCHEMA_VERSION = "7"
 
 FM_TRACK_CACHE = {}
 
@@ -974,7 +974,34 @@ async def setup_hook():
                         """
                     )
 
-                    # One-time migration
+                    # Last.fm history sync state + listen provenance (timestamp
+                # dedupe between scrobbles and imports).
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS fm_sync_state (
+                        user_id VARCHAR(255) PRIMARY KEY,
+                        lastfm_username TEXT NOT NULL,
+                        oldest_uts BIGINT DEFAULT 0,
+                        newest_uts BIGINT DEFAULT 0,
+                        backfill_page INT,
+                        backfill_done BOOLEAN DEFAULT FALSE,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                for _ddl_alter in (
+                    "ALTER TABLE listens ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'import'",
+                    "ALTER TABLE listens ADD COLUMN IF NOT EXISTS ms_played BIGINT",
+                    "ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT",
+                ):
+                    try:
+                        async with conn.transaction():
+                            await conn.execute("SET LOCAL lock_timeout = '20s'")
+                            await conn.execute(_ddl_alter)
+                    except Exception:
+                        pass
+
+                # One-time migration
                     if os.path.exists("lastfm_users.json"):
                         try:
                             with open("lastfm_users.json", "r") as f:
@@ -1040,7 +1067,7 @@ async def setup_hook():
             bot.add_custom_reactions = add_custom_reactions
             bot.save_user = save_user
 
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing', 'src.commands.tickets']
+            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing', 'src.commands.tickets', 'src.commands.fmsync']
             for cog in cogs:
                 try:
                     await bot.load_extension(cog)

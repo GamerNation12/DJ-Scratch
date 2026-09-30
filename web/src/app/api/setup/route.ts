@@ -12,16 +12,49 @@ export async function GET(req: Request) {
     `;
 
     await sql`
+      CREATE TABLE IF NOT EXISTS tracks (
+        id SERIAL PRIMARY KEY,
+        artist_name VARCHAR(255) NOT NULL,
+        track_name VARCHAR(255) NOT NULL,
+        album_name VARCHAR(255) NOT NULL DEFAULT '',
+        UNIQUE (artist_name, track_name, album_name)
+      )
+    `;
+
+    await sql`
       CREATE TABLE IF NOT EXISTS listens (
         id SERIAL PRIMARY KEY,
         user_id VARCHAR(255) REFERENCES imported_users(id),
-        artist_name VARCHAR(255) NOT NULL,
-        track_name VARCHAR(255) NOT NULL,
-        album_name VARCHAR(255),
+        track_id INTEGER REFERENCES tracks(id),
         played_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        UNIQUE (user_id, artist_name, track_name, played_at)
+        ms_played BIGINT,
+        spotify_uri TEXT,
+        source TEXT DEFAULT 'import',
+        UNIQUE (user_id, track_id, played_at)
       )
     `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS fm_sync_state (
+        user_id VARCHAR(255) PRIMARY KEY,
+        lastfm_username TEXT NOT NULL,
+        oldest_uts BIGINT DEFAULT 0,
+        newest_uts BIGINT DEFAULT 0,
+        backfill_page INT,
+        backfill_done BOOLEAN DEFAULT FALSE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    try {
+      await sql`ALTER TABLE listens ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'import'`;
+    } catch(e) {}
+    try {
+      await sql`ALTER TABLE listens ADD COLUMN IF NOT EXISTS ms_played BIGINT`;
+    } catch(e) {}
+    try {
+      await sql`ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT`;
+    } catch(e) {}
 
     await sql`CREATE INDEX IF NOT EXISTS idx_listens_user_id ON listens(user_id)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_listens_artist_name ON listens(artist_name)`;
