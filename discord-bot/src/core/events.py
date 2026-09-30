@@ -1025,92 +1025,91 @@ async def setup_hook():
                 except Exception:
                     pass
             print(f"{Log.CYAN}>>> Boot: schema DDL took {time.monotonic() - _t_ddl:.1f}s{Log.RESET}")
-            _t_cogs = time.monotonic()
-            bot.db_pool = db_pool
-            bot.get_avatar_cooldown = get_avatar_cooldown
-            bot.get_user_fm_mode = get_user_fm_mode
-            bot.process_fm = process_fm
-            bot.process_top_artists = process_top_artists
-            bot.process_top_tracks = process_top_tracks
-            bot.process_artist_tracks = process_artist_tracks
-            bot.process_recent = process_recent
-            bot.process_judge = process_judge
-            bot.process_receipt = process_receipt
-            bot.process_profile = process_profile
-            bot.process_whoknows = process_whoknows
-            bot.process_whoknowstrack = process_whoknowstrack
-            bot.process_whoknowsalbum = process_whoknowsalbum
-            bot.process_taste = process_taste
-            bot.process_live = process_live
-            bot.process_insights = process_insights
-            bot.process_suggestion = process_suggestion
-            bot.get_help_embed = get_help_embed
-            bot.process_crowns = process_crowns
-            bot.process_crownseeder = process_crownseeder
-            bot.process_killallcrowns = process_killallcrowns
-            bot.process_chart = process_chart
-            bot.process_artist_chart = process_artist_chart
-            bot.process_streak = process_streak
-            bot.process_streak_history = process_streak_history
-            
-            from src.core.server_leaderboards import process_server_artists, process_server_albums, process_server_tracks
-            bot.process_server_artists = process_server_artists
-            bot.process_server_albums = process_server_albums
-            bot.process_server_tracks = process_server_tracks
-            
-            from src.core.global_whoknows import process_global_whoknows, process_global_whoknowstrack, process_global_whoknowsalbum
-            bot.process_global_whoknows = process_global_whoknows
-            bot.process_global_whoknowstrack = process_global_whoknowstrack
-            bot.process_global_whoknowsalbum = process_global_whoknowsalbum
-            bot.handle_discord_import = handle_discord_import
-            bot.PurgeConfirmView = PurgeConfirmView
-            bot.add_custom_reactions = add_custom_reactions
-            bot.save_user = save_user
-
-            cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing', 'src.commands.tickets', 'src.commands.fmsync']
-            for cog in cogs:
-                try:
-                    await bot.load_extension(cog)
-                    print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
-                except Exception as e:
-                    print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
-
-            # Flip old fm messages to "was listening" once songs end.
-            print(f"{Log.CYAN}>>> Boot: cog loading took {time.monotonic() - _t_cogs:.1f}s{Log.RESET}")
-            try:
-                if not fm_live_watch.is_running():
-                    fm_live_watch.start()
-                    print(f"{Log.GREEN}>>> Started fm live watcher{Log.RESET}")
-            except Exception as e:
-                print(f"{Log.RED}>>> Failed to start fm live watcher: {e}{Log.RESET}")
-                    
-            if getattr(bot, 'is_test_bot', False):
-                test_dir = os.path.join(os.path.dirname(__file__), "..", "test_commands")
-                if os.path.exists(test_dir):
-                    for filename in os.listdir(test_dir):
-                        if filename.endswith('.py') and not filename.startswith('__'):
-                            base_name = filename[:-3]
-                            test_cog = f"src.test_commands.{base_name}"
-                            
-                            # Check if this overrides an existing command
-                            possible_overrides = [f"src.commands.{base_name}", f"cogs.{base_name}"]
-                            for original_cog in possible_overrides:
-                                if original_cog in bot.extensions:
-                                    try:
-                                        await bot.unload_extension(original_cog)
-                                        print(f"{Log.YELLOW}>>> Unloaded original {original_cog} for test override{Log.RESET}")
-                                    except Exception as e:
-                                        pass
-                            
-                            try:
-                                await bot.load_extension(test_cog)
-                                print(f"{Log.MAGENTA}>>> Loaded TEST feature {test_cog}{Log.RESET}")
-                            except Exception as e:
-                                print(f"{Log.RED}>>> Failed to load TEST feature {test_cog}: {e}{Log.RESET}")
-
-            
         except Exception as e:
-            print(f"{Log.RED}>>> Failed to connect to DB: {e}{Log.RESET}")
+            print(f"{Log.RED}>>> DB setup failed ({e}) — continuing without DB; cogs still loading{Log.RESET}")
+        _t_cogs = time.monotonic()
+        bot.db_pool = db_pool
+        bot.get_avatar_cooldown = get_avatar_cooldown
+        bot.get_user_fm_mode = get_user_fm_mode
+        bot.process_fm = process_fm
+        bot.process_top_artists = process_top_artists
+        bot.process_top_tracks = process_top_tracks
+        bot.process_artist_tracks = process_artist_tracks
+        bot.process_recent = process_recent
+        bot.process_judge = process_judge
+        bot.process_receipt = process_receipt
+        bot.process_profile = process_profile
+        bot.process_whoknows = process_whoknows
+        bot.process_whoknowstrack = process_whoknowstrack
+        bot.process_whoknowsalbum = process_whoknowsalbum
+        bot.process_taste = process_taste
+        bot.process_live = process_live
+        bot.process_insights = process_insights
+        bot.process_suggestion = process_suggestion
+        bot.get_help_embed = get_help_embed
+        bot.process_crowns = process_crowns
+        bot.process_crownseeder = process_crownseeder
+        bot.process_killallcrowns = process_killallcrowns
+        bot.process_chart = process_chart
+        bot.process_artist_chart = process_artist_chart
+        bot.process_streak = process_streak
+        bot.process_streak_history = process_streak_history
+
+        from src.core.server_leaderboards import process_server_artists, process_server_albums, process_server_tracks
+        bot.process_server_artists = process_server_artists
+        bot.process_server_albums = process_server_albums
+        bot.process_server_tracks = process_server_tracks
+
+        from src.core.global_whoknows import process_global_whoknows, process_global_whoknowstrack, process_global_whoknowsalbum
+        bot.process_global_whoknows = process_global_whoknows
+        bot.process_global_whoknowstrack = process_global_whoknowstrack
+        bot.process_global_whoknowsalbum = process_global_whoknowsalbum
+        bot.handle_discord_import = handle_discord_import
+        bot.PurgeConfirmView = PurgeConfirmView
+        bot.add_custom_reactions = add_custom_reactions
+        bot.save_user = save_user
+
+        cogs = ['cogs.admin', 'src.commands.admin_ipc', 'src.commands.lastfm', 'src.commands.importer', 'src.commands.settings', 'src.commands.info', 'src.commands.games', 'src.commands.spotify_remote', 'src.commands.social', 'src.commands.status', 'src.commands.fmbot_missing', 'src.commands.tickets', 'src.commands.fmsync']
+        for cog in cogs:
+            try:
+                await bot.load_extension(cog)
+                print(f"{Log.GREEN}>>> Loaded {cog}{Log.RESET}")
+            except Exception as e:
+                print(f"{Log.RED}>>> Failed to load {cog}: {e}{Log.RESET}")
+
+        # Flip old fm messages to "was listening" once songs end.
+        print(f"{Log.CYAN}>>> Boot: cog loading took {time.monotonic() - _t_cogs:.1f}s{Log.RESET}")
+        try:
+            if not fm_live_watch.is_running():
+                fm_live_watch.start()
+                print(f"{Log.GREEN}>>> Started fm live watcher{Log.RESET}")
+        except Exception as e:
+            print(f"{Log.RED}>>> Failed to start fm live watcher: {e}{Log.RESET}")
+
+        if getattr(bot, 'is_test_bot', False):
+            test_dir = os.path.join(os.path.dirname(__file__), "..", "test_commands")
+            if os.path.exists(test_dir):
+                for filename in os.listdir(test_dir):
+                    if filename.endswith('.py') and not filename.startswith('__'):
+                        base_name = filename[:-3]
+                        test_cog = f"src.test_commands.{base_name}"
+
+                        # Check if this overrides an existing command
+                        possible_overrides = [f"src.commands.{base_name}", f"cogs.{base_name}"]
+                        for original_cog in possible_overrides:
+                            if original_cog in bot.extensions:
+                                try:
+                                    await bot.unload_extension(original_cog)
+                                    print(f"{Log.YELLOW}>>> Unloaded original {original_cog} for test override{Log.RESET}")
+                                except Exception as e:
+                                    pass
+
+                        try:
+                            await bot.load_extension(test_cog)
+                            print(f"{Log.MAGENTA}>>> Loaded TEST feature {test_cog}{Log.RESET}")
+                        except Exception as e:
+                            print(f"{Log.RED}>>> Failed to load TEST feature {test_cog}: {e}{Log.RESET}")
+
     else:
         print(f"{Log.RED}>>> No DATABASE_URL or POSTGRES_URL set — DB disabled{Log.RESET}")
 bot.setup_hook = setup_hook
@@ -1662,29 +1661,35 @@ async def on_ready():
             _app_id = bot.application_id or (await bot.application_info()).id
             _local = bot.tree._get_all_commands(guild=None)
             _payload = [c.to_dict(bot.tree) for c in _local]
-            _hash = hashlib.sha256(json.dumps(_payload, sort_keys=True, default=str).encode()).hexdigest()
-            from .database import db_pool as _pool
-            _last_hash = None
-            if _pool:
-                try:
-                    async with _pool.acquire() as _conn:
-                        _last_hash = await _conn.fetchval("SELECT value FROM global_settings WHERE key = 'slash_sync_hash'")
-                except Exception:
-                    pass
-            if _last_hash == _hash:
-                print(f"{Log.GREEN}[OK] Slash commands unchanged ({len(_payload)} cmds) — skipped re-sync in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
+            if len(_payload) < 10:
+                # Cogs probably failed to load (empty tree) — syncing now
+                # would WIPE all global commands. Skip; run ',sync' manually.
+                print(f"{Log.YELLOW}>>> Skipping auto-sync: only {len(_payload)} local commands "
+                      f"(expected 50+). Run ',sync' manually once healthy.{Log.RESET}")
             else:
-                _existing = await bot.http.get_global_commands(_app_id)
-                _entry_points = [cmd for cmd in _existing if cmd.get('type') == 4]
-                _payload.extend(_entry_points)
-                _synced = await bot.http.bulk_upsert_global_commands(_app_id, _payload)
+                _hash = hashlib.sha256(json.dumps(_payload, sort_keys=True, default=str).encode()).hexdigest()
+                from .database import db_pool as _pool
+                _last_hash = None
                 if _pool:
                     try:
                         async with _pool.acquire() as _conn:
-                            await _conn.execute("INSERT INTO global_settings (key, value) VALUES ('slash_sync_hash', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", _hash)
+                            _last_hash = await _conn.fetchval("SELECT value FROM global_settings WHERE key = 'slash_sync_hash'")
                     except Exception:
                         pass
-                print(f"{Log.GREEN}[OK] AUTO-SYNCED {len(_synced)} global slash commands ({len(_entry_points)} entry points kept) in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
+                if _last_hash == _hash:
+                    print(f"{Log.GREEN}[OK] Slash commands unchanged ({len(_payload)} cmds) — skipped re-sync in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
+                else:
+                    _existing = await bot.http.get_global_commands(_app_id)
+                    _entry_points = [cmd for cmd in _existing if cmd.get('type') == 4]
+                    _payload.extend(_entry_points)
+                    _synced = await bot.http.bulk_upsert_global_commands(_app_id, _payload)
+                    if _pool:
+                        try:
+                            async with _pool.acquire() as _conn:
+                                await _conn.execute("INSERT INTO global_settings (key, value) VALUES ('slash_sync_hash', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", _hash)
+                        except Exception:
+                            pass
+                    print(f"{Log.GREEN}[OK] AUTO-SYNCED {len(_synced)} global slash commands ({len(_entry_points)} entry points kept) in {time.monotonic() - _t_sync:.1f}s{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> Auto-sync failed (run ',sync' manually): {e}{Log.RESET}")
     
