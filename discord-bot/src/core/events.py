@@ -4507,20 +4507,98 @@ async def process_insights(user):
     embed.set_author(name=f"Listening insights — {format_name(user)}")
     return embed, None
 
+class SuggestionAuthorView(discord.ui.View):
+    """Edit/Cancel buttons on the author's own suggestion confirmation.
+
+    Carries the suggestion id + author id in the custom_ids and is routed
+    centrally in on_interaction, so no persistent-view registration needed.
+    """
+    def __init__(self, sugg_id: int, author_id: int):
+        super().__init__(timeout=None)
+        self.add_item(discord.ui.Button(
+            label="Edit", emoji="✏️", style=discord.ButtonStyle.secondary,
+            custom_id=f"suggedit:{sugg_id}:{author_id}"))
+        self.add_item(discord.ui.Button(
+            label="Cancel", emoji="🗑️", style=discord.ButtonStyle.danger,
+            custom_id=f"suggcancel:{sugg_id}:{author_id}"))
+
+
+class SuggestionEditModal(discord.ui.Modal, title="Edit Suggestion"):
+    title_input = discord.ui.TextInput(
+        label="Title",
+        style=discord.TextStyle.short,
+        placeholder="Short summary",
+        required=True,
+        max_length=120,
+    )
+    desc_input = discord.ui.TextInput(
+        label="Description",
+        style=discord.TextStyle.paragraph,
+        placeholder="Describe your idea",
+        required=True,
+        max_length=2000,
+    )
+
+    def __init__(self, sugg_id: int, author_id: int, title: str, description: str):
+        super().__init__()
+        self.sugg_id = sugg_id
+        self.author_id = author_id
+        self.title_input.default = (title or "")[:120]
+        self.desc_input.default = (description or "")[:2000]
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != str(self.author_id):
+            return await interaction.response.send_message(
+                "Only the author can edit this.", ephemeral=True)
+        new_title = str(self.title_input.value or "").strip()
+        new_desc = str(self.desc_input.value or "").strip()
+        if not new_title or not new_desc:
+            return await interaction.response.send_message(
+                "Title and description can't be empty.", ephemeral=True)
+        try:
+            pool = db_pool
+            if not pool:
+                return await interaction.response.send_message(
+                    "Database connection error.", ephemeral=True)
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "UPDATE suggestions SET title = $2, description = $3, "
+                    "updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $4 "
+                    "AND status = 'pending' RETURNING id, title, description",
+                    int(self.sugg_id), new_title, new_desc, str(self.author_id))
+            if not row:
+                return await interaction.response.send_message(
+                    "Couldn't save — it may have been decided or cancelled already.",
+                    ephemeral=True)
+            embed = Theme.get_embed(
+                title="✅ Suggestion updated!",
+                description=f"**{row['title']}**\n{row['description']}",
+                color=discord.Color.green())
+            await interaction.response.edit_message(embed=embed, view=SuggestionAuthorView(
+                int(self.sugg_id), int(self.author_id)))
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Couldn't save: {e}", ephemeral=True)
+            except Exception:
+                pass
+
+
 async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
     try:
         title = "Bug Report" if is_bug else "Bot Suggestion"
         description = suggestion_text
         
         global db_pool
+        sugg_id = None
         if db_pool:
             import asyncpg
             if isinstance(db_pool, asyncpg.pool.Pool):
                 async with db_pool.acquire() as conn:
-                    await conn.execute(
-                        "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4)",
+                    row = await conn.fetchrow(
+                        "INSERT INTO suggestions (user_id, username, title, description) VALUES ($1, $2, $3, $4) RETURNING id",
                         str(user.id), str(format_name(user)), title, description
                     )
+                    sugg_id = row["id"] if row else None
             else:
                 print(f"DB pool not found or wrong type, skipping DB insert.")
 
@@ -4537,11 +4615,17 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
         await owner.send(embed=embed, view=view_to_send)
         print(f"{Log.GREEN}>>> New {'bug report' if is_bug else 'suggestion'} forwarded to owner & DB.{Log.RESET}")
         
-        confirm_text = "✅ Bug report saved to your Dashboard & sent directly to the developer!" if is_bug else "✅ Suggestion saved to your Dashboard & sent directly to the developer!"
-        confirm = Theme.get_embed(description=confirm_text, color=discord.Color.green())
-        
-        if isinstance(ctx_int, discord.Interaction): await ctx_int.response.send_message(embed=confirm, ephemeral=True)
-        else: await ctx_int.send(embed=confirm)
+        confirm_text = "Bug report saved to your Dashboard & sent directly to the developer!" if is_bug else "Suggestion saved to your Dashboard & sent directly to the developer!"
+        confirm = Theme.get_embed(
+            title=f"✅ {title}",
+            description=f"{confirm_text}\n\n{description}",
+            color=discord.Color.green())
+
+        view = SuggestionAuthorView(int(sugg_id), int(user.id)) if sugg_id else None
+        if isinstance(ctx_int, discord.Interaction):
+            await ctx_int.response.send_message(embed=confirm, view=view, ephemeral=True)
+        else:
+            await ctx_int.send(embed=confirm, view=view)
     except Exception as e:
         print(f"Suggestion/Bug report error: {e}")
 async def process_crowns(guild, user):
@@ -5458,6 +5542,74 @@ async def on_interaction(interaction: discord.Interaction):
                 await interaction.response.send_message("Bad guild id.", ephemeral=True)
                 return
             await interaction.response.send_modal(LeaveGuildReasonModal(_gid))
+
+        elif custom_id.startswith("suggedit:"):
+            parts = custom_id.split(":")
+            if len(parts) != 3:
+                await interaction.response.send_message("Bad suggestion reference.", ephemeral=True)
+                return
+            _, sid, author_id = parts
+            if str(interaction.user.id) != author_id:
+                await interaction.response.send_message("Only the author can edit this.", ephemeral=True)
+                return
+            try:
+                pool = db_pool
+                if not pool:
+                    await interaction.response.send_message("Database connection error.", ephemeral=True)
+                    return
+                async with pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT id, title, description FROM suggestions "
+                        "WHERE id = $1 AND user_id = $2 AND status = 'pending'",
+                        int(sid), author_id)
+                if not row:
+                    await interaction.response.send_message(
+                        "Couldn't edit — it may have been decided or cancelled already.", ephemeral=True)
+                    return
+                await interaction.response.send_modal(SuggestionEditModal(
+                    int(sid), int(author_id), row["title"], row["description"]))
+            except Exception as e:
+                try:
+                    await interaction.response.send_message(f"Couldn't load it: {e}", ephemeral=True)
+                except Exception:
+                    pass
+
+        elif custom_id.startswith("suggcancel:"):
+            parts = custom_id.split(":")
+            if len(parts) != 3:
+                await interaction.response.send_message("Bad suggestion reference.", ephemeral=True)
+                return
+            _, sid, author_id = parts
+            if str(interaction.user.id) != author_id:
+                await interaction.response.send_message("Only the author can cancel this.", ephemeral=True)
+                return
+            try:
+                pool = db_pool
+                if not pool:
+                    await interaction.response.send_message("Database connection error.", ephemeral=True)
+                    return
+                async with pool.acquire() as conn:
+                    gone = await conn.fetchrow(
+                        "DELETE FROM suggestions WHERE id = $1 AND user_id = $2 "
+                        "AND status = 'pending' RETURNING id",
+                        int(sid), author_id)
+                if not gone:
+                    await interaction.response.send_message(
+                        "Couldn't cancel — it may have been decided already.", ephemeral=True)
+                    return
+                embed = Theme.get_embed(
+                    title="🗑️ Suggestion cancelled",
+                    description="Removed before review. Submit again any time!",
+                    color=discord.Color.greyple())
+                try:
+                    await interaction.response.edit_message(embed=embed, view=None)
+                except Exception:
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+            except Exception as e:
+                try:
+                    await interaction.response.send_message(f"Couldn't cancel: {e}", ephemeral=True)
+                except Exception:
+                    pass
             
         elif custom_id.startswith("badge_pick:"):
             parts = custom_id.split(":")
