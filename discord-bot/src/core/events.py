@@ -1061,6 +1061,11 @@ async def setup_hook():
             print(f"{Log.CYAN}>>> Boot: schema DDL took {time.monotonic() - _t_ddl:.1f}s{Log.RESET}")
         except Exception as e:
             print(f"{Log.RED}>>> DB setup failed ({e}) — continuing without DB; cogs still loading{Log.RESET}")
+            try:
+                import traceback as _tb
+                print(f"{Log.RED}>>> DB setup traceback:{Log.RESET}\n{_tb.format_exc()[-3000:]}")
+            except Exception:
+                pass
         _t_cogs = time.monotonic()
         bot.db_pool = db_pool
         bot.get_avatar_cooldown = get_avatar_cooldown
