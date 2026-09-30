@@ -1824,6 +1824,29 @@ async def log_to_channel(channel_name: str, embed: discord.Embed, view=None):
                 await channel.send(embed=embed, view=view)
                 return
 
+        # Support-server log channels (names may carry a "• " prefix, so match
+        # by suffix). This is the primary path for the owner's log channels.
+        _aliases = {
+            "guild-join": ("guild-join",),
+            "guild-leave": ("guild-leave",),
+            "errors": ("bot-errors",),
+            "website-log": ("website-app-logins",),
+            "avatar": ("pfp-changes-log",),
+        }
+        try:
+            _guild = bot.get_guild(1527127381897383946)
+            if _guild is not None:
+                for _alias in _aliases.get(channel_name, (channel_name,)):
+                    for _ch in _guild.text_channels:
+                        try:
+                            if _ch.name.lower().endswith(_alias):
+                                await _ch.send(embed=embed, view=view)
+                                return
+                        except Exception:
+                            continue
+        except Exception:
+            pass
+
         # Fallback to older string search behavior (e.g. for website-log)
         target_guild_id = os.getenv("LOG_GUILD_ID")
         
@@ -2626,6 +2649,16 @@ class ApplyAvatarView(discord.ui.View):
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
                 await interaction.followup.send(f"✅ Avatar updated successfully!", ephemeral=True)
+            try:
+                _art = self.img if isinstance(self.img, str) else None
+                _log = Theme.get_embed(
+                    title="🖼️ Bot avatar changed",
+                    description=f"**{self.artist}** applied by {interaction.user.mention}")
+                if _art:
+                    _log.set_thumbnail(url=_art)
+                await log_to_channel("avatar", _log)
+            except Exception:
+                pass
             self.stop()
             
             if self.original_msg and self.original_user:
