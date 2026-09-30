@@ -271,7 +271,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } else if (data_source === 'lastfm_only') {
       finalStats = lastfmData;
     } else {
-      finalStats.playcount = Math.max(lastfmData.playcount, importedData.playcount);
+      finalStats.playcount = lastfmData.playcount + importedData.playcount;
       finalStats.topAlbums = lastfmData.topAlbums;
 
       let artistMap = new Map();
@@ -279,7 +279,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const a of importedData.topArtists) {
         const key = a.name.toLowerCase();
         if (artistMap.has(key)) {
-          artistMap.get(key).playcount = Math.max(artistMap.get(key).playcount, a.playcount);
+          artistMap.get(key).playcount += a.playcount;
         } else {
           artistMap.set(key, { ...a });
         }
@@ -294,7 +294,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const t of importedData.topTracks) {
         const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
         if (trackMap.has(key)) {
-          trackMap.get(key).playcount = Math.max(trackMap.get(key).playcount, t.playcount);
+          trackMap.get(key).playcount += t.playcount;
         } else {
           trackMap.set(key, { ...t });
         }

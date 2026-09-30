@@ -3343,7 +3343,8 @@ async def process_top_artists(user, input_period=None):
     for artist, count in local_data.items():
         key = artist.lower()
         if key in combined:
-            combined[key] = max(combined[key], count)
+            # Imports add history Last.fm lacks (.fmbot parity: sum, not max).
+            combined[key] = combined[key] + count
         else:
             combined[key] = count
             original_names[key] = artist
@@ -3382,7 +3383,7 @@ async def process_top_tracks(user, input_period=None):
     for track_name, artist_name, plays in local_tracks:
         k = (track_name.lower(), artist_name.lower())
         if k in combined:
-            combined[k] = max(combined[k], plays)
+            combined[k] = combined[k] + plays
         else:
             combined[k] = plays
             original_names[k] = (track_name, artist_name)
@@ -3425,7 +3426,7 @@ async def process_top_albums(user, input_period=None):
     for album_name, artist_name, plays in local_albums:
         k = (album_name.lower(), artist_name.lower())
         if k in combined:
-            combined[k] = max(combined[k], plays)
+            combined[k] = combined[k] + plays
         else:
             combined[k] = plays
             original_names[k] = (album_name, artist_name)
@@ -3717,7 +3718,7 @@ async def process_artist_tracks(user, artist_name):
 
     combined = dict(lastfm_tracks)
     for track_name, plays in local_tracks:
-        combined[track_name] = max(combined.get(track_name, 0), plays)
+        combined[track_name] = combined.get(track_name, 0) + plays
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     if not sorted_tracks: return Theme.get_error_embed(description=f"No track data found for **{artist_name}**."), None, None
@@ -3809,7 +3810,7 @@ async def process_judge(user):
     if d_source != 'lastfm_only':
         local_artists = await get_local_top_artists(user.id, 50, 'overall')
     for a, c in local_artists.items():
-        artists_dict[a] = max(artists_dict.get(a, 0), c)
+        artists_dict[a] = artists_dict.get(a, 0) + c
         
     top_artists = sorted(artists_dict.items(), key=lambda x: x[1], reverse=True)[:14]
     
@@ -3973,7 +3974,7 @@ async def process_profile(user):
                 embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
                 embed.add_field(name="🎵 Total Plays", value=f"**{total:,}**", inline=True)
             else:
-                total = max(lastfm_plays, local_total)
+                total = lastfm_plays + local_total
                 embed.add_field(name="🎧 Last.fm Scrobbles", value=f"**{lastfm_plays:,}**", inline=True)
                 if local_total > 0:
                     embed.add_field(name="📦 Imported Plays", value=f"**{local_total:,}**", inline=True)
@@ -3984,8 +3985,7 @@ async def process_profile(user):
             if info['image'][3]['#text']: embed.set_thumbnail(url=info['image'][3]['#text'])
             
             if local_total > 0 and d_source != 'imported_only':
-                overlap = (lastfm_plays + local_total) - total
-                embed.set_footer(text=f"Filtered {overlap:,} duplicate scrobbles using MAX deduplication.")
+                embed.set_footer(text="Last.fm + imported plays combined.")
             
             if created_at:
                 embed.add_field(name="📅 Joined", value=discord.utils.format_dt(created_at, style='D'), inline=True)
@@ -4028,7 +4028,7 @@ async def get_combined_playcount(session, uid, lname, artist, track=None, album=
         elif album: local = await get_local_album_playcount(uid, artist, album)
         else: local = await get_local_artist_playcount(uid, artist)
         
-    return max(lastfm, local)
+    return lastfm + local
 
 async def get_combined_top_artists(uid, lname, limit=100):
     from src.core.database import get_user_data_source, get_local_top_artists
@@ -4047,7 +4047,7 @@ async def get_combined_top_artists(uid, lname, limit=100):
         for artist, count in local_data.items():
             key = artist.lower()
             if key in combined:
-                combined[key]['plays'] = max(combined[key]['plays'], count)
+                combined[key]['plays'] = combined[key]['plays'] + count
             else:
                 combined[key] = {'name': artist, 'plays': count}
                 
@@ -4087,7 +4087,7 @@ async def get_combined_top_albums(uid, lname, limit=100, period='overall'):
         for album, artist, count in local_data:
             key = f"{artist} - {album}".lower()
             if key in combined:
-                combined[key]['plays'] = max(combined[key]['plays'], count)
+                combined[key]['plays'] = combined[key]['plays'] + count
             else:
                 combined[key] = {'artist': artist, 'name': album, 'plays': count, 'image': None}
                 
