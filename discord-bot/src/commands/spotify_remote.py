@@ -20,6 +20,8 @@ def _norm_link_name(s):
     import re
     s = (s or "").lower()
     s = re.sub(r"\(.*?\)|\[.*?]", "", s)  # drop (remastered...), [explicit]
+    s = s.replace("&", " and ").replace("+", " and ")
+    s = re.sub(r"[^a-z0-9\s]", "", s)  # ./-/’ etc. so punctuation can't veto a match
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -102,10 +104,12 @@ def _owner_only_embed():
 async def _reference_query(ctx):
     """Usable query from the replied-to message.
 
-    Prefers a Spotify link (embeds included — e.g. replying ,play/,q to a
-    ,sp result queues THAT track), else falls back to the message text.
+    Prefers a Spotify link (message, embed url/author/fields — e.g. replying
+    ,play/,q to a ,sp result queues THAT track), then an fm-style
+    "listening to **Title** by **Artist**" extraction, else the raw text.
     Returns None when there's nothing usable.
     """
+    import re
     try:
         ref = getattr(ctx.message, "reference", None)
         if not ref:
@@ -117,12 +121,34 @@ async def _reference_query(ctx):
         else:
             msg = await ctx.channel.fetch_message(ref.message_id)
         texts = [msg.content or ""]
+        urls = []
         for e in (msg.embeds or []):
             texts.append(getattr(e, "description", None) or "")
             texts.append(getattr(e, "title", None) or "")
+            for u in (getattr(e, "url", None), getattr(getattr(e, "author", None), "url", None)):
+                if u:
+                    urls.append(u)
+            try:
+                for f in (e.fields or []):
+                    texts.append(getattr(f, "value", None) or "")
+                    texts.append(getattr(f, "name", None) or "")
+            except Exception:
+                pass
+        for u in urls:
+            parsed = parse_spotify_url(u)
+            if parsed and parsed[0] in ("track", "album", "artist"):
+                kind, sid = parsed
+                return f"https://open.spotify.com/{kind}/{sid}"
         blob = "\n".join(t for t in texts if t)
         if not blob.strip():
             return None
+        m = re.search(r"listening to \*\*(.+?)\*\*\s+by\s+\*\*(.+?)\*\*",
+                      blob, re.IGNORECASE | re.DOTALL)
+        if m:
+            title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", m.group(1)).strip()
+            artist = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", m.group(2)).strip()
+            if title and artist:
+                return f"{title} {artist}"
         parsed = parse_spotify_url(blob)
         if parsed:
             kind, sid = parsed

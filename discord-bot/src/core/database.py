@@ -615,27 +615,36 @@ async def get_local_total_plays(user_id):
     except Exception:
         return 0
 
-async def get_local_artist_playcount(user_id, artist_name):
+async def get_local_artist_playcount(user_id, artist_name, before_dt=None):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2)", str(user_id), artist_name)
+            if before_dt:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND l.played_at < $3", str(user_id), artist_name, before_dt)
+            else:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2)", str(user_id), artist_name)
             return row['count'] if row else 0
     except Exception: return 0
 
-async def get_local_track_playcount(user_id, artist_name, track_name):
+async def get_local_track_playcount(user_id, artist_name, track_name, before_dt=None):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3)", str(user_id), artist_name, track_name)
+            if before_dt:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3) AND l.played_at < $4", str(user_id), artist_name, track_name, before_dt)
+            else:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.track_name)=LOWER($3)", str(user_id), artist_name, track_name)
             return row['count'] if row else 0
     except Exception: return 0
 
-async def get_local_album_playcount(user_id, artist_name, album_name):
+async def get_local_album_playcount(user_id, artist_name, album_name, before_dt=None):
     if not db_pool: return 0
     try:
         async with db_pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3)", str(user_id), artist_name, album_name)
+            if before_dt:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3) AND l.played_at < $4", str(user_id), artist_name, album_name, before_dt)
+            else:
+                row = await conn.fetchrow("SELECT COUNT(*) FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id=$1 AND LOWER(t.artist_name)=LOWER($2) AND LOWER(t.album_name)=LOWER($3)", str(user_id), artist_name, album_name)
             return row['count'] if row else 0
     except Exception: return 0
 

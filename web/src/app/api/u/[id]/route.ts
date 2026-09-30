@@ -172,19 +172,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let lastfmData = { playcount: 0, topArtists: [] as any[], recentTracks: [] as any[], topTracks: [] as any[], topAlbums: [] as any[] };
     let debugLogs: any[] = [];
 
+    // Era-aware merging (overall only): the account-creation date splits
+    // imported history into pre-Link plays (unique, added) vs newer ones
+    // (likely overlapping scrobbles, max). One cheap user.getinfo call.
+    let regDate: Date | null = null;
+    if (lastfm_username && data_source !== 'imported_only' && period === "overall") {
+      try {
+        const regRes = await fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`);
+        const regData = await regRes.json().catch(() => null);
+        const uts = parseInt(regData?.user?.registered?.unixtime || "0", 10);
+        if (Number.isFinite(uts) && uts > 0) regDate = new Date(uts * 1000);
+      } catch { /* fall back to max merge */ }
+    }
+    const useEra = regDate !== null;
+
     // Fetch Imported Data (optionally scoped to the requested period)
     if (hasImported && data_source !== 'lastfm_only') {
       try {
         const [playcountRes, topArtistsRes, topTracksRes, recentTracksRes] = await Promise.all([
-          cutoffDate
-            ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`
-            : sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId}`,
-          cutoffDate
-            ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
-            : sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`,
-          cutoffDate
-            ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
-            : sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`,
+          useEra
+            ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at < ${regDate!}`
+            : cutoffDate
+              ? sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`
+              : sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${uId}`,
+          useEra
+            ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
+            : cutoffDate
+              ? sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`
+              : sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 50`,
+          useEra
+            ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at < ${regDate!} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
+            : cutoffDate
+              ? sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} AND l.played_at >= ${cutoffDate} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`
+              : sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 50`,
           sql`SELECT t.track_name, t.artist_name, l.played_at FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${uId} ORDER BY l.played_at DESC LIMIT 50`
         ]);
 
@@ -271,7 +291,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } else if (data_source === 'lastfm_only') {
       finalStats = lastfmData;
     } else {
-      finalStats.playcount = lastfmData.playcount + importedData.playcount;
+      finalStats.playcount = useEra
+        ? lastfmData.playcount + importedData.playcount
+        : Math.max(lastfmData.playcount, importedData.playcount);
       finalStats.topAlbums = lastfmData.topAlbums;
 
       let artistMap = new Map();
@@ -279,7 +301,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const a of importedData.topArtists) {
         const key = a.name.toLowerCase();
         if (artistMap.has(key)) {
-          artistMap.get(key).playcount += a.playcount;
+          artistMap.get(key).playcount = useEra
+            ? artistMap.get(key).playcount + a.playcount
+            : Math.max(artistMap.get(key).playcount, a.playcount);
         } else {
           artistMap.set(key, { ...a });
         }
@@ -294,7 +318,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const t of importedData.topTracks) {
         const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
         if (trackMap.has(key)) {
-          trackMap.get(key).playcount += t.playcount;
+          trackMap.get(key).playcount = useEra
+            ? trackMap.get(key).playcount + t.playcount
+            : Math.max(trackMap.get(key).playcount, t.playcount);
         } else {
           trackMap.set(key, { ...t });
         }
