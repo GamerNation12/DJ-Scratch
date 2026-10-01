@@ -281,41 +281,7 @@ class StatusCog(commands.Cog):
                     await set_global_setting(_s, _k)
                 return
             for period, key, setting in due:
-                sent = 0
-                for row in rows:
-                    uid = row['user_id']
-                    try:
-                        u = self.bot.get_user(int(uid))
-                        if u is None:
-                            u = await self.bot.fetch_user(int(uid))
-                        if u is None:
-                            continue
-                        result, err = await cog._recap_result(u, period)
-                        if err or not result:
-                            continue
-                        img_bytes, _invite_url, _profile_url, total, label = result
-                        embed = cog._recap_message(u, period, total, label)
-                        await u.send(embed=embed,
-                                     file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
-                        sent += 1
-                        await _aio.sleep(2)
-                    except discord.Forbidden:
-                        # DMs closed: flag for in-channel delivery on their
-                        # next command (claimed one-shot by the hook).
-                        try:
-                            _col = 'recap_pending_month' if period == 'month' else 'recap_pending_week'
-                            async with db_pool.acquire() as _conn:
-                                await _conn.execute(
-                                    f"UPDATE user_settings SET {_col} = $2 WHERE user_id = $1",
-                                    uid, key)
-                        except Exception:
-                            pass
-                        continue
-                    except Exception as e:
-                        print(f"{Log.RED}>>> Auto-recap DM failed for {uid}: {e}{Log.RESET}")
-                        continue
-                await set_global_setting(setting, key)
-                print(f"{Log.GREEN}>>> Auto-recap ({period} {key}) sent to {sent} users{Log.RESET}")
+                await self._deliver_recap(period, key, setting, rows)
         except Exception as e:
             try:
                 from src.core.config import Log
@@ -324,6 +290,84 @@ class StatusCog(commands.Cog):
                 pass
         finally:
             self._recap_running = False
+
+    async def _deliver_recap(self, period, key, setting, rows):
+        """Send a recap round (scheduler + manual replay share this)."""
+        import io as _io
+        import asyncio as _aio
+        from src.core.database import db_pool
+        from src.core.config import Log
+        sent = 0
+        cog = self.bot.get_cog("LastFmCog")
+        if cog is None or not rows:
+            return 0
+        for row in rows:
+            uid = row['user_id']
+            try:
+                u = self.bot.get_user(int(uid))
+                if u is None:
+                    u = await self.bot.fetch_user(int(uid))
+                if u is None:
+                    continue
+                result, err = await cog._recap_result(u, period)
+                if err or not result:
+                    continue
+                img_bytes, _invite_url, _profile_url, total, label = result
+                embed = cog._recap_message(u, period, total, label)
+                await u.send(embed=embed,
+                             file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
+                sent += 1
+                await _aio.sleep(2)
+            except discord.Forbidden:
+                # DMs closed: flag for in-channel delivery on their
+                # next command (claimed one-shot by the hook).
+                try:
+                    _col = 'recap_pending_month' if period == 'month' else 'recap_pending_week'
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(
+                            f"UPDATE user_settings SET {_col} = $2 WHERE user_id = $1",
+                            uid, key)
+                except Exception:
+                    pass
+                continue
+            except Exception as e:
+                print(f"{Log.RED}>>> Auto-recap DM failed for {uid}: {e}{Log.RESET}")
+                continue
+        if setting:
+            await set_global_setting(setting, key)
+        print(f"{Log.GREEN}>>> Auto-recap ({period} {key}) sent to {sent} users{Log.RESET}")
+        return sent
+
+    @commands.command(name="recapreplay", aliases=["recap_replay", "resendrecap"])
+    @commands.is_owner()
+    async def recapreplay(self, ctx, period: str = "month", target: discord.Member = None):
+        """Re-send a recap round (e.g. after a bugged one). Owner only."""
+        from datetime import timezone
+        period = (period or "month").lower()
+        if period not in ("week", "month"):
+            return await ctx.send("Usage: `,recapreplay <week|month> [@user]`")
+        now = datetime.now(timezone.utc)
+        if period == "month":
+            key = now.strftime("%Y-%m")
+        else:
+            iso = now.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+        rows = [{"user_id": str(target.id)}] if target is not None else None
+        if rows is None:
+            try:
+                from src.core.database import db_pool
+                async with db_pool.acquire() as conn:
+                    rows = await conn.fetch(
+                        "SELECT user_id FROM user_settings WHERE lastfm_username IS NOT NULL "
+                        "AND (last_active IS NULL OR last_active > CURRENT_TIMESTAMP - INTERVAL '14 days')")
+            except Exception as e:
+                return await ctx.send(f"Couldn't load users: {e}")
+        msg = await ctx.send(f"⏳ Replaying {period}ly recap ({key}) to {len(rows)} user(s)…")
+        sent = await self._deliver_recap(period, key, None, rows)
+        try:
+            await msg.edit(content=f"✅ Replayed {period}ly recap ({key}) to **{sent}** user(s).")
+        except Exception:
+            pass
 
 async def setup(bot):
     await bot.add_cog(StatusCog(bot))
