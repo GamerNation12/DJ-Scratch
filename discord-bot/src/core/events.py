@@ -732,33 +732,21 @@ async def setup_hook():
 
     @asynccontextmanager
     async def _db_conn():
-        """Pool acquire that survives stale pooled connections.
+        """Boot DDL uses a dedicated raw connection, never the pool.
 
-        Supabase's pooler occasionally kills an idle server connection; the
-        next acquire then hands back a dead holder ("released back to the
-        pool"). On exactly that failure we rebuild the pool once and retry.
+        Every pooled acquire on this host eventually hands back a dead
+        holder proxy ("released back to the pool"), while runtime traffic
+        is fine. A raw connection has no holder/proxy layer, so that
+        failure mode is structurally impossible here.
         """
-        global db_pool
+        _raw = await asyncpg.connect(dsn=db_url, ssl="require", statement_cache_size=0)
         try:
-            async with db_pool.acquire() as conn:
-                yield conn
-        except Exception as e:
-            msg = str(e)
-            if "released back to the pool" not in msg and "connection was closed" not in msg:
-                raise
+            yield _raw
+        finally:
             try:
-                await db_pool.close()
+                await _raw.close()
             except Exception:
                 pass
-            _url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
-            if "pooler.supabase.com" in _url and ":5432" in _url:
-                _url = _url.replace(":5432", ":6543")
-            db_pool = await asyncpg.create_pool(dsn=_url, ssl="require", min_size=1, max_size=5, statement_cache_size=0)
-            import src.core.database as db_module
-            db_module.db_pool = db_pool
-            print(f"{Log.YELLOW}>>> DB pool rebuilt after stale connection; retrying{Log.RESET}")
-            async with db_pool.acquire() as conn:
-                yield conn
 
     if db_url:
         try:
