@@ -1327,15 +1327,18 @@ class LastFmCog(commands.Cog):
         import urllib.parse
 
         days = 30 if period == "month" else 7
+        # Last.fm and PERIOD_TO_DAYS both want named periods — "30day" is
+        # invalid and silently falls back to lifetime stats on both sources.
+        api_p = "1month" if period == "month" else "7day"
         username = await get_lastfm_username(user.id)
         if not username:
             return (None, None), Theme.get_error_embed(
                 description="Link Last.fm first with `/login` — the recap shows your stats!")
 
         top_art, top_trk, top_alb, overall = await _aio.gather(
-            fetch_top_artists(username, f"{days}day", 5),
-            fetch_top_tracks(username, f"{days}day", 5),
-            fetch_top_albums(username, f"{days}day", 3),
+            fetch_top_artists(username, api_p, 5),
+            fetch_top_tracks(username, api_p, 5),
+            fetch_top_albums(username, api_p, 3),
             fetch_top_artists(username, "overall", 50),
             return_exceptions=True,
         )
