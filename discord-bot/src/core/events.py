@@ -777,10 +777,11 @@ async def setup_hook():
                 async with _db_conn() as _vconn:
                     _vv = await _vconn.fetchval(
                         "SELECT value FROM global_settings WHERE key = 'schema_version'", timeout=15)
+                    print(f">>> schema_version={_vv!r} want={BOOT_SCHEMA_VERSION}")
                     if _vv == BOOT_SCHEMA_VERSION:
                         _need_ddl = False
-            except Exception:
-                pass
+            except Exception as _ve:
+                print(f">>> version check failed ({type(_ve).__name__}: {_ve}) — running DDL")
             if not _need_ddl:
                 print(f"{Log.GREEN}>>> Schema v{BOOT_SCHEMA_VERSION} up to date — skipping DDL{Log.RESET}")
             else:
@@ -1035,20 +1036,34 @@ async def setup_hook():
                     except Exception:
                         pass
 
-                # One-time migration
-                    if os.path.exists("lastfm_users.json"):
-                        try:
-                            with open("lastfm_users.json", "r") as f:
-                                old_users = json.load(f)
+                # One-time migration (marker-guarded: a single bad row or a
+                # failed rename must never retrigger this every boot).
+                _mig_done = await conn.fetchval(
+                    "SELECT value FROM global_settings WHERE key = 'migration_lastfm_json_done'")
+                if os.path.exists("lastfm_users.json") and _mig_done != "1":
+                    try:
+                        with open("lastfm_users.json", "r") as f:
+                            old_users = json.load(f)
+                        if isinstance(old_users, dict):
                             for uid, uname in old_users.items():
-                                await conn.execute(
-                                    "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
-                                    str(uid), uname
-                                )
-                            os.rename("lastfm_users.json", "lastfm_users.json.bak")
+                                try:
+                                    await conn.execute(
+                                        "INSERT INTO user_settings (user_id, lastfm_username) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET lastfm_username = EXCLUDED.lastfm_username",
+                                        str(uid), uname
+                                    )
+                                except Exception as _row_e:
+                                    print(f"{Log.YELLOW}>>> Skipping bad migration row {uid}: {_row_e}{Log.RESET}")
+                                    continue
                             print(f"{Log.GREEN}>>> Migrated lastfm_users.json to Postgres!{Log.RESET}")
-                        except Exception as e:
-                            print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
+                        try:
+                            os.rename("lastfm_users.json", "lastfm_users.json.bak")
+                        except Exception:
+                            pass
+                        await conn.execute(
+                            "INSERT INTO global_settings (key, value) VALUES ('migration_lastfm_json_done', '1') "
+                            "ON CONFLICT (key) DO UPDATE SET value = '1'")
+                    except Exception as e:
+                        print(f"{Log.RED}>>> Failed to migrate JSON: {e}{Log.RESET}")
 
                     print(f"{Log.GREEN}>>> Ensured user_settings table exists{Log.RESET}")
                 try:
