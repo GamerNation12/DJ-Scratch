@@ -93,9 +93,15 @@ def _owner_only_embed():
     return Theme.get_premium_embed(
         title="Spotify Owner-Only",
         description=(
-            "Spotify playback controls are currently **owner-only** "
-            "while the Spotify app is in Development Mode — "
-            "Spotify only lets the app owner authorize.\n\n"
+            "Spotify playback controls are **owner-only** — and it's Spotify's "
+            "rules, not ours.\n\n"
+            "Our app is stuck in **Development Mode**: that means a max of 5 "
+            "authorized users, Premium required, and limited endpoints "
+            "([Feb 2026 changes](https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security)). "
+            "Escaping dev mode needs **Extended Quota**, which Spotify only grants "
+            "to registered businesses with 250k+ monthly users "
+            "([quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)) "
+            "— so a hobby bot like this can't qualify.\n\n"
             "*Heads up: `,sp` / `,spa` / `,spab` search still works for everyone.*"
         ),
     )
