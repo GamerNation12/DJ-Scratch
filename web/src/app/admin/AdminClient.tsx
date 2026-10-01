@@ -952,19 +952,24 @@ export default function AdminClient({ embedded = false }: { embedded?: boolean }
                 </div>
 
                 <div className="flex-1">
-                  <select
+                  <input
+                    type="text"
                     value={permCommand}
-                    onChange={(e) => setPermCommand(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all appearance-none"
-                  >
-                    <option value="" disabled>Select Command...</option>
-                    {lockedCommands.map(cmd => (
-                      <option key={cmd} value={cmd}>{cmd}</option>
+                    onChange={(e) => setPermCommand(e.target.value.trim().toLowerCase())}
+                    placeholder="Command name… (e.g. import)"
+                    list="grant-command-suggestions"
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                  />
+                  <datalist id="grant-command-suggestions">
+                    {lockedCommands.map((cmd: string) => (
+                      <option key={cmd} value={cmd}>{cmd} (locked)</option>
                     ))}
-                    {lockedCommands.length === 0 && (
-                      <option value="" disabled>(No disabled commands found)</option>
-                    )}
-                  </select>
+                    {["import", "fm", "login", "taste", "whoknows", "crowns"]
+                      .filter((c) => !lockedCommands.includes(c))
+                      .map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                  </datalist>
                 </div>
                 <select 
                   value={permDuration} 
