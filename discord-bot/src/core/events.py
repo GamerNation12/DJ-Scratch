@@ -748,6 +748,60 @@ async def setup_hook():
             except Exception:
                 pass
 
+    # Incremental migrations: version -> [(sql, args)]. These run instead of
+    # the full body when upgrading from a stamped version (fast, minimal
+    # locking). Fresh installs (no stamp) run the full body below.
+    BOOT_MIGRATIONS = {
+        7: [
+            ("""CREATE TABLE IF NOT EXISTS fm_sync_state (
+                user_id VARCHAR(255) PRIMARY KEY,
+                lastfm_username TEXT NOT NULL,
+                oldest_uts BIGINT DEFAULT 0,
+                newest_uts BIGINT DEFAULT 0,
+                backfill_page INT,
+                backfill_done BOOLEAN DEFAULT FALSE,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""", ()),
+            ("ALTER TABLE listens ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'import'", ()),
+            ("ALTER TABLE listens ADD COLUMN IF NOT EXISTS ms_played BIGINT", ()),
+            ("ALTER TABLE listens ADD COLUMN IF NOT EXISTS spotify_uri TEXT", ()),
+        ],
+    }
+
+    async def _run_boot_migrations(from_version: int):
+        import asyncpg as _apg
+        for ver in sorted(BOOT_MIGRATIONS):
+            if ver <= from_version:
+                continue
+            for sql_text, args in BOOT_MIGRATIONS[ver]:
+                _mc = None
+                try:
+                    _mc = await _apg.connect(dsn=db_url, ssl="require", statement_cache_size=0)
+                    await _mc.execute(sql_text, *args, timeout=30)
+                    print(f"{Log.GREEN}>>> Migration v{ver} step ok: {sql_text.strip()[:60]}...{Log.RESET}")
+                except Exception as _me:
+                    print(f"{Log.YELLOW}>>> Migration v{ver} step skipped/failed: {_me}{Log.RESET}")
+                finally:
+                    try:
+                        if _mc is not None:
+                            await _mc.close()
+                    except Exception:
+                        pass
+        try:
+            _sc = await _apg.connect(dsn=db_url, ssl="require", statement_cache_size=0)
+            try:
+                await _sc.execute(
+                    "INSERT INTO global_settings (key, value) VALUES ('schema_version', $1) "
+                    "ON CONFLICT (key) DO UPDATE SET value = $1",
+                    BOOT_SCHEMA_VERSION, timeout=20)
+            finally:
+                try:
+                    await _sc.close()
+                except Exception:
+                    pass
+        except Exception as _se:
+            print(f"{Log.YELLOW}>>> Schema stamp skipped: {_se}{Log.RESET}")
+
     if db_url:
         try:
             if "pooler.supabase.com" in db_url and ":5432" in db_url:
@@ -761,6 +815,7 @@ async def setup_hook():
             print(f"{Log.GREEN}>>> Connected to Postgres DB (pool took {time.monotonic() - _t_setup:.1f}s){Log.RESET}")
             _t_ddl = time.monotonic()
             _need_ddl = True
+            _vv = None
             try:
                 async with _db_conn() as _vconn:
                     _vv = await _vconn.fetchval(
@@ -770,6 +825,16 @@ async def setup_hook():
                         _need_ddl = False
             except Exception as _ve:
                 print(f">>> version check failed ({type(_ve).__name__}: {_ve}) — running DDL")
+            if _need_ddl and _vv is not None:
+                # Stamped upgrade: delta migrations only (each step gets a
+                # fresh connection, so one bad statement can't poison the rest).
+                try:
+                    _cur = int(_vv)
+                except Exception:
+                    _cur = 0
+                if _cur > 0:
+                    await _run_boot_migrations(_cur)
+                    _need_ddl = False
             if not _need_ddl:
                 print(f"{Log.GREEN}>>> Schema v{BOOT_SCHEMA_VERSION} up to date — skipping DDL{Log.RESET}")
             else:
