@@ -812,16 +812,13 @@ async def setup_hook():
                     """)
                     # One round trip instead of thirteen: every action is
                     # IF NOT EXISTS, so a single statement never errors.
-                    # Wrapped in a transaction with a short lock timeout: user_settings
-                    # is hot (last_active updates on every command), so an ALTER can
-                    # otherwise queue behind traffic for minutes. On lock timeout we
-                    # just skip — next boot retries.
+                    # 20s command timeout so a lock queue fails fast instead of
+                    # parking the boot (no explicit transaction: PgBouncer
+                    # transaction mode + explicit BEGIN proved flaky here).
                     try:
-                        async with conn.transaction():
-                            await conn.execute("SET LOCAL lock_timeout = '20s'")
-                            await conn.execute(
-                                """
-                                ALTER TABLE user_settings
+                        await conn.execute(
+                            """
+                            ALTER TABLE user_settings
                                 ADD COLUMN IF NOT EXISTS show_features BOOLEAN DEFAULT FALSE,
                                 ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) DEFAULT 'combined',
                                 ADD COLUMN IF NOT EXISTS private_mode BOOLEAN DEFAULT FALSE,
@@ -839,8 +836,9 @@ async def setup_hook():
                                 ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE,
                                 ADD COLUMN IF NOT EXISTS recap_pending_week TEXT,
                                 ADD COLUMN IF NOT EXISTS recap_pending_month TEXT
-                            """
-                            )
+                            """,
+                            timeout=20,
+                        )
                     except Exception:
                         pass
 
