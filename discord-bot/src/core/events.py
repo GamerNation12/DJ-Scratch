@@ -2528,7 +2528,9 @@ async def get_lastfm_username(uid):
         if b is not None:
             return b.get('lastfm_username') or None
         e = _LASTFM_USER_CACHE.get(str(uid))
-        if e and e[1] > _dbtime.monotonic():
+        # Never trust a cached miss: a fresh link would stay invisible
+        # until expiry. Only hits with a real username short-circuit.
+        if e and e[1] > _dbtime.monotonic() and e[0]:
             return e[0]
     except Exception:
         pass
@@ -2538,11 +2540,12 @@ async def get_lastfm_username(uid):
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow("SELECT lastfm_username FROM user_settings WHERE user_id = $1", str(uid))
         uname = row['lastfm_username'] if row and row['lastfm_username'] else None
-        try:
-            from src.core.database import _LASTFM_USER_CACHE as _c, _LASTFM_USER_TTL as _ttl, _time as _t
-            _c[str(uid)] = (uname, _t.monotonic() + _ttl)
-        except Exception:
-            pass
+        if uname:
+            try:
+                from src.core.database import _LASTFM_USER_CACHE as _c, _LASTFM_USER_TTL as _ttl, _time as _t
+                _c[str(uid)] = (uname, _t.monotonic() + _ttl)
+            except Exception:
+                pass
         return uname
 
 # --- LAST.FM API FETCHERS ---
