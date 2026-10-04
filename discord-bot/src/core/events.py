@@ -3127,8 +3127,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             show_playcount = _bundle.get('show_track_playcount', True)
             if show_playcount is None:
                 show_playcount = True
+            _d_source = _bundle.get('data_source') or 'combined'
         except Exception:
-            show_features, show_playcount = False, True
+            show_features, show_playcount, _d_source = False, True, 'combined'
         
         spotify_url = None
         track_plays = -1
@@ -3221,8 +3222,39 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 print(f">>> No artwork found for '{raw_artist} - {raw_song}' [{album}] (user {username})")
 
             if t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
-                track_plays = int(t_info['track']['userplaycount'])
-                
+                try:
+                    track_plays = int(t_info['track']['userplaycount'])
+                except (TypeError, ValueError):
+                    pass
+
+        # Merge imported history when the user's data source includes it.
+        # Last.fm userplaycount alone is 0 for import-only tracks, which
+        # wrongly renders "First time listening!".
+        if (show_playcount or mode == "stats") and _d_source != 'lastfm_only':
+            try:
+                from src.core.database import get_local_track_playcount
+                _reg_dt = await _registered_dt(username) if username else None
+                _local = await get_local_track_playcount(user.id, raw_artist, raw_song, _reg_dt) or 0
+                # Prefer the raw Last.fm count from t_info so cached
+                # re-renders (which already store the combined value in
+                # track_plays) don't double-add imports.
+                _lastfm = None
+                try:
+                    if 't_info' in locals() and t_info and 'track' in t_info and 'userplaycount' in t_info['track']:
+                        _lastfm = int(t_info['track']['userplaycount'])
+                except (TypeError, ValueError):
+                    _lastfm = None
+                if _lastfm is None:
+                    _lastfm = track_plays if track_plays is not None and track_plays >= 0 else 0
+                if _d_source == 'imported_only':
+                    track_plays = int(_local)
+                elif _reg_dt is not None:
+                    track_plays = int(_lastfm + _local)
+                else:
+                    track_plays = int(max(_lastfm, _local))
+            except Exception:
+                pass
+
         track_url = t.get('url', f"https://www.last.fm/music/{urllib.parse.quote(raw_artist)}/_/{urllib.parse.quote(raw_song)}")
         is_p = t.get('@attr', {}).get('nowplaying') == 'true'
         # Frozen-flag guard: a stuck nowplaying flag with no finished
