@@ -1,6 +1,6 @@
 export const API_BASE = 'https://dj-scratch.is-a-fullstack.dev';
 export const POLL_MS = 15000;
-export const APP_VERSION = '2.0.1';
+export const APP_VERSION = '2.0.2';
 
 export const PERIODS = [
   { value: '7day', label: '7 days' },
