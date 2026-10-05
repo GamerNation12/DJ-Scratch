@@ -377,6 +377,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [recapLoading, setRecapLoading] = useState(false);
   const [recapError, setRecapError] = useState<string | null>(null);
   const [recapOpen, setRecapOpen] = useState(true);
+  // Tops start compact (8 artists / 4 albums) with a show-more toggle.
+  const [showAllArtists, setShowAllArtists] = useState(false);
+  const [showAllAlbums, setShowAllAlbums] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -935,29 +938,29 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           </div>
 
           {/* Listening insights */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Plays · {insights.wlabel}</div>
-              <div className="text-3xl font-display font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
+              <div className="text-2xl font-display font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
               <div className="text-xs text-zinc-400 mt-1">plays scrobbled</div>
             </div>
-            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Artists · {insights.wlabel}</div>
-              <div className="text-3xl font-display font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
+              <div className="text-2xl font-display font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
               <div className="text-xs text-zinc-400 mt-1">distinct artists</div>
             </div>
-            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Top artist share</div>
-              <div className="text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+              <div className="text-2xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
                 {insights.share.toFixed(1)}%
               </div>
               <div className="text-xs text-zinc-400 mt-1 truncate">{insights.topArtist?.name || "—"}</div>
             </div>
-            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">
                 Next milestone · {insights.nextMilestone.toLocaleString()}
               </div>
-              <div className="text-3xl font-display font-black text-white">{(insights.nextMilestone - insights.total).toLocaleString()}</div>
+              <div className="text-2xl font-display font-black text-white">{(insights.nextMilestone - insights.total).toLocaleString()}</div>
               <div className="text-xs text-zinc-400 mt-1 mb-2">plays to go</div>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <div
@@ -988,25 +991,25 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               return h < 12 ? `${h}a` : `${h - 12}p`;
             };
             return (
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-4 flex-wrap">
-                  <h3 className="text-xl font-bold">🕓 Listening rhythm</h3>
+              <div className="mb-6 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2.5 mb-4 flex-wrap">
+                  <h3 className="text-lg font-bold">🕓 Listening rhythm</h3>
                   {(r.streak || 0) > 0 && (
-                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20 inline-flex items-center gap-1.5">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20 inline-flex items-center gap-1.5">
                       <img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-4 h-4" />
                       {r.streak}-day streak
                     </span>
                   )}
                   {(r.avgPerDay || 0) > 0 && (
-                    <span className="text-xs font-bold px-3 py-1.5 rounded-full text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
                       ~{r.avgPerDay} plays/day
                     </span>
                   )}
                 </div>
-                <div className="grid lg:grid-cols-2 gap-4">
-                  <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Plays by hour · UTC</div>
-                    <div className="flex items-end gap-[3px] h-28">
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Plays by hour · UTC</div>
+                    <div className="flex items-end gap-[3px] h-24">
                       {clock.map((c: number, h: number) => (
                         <div key={h} className="flex-1 flex flex-col items-center justify-end h-full" title={`${hourLabel(h)}: ${c} plays`}>
                           <div
@@ -1016,7 +1019,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-[3px] mt-1.5">
+                    <div className="flex gap-[3px] mt-1">
                       {clock.map((_: number, h: number) => (
                         <div key={h} className="flex-1 text-center text-[9px] text-zinc-600">
                           {h % 6 === 0 ? hourLabel(h) : ""}
@@ -1024,9 +1027,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                       ))}
                     </div>
                   </div>
-                  <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Last 14 days</div>
-                    <div className="flex items-end gap-1.5 h-28">
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Last 14 days</div>
+                    <div className="flex items-end gap-1.5 h-24">
                       {daily.map((d: any, i: number) => (
                         <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d?.date}: ${d?.plays} plays`}>
                           <div
@@ -1036,7 +1039,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-1.5 mt-1.5">
+                    <div className="flex gap-1.5 mt-1">
                       {daily.map((d: any, i: number) => (
                         <div key={i} className="flex-1 text-center text-[9px] text-zinc-600">
                           {i % 2 === 0 ? String(d?.date || "") : ""}
@@ -1044,46 +1047,42 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                       ))}
                     </div>
                   </div>
-                  {genres.length > 0 && (
-                    <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-                      <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">Top genres</div>
-                      <div className="space-y-2">
-                        {genres.slice(0, 6).map((g: any, i: number) => (
-                          <div key={i}>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span className="text-zinc-200 font-semibold truncate">{g?.name}</span>
-                              <span className="text-zinc-500 ml-2">{Number(g?.count || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full"
-                                style={{ width: `${Math.max(4, ((Number(g?.count) || 0) / gmax) * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {discoveries.length > 0 && (
-                    <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 shadow-xl">
-                      <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-3">New discoveries · {wlabel}</div>
-                      <div className="flex flex-wrap gap-2">
-                        {discoveries.map((n: string, i: number) => (
-                          <span key={i} className="text-xs font-semibold px-3 py-1.5 rounded-full text-fuchsia-200 bg-fuchsia-500/10 border border-fuchsia-500/20">
-                            ✨ {n}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
+                {(genres.length > 0 || discoveries.length > 0) && (
+                  <div className="grid sm:grid-cols-2 gap-6 mt-5 pt-5 border-t border-white/5">
+                    {genres.length > 0 && (
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top genres</div>
+                        <div className="space-y-1.5">
+                          {genres.slice(0, 4).map((g: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-zinc-200 text-xs font-semibold truncate flex-1">{g?.name}</span>
+                              <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden shrink-0">
+                                <div
+                                  className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full"
+                                  style={{ width: `${Math.max(4, ((Number(g?.count) || 0) / gmax) * 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-zinc-500 text-xs w-10 text-right shrink-0">{Number(g?.count || 0).toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {discoveries.length > 0 && (
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">New discoveries · {wlabel}</div>
+                        <div className="text-sm text-zinc-300 leading-relaxed">{discoveries.slice(0, 6).join("  •  ")}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
 
           {insights.nowPlaying && (
-            <div className="mb-8 bg-green-500/5 border border-green-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-4">
+            <div className="mb-6 bg-green-500/5 border border-green-500/20 rounded-2xl px-5 py-3 flex items-center gap-4">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
               <p className="text-sm text-zinc-300 truncate">
                 <span className="font-bold text-white">{insights.nowPlaying.name}</span>
@@ -1094,7 +1093,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           )}
 
           {/* Weekly/monthly recap — compact, collapsible, site-styled */}
-          <div className="mb-8 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+          <div className="mb-6 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
             <div
               onClick={() => setRecapOpen(!recapOpen)}
               className="w-full px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
@@ -1217,42 +1216,50 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             )}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
+          <div className="grid lg:grid-cols-2 gap-6 items-start animate-fade-in">
             {/* Top Artists Grid */}
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-               <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-xl font-bold flex items-center gap-2">⭐ Top Artists</h3>
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-lg font-bold flex items-center gap-2">⭐ Top Artists</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened artists ${periodLong}.` : `Their most listened artists ${periodLong}.`}</p>
                </div>
-               <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 {profile.stats?.topArtists?.length > 0 ? profile.stats.topArtists.map((artist: any, i: number) => (
+               <div className="p-4 sm:p-5 grid grid-cols-2 gap-3">
+                 {profile.stats?.topArtists?.length > 0 ? (showAllArtists ? profile.stats.topArtists : profile.stats.topArtists.slice(0, 8)).map((artist: any, i: number) => (
                    <a 
                      key={i} 
                      href={artist.url} 
                      target="_blank"
                      rel="noreferrer"
-                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3 flex flex-col items-center text-center transition-all group"
                    >
-                     <div className="w-16 h-16 rounded-full bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                     <div className="w-14 h-14 rounded-full bg-zinc-800 mb-2 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
                           <img src={artSrc(artist.image)} alt={artist.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl bg-zinc-800">🎤</div>
+                          <div className="w-full h-full flex items-center justify-center text-xl bg-zinc-800">🎤</div>
                         )}
                      </div>
                      <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{artist.name}</div>
-                     <div className="text-xs text-zinc-500 font-medium mt-1">{parseInt(artist.playcount).toLocaleString()} plays</div>
+                     <div className="text-xs text-zinc-500 font-medium mt-0.5">{parseInt(artist.playcount).toLocaleString()} plays</div>
                    </a>
                  )) : (
                    <div className="col-span-2 text-center py-8 text-zinc-500">No top artists found.</div>
                  )}
                </div>
+               {(profile.stats?.topArtists?.length || 0) > 8 && (
+                 <button
+                   onClick={() => setShowAllArtists(!showAllArtists)}
+                   className="w-full py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors"
+                 >
+                   {showAllArtists ? "Show less ▲" : `Show all ${profile.stats.topArtists.length} ▼`}
+                 </button>
+               )}
             </div>
 
             {/* Recent Tracks List */}
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-xl font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-lg font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
                  <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
                </div>
                <div className="divide-y divide-white/5">
@@ -1260,7 +1267,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    <button 
                      key={i} 
                      onClick={() => setSelectedTrack(track)}
-                     className="w-full text-left flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                     className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
@@ -1295,40 +1302,48 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
             {/* Top Albums Grid */}
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-               <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-6 h-6 inline-block" /> Top Albums</h3>
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-lg font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-5 h-5 inline-block" /> Top Albums</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened albums ${periodLong}.` : `Their most listened albums ${periodLong}.`}</p>
                </div>
-               <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 {profile.stats?.topAlbums?.length > 0 ? profile.stats.topAlbums.map((album: any, i: number) => (
+               <div className="p-4 sm:p-5 grid grid-cols-2 gap-3">
+                 {profile.stats?.topAlbums?.length > 0 ? (showAllAlbums ? profile.stats.topAlbums : profile.stats.topAlbums.slice(0, 4)).map((album: any, i: number) => (
                    <a 
                      key={i} 
                      href={album.url} 
                      target="_blank"
                      rel="noreferrer"
-                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 flex flex-col items-center text-center transition-all group"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3 flex flex-col items-center text-center transition-all group"
                    >
-                     <div className="w-16 h-16 rounded-xl bg-zinc-800 mb-3 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                     <div className="w-14 h-14 rounded-xl bg-zinc-800 mb-2 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
                         {album.image ? (
                           <img src={artSrc(album.image)} alt={album.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-zinc-800"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-8 h-8 opacity-50" /></div>
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-7 h-7 opacity-50" /></div>
                         )}
                      </div>
                      <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{album.name}</div>
                      <div className="text-xs text-zinc-400 truncate mt-0.5 w-full">{album.artist}</div>
-                     <div className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider">{parseInt(album.playcount).toLocaleString()} plays</div>
+                     <div className="text-[10px] text-zinc-500 font-medium mt-0.5 uppercase tracking-wider">{parseInt(album.playcount).toLocaleString()} plays</div>
                    </a>
                  )) : (
                    <div className="col-span-2 text-center py-8 text-zinc-500">No top albums found.</div>
                  )}
                </div>
+               {(profile.stats?.topAlbums?.length || 0) > 4 && (
+                 <button
+                   onClick={() => setShowAllAlbums(!showAllAlbums)}
+                   className="w-full py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors"
+                 >
+                   {showAllAlbums ? "Show less ▲" : `Show all ${profile.stats.topAlbums.length} ▼`}
+                 </button>
+               )}
             </div>
 
             {/* Top Tracks List */}
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-               <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
-                  <h3 className="text-xl font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-6 h-6" /> Top Tracks</h3>
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-lg font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-5 h-5" /> Top Tracks</h3>
                   <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most played songs ${periodLong}.` : `Their most played songs ${periodLong}.`}</p>
                </div>
                <div className="divide-y divide-white/5">
@@ -1336,7 +1351,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    <button 
                      key={i} 
                      onClick={() => setSelectedTrack(track)}
-                     className="w-full text-left flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-colors group"
+                     className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
                    >
                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
                        {track.image ? (
