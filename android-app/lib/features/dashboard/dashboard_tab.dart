@@ -303,6 +303,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   Widget _recapBlock() {
     const accent = Color(0xFF0AB5CD);
+    const gold = Color(0xFFF1C40F);
     Widget periodChip(String value, String label) {
       final selected = _recapPeriod == value;
       return GestureDetector(
@@ -321,56 +322,147 @@ class _DashboardTabState extends State<DashboardTab> {
       );
     }
 
-    Widget rows(String title, List items, {bool album = false}) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: GoogleFonts.inter(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (items.isEmpty)
-          Text('No data yet.',
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.white38))
-        else
-          ...items.take(5).map((e) {
-            final m = (e as Map).cast<String, dynamic>();
-            final name = '${m['name'] ?? 'Unknown'}';
-            final sub = album
-                ? '${m['artist'] ?? ''} · ${m['playcount'] ?? 0} plays'
-                : (m['artist'] != null ? '${m['artist']} · ${m['playcount'] ?? 0} plays' : '${m['playcount'] ?? 0} plays');
+    Widget trackRows(List items) {
+      return Column(children: [
+        for (var i = 0; i < items.length && i < 5; i++)
+          Builder(builder: (_) {
+            final m = (items[i] as Map).cast<String, dynamic>();
             final img = m['image'] as String?;
             return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
+              margin: const EdgeInsets.only(bottom: 10),
               child: Row(children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(album ? 8 : (title == 'TOP ARTISTS' ? 20 : 8)),
+                  borderRadius: BorderRadius.circular(10),
                   child: img != null && img.isNotEmpty
-                      ? CachedNetworkImage(imageUrl: img, width: 40, height: 40, fit: BoxFit.cover,
+                      ? CachedNetworkImage(imageUrl: img, width: 46, height: 46, fit: BoxFit.cover,
                           errorWidget: (_, __, ___) => Container(
-                              width: 40, height: 40, color: Colors.white10,
+                              width: 46, height: 46, color: Colors.white10,
                               child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)))
                       : Container(
-                          width: 40, height: 40, color: Colors.white10,
+                          width: 46, height: 46, color: Colors.white10,
+                          child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)),
+                ),
+                const SizedBox(width: 10),
+                Text('${i + 1}',
+                    style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white38)),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${m['name'] ?? 'Unknown'}',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text('${m['artist'] ?? ''}',
+                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+                Text('${m['playcount'] ?? 0}',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
+              ]),
+            );
+          }),
+      ]);
+    }
+
+    Widget artistRows(List items) {
+      final plays = items.map((e) => _asInt((e as Map)['playcount'])).toList();
+      final mx = plays.isEmpty ? 1 : plays.reduce((a, b) => a > b ? a : b).clamp(1, 1 << 30);
+      return Column(children: [
+        for (var i = 0; i < items.length && i < 5; i++)
+          Builder(builder: (_) {
+            final m = (items[i] as Map).cast<String, dynamic>();
+            final img = m['image'] as String?;
+            final pc = _asInt(m['playcount']);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                ClipOval(
+                  child: img != null && img.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: img, width: 36, height: 36, fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                              width: 36, height: 36, color: Colors.white10,
+                              child: const Icon(LucideIcons.music, color: Colors.white54, size: 16)))
+                      : Container(
+                          width: 36, height: 36, color: Colors.white10,
+                          child: const Icon(LucideIcons.music, color: Colors.white54, size: 16)),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 120,
+                  child: Text('${m['name'] ?? 'Unknown'}',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (pc / mx).clamp(0.0, 1.0),
+                      minHeight: 8,
+                      backgroundColor: Colors.white.withOpacity(0.08),
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFF0AB5CD)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 36,
+                  child: Text('$pc',
+                      textAlign: TextAlign.right,
+                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ]),
+            );
+          }),
+      ]);
+    }
+
+    Widget albumRows(List items) {
+      return Column(children: [
+        for (var i = 0; i < items.length && i < 3; i++)
+          Builder(builder: (_) {
+            final m = (items[i] as Map).cast<String, dynamic>();
+            final img = m['image'] as String?;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: img != null && img.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: img, width: 44, height: 44, fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                              width: 44, height: 44, color: Colors.white10,
+                              child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)))
+                      : Container(
+                          width: 44, height: 44, color: Colors.white10,
                           child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name,
+                  Text('${m['name'] ?? 'Unknown'}',
                       style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(sub,
+                  Text('${m['artist'] ?? ''}',
                       style: GoogleFonts.inter(color: Colors.white54, fontSize: 12),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ])),
+                Text('${m['playcount'] ?? 0}',
+                    style: GoogleFonts.inter(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
               ]),
             );
           }),
       ]);
+    }
+
+    Widget sectionLabel(String text, {Color? color}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(text,
+            style: GoogleFonts.inter(
+                fontSize: 10, color: color ?? Colors.white38, fontWeight: FontWeight.w800,
+                letterSpacing: 1.2)),
+      );
     }
 
     final recap = _recap;
@@ -382,61 +474,72 @@ class _DashboardTabState extends State<DashboardTab> {
       const SizedBox(height: 20),
       const SectionHeader(title: 'Recap'),
       const SizedBox(height: 12),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 5, decoration: const BoxDecoration(color: accent, borderRadius: BorderRadius.horizontal(left: Radius.circular(16)))),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text("${recap?['title'] ?? (_recapPeriod == 'month' ? 'YOUR MONTH IN MUSIC' : 'YOUR WEEK IN MUSIC')}",
-                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800)),
-                Text(
-                    "${recap?['label'] ?? (_recapPeriod == 'month' ? 'Last 30 days' : 'Last 7 days')}${total != null ? ' · $total$capped plays' : ''}",
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white54)),
-              ]),
-            ),
-            periodChip('week', 'Week'),
-            const SizedBox(width: 8),
-            periodChip('month', 'Month'),
-          ]),
-          const SizedBox(height: 14),
-          if (_recapLoading)
-            const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: accent, strokeWidth: 2)))
-          else if (recap == null)
-            Text("Listen to something this ${_recapPeriod == 'month' ? 'month' : 'week'} and check back.",
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.white38))
-          else ...[
-            rows('TOP TRACKS', ((recap['topTracks'] as List?) ?? []).toList()),
-            const SizedBox(height: 12),
-            rows('TOP ARTISTS', ((recap['topArtists'] as List?) ?? []).toList()),
-            const SizedBox(height: 12),
-            rows('TOP ALBUMS', ((recap['topAlbums'] as List?) ?? []).toList(), album: true),
-            if (discoveries.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text('NEW DISCOVERIES',
-                  style: GoogleFonts.inter(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: discoveries.map((d) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
-                  ),
-                  child: Text('✨ $d', style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
-                )).toList(),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0E0E12),
+                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text("${recap?['title'] ?? (_recapPeriod == 'month' ? 'YOUR MONTH IN MUSIC' : 'YOUR WEEK IN MUSIC')}",
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: accent, letterSpacing: 1.1)),
+                        const SizedBox(height: 2),
+                        Text("${recap?['label'] ?? (_recapPeriod == 'month' ? 'Last 30 days' : 'Last 7 days')}",
+                            style: GoogleFonts.inter(fontSize: 12, color: Colors.white54)),
+                      ]),
+                    ),
+                    periodChip('week', 'Week'),
+                    const SizedBox(width: 8),
+                    periodChip('month', 'Month'),
+                  ]),
+                  const SizedBox(height: 10),
+                  if (_recapLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: accent, strokeWidth: 2)))
+                  else if (recap == null)
+                    Text("Listen to something this ${_recapPeriod == 'month' ? 'month' : 'week'} and check back.",
+                        style: GoogleFonts.inter(fontSize: 12, color: Colors.white38))
+                  else ...[
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$total$capped',
+                          style: GoogleFonts.outfit(fontSize: 44, fontWeight: FontWeight.w800, height: 1.0)),
+                      const SizedBox(width: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('PLAYS',
+                            style: GoogleFonts.inter(fontSize: 11, color: Colors.white38, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    sectionLabel('TOP TRACKS'),
+                    trackRows(((recap['topTracks'] as List?) ?? []).toList()),
+                    const SizedBox(height: 8),
+                    sectionLabel('TOP ARTISTS'),
+                    artistRows(((recap['topArtists'] as List?) ?? []).toList()),
+                    const SizedBox(height: 8),
+                    sectionLabel('TOP ALBUMS'),
+                    albumRows(((recap['topAlbums'] as List?) ?? []).toList()),
+                    if (discoveries.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      sectionLabel('NEW FINDS', color: gold),
+                      Text(discoveries.join('  •  '),
+                          style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+                    ],
+                  ],
+                ]),
               ),
-            ],
+            ),
           ],
-        ]),
+        ),
       ),
     ]);
   }

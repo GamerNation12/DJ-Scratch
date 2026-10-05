@@ -33,6 +33,48 @@ function asList(v: any): any[] {
   return Array.isArray(v) ? v : [v];
 }
 
+// Cover fallbacks (same chain as the Discord recap image): Last.fm art ->
+// Deezer pics -> iTunes art, so import-only rows rarely end up blank.
+async function deezerArtistArt(name: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}`, { next: { revalidate: 86400 } });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    const hit = d?.data?.[0];
+    return hit?.picture_big || hit?.picture_medium || hit?.picture || null;
+  } catch { return null; }
+}
+
+async function deezerTrackArt(track: string, artist: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(`${track} ${artist}`.trim())}`, { next: { revalidate: 86400 } });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    const hit = d?.data?.[0];
+    return hit?.album?.cover_big || hit?.album?.cover_medium || hit?.album?.cover || null;
+  } catch { return null; }
+}
+
+async function itunesSongArt(track: string, artist: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${track}`.trim())}&entity=song&limit=1`, { next: { revalidate: 86400 } });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    const art = d?.results?.[0]?.artworkUrl100;
+    return art ? String(art).replace("100x100bb", "600x600bb") : null;
+  } catch { return null; }
+}
+
+async function itunesAlbumArt(album: string, artist: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`.trim())}&entity=album&limit=1`, { next: { revalidate: 86400 } });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    const art = d?.results?.[0]?.artworkUrl100;
+    return art ? String(art).replace("100x100bb", "600x600bb") : null;
+  } catch { return null; }
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const rawPeriod = (url.searchParams.get("period") || "week").toLowerCase();
@@ -242,6 +284,31 @@ export async function GET(req: Request) {
     const topTracks = dataSource === "imported_only" ? imTracks : dataSource === "lastfm_only" ? fmTracks : mergeTracks(fmTracks, imTracks);
     const topAlbums = dataSource === "imported_only" ? imAlbums : dataSource === "lastfm_only" ? fmAlbums : mergeAlbums(fmAlbums, imAlbums);
     const total = dataSource === "imported_only" ? imTotal : dataSource === "lastfm_only" ? fmTotal : Math.max(fmTotal, imTotal);
+
+    // Fill blank covers (bot chain: Deezer -> iTunes), all in parallel.
+    const artJobs: Promise<void>[] = [];
+    for (const t of topTracks) {
+      if (!t.image) {
+        artJobs.push((async () => {
+          t.image = (await deezerTrackArt(t.name, t.artist)) || (await itunesSongArt(t.name, t.artist)) || null;
+        })());
+      }
+    }
+    for (const a of topArtists) {
+      if (!a.image) {
+        artJobs.push((async () => {
+          a.image = (await deezerArtistArt(a.name)) || null;
+        })());
+      }
+    }
+    for (const b of topAlbums) {
+      if (!b.image) {
+        artJobs.push((async () => {
+          b.image = (await deezerTrackArt(b.name, b.artist)) || (await itunesAlbumArt(b.name, b.artist)) || null;
+        })());
+      }
+    }
+    await Promise.all(artJobs);
 
     const known = new Set([...fmOverallNames, ...imOverallNames]);
     const discoveries = topArtists.map((a) => a.name).filter((n) => n && !known.has(String(n).toLowerCase())).slice(0, 5);
