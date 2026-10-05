@@ -30,7 +30,7 @@ const FAQS = [
   },
   {
     q: "I'm not getting recap DMs.",
-    a: "Recap images need open DMs — with them closed, the recap appears the next time you run any command instead. Weekly recaps go out at each week rollover.",
+    a: "Recap images need open DMs — with them closed, the recap appears the next time you run any command instead. Weekly recaps go out at each week rollover. You can also see your week/month recaps anytime on your website profile, and in the desktop and Android apps.",
   },
 ];
 

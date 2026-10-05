@@ -42,6 +42,8 @@ export type SpotifyControlBody =
 export const api = {
   getProfile: (username: string, token: string | null, period = 'overall') =>
     request<{ stats?: UserStats; rhythm?: RhythmData }>(`/api/u/${encodeURIComponent(username)}?period=${period}`, token),
+  getRecap: (username: string, token: string | null, period: 'week' | 'month' = 'week') =>
+    request<Record<string, unknown>>(`/api/recap?user=${encodeURIComponent(username)}&period=${period}`, token),
   getLeaderboard: (token: string | null) =>
     request<{ leaderboard: unknown[] }>(`/api/leaderboard`, token),
   checkAdmin: (token: string | null) =>

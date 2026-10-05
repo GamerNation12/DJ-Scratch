@@ -24,6 +24,9 @@ class _DashboardTabState extends State<DashboardTab> {
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _user;
   Map<String, dynamic>? _rhythm;
+  Map<String, dynamic>? _recap;
+  String _recapPeriod = 'week';
+  bool _recapLoading = false;
 
   @override
   void initState() {
@@ -43,6 +46,35 @@ class _DashboardTabState extends State<DashboardTab> {
 
   Timer? _poll;
 
+  Future<void> _loadRecap(ApiClient api, String name) async {
+    try {
+      if (!mounted) return;
+      setState(() => _recapLoading = true);
+      final data = await api.getJson('/api/recap?user=${Uri.encodeComponent(name)}&period=$_recapPeriod');
+      if (!mounted) return;
+      if (data['error'] == null) {
+        setState(() { _recap = data; _recapLoading = false; });
+      } else {
+        setState(() { _recap = null; _recapLoading = false; });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _recap = null; _recapLoading = false; });
+    }
+  }
+
+  void _switchRecapPeriod(String v) async {
+    if (v == _recapPeriod) return;
+    setState(() => _recapPeriod = v);
+    try {
+      final token = await AuthStore.readToken();
+      final user = token == null ? null : AuthStore.decode(token);
+      final name = AuthStore.canonicalName((user?['name'] ?? '') as String);
+      if (name.isEmpty) return;
+      await _loadRecap(ApiClient(token), name);
+    } catch (_) { /* keep old recap on failure */ }
+  }
+
   Future<void> _load({bool silent = false}) async {
     if (!silent) setState(() { _loading = true; _error = ''; });
     try {
@@ -58,6 +90,7 @@ class _DashboardTabState extends State<DashboardTab> {
       final rhythmRaw = (data['rhythm'] as Map?)?.cast<String, dynamic>() ??
           (statsRaw?['rhythm'] as Map?)?.cast<String, dynamic>();
       setState(() { _stats = statsRaw; _rhythm = rhythmRaw; _loading = false; _error = ''; });
+      _loadRecap(api, name);
     } on ApiException catch (e) {
       if (!mounted) return;
       // Silent polls never wipe good data with an error screen.
@@ -148,6 +181,7 @@ class _DashboardTabState extends State<DashboardTab> {
             _statHero(),
             const SizedBox(height: 12),
             _insightsRow(),
+            _recapBlock(),
             ..._rhythmBlocks(),
             const SizedBox(height: 24),
             const SectionHeader(title: 'Recent tracks'),
@@ -265,6 +299,146 @@ class _DashboardTabState extends State<DashboardTab> {
       p *= 10;
     }
     return p;
+  }
+
+  Widget _recapBlock() {
+    const accent = Color(0xFF0AB5CD);
+    Widget periodChip(String value, String label) {
+      final selected = _recapPeriod == value;
+      return GestureDetector(
+        onTap: () => _switchRecapPeriod(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? accent : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? accent : Colors.white.withOpacity(0.1)),
+          ),
+          child: Text(label,
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold,
+                  color: selected ? Colors.black : Colors.white70)),
+        ),
+      );
+    }
+
+    Widget rows(String title, List items, {bool album = false}) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: GoogleFonts.inter(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (items.isEmpty)
+          Text('No data yet.',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white38))
+        else
+          ...items.take(5).map((e) {
+            final m = (e as Map).cast<String, dynamic>();
+            final name = '${m['name'] ?? 'Unknown'}';
+            final sub = album
+                ? '${m['artist'] ?? ''} · ${m['playcount'] ?? 0} plays'
+                : (m['artist'] != null ? '${m['artist']} · ${m['playcount'] ?? 0} plays' : '${m['playcount'] ?? 0} plays');
+            final img = m['image'] as String?;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Row(children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(album ? 8 : (title == 'TOP ARTISTS' ? 20 : 8)),
+                  child: img != null && img.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: img, width: 40, height: 40, fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                              width: 40, height: 40, color: Colors.white10,
+                              child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)))
+                      : Container(
+                          width: 40, height: 40, color: Colors.white10,
+                          child: const Icon(LucideIcons.music, color: Colors.white54, size: 18)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(sub,
+                      style: GoogleFonts.inter(color: Colors.white54, fontSize: 12),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+              ]),
+            );
+          }),
+      ]);
+    }
+
+    final recap = _recap;
+    final total = recap == null ? null : _asInt(recap['total']);
+    final capped = recap?['capped'] == true ? '+' : '';
+    final discoveries = ((recap?['discoveries'] as List?) ?? []).map((e) => '$e'.trim()).where((s) => s.isNotEmpty).take(5).toList();
+
+    return Column(children: [
+      const SizedBox(height: 20),
+      const SectionHeader(title: 'Recap'),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("${recap?['title'] ?? (_recapPeriod == 'month' ? 'YOUR MONTH IN MUSIC' : 'YOUR WEEK IN MUSIC')}",
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800)),
+                Text(
+                    "${recap?['label'] ?? (_recapPeriod == 'month' ? 'Last 30 days' : 'Last 7 days')}${total != null ? ' · $total$capped plays' : ''}",
+                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white54)),
+              ]),
+            ),
+            periodChip('week', 'Week'),
+            const SizedBox(width: 8),
+            periodChip('month', 'Month'),
+          ]),
+          const SizedBox(height: 14),
+          if (_recapLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: accent, strokeWidth: 2)))
+          else if (recap == null)
+            Text("Listen to something this ${_recapPeriod == 'month' ? 'month' : 'week'} and check back.",
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.white38))
+          else ...[
+            rows('TOP TRACKS', ((recap['topTracks'] as List?) ?? []).toList()),
+            const SizedBox(height: 12),
+            rows('TOP ARTISTS', ((recap['topArtists'] as List?) ?? []).toList()),
+            const SizedBox(height: 12),
+            rows('TOP ALBUMS', ((recap['topAlbums'] as List?) ?? []).toList(), album: true),
+            if (discoveries.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('NEW DISCOVERIES',
+                  style: GoogleFonts.inter(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: discoveries.map((d) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Text('✨ $d', style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+                )).toList(),
+              ),
+            ],
+          ],
+        ]),
+      ),
+    ]);
   }
 
   int _asInt(dynamic v) {

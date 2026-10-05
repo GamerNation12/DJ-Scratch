@@ -21,15 +21,78 @@ def _norm_link_name(s):
     s = (s or "").lower()
     s = re.sub(r"\(.*?\)|\[.*?]", "", s)  # drop (remastered...), [explicit]
     s = s.replace("&", " and ").replace("+", " and ")
-    s = re.sub(r"[^a-z0-9\s]", "", s)  # ./-/’ etc. so punctuation can't veto a match
+    # "Ghosts 'n' Stuff" vs "Ghosts N Stuff": apostrophes must not veto.
+    s = s.replace("'", "").replace("’", "").replace("‘", "").replace("`", "")
+    s = re.sub(r"[^a-z0-9\s]", " ", s)  # ./-/ etc. so punctuation can't veto a match
     return re.sub(r"\s+", " ", s).strip()
+
+
+_VERSION_RE = None
+
+def _version_re():
+    import re
+    global _VERSION_RE
+    if _VERSION_RE is None:
+        # Trailing version suffixes: "- Extended Mix", "(remastered ...)",
+        # "radio edit", "club mix", "sped up", etc. Stripped only for
+        # comparison — the display name is untouched.
+        _VERSION_RE = re.compile(
+            r"\s*[-\u2013\u2014|/]?\s*\(?\s*(extended mix|extended|radio edit|radio mix|"
+            r"club mix|original mix|remaster(?:ed)?(?: \d{4})?|\d{4} remaster|"
+            r"deluxe(?: edition)?|explicit|clean|sped up|slowed(?: \+ reverb)?|"
+            r"nightcore|live|acoustic|demo|instrumental|karaoke|remix|mix|"
+            r"version|edit|single version|album version)\)?\s*$",
+            re.IGNORECASE,
+        )
+    return _VERSION_RE
+
+
+def _base_title(s):
+    """Title with version suffixes/features stripped for fuzzy matching."""
+    import re
+    t = _norm_link_name(s)
+    # Drop "feat. X" / "ft. X" / "featuring X" tails first.
+    t = re.sub(r"\s+(feat|ft|featuring)\.?\s+.*$", "", t).strip()
+    # Strip one version suffix, then re-check (e.g. "X - Remastered 2011").
+    for _ in range(2):
+        nt = _version_re().sub("", t).strip()
+        nt = re.sub(r"\s+", " ", nt)
+        if nt == t or len(nt) < 3:
+            break
+        t = nt
+    return t
+
+
+def _tokens(s):
+    stop = {"the", "a", "an", "and", "feat", "ft", "featuring", "vs", "x"}
+    return [w for w in _norm_link_name(s).split() if w and w not in stop and len(w) > 1]
 
 
 def _titles_overlap(a, b):
     na, nb = _norm_link_name(a), _norm_link_name(b)
     if not na or not nb or len(na) < 3 or len(nb) < 3:
         return False
-    return na == nb or na in nb or nb in na
+    if na == nb or na in nb or nb in na:
+        return True
+    # Version-tolerant: "Ghosts n Stuff - Extended Mix" vs "Ghosts n Stuff".
+    ba, bb = _base_title(a), _base_title(b)
+    if ba and bb and len(ba) >= 3 and len(bb) >= 3:
+        if ba == bb or ba in bb or bb in ba:
+            return True
+    # Token overlap fallback: "ghosts n stuff extended mix" shares 3/4
+    # meaningful tokens with "ghosts n stuff" — same song, extra suffix.
+    ta, tb = set(_tokens(a)), set(_tokens(b))
+    if ta and tb:
+        inter = ta & tb
+        if inter:
+            # All tokens of the shorter title present in the longer one.
+            if len(inter) == min(len(ta), len(tb)):
+                return True
+            # High Jaccard similarity (typo/version tolerant).
+            union = ta | tb
+            if len(inter) / max(1, len(union)) >= 0.5 and len(inter) >= 2:
+                return True
+    return False
 
 
 def _artist_agrees(want_artist, got_artists):
@@ -49,16 +112,76 @@ def _artist_agrees(want_artist, got_artists):
     return False
 
 
+def _match_score(song, artist, info):
+    """Higher = better match. -1 means reject (wrong artist)."""
+    name = info.get("name") or ""
+    artists = info.get("artists") or []
+    if not _artist_agrees(artist, artists):
+        return -1
+    if _norm_link_name(song) == _norm_link_name(name):
+        return 100
+    if _base_title(song) == _base_title(name):
+        return 90
+    na, nb = _norm_link_name(song), _norm_link_name(name)
+    if na and nb and (na in nb or nb in na):
+        return 80
+    ba, bb = _base_title(song), _base_title(name)
+    if ba and bb and (ba in bb or bb in ba):
+        return 70
+    ta, tb = set(_tokens(song)), set(_tokens(name))
+    if ta and tb:
+        inter = ta & tb
+        if inter and len(inter) == min(len(ta), len(tb)):
+            return 60
+        union = ta | tb
+        if union and len(inter) / len(union) >= 0.5 and len(inter) >= 2:
+            return 50 + len(inter)
+    return -1
+
+
 def _best_track_match(results, song, artist):
-    """First Spotify result that is actually the same song by the same artist.
+    """Best Spotify result that is actually the same song by the same artist.
 
     Bare ,sp resolves your current track via search — without this, a fuzzy
     top hit for a different song gets embedded as if it were yours.
+    Scored (exact > version-stripped > substring > token overlap) so
+    "Ghosts 'n' Stuff - Extended Mix" matches Spotify's "Ghosts 'n' Stuff"
+    instead of erroring out.
     """
+    best, best_score = None, -1
     for info in results or []:
-        if _titles_overlap(song, info.get("name")) and _artist_agrees(artist, info.get("artists")):
-            return info
-    return None
+        try:
+            s = _match_score(song, artist, info)
+        except Exception:
+            continue
+        if s > best_score:
+            best, best_score = info, s
+    return best if best_score >= 0 else None
+
+
+def _link_query_variants(song, artist):
+    """Search strings to try in order. Spotify treats "-" as NOT, so the
+    raw "Title - Extended Mix artist" query can exclude the very mix we
+    want — the stripped/base variants recover it."""
+    import re
+    song = (song or "").strip()
+    artist = (artist or "").strip()
+    base = _base_title(song) or _norm_link_name(song) or song
+    # "track:/artist:" field query avoids the "-" exclusion behaviour.
+    field_q = None
+    if base and artist:
+        field_q = f"track:{base} artist:{artist}"
+    seen, out = set(), []
+    for q in (
+        f"{song} {artist}".strip(),
+        f"{base} {artist}".strip() if base != song else None,
+        field_q,
+        f"{base}".strip() if base else None,
+    ):
+        if q and q not in seen:
+            seen.add(q)
+            out.append(q)
+    return [q for q in out if q]
 
 
 def _link_required_embed(user_id):
@@ -570,9 +693,23 @@ class SpotifyRemote(commands.Cog):
                     return discord.Embed(color=0xFF0000, description="❌ Nothing is playing — give me a track to look up. (Link Last.fm with `,login` for automatic detection.)")
                 # Resolve via search, but only accept a result that is actually
                 # the same song by the same artist — blind top hits embed
-                # never-played tracks as if they were yours.
-                results = await search_spotify_tracks(session, f"{song} {artist or ''}".strip(), limit=10)
-                info = _best_track_match(results, song, artist)
+                # never-played tracks as if they were yours. Tries stripped
+                # + field queries as fallbacks (Spotify treats "-" as NOT,
+                # so "X - Extended Mix" can exclude the mix itself).
+                info = None
+                seen_ids: set = set()
+                for q in _link_query_variants(song, artist):
+                    try:
+                        results = await search_spotify_tracks(session, q, limit=10)
+                    except Exception:
+                        continue
+                    fresh = [r for r in (results or []) if (r.get("id") or r.get("uri")) not in seen_ids]
+                    for r in fresh:
+                        seen_ids.add(r.get("id") or r.get("uri"))
+                    cand = _best_track_match(fresh or results, song, artist)
+                    if cand:
+                        info = cand
+                        break
                 if not info:
                     return discord.Embed(color=0xFF0000, description=f"❌ Couldn't find **{song}** by **{artist or 'Unknown Artist'}** on Spotify — closest results didn't match.")
                 return self._link_embed("track", info)

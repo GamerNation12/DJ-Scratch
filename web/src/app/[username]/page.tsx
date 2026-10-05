@@ -371,6 +371,38 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     { value: "overall", label: "All" },
   ];
   const [period, setPeriod] = useState("overall");
+  // Weekly/monthly recap (same data as the Discord recap image).
+  const [recapPeriod, setRecapPeriod] = useState<"week" | "month">("week");
+  const [recap, setRecap] = useState<any>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRecapLoading(true);
+    setRecapError(null);
+    (async () => {
+      try {
+        const res = await fetchApi(`/api/recap?user=${encodeURIComponent(usernameParam)}&period=${recapPeriod}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setRecap(null);
+          setRecapError((data as any)?.error || "No recap yet.");
+        } else {
+          setRecap(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecap(null);
+          setRecapError("Couldn't load recap.");
+        }
+      } finally {
+        if (!cancelled) setRecapLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [usernameParam, recapPeriod]);
   const PERIOD_LONG: Record<string, string> = {
     "7day": "last 7 days",
     "1month": "last month",
@@ -1059,6 +1091,110 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               <span className="ml-auto text-[10px] font-display font-black uppercase tracking-widest text-green-400 shrink-0">Now playing</span>
             </div>
           )}
+
+          {/* Weekly/monthly recap (same data as the Discord recap image) */}
+          <div className="mb-8 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="px-6 sm:px-8 py-5 border-b border-white/5 bg-white/[0.01] flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-[200px]">
+                <h3 className="text-xl font-bold flex items-center gap-2">📊 {recap?.title || "YOUR WEEK IN MUSIC"}</h3>
+                <p className="text-zinc-400 text-sm mt-1">
+                  {recap?.label || (recapPeriod === "month" ? "Last 30 days" : "Last 7 days")}
+                  {recap?.total != null && ` · ${Number(recap.total).toLocaleString()} plays${recap?.capped ? "+" : ""}`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {(["week", "month"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setRecapPeriod(p)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      recapPeriod === p
+                        ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                        : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
+                    }`}
+                  >
+                    {p === "week" ? "Week" : "Month"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 sm:p-6">
+              {recapLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : recap ? (
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top tracks</div>
+                    <div className="space-y-2">
+                      {(recap.topTracks || []).map((t: any, i: number) => (
+                        <div key={i} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-2.5">
+                          {t.image ? (
+                            <img src={artSrc(t.image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">🎵</div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate">{t.name}</div>
+                            <div className="text-xs text-zinc-500 truncate">{t.artist} · {Number(t.playcount || 0).toLocaleString()} plays</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top artists</div>
+                    <div className="space-y-2">
+                      {(recap.topArtists || []).map((a: any, i: number) => (
+                        <div key={i} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-2.5">
+                          {a.image ? (
+                            <img src={artSrc(a.image)} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">🎤</div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate">{a.name}</div>
+                            <div className="text-xs text-zinc-500 truncate">{Number(a.playcount || 0).toLocaleString()} plays</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top albums</div>
+                    <div className="space-y-2">
+                      {(recap.topAlbums || []).map((b: any, i: number) => (
+                        <div key={i} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-2.5">
+                          {b.image ? (
+                            <img src={artSrc(b.image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">💿</div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate">{b.name}</div>
+                            <div className="text-xs text-zinc-500 truncate">{b.artist} · {Number(b.playcount || 0).toLocaleString()} plays</div>
+                          </div>
+                        </div>
+                      ))}
+                      {(recap.discoveries || []).length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">New discoveries</div>
+                          <div className="flex flex-wrap gap-2">
+                            {(recap.discoveries || []).map((n: string, i: number) => (
+                              <span key={i} className="text-xs font-semibold px-3 py-1.5 rounded-full text-fuchsia-200 bg-fuchsia-500/10 border border-fuchsia-500/20">✨ {n}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-zinc-500 text-sm">{recapError || "No recap yet."}</div>
+              )}
+            </div>
+          </div>
 
           <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
             {/* Top Artists Grid */}
