@@ -376,6 +376,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [recap, setRecap] = useState<any>(null);
   const [recapLoading, setRecapLoading] = useState(false);
   const [recapError, setRecapError] = useState<string | null>(null);
+  const [recapOpen, setRecapOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -1092,121 +1093,128 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             </div>
           )}
 
-          {/* Weekly/monthly recap (mirrors the Discord recap image) */}
-          <div className="mb-8 bg-[#0e0e12]/90 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-            <div className="absolute left-0 top-0 bottom-0 w-3 bg-[#0AB5CD]" />
-            <div className="pl-7 sm:pl-9 pr-6 sm:pr-8 py-6">
-              <div className="flex flex-wrap items-center gap-3 mb-1">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="text-[#0AB5CD] text-sm font-black uppercase tracking-widest">{recap?.title || (recapPeriod === "month" ? "YOUR MONTH IN MUSIC" : "YOUR WEEK IN MUSIC")}</div>
-                  <div className="text-zinc-400 text-sm mt-0.5">{recap?.label || (recapPeriod === "month" ? "Last 30 days" : "Last 7 days")}</div>
+          {/* Weekly/monthly recap — compact, collapsible, site-styled */}
+          <div className="mb-8 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+            <div
+              onClick={() => setRecapOpen(!recapOpen)}
+              className="w-full px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-bold flex items-center gap-2 flex-wrap">
+                  <span>📊 Recap</span>
+                  <span className="text-[#0AB5CD] text-xs font-black uppercase tracking-widest">
+                    {recap?.title || (recapPeriod === "month" ? "Month" : "Week")}
+                  </span>
+                  {recap && (
+                    <span className="text-zinc-400 text-xs font-semibold">
+                      · {recap?.label} · {Number(recap.total || 0).toLocaleString()}{recap?.capped ? "+" : ""} plays
+                    </span>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  {(["week", "month"] as const).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setRecapPeriod(p)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                        recapPeriod === p
-                          ? "bg-[#0AB5CD] text-black shadow-[0_0_15px_rgba(10,181,205,0.4)]"
-                          : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
-                      }`}
-                    >
-                      {p === "week" ? "Week" : "Month"}
-                    </button>
-                  ))}
-                </div>
+                {!recap && (
+                  <div className="text-zinc-500 text-xs mt-0.5">{recapPeriod === "month" ? "Last 30 days" : "Last 7 days"}</div>
+                )}
               </div>
-              {recapLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-[#0AB5CD] border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              ) : recap ? (
-                <>
-                  <div className="flex items-end gap-4 mt-2 mb-6">
-                    <div className="text-6xl font-display font-black text-white leading-none">
-                      {Number(recap.total || 0).toLocaleString()}{recap?.capped ? "+" : ""}
-                    </div>
-                    <div className="text-zinc-500 text-sm font-black uppercase tracking-widest pb-1.5">Plays</div>
-                  </div>
-                  {(recap.topTracks || []).length > 0 && (
-                    <div className="mb-6">
-                      <div className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-3">Top tracks</div>
-                      <div className="space-y-3">
-                        {(recap.topTracks || []).map((t: any, i: number) => (
-                          <div key={i} className="flex items-center gap-4">
-                            {t.image ? (
-                              <img src={artSrc(t.image)} alt="" className="w-[52px] h-[52px] rounded-xl object-cover shrink-0" />
-                            ) : (
-                              <div className="w-[52px] h-[52px] rounded-xl bg-zinc-800 flex items-center justify-center text-xl shrink-0">🎵</div>
-                            )}
-                            <div className="text-zinc-500 font-black text-lg w-6 shrink-0">{i + 1}</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-white font-bold truncate">{t.name}</div>
-                              <div className="text-zinc-400 text-sm truncate">{t.artist}</div>
-                            </div>
-                            <div className="text-white font-bold shrink-0">{Number(t.playcount || 0).toLocaleString()}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(recap.topArtists || []).length > 0 && (
-                    <div className="mb-6">
-                      <div className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-3">Top artists</div>
-                      <div className="space-y-3">
-                        {(recap.topArtists || []).map((a: any, i: number) => {
-                          const max = Math.max(1, ...(recap.topArtists || []).map((x: any) => Number(x.playcount || 0)));
-                          return (
-                            <div key={i} className="flex items-center gap-3">
-                              {a.image ? (
-                                <img src={artSrc(a.image)} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">🎤</div>
-                              )}
-                              <div className="text-white font-bold truncate w-40 sm:w-56 shrink-0">{a.name}</div>
-                              <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden min-w-[40px]">
-                                <div className="h-full bg-[#0AB5CD] rounded-full" style={{ width: `${Math.max(4, (Number(a.playcount || 0) / max) * 100)}%` }} />
-                              </div>
-                              <div className="text-zinc-400 font-bold text-sm shrink-0 w-12 text-right">{Number(a.playcount || 0).toLocaleString()}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {(recap.topAlbums || []).length > 0 && (
-                    <div className="mb-2">
-                      <div className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-3">Top albums</div>
-                      <div className="space-y-3">
-                        {(recap.topAlbums || []).map((b: any, i: number) => (
-                          <div key={i} className="flex items-center gap-4">
-                            {b.image ? (
-                              <img src={artSrc(b.image)} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />
-                            ) : (
-                              <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center text-xl shrink-0">💿</div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-white font-bold truncate">{b.name}</div>
-                              <div className="text-zinc-400 text-sm truncate">{b.artist}</div>
-                            </div>
-                            <div className="text-zinc-400 font-bold text-sm shrink-0">{Number(b.playcount || 0).toLocaleString()}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(recap.discoveries || []).length > 0 && (
-                    <div className="mt-5">
-                      <div className="text-[#F1C40F] text-xs font-black uppercase tracking-widest mb-2">New finds</div>
-                      <div className="text-white text-sm font-medium">{(recap.discoveries || []).join("  •  ")}</div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-6 text-zinc-500 text-sm">{recapError || "No recap yet."}</div>
-              )}
+              <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                {(["week", "month"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setRecapPeriod(p)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
+                      recapPeriod === p
+                        ? "bg-[#0AB5CD] text-black"
+                        : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
+                    }`}
+                  >
+                    {p === "week" ? "1W" : "1M"}
+                  </button>
+                ))}
+              </div>
+              <span className={`shrink-0 text-zinc-500 text-xs transition-transform duration-300 ${recapOpen ? "rotate-180" : ""}`}>▼</span>
             </div>
+            {recapOpen && (
+              <div className="px-6 pb-5">
+                {recapLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="w-5 h-5 border-2 border-[#0AB5CD] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : recap ? (
+                  <>
+                    <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top tracks</div>
+                        <div className="space-y-2">
+                          {(recap.topTracks || []).map((t: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2.5 min-w-0">
+                              {t.image ? (
+                                <img src={artSrc(t.image)} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">🎵</div>
+                              )}
+                              <div className="text-zinc-500 font-black text-sm w-4 shrink-0">{i + 1}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-bold truncate">{t.name}</div>
+                                <div className="text-zinc-500 text-xs truncate">{t.artist} · {Number(t.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top artists</div>
+                        <div className="space-y-2">
+                          {(recap.topArtists || []).map((a: any, i: number) => {
+                            const max = Math.max(1, ...(recap.topArtists || []).map((x: any) => Number(x.playcount || 0)));
+                            return (
+                              <div key={i} className="flex items-center gap-2.5 min-w-0">
+                                {a.image ? (
+                                  <img src={artSrc(a.image)} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-sm shrink-0">🎤</div>
+                                )}
+                                <div className="text-white text-sm font-bold truncate w-28 shrink-0">{a.name}</div>
+                                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden min-w-[30px]">
+                                  <div className="h-full bg-[#0AB5CD] rounded-full" style={{ width: `${Math.max(4, (Number(a.playcount || 0) / max) * 100)}%` }} />
+                                </div>
+                                <div className="text-zinc-500 text-xs font-bold shrink-0 w-8 text-right">{Number(a.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    {(recap.topAlbums || []).length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top albums</div>
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {(recap.topAlbums || []).map((b: any, i: number) => (
+                            <div key={i} className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5 flex items-center gap-2.5 min-w-0">
+                              {b.image ? (
+                                <img src={artSrc(b.image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">💿</div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-white text-xs font-bold truncate">{b.name}</div>
+                                <div className="text-zinc-500 text-[11px] truncate">{b.artist} · {Number(b.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {(recap.discoveries || []).length > 0 && (
+                      <div className="mt-3 text-xs text-zinc-400">
+                        <span className="text-[#F1C40F] font-bold uppercase tracking-widest text-[11px]">New finds · </span>
+                        {(recap.discoveries || []).join("  •  ")}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-zinc-500 text-sm">{recapError || "No recap yet."}</div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
