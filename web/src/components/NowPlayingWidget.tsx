@@ -11,12 +11,13 @@ export default function NowPlayingWidget() {
     const fetchNowPlaying = async () => {
       try {
         const res = await fetchApi("/api/now-playing");
-        const data = await res.json();
-        if (data.playing) {
+        const data = await res.json().catch(() => null);
+        if (data && data.playing) {
           setNowPlaying(data.track);
-        } else {
+        } else if (data) {
           setNowPlaying(null);
         }
+        // Transient failures (504/timeout): keep last state, retry next poll.
       } catch (err) {
         console.error("Error fetching now playing:", err);
       } finally {
@@ -25,7 +26,7 @@ export default function NowPlayingWidget() {
     };
 
     fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, 15000);
+    const interval = setInterval(fetchNowPlaying, 30000);
     return () => clearInterval(interval);
   }, []);
 

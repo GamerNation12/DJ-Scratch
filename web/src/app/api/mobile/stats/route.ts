@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
+import { upstreamJson } from "@/lib/upstream";
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
 async function getDeezerArtistImage(artistName: string) {
   try {
-    const res = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}`);
+    const res = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return { url: null };
     const data = await res.json();
     if (data.data?.length > 0) {
@@ -24,7 +25,7 @@ async function getDeezerArtistImage(artistName: string) {
 
 async function getDeezerTrackImage(trackName: string, artistName: string) {
   try {
-    const res = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(trackName + " " + artistName)}`);
+    const res = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(trackName + " " + artistName)}`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return { url: null };
     const data = await res.json();
     if (data.data?.length > 0) {
@@ -82,25 +83,19 @@ export async function GET(req: Request) {
     };
 
     try {
-      const [infoRes, artistRes, recentRes, tracksRes, albumsRes] = await Promise.all([
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=12`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=10`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`)
+      const [infoData, artistData, recentData, tracksData, albumsData] = await Promise.all([
+        upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`, 300),
+        upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=12`, 300),
+        upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=10`, 30),
+        upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`, 300),
+        upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=6`, 300)
       ]);
 
-      const infoData = await infoRes.json();
-      const artistData = await artistRes.json();
-      const recentData = await recentRes.json();
-      const tracksData = await tracksRes.json();
-      const albumsData = await albumsRes.json();
-
-      if (!infoData.error) {
+      if (infoData && !infoData.error) {
         lastfmData.playcount = parseInt(infoData.user.playcount || "0", 10);
       }
 
-      if (!artistData.error && artistData.topartists?.artist) {
+      if (artistData && !artistData.error && artistData.topartists?.artist) {
         const artistsList = artistData.topartists.artist;
         for (const a of artistsList) {
           let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;
@@ -113,7 +108,7 @@ export async function GET(req: Request) {
         }
       }
 
-      if (!recentData.error && recentData.recenttracks?.track) {
+      if (recentData && !recentData.error && recentData.recenttracks?.track) {
         const tracks = Array.isArray(recentData.recenttracks.track) ? recentData.recenttracks.track : [recentData.recenttracks.track];
         lastfmData.recentTracks = tracks.map((t: any) => ({
           name: t.name,
@@ -126,7 +121,7 @@ export async function GET(req: Request) {
         }));
       }
 
-      if (!tracksData.error && tracksData.toptracks?.track) {
+      if (tracksData && !tracksData.error && tracksData.toptracks?.track) {
         const topTracksList = Array.isArray(tracksData.toptracks.track) ? tracksData.toptracks.track : [tracksData.toptracks.track];
         for (const t of topTracksList) {
           let imageUrl = t.image?.find((i: any) => i.size === "extralarge" || i.size === "large")?.["#text"] || null;
@@ -139,7 +134,7 @@ export async function GET(req: Request) {
         }
       }
 
-      if (!albumsData.error && albumsData.topalbums?.album) {
+      if (albumsData && !albumsData.error && albumsData.topalbums?.album) {
         const topAlbums = Array.isArray(albumsData.topalbums.album) ? albumsData.topalbums.album : [albumsData.topalbums.album];
         for (const a of topAlbums) {
           let imageUrl = a.image?.find((i: any) => i.size === "extralarge")?.["#text"] || null;

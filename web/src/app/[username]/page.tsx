@@ -371,6 +371,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     { value: "overall", label: "All" },
   ];
   const [period, setPeriod] = useState("overall");
+  // Profile sub-sections keep the page short: Overview | Charts | Activity.
+  const [profileSection, setProfileSection] = useState<"overview" | "charts" | "activity">("overview");
   // Weekly/monthly recap (same data as the Discord recap image).
   const [recapPeriod, setRecapPeriod] = useState<"week" | "month">("week");
   const [recap, setRecap] = useState<any>(null);
@@ -423,6 +425,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     // Permanent errors (unknown user, private, banned) never resolve by
     // retrying — stop polling so a missing profile doesn't 404 forever.
     let stopPolling = false;
+    // Whether one good payload has rendered: transient poll failures keep
+    // stale data on screen instead of flashing the error state.
+    let hasData = false;
     // One-time fallback: if the name lookup 404s while logged in, retry via
     // your own Discord ID (display names drift; IDs don't). Sticks to the ID
     // URL for subsequent polls once it succeeds.
@@ -436,13 +441,17 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       if (stopPolling) return;
       try {
         const key = useIdUrl && sessionUserId ? sessionUserId : usernameParam;
+        // Safe parse: gateway 504s return HTML, not JSON.
+        const safeJson = async (r: Response) => {
+          try { return await r.json(); } catch { return null; }
+        };
         let res = await fetchApi(`/api/u/${encodeURIComponent(key)}?period=${period}&t=${Date.now()}`);
-        let data = await res.json();
+        let data = await safeJson(res);
         if (res.status === 404 && !useIdUrl && sessionUserId && !triedIdFallback) {
           triedIdFallback = true;
           const res2 = await fetchApi(`/api/u/${sessionUserId}?period=${period}&t=${Date.now()}`);
-          const data2 = await res2.json();
-          if (!data2.error) {
+          const data2 = await safeJson(res2);
+          if (data2 && !data2.error) {
             useIdUrl = true;
             res = res2;
             data = data2;
@@ -453,23 +462,34 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           }
         }
         if (isMounted) {
-          if (data.error) {
-            setProfileError(data.error);
-            if (res.status === 404 || res.status === 403) stopPolling = true;
+          if (!data) {
+            // Transient failure (504/timeout with no JSON body): keep the
+            // last good data on screen instead of flashing an error.
+            if (!hasData) setProfileError("Failed to load profile.");
+          } else if (data.error) {
+            // Permanent errors stop polling; transient ones (500/504 from
+            // the API) keep stale data visible and retry silently.
+            if (res.status === 404 || res.status === 403) {
+              setProfileError(data.error);
+              stopPolling = true;
+            } else if (!hasData) {
+              setProfileError(data.error);
+            }
           } else {
+            hasData = true;
             setProfileError(null);
             setProfile(data);
           }
         }
       } catch (err) {
-        if (isMounted) setProfileError("Failed to load profile.");
+        if (isMounted && !hasData) setProfileError("Failed to load profile.");
       } finally {
         if (isMounted) { setProfileLoading(false); setTopsLoading(false); }
       }
     };
 
     fetchProfile();
-    const intervalId = setInterval(fetchProfile, 5000); // Poll every 5 seconds
+    const intervalId = setInterval(fetchProfile, 30000); // Poll every 30 seconds
 
     return () => {
       isMounted = false;
@@ -913,30 +933,29 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         {/* --- PROFILE TAB --- */}
         {(!isOwner || activeTab === "profile") && profile && !profileError && (
           <>
-          {/* Period selector for Top Artists / Albums / Tracks */}
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 mr-1">Tops:</span>
-            {PERIODS.map((p) => (
+          {/* Profile section nav: Overview | Charts | Activity */}
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            {([
+              { value: "overview", label: "Overview" },
+              { value: "charts", label: "Charts" },
+              { value: "activity", label: "Activity" },
+            ] as const).map((s) => (
               <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  period === p.value
+                key={s.value}
+                onClick={() => setProfileSection(s.value)}
+                className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  profileSection === s.value
                     ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
                     : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
                 }`}
               >
-                {p.label}
+                {s.label}
               </button>
             ))}
-            {topsLoading && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
-                <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
-                Updating…
-              </span>
-            )}
           </div>
 
+          {profileSection === "overview" && (
+          <>
           {/* Listening insights */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
@@ -1215,6 +1234,33 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               </div>
             )}
           </div>
+          </>}
+
+          {profileSection === "charts" && (
+          <>
+          {/* Period selector for Top Artists / Albums / Tracks */}
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 mr-1">Tops:</span>
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  period === p.value
+                    ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                    : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            {topsLoading && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
+                <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+                Updating…
+              </span>
+            )}
+          </div>
 
           <div className="grid lg:grid-cols-2 gap-6 items-start animate-fade-in">
             {/* Top Artists Grid */}
@@ -1254,50 +1300,6 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                    {showAllArtists ? "Show less ▲" : `Show all ${profile.stats.topArtists.length} ▼`}
                  </button>
                )}
-            </div>
-
-            {/* Recent Tracks List */}
-            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
-               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
-                 <h3 className="text-lg font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
-                 <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
-               </div>
-               <div className="divide-y divide-white/5">
-                 {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
-                   <button 
-                     key={i} 
-                     onClick={() => setSelectedTrack(track)}
-                     className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
-                   >
-                     <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
-                       {track.image ? (
-                         <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
-                       ) : (
-                         <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
-                       )}
-                     </div>
-                     <div className="flex-1 min-w-0">
-                       <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
-                         {track.name}
-                         {track.nowPlaying && (
-                           <span className="shrink-0 flex items-center gap-1 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-green-500/20">
-                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                             Playing
-                           </span>
-                         )}
-                       </div>
-                       <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
-                     </div>
-                     {!track.nowPlaying && track.date && (
-                       <div className="text-[10px] text-zinc-500 whitespace-nowrap shrink-0">
-                         {new Date(parseInt(track.date) * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                       </div>
-                     )}
-                   </button>
-                 )) : (
-                   <div className="text-center py-8 text-zinc-500">No recent tracks found.</div>
-                 )}
-               </div>
             </div>
 
             {/* Top Albums Grid */}
@@ -1377,8 +1379,56 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                </div>
              </div>
            </div>
-          </>
-         )}
+          </>)}
+
+          {profileSection === "activity" && (
+          <>
+                    {/* Recent Tracks List */}
+          <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative animate-fade-in">
+            <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+              <h3 className="text-lg font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
+              <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
+            </div>
+            <div className="divide-y divide-white/5">
+              {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedTrack(track)}
+                  className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
+                    {track.image ? (
+                      <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
+                      {track.name}
+                      {track.nowPlaying && (
+                        <span className="shrink-0 flex items-center gap-1 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-green-500/20">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                          Playing
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
+                  </div>
+                  {!track.nowPlaying && track.date && (
+                    <div className="text-[10px] text-zinc-500 whitespace-nowrap shrink-0">
+                      {new Date(parseInt(track.date) * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  )}
+                </button>
+              )) : (
+                <div className="text-center py-8 text-zinc-500">No recent tracks found.</div>
+              )}
+            </div>
+          </div>
+          </>)}
+           </>
+          )}
 
          {isOwner && activeTab === "profile" && profileError && (
           <div className="text-center p-8 text-zinc-500 bg-[#170b28]/30 rounded-3xl border border-white/5 border-dashed">

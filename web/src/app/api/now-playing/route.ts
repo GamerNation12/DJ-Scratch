@@ -29,9 +29,12 @@ export async function GET(req: Request) {
 
     const res = await fetch(
       `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
-      { next: { revalidate: 0 } }
+      { next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      return NextResponse.json({ playing: false, error: "upstream_timeout" });
+    }
 
     if (data.error) {
       return NextResponse.json({ playing: false, error: data.message });

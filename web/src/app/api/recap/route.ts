@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
+import { upstreamJson } from "@/lib/upstream";
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
 
@@ -37,7 +38,7 @@ function asList(v: any): any[] {
 // Deezer pics -> iTunes art, so import-only rows rarely end up blank.
 async function deezerArtistArt(name: string): Promise<string | null> {
   try {
-    const r = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}`, { next: { revalidate: 86400 } });
+    const r = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const d = await r.json().catch(() => null);
     const hit = d?.data?.[0];
@@ -47,7 +48,7 @@ async function deezerArtistArt(name: string): Promise<string | null> {
 
 async function deezerTrackArt(track: string, artist: string): Promise<string | null> {
   try {
-    const r = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(`${track} ${artist}`.trim())}`, { next: { revalidate: 86400 } });
+    const r = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(`${track} ${artist}`.trim())}`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const d = await r.json().catch(() => null);
     const hit = d?.data?.[0];
@@ -57,7 +58,7 @@ async function deezerTrackArt(track: string, artist: string): Promise<string | n
 
 async function itunesSongArt(track: string, artist: string): Promise<string | null> {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${track}`.trim())}&entity=song&limit=1`, { next: { revalidate: 86400 } });
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${track}`.trim())}&entity=song&limit=1`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const d = await r.json().catch(() => null);
     const art = d?.results?.[0]?.artworkUrl100;
@@ -67,7 +68,7 @@ async function itunesSongArt(track: string, artist: string): Promise<string | nu
 
 async function itunesAlbumArt(album: string, artist: string): Promise<string | null> {
   try {
-    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`.trim())}&entity=album&limit=1`, { next: { revalidate: 86400 } });
+    const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`.trim())}&entity=album&limit=1`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const d = await r.json().catch(() => null);
     const art = d?.results?.[0]?.artworkUrl100;
@@ -163,13 +164,12 @@ export async function GET(req: Request) {
     if (useFm && lastfmUsername) {
       const u = encodeURIComponent(lastfmUsername);
       try {
-        const [artRes, trkRes, albRes, ovRes] = await Promise.all([
-          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`),
-          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`),
-          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=3`),
-          fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=overall&limit=50`),
+        const [art, trk, alb, ov] = await Promise.all([
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=3`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=overall&limit=50`, 600),
         ]);
-        const [art, trk, alb, ov] = await Promise.all([artRes.json().catch(() => null), trkRes.json().catch(() => null), albRes.json().catch(() => null), ovRes.json().catch(() => null)]);
         fmArtists = asList(art?.topartists?.artist).slice(0, 5).map((a: any) => ({
           name: a?.name || "Unknown", playcount: parseInt(a?.playcount || "0", 10) || 0, url: a?.url || null, image: bestImg(a),
         }));
@@ -186,14 +186,15 @@ export async function GET(req: Request) {
         }
       } catch { /* Last.fm partial failure -> fall through to imports */ }
 
-      // Window total: page recents (same approach as the Discord recap).
+      // Window total: page recents (same approach as the Discord recap,
+      // capped at 3 pages to bound latency).
       try {
         const cutoff = Date.now() / 1000 - days * 86400;
-        for (let page = 1; page <= 5; page++) {
-          const r = await fetch(
-            `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`
+        for (let page = 1; page <= 3; page++) {
+          const d = await upstreamJson(
+            `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`,
+            120
           );
-          const d = await r.json().catch(() => null);
           const items = asList(d?.recenttracks?.track);
           if (items.length === 0) break;
           let oldest: number | null = null;
@@ -204,7 +205,7 @@ export async function GET(req: Request) {
             if (oldest === null || uts < oldest) oldest = uts;
             if (uts >= cutoff) fmTotal++;
           }
-          if (page === 5) fmCapped = true;
+          if (page === 3) fmCapped = true;
           if (oldest !== null && oldest < cutoff) break;
         }
       } catch { /* total stays best-effort */ }
