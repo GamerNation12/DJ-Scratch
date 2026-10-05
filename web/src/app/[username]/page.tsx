@@ -445,11 +445,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         const safeJson = async (r: Response) => {
           try { return await r.json(); } catch { return null; }
         };
-        let res = await fetchApi(`/api/u/${encodeURIComponent(key)}?period=${period}&t=${Date.now()}`);
+        // Route has revalidate=60: no cache-buster so polls share cached responses
+        // instead of stampeding DB + Last.fm (the old t=Date.now() defeated it).
+        let res = await fetchApi(`/api/u/${encodeURIComponent(key)}?period=${period}`);
         let data = await safeJson(res);
         if (res.status === 404 && !useIdUrl && sessionUserId && !triedIdFallback) {
           triedIdFallback = true;
-          const res2 = await fetchApi(`/api/u/${sessionUserId}?period=${period}&t=${Date.now()}`);
+          const res2 = await fetchApi(`/api/u/${sessionUserId}?period=${period}`);
           const data2 = await safeJson(res2);
           if (data2 && !data2.error) {
             useIdUrl = true;
@@ -1234,7 +1236,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               </div>
             )}
           </div>
-          </>}
+          </>)}
 
           {profileSection === "charts" && (
           <>

@@ -115,7 +115,7 @@ export default function FriendsPage() {
     const fetchLive = async () => {
       const results = await Promise.allSettled(
         accepted.map(async (f) => {
-          const res = await fetch(`/api/u/${encodeURIComponent(f.friend_username)}?t=${Date.now()}`, {
+          const res = await fetch(`/api/u/${encodeURIComponent(f.friend_username)}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (!res.ok) throw new Error("unavailable");
@@ -149,8 +149,8 @@ export default function FriendsPage() {
       const token = localStorage.getItem("discord_jwt");
       const headers = { Authorization: `Bearer ${token}` };
       const [mineRes, theirsRes] = await Promise.all([
-        fetch(`/api/u/${encodeURIComponent(me)}?period=1month&t=${Date.now()}`, { headers }),
-        fetch(`/api/u/${encodeURIComponent(f.friend_username)}?period=1month&t=${Date.now()}`, { headers }),
+        fetch(`/api/u/${encodeURIComponent(me)}?period=1month`, { headers }),
+        fetch(`/api/u/${encodeURIComponent(f.friend_username)}?period=1month`, { headers }),
       ]);
       if (!mineRes.ok) throw new Error("Could not load your stats.");
       if (!theirsRes.ok) throw new Error(`${f.display_name || f.friend_username} has no public stats.`);

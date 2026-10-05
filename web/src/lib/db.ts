@@ -23,3 +23,18 @@ export const sql = globalForPostgres.sql ?? (globalForPostgres.sql = createClien
 export function getDb() {
   return sql;
 }
+
+// Fail-fast wrapper: a hung Postgres (pool exhaustion, paused DB, slow
+// scan) must reject in ms instead of hanging until Vercel kills the
+// function at 300s with a HTML timeout page.
+export async function withDbTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`DB timeout after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}

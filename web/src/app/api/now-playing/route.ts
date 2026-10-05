@@ -1,8 +1,11 @@
 import { verifyToken } from "@/lib/jwt";
 import { NextResponse } from "next/server";
-import { sql } from "@/lib/db";
+import { sql, withDbTimeout } from "@/lib/db";
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
+
+export const revalidate = 15; // Short cache so polls share responses instead of stampeding DB + Last.fm.
+export const maxDuration = 15; // Fail fast instead of hanging to Vercel's 300s kill.
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -17,9 +20,9 @@ export async function GET(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const row = await sql`
+    const row = await withDbTimeout(sql`
       SELECT lastfm_username FROM user_settings WHERE user_id = ${userId}
-    `;
+    `);
 
     if (row.length === 0 || !row[0].lastfm_username) {
       return NextResponse.json({ playing: false, error: "not_linked" });

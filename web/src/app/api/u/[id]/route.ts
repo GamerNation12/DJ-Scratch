@@ -7,6 +7,7 @@ const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
 export const revalidate = 60; // Cache for 60 seconds
+export const maxDuration = 60; // Bound worst case instead of hanging to Vercel's 300s kill.
 
 async function getDeezerArtistImage(artistName: string) {
   try {
@@ -346,8 +347,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const names = new Set<string>();
       let capped = false;
       try {
+        // Single page (was 3x1000): full paging tripled Last.fm fan-out and
+        // held the route open under polling. Partial set is fine ("+" marks floor).
         const pages = await Promise.all(
-          [1, 2, 3].map((pg) =>
+          [1].map((pg) =>
             upstreamJson(
               `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json&limit=1000&page=${pg}${periodParam}`,
               600
@@ -355,7 +358,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           )
         );
         const totalPages = parseInt(pages[0]?.topartists?.["@attr"]?.totalPages || "1", 10) || 1;
-        capped = totalPages > 3;
+        capped = totalPages > 1;
         for (const d of pages) {
           let items = d?.topartists?.artist || [];
           if (!Array.isArray(items)) items = items ? [items] : [];
@@ -481,7 +484,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const first = await upstreamJson(pageUrl(1), 120);
         collect(first);
         const totalPages = Math.min(
-          5, parseInt(first?.recenttracks?.["@attr"]?.totalPages || "1", 10) || 1);
+          3, parseInt(first?.recenttracks?.["@attr"]?.totalPages || "1", 10) || 1);
         if (totalPages > 1) {
           const rest = await Promise.all(
             Array.from({ length: totalPages - 1 }, (_, i) =>
@@ -492,8 +495,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
       if (useIm) {
         const imRows = cutoffDate
-          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 5000`
-          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 5000`;
+          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`
+          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`;
         for (const r of imRows) {
           const ms = new Date((r as any).played_at).getTime();
           if (Number.isFinite(ms) && ms > 0) stamps.push(Math.floor(ms / 1000));
