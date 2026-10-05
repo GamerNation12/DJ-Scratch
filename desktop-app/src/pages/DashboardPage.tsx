@@ -24,6 +24,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
   const [recapLoading, setRecapLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(0); // re-renders the "updated Xs ago" label
+  const [showCharts, setShowCharts] = useState(false); // rhythm charts collapsed by default
   const periodRef = useRef(period);
   periodRef.current = period;
 
@@ -254,9 +255,28 @@ export default function DashboardPage({ token, username }: { token: string | nul
                   {avgPerDay.toLocaleString(undefined, { maximumFractionDigits: 1 })} / day
                 </span>
               )}
+              <button
+                onClick={() => setShowCharts((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-colors"
+              >
+                {showCharts ? 'Hide charts ▲' : 'Show charts ▼'}
+              </button>
             </div>
           )}
 
+          {!showStrip && (
+            <div className="mb-6">
+              <button
+                onClick={() => setShowCharts((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-colors"
+              >
+                {showCharts ? 'Hide charts ▲' : 'Show charts ▼'}
+              </button>
+            </div>
+          )}
+
+          {showCharts && (
+          <>
           {hasClock && (
             <Card className="p-6 mb-6">
               <div className="flex items-center gap-2 mb-1">
@@ -330,7 +350,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
           )}
 
           {hasDiscoveries && (
-            <Card className="p-6 mb-10">
+            <Card className="p-6 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-4 h-4 text-indigo-300" />
                 <div className="text-zinc-200 text-sm font-bold">New discoveries</div>
@@ -344,6 +364,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
               </div>
             </Card>
           )}
+          </>)}
 
           <Card className="p-0 mb-6 overflow-hidden">
             <div className="flex">
@@ -468,7 +489,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
             {recents.length === 0 ? (
               <div className="p-6"><Empty title="No tracks found" hint="Try a different filter or scrobble something." /></div>
             ) : (
-              recents.slice(0, 15).map((t, i) => (
+              recents.slice(0, 8).map((t, i) => (
                 <div key={i} className="flex items-center gap-4 p-4 hover:bg-white/[0.04] border-b border-white/5 last:border-0">
                   <div className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden shrink-0">
                     {t.image ? <img src={t.image} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center">🎵</div>}
