@@ -11,6 +11,7 @@ LOG_CHANNEL_ID = 1517288950522187947  # same log channel the import worker uses
 GUILD_JOIN_LOG_ID = 1527127384535334954
 GUILD_LEAVE_LOG_ID = 1527127384535334955
 _ID_RE = re.compile(r"\*\*ID:\*\*\s*`(\d+)`")
+_NAME_RE = re.compile(r"\*\*Name:\*\*\s*(.+)")
 
 
 def _is_owner(uid) -> bool:
@@ -144,29 +145,61 @@ class SupportInviteCog(commands.Cog):
                             if not msg.embeds or (msg.author != self.bot.user):
                                 continue
                             old = msg.embeds[0]
-                            if (old.title or "") not in ("📥 Joined New Server!", "📤 Left Server"):
+                            title = old.title or ""
+                            is_old_style = title in ("📥 Joined New Server!", "📤 Left Server")
+                            m_new = re.match(r"^[📥📤]\s+(.*)$", title)
+                            if not is_old_style and not m_new:
                                 continue
-                            if old.fields:  # already new style
-                                continue
-                            m = _ID_RE.search(old.description or "")
-                            if not m:
+                            try:
+                                fields = {str(f.name): str(f.value) for f in (old.fields or [])}
+                            except Exception:
+                                fields = {}
+                            gid = None
+                            if "🆔 Server ID" in fields:
+                                mm = re.search(r"(\d{5,25})", fields["🆔 Server ID"])
+                                if mm:
+                                    gid = int(mm.group(1))
+                            if gid is None:
+                                m = _ID_RE.search(old.description or "")
+                                if m:
+                                    gid = int(m.group(1))
+                            if gid is None:
                                 skipped += 1
                                 continue
-                            gid = int(m.group(1))
+                            if is_old_style and not old.fields:
+                                needs_fix = True
+                            else:
+                                # Already converted: repair only if something is still
+                                # Unknown-but-recoverable or the name is wrong.
+                                cur_title_name = m_new.group(1).strip() if m_new else ""
+                                needs_fix = (
+                                    "Unknown" in fields.get("🏠 Server created", "")
+                                    or (is_join and "Unknown" in fields.get("🤖 Bot joined", ""))
+                                    or (not cur_title_name or "Name:" in cur_title_name
+                                        or cur_title_name in ("Joined New Server!", "Left Server"))
+                                )
+                                if not needs_fix:
+                                    continue
                             guild = self.bot.get_guild(gid)
                             if guild is None and is_join:
                                 try:
                                     guild = await self.bot.fetch_guild(gid)
                                 except Exception:
                                     guild = None
-                            # Old title format "📥 Joined New Server!" + bold name in the
-                            # description; new format puts the name in the title.
-                            name = guild.name if guild else "Unknown server"
-                            if not guild and old.description:
-                                first_line = (old.description.strip().splitlines() or [""])[0]
-                                guess = first_line.strip("* ").strip()
-                                if guess and "ID:" not in guess:
-                                    name = guess
+                            # Server name: live guild > clean title > **Name:** line > Unknown.
+                            name = None
+                            if guild:
+                                name = guild.name
+                            if not name and m_new:
+                                cand = m_new.group(1).strip()
+                                if cand and "Name:" not in cand and cand not in ("Joined New Server!", "Left Server"):
+                                    name = cand
+                            if not name and old.description:
+                                nm = _NAME_RE.search(old.description)
+                                if nm and nm.group(1).strip():
+                                    name = nm.group(1).strip()
+                            if not name:
+                                name = "Unknown server"
                             try:
                                 if guild:
                                     created_ts = int(guild.created_at.timestamp())
@@ -188,6 +221,11 @@ class SupportInviteCog(commands.Cog):
                                                 joined_value = f"<t:{ts}:D>\n<t:{ts}:R>"
                                 except Exception:
                                     pass
+                                if joined_value == "Unknown" and msg.created_at:
+                                    # Join logs are posted at join time, so the message
+                                    # timestamp is a good stand-in for old entries.
+                                    jts = int(msg.created_at.timestamp())
+                                    joined_value = f"<t:{jts}:D>\n<t:{jts}:R>"
                             from src.core.theme import Theme
                             kwargs = {}
                             if is_join:
