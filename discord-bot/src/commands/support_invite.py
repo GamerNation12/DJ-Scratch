@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 
 import discord
@@ -22,6 +23,7 @@ def _is_owner(uid) -> bool:
 class SupportInviteCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._fixlogs_stop = False
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
@@ -100,100 +102,129 @@ class SupportInviteCog(commands.Cog):
             await ctx.send(f"Couldn't create the invite: {e}")
 
     @commands.command(name="fixlogs", aliases=["backfilllogs"])
-    async def fixlogs_prefix(self, ctx, limit: int = 200):
+    async def fixlogs_prefix(self, ctx, limit: str = "200"):
         """Owner-only one-time backfill: rewrite old guild join/leave log embeds in the new style."""
         if not _is_owner(ctx.author.id):
             return await ctx.send("Only the bot owner can do that.")
-        limit = max(1, min(limit, 500))
-        status = await ctx.send(f"🔧 Scanning guild log channels (last {limit} messages each)…")
+        if isinstance(limit, str) and limit.lower() == "stop":
+            self._fixlogs_stop = True
+            return await ctx.send("🛑 Current `,fixlogs` run will stop after this edit. Already-fixed messages stay fixed.")
+        try:
+            limit_n = max(1, min(int(limit), 500))
+        except (TypeError, ValueError):
+            return await ctx.send("Usage: `,fixlogs [limit]` or `,fixlogs stop`.")
+        self._fixlogs_stop = False
+        status = await ctx.send(f"🔧 Scanning guild log channels (last {limit_n} messages each)…")
+        # Message edits are tightly bucketed and discord.py retries every 429
+        # with a scary WARNING; quiet those for the run (restored after).
+        http_log = logging.getLogger("discord.http")
+        old_level = http_log.level
+        http_log.setLevel(logging.ERROR)
         fixed, skipped = 0, 0
-        for channel_id, is_join in ((GUILD_JOIN_LOG_ID, True), (GUILD_LEAVE_LOG_ID, False)):
-            channel = self.bot.get_channel(channel_id)
-            if channel is None:
-                try:
-                    channel = await self.bot.fetch_channel(channel_id)
-                except Exception:
-                    channel = None
-            if channel is None:
-                await ctx.send(f"⚠️ Can't see <#{channel_id}>, skipping.")
-                continue
-            try:
-                async for msg in channel.history(limit=limit, oldest_first=False):
+        try:
+            for channel_id, is_join in ((GUILD_JOIN_LOG_ID, True), (GUILD_LEAVE_LOG_ID, False)):
+                if self._fixlogs_stop:
+                    break
+                channel = self.bot.get_channel(channel_id)
+                if channel is None:
                     try:
-                        if not msg.embeds or (msg.author != self.bot.user):
-                            continue
-                        old = msg.embeds[0]
-                        if (old.title or "") not in ("📥 Joined New Server!", "📤 Left Server"):
-                            continue
-                        if old.fields:  # already new style
-                            continue
-                        m = _ID_RE.search(old.description or "")
-                        if not m:
+                        channel = await self.bot.fetch_channel(channel_id)
+                    except Exception:
+                        channel = None
+                if channel is None:
+                    await ctx.send(f"⚠️ Can't see <#{channel_id}>, skipping.")
+                    continue
+                try:
+                    count = 0
+                    async for msg in channel.history(limit=limit_n, oldest_first=False):
+                        if self._fixlogs_stop:
+                            break
+                        count += 1
+                        try:
+                            if not msg.embeds or (msg.author != self.bot.user):
+                                continue
+                            old = msg.embeds[0]
+                            if (old.title or "") not in ("📥 Joined New Server!", "📤 Left Server"):
+                                continue
+                            if old.fields:  # already new style
+                                continue
+                            m = _ID_RE.search(old.description or "")
+                            if not m:
+                                skipped += 1
+                                continue
+                            gid = int(m.group(1))
+                            guild = self.bot.get_guild(gid)
+                            if guild is None and is_join:
+                                try:
+                                    guild = await self.bot.fetch_guild(gid)
+                                except Exception:
+                                    guild = None
+                            # Old title format "📥 Joined New Server!" + bold name in the
+                            # description; new format puts the name in the title.
+                            name = guild.name if guild else "Unknown server"
+                            if not guild and old.description:
+                                first_line = (old.description.strip().splitlines() or [""])[0]
+                                guess = first_line.strip("* ").strip()
+                                if guess and "ID:" not in guess:
+                                    name = guess
+                            try:
+                                if guild:
+                                    created_ts = int(guild.created_at.timestamp())
+                                else:
+                                    created_ts = int(discord.utils.snowflake_time(gid).timestamp())
+                            except Exception:
+                                created_ts = None
+                            members = f"{guild.member_count:,}" if guild and getattr(guild, "member_count", None) else "Unknown"
+                            joined_value = "Unknown"
+                            if is_join:
+                                try:
+                                    from src.core.database import db_pool
+                                    if db_pool:
+                                        async with db_pool.acquire() as conn:
+                                            row = await conn.fetchrow(
+                                                "SELECT joined_at FROM guild_membership WHERE guild_id = $1", str(gid))
+                                            if row and row["joined_at"]:
+                                                ts = int(row["joined_at"].timestamp())
+                                                joined_value = f"<t:{ts}:D>\n<t:{ts}:R>"
+                                except Exception:
+                                    pass
+                            from src.core.theme import Theme
+                            kwargs = {}
+                            if is_join:
+                                try:
+                                    owner = str(guild.owner) if guild and guild.owner else "Unknown"
+                                except Exception:
+                                    owner = "Unknown"
+                                kwargs["owner"] = owner
+                            embed = Theme.guild_log_embed(
+                                "join" if is_join else "leave", name,
+                                members=members,
+                                created_ts=created_ts,
+                                joined_value=joined_value,
+                                guild_id=gid,
+                                icon_url=old.thumbnail.url if old.thumbnail and old.thumbnail.url else None,
+                                timestamp=old.timestamp,
+                                **kwargs,
+                            )
+                            await msg.edit(embed=embed)
+                            fixed += 1
+                            if fixed % 10 == 0:
+                                try:
+                                    await status.edit(content=f"🔧 Working… rewrote **{fixed}** so far (scanned {count} in this channel)…")
+                                except Exception:
+                                    pass
+                            await asyncio.sleep(4)  # message edits are tightly rate limited
+                        except Exception:
                             skipped += 1
                             continue
-                        gid = int(m.group(1))
-                        guild = self.bot.get_guild(gid)
-                        if guild is None and is_join:
-                            try:
-                                guild = await self.bot.fetch_guild(gid)
-                            except Exception:
-                                guild = None
-                        # Old title format "📥 Joined New Server!" + bold name in the
-                        # description; new format puts the name in the title.
-                        name = guild.name if guild else "Unknown server"
-                        if not guild and old.description:
-                            first_line = (old.description.strip().splitlines() or [""])[0]
-                            guess = first_line.strip("* ").strip()
-                            if guess and "ID:" not in guess:
-                                name = guess
-                        try:
-                            if guild:
-                                created_ts = int(guild.created_at.timestamp())
-                            else:
-                                created_ts = int(discord.utils.snowflake_time(gid).timestamp())
-                        except Exception:
-                            created_ts = None
-                        members = f"{guild.member_count:,}" if guild and getattr(guild, "member_count", None) else "Unknown"
-                        joined_value = "Unknown"
-                        if is_join:
-                            try:
-                                from src.core.database import db_pool
-                                if db_pool:
-                                    async with db_pool.acquire() as conn:
-                                        row = await conn.fetchrow(
-                                            "SELECT joined_at FROM guild_membership WHERE guild_id = $1", str(gid))
-                                        if row and row["joined_at"]:
-                                            ts = int(row["joined_at"].timestamp())
-                                            joined_value = f"<t:{ts}:D>\n<t:{ts}:R>"
-                            except Exception:
-                                pass
-                        from src.core.theme import Theme
-                        kwargs = {}
-                        if is_join:
-                            try:
-                                owner = str(guild.owner) if guild and guild.owner else "Unknown"
-                            except Exception:
-                                owner = "Unknown"
-                            kwargs["owner"] = owner
-                        embed = Theme.guild_log_embed(
-                            "join" if is_join else "leave", name,
-                            members=members,
-                            created_ts=created_ts,
-                            joined_value=joined_value,
-                            guild_id=gid,
-                            icon_url=old.thumbnail.url if old.thumbnail and old.thumbnail.url else None,
-                            timestamp=old.timestamp,
-                            **kwargs,
-                        )
-                        await msg.edit(embed=embed)
-                        fixed += 1
-                        await asyncio.sleep(4)  # message edits are tightly rate limited
-                    except Exception:
-                        skipped += 1
-                        continue
-            except Exception as e:
-                await ctx.send(f"⚠️ Scan failed in <#{channel_id}>: {e}")
-        await status.edit(content=f"✅ Done — rewrote **{fixed}** log message(s), skipped {skipped}.")
+                except Exception as e:
+                    await ctx.send(f"⚠️ Scan failed in <#{channel_id}>: {e}")
+        finally:
+            http_log.setLevel(old_level)
+        if self._fixlogs_stop:
+            await status.edit(content=f"🛑 Stopped — rewrote **{fixed}** log message(s), skipped {skipped}. Re-run anytime to continue.")
+        else:
+            await status.edit(content=f"✅ Done — rewrote **{fixed}** log message(s), skipped {skipped}.")
 
 
 async def setup(bot):
