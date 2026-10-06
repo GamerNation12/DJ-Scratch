@@ -1903,6 +1903,18 @@ class LeaveGuildReasonModal(discord.ui.Modal, title="Leave Server"):
 @bot.event
 async def on_guild_join(guild):
     print(f"JOINED GUILD: {guild.name} ({guild.id}) - {guild.member_count} members")
+    try:
+        from src.core.database import db_pool
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS guild_membership (guild_id VARCHAR(32) PRIMARY KEY, joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+                await conn.execute(
+                    "INSERT INTO guild_membership (guild_id, joined_at) VALUES ($1, CURRENT_TIMESTAMP) "
+                    "ON CONFLICT (guild_id) DO UPDATE SET joined_at = CURRENT_TIMESTAMP",
+                    str(guild.id))
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to record guild join date: {e}{Log.RESET}")
     
     try:
         target_channel = guild.system_channel
@@ -1920,11 +1932,30 @@ async def on_guild_join(guild):
         print(f"Failed to send guide in {guild.name}: {e}")
         
     try:
+        import time as _time
+        now_ts = int(_time.time())
+        try:
+            created_ts = int(guild.created_at.timestamp())
+        except Exception:
+            created_ts = None
+        try:
+            owner = str(guild.owner) if guild.owner else "Unknown"
+        except Exception:
+            owner = "Unknown"
         embed = Theme.get_embed(
             title="📥 Joined New Server!",
-            description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`\n**Members:** {guild.member_count}\n**Owner:** {guild.owner if guild.owner else 'Unknown'}",
+            description=f"**{guild.name}**",
             color=discord.Color.green()
         )
+        embed.add_field(name="👥 Members", value=f"{guild.member_count:,}" if guild.member_count else "Unknown", inline=True)
+        embed.add_field(name="👑 Owner", value=owner, inline=True)
+        embed.add_field(
+            name="🏠 Server created",
+            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
+            inline=True,
+        )
+        embed.add_field(name="🆔 Server ID", value=f"`{guild.id}`", inline=True)
+        embed.add_field(name="🤖 Bot joined", value=f"<t:{now_ts}:R>", inline=True)
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         # No owner DM (was spammy) — the log channel carries a Leave button.
         await log_to_channel("guild-join", embed, view=LeaveGuildView(guild.id))
@@ -1933,12 +1964,36 @@ async def on_guild_join(guild):
 @bot.event
 async def on_guild_remove(guild):
     print(f"LEFT GUILD: {guild.name} ({guild.id})")
+    joined_line = "Bot joined: Unknown"
     try:
+        from src.core.database import db_pool
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT joined_at FROM guild_membership WHERE guild_id = $1", str(guild.id))
+                if row and row["joined_at"]:
+                    joined_line = f"Bot joined: <t:{int(row['joined_at'].timestamp())}:D> (<t:{int(row['joined_at'].timestamp())}:R>)"
+                await conn.execute("DELETE FROM guild_membership WHERE guild_id = $1", str(guild.id))
+    except Exception as e:
+        print(f"{Log.RED}>>> Failed to read guild join date: {e}{Log.RESET}")
+    try:
+        try:
+            created_ts = int(guild.created_at.timestamp())
+        except Exception:
+            created_ts = None
+        members = f"{guild.member_count:,}" if getattr(guild, "member_count", None) else "Unknown"
         embed = Theme.get_embed(
             title="📤 Left Server",
-            description=f"**Name:** {guild.name}\n**ID:** `{guild.id}`",
+            description=f"**{guild.name}**",
             color=discord.Color.red()
         )
+        embed.add_field(name="👥 Members", value=members, inline=True)
+        embed.add_field(
+            name="🏠 Server created",
+            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
+            inline=True,
+        )
+        embed.add_field(name="🤖 Bot joined", value=joined_line.replace("Bot joined: ", ""), inline=True)
+        embed.add_field(name="🆔 Server ID", value=f"`{guild.id}`", inline=True)
         if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await log_to_channel("guild-leave", embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
