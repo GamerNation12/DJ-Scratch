@@ -1942,21 +1942,15 @@ async def on_guild_join(guild):
             owner = str(guild.owner) if guild.owner else "Unknown"
         except Exception:
             owner = "Unknown"
-        embed = Theme.get_embed(
-            title="📥 Joined New Server!",
-            description=f"**{guild.name}**",
-            color=discord.Color.green()
+        embed = Theme.guild_log_embed(
+            "join", guild.name,
+            members=f"{guild.member_count:,}" if guild.member_count else "Unknown",
+            owner=owner,
+            created_ts=created_ts,
+            joined_value=f"<t:{now_ts}:R>",
+            guild_id=guild.id,
+            icon_url=guild.icon.url if guild.icon else None,
         )
-        embed.add_field(name="👥 Members", value=f"{guild.member_count:,}" if guild.member_count else "Unknown", inline=True)
-        embed.add_field(name="👑 Owner", value=owner, inline=True)
-        embed.add_field(
-            name="🏠 Server created",
-            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
-            inline=True,
-        )
-        embed.add_field(name="🆔 Server ID", value=f"`{guild.id}`", inline=True)
-        embed.add_field(name="🤖 Bot joined", value=f"<t:{now_ts}:R>", inline=True)
-        if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         # No owner DM (was spammy) — the log channel carries a Leave button.
         await log_to_channel("guild-join", embed, view=LeaveGuildView(guild.id))
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild join: {e}{Log.RESET}")
@@ -1981,20 +1975,14 @@ async def on_guild_remove(guild):
         except Exception:
             created_ts = None
         members = f"{guild.member_count:,}" if getattr(guild, "member_count", None) else "Unknown"
-        embed = Theme.get_embed(
-            title="📤 Left Server",
-            description=f"**{guild.name}**",
-            color=discord.Color.red()
+        embed = Theme.guild_log_embed(
+            "leave", guild.name,
+            members=members,
+            created_ts=created_ts,
+            joined_value=joined_line.replace("Bot joined: ", ""),
+            guild_id=guild.id,
+            icon_url=guild.icon.url if getattr(guild, "icon", None) else None,
         )
-        embed.add_field(name="👥 Members", value=members, inline=True)
-        embed.add_field(
-            name="🏠 Server created",
-            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
-            inline=True,
-        )
-        embed.add_field(name="🤖 Bot joined", value=joined_line.replace("Bot joined: ", ""), inline=True)
-        embed.add_field(name="🆔 Server ID", value=f"`{guild.id}`", inline=True)
-        if guild.icon: embed.set_thumbnail(url=guild.icon.url)
         await log_to_channel("guild-leave", embed)
     except Exception as e: print(f"{Log.RED}>>> Failed to notify owner of guild leave: {e}{Log.RESET}")
 

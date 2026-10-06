@@ -42,6 +42,35 @@ class Theme:
         return embed
 
     @classmethod
+    def guild_log_embed(cls, kind, server_name, *, members="Unknown", owner=None,
+                        created_ts=None, joined_value="Unknown", guild_id=None,
+                        icon_url=None, timestamp=None):
+        """Join/leave log card: server name in the title, stats as fields."""
+        title = f"📥 {server_name}" if kind == "join" else f"📤 {server_name}"
+        kwargs = {}
+        if timestamp is not None:
+            kwargs["timestamp"] = timestamp
+        embed = cls.get_embed(
+            title=title,
+            color=cls.SUCCESS if kind == "join" else cls.ERROR,
+            **kwargs,
+        )
+        embed.add_field(name="👥 Members", value=members, inline=True)
+        if kind == "join":
+            embed.add_field(name="👑 Owner", value=owner or "Unknown", inline=True)
+        embed.add_field(
+            name="🏠 Server created",
+            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
+            inline=True,
+        )
+        embed.add_field(name="🤖 Bot joined", value=joined_value, inline=True)
+        if guild_id is not None:
+            embed.add_field(name="🆔 Server ID", value=f"`{guild_id}`", inline=True)
+        if icon_url:
+            embed.set_thumbnail(url=icon_url)
+        return embed
+
+    @classmethod
     def get_success_embed(cls, title="Success", description=None, user=None):
         return cls.get_embed(title=f"✅ {title}", description=description, color=cls.SUCCESS, user=user)
 

@@ -138,13 +138,21 @@ class SupportInviteCog(commands.Cog):
                                 guild = await self.bot.fetch_guild(gid)
                             except Exception:
                                 guild = None
-                        name = guild.name if guild else (old.title or "Unknown server")
-                        created_ts = None
+                        # Old title format "📥 Joined New Server!" + bold name in the
+                        # description; new format puts the name in the title.
+                        name = guild.name if guild else "Unknown server"
+                        if not guild and old.description:
+                            first_line = (old.description.strip().splitlines() or [""])[0]
+                            guess = first_line.strip("* ").strip()
+                            if guess and "ID:" not in guess:
+                                name = guess
                         try:
                             if guild:
                                 created_ts = int(guild.created_at.timestamp())
+                            else:
+                                created_ts = int(discord.utils.snowflake_time(gid).timestamp())
                         except Exception:
-                            pass
+                            created_ts = None
                         members = f"{guild.member_count:,}" if guild and getattr(guild, "member_count", None) else "Unknown"
                         joined_value = "Unknown"
                         if is_join:
@@ -160,27 +168,23 @@ class SupportInviteCog(commands.Cog):
                             except Exception:
                                 pass
                         from src.core.theme import Theme
-                        embed = Theme.get_embed(
-                            title="📥 Joined New Server!" if is_join else "📤 Left Server",
-                            description=f"**{name}**",
-                            color=discord.Color.green() if is_join else discord.Color.red(),
-                        )
-                        embed.add_field(name="👥 Members", value=members, inline=True)
+                        kwargs = {}
                         if is_join:
                             try:
                                 owner = str(guild.owner) if guild and guild.owner else "Unknown"
                             except Exception:
                                 owner = "Unknown"
-                            embed.add_field(name="👑 Owner", value=owner, inline=True)
-                        embed.add_field(
-                            name="🏠 Server created",
-                            value=f"<t:{created_ts}:D>\n<t:{created_ts}:R>" if created_ts else "Unknown",
-                            inline=True,
+                            kwargs["owner"] = owner
+                        embed = Theme.guild_log_embed(
+                            "join" if is_join else "leave", name,
+                            members=members,
+                            created_ts=created_ts,
+                            joined_value=joined_value,
+                            guild_id=gid,
+                            icon_url=old.thumbnail.url if old.thumbnail and old.thumbnail.url else None,
+                            timestamp=old.timestamp,
+                            **kwargs,
                         )
-                        embed.add_field(name="🤖 Bot joined", value=joined_value, inline=True)
-                        embed.add_field(name="🆔 Server ID", value=f"`{gid}`", inline=True)
-                        if old.thumbnail and old.thumbnail.url:
-                            embed.set_thumbnail(url=old.thumbnail.url)
                         await msg.edit(embed=embed)
                         fixed += 1
                         await asyncio.sleep(4)  # message edits are tightly rate limited
