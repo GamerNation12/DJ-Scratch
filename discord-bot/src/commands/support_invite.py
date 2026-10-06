@@ -183,7 +183,7 @@ class SupportInviteCog(commands.Cog):
                             embed.set_thumbnail(url=old.thumbnail.url)
                         await msg.edit(embed=embed)
                         fixed += 1
-                        await asyncio.sleep(1)  # stay clear of edit rate limits
+                        await asyncio.sleep(4)  # message edits are tightly rate limited
                     except Exception:
                         skipped += 1
                         continue
