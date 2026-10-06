@@ -1,7 +1,7 @@
 "use client";
 
 const GUILD_ID = "1527127381897383946";
-const INVITE = "https://discord.gg/53sxaVWn92";
+const INVITE = "https://discord.gg/MT6d7jh3rv";
 
 const PERKS = [
   { emoji: "🛟", title: "Fast support", desc: "Help from the team and community." },

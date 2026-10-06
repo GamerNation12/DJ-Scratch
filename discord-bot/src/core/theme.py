@@ -18,7 +18,7 @@ class Theme:
     
     # Support redirect appended to every error embed.
     SUPPORT_LINE = (
-        "\n\n🆘 Still stuck? [Join the support server](https://discord.gg/53sxaVWn92) "
+        "\n\n🆘 Still stuck? [Join the support server](https://discord.gg/MT6d7jh3rv) "
         "and click **🎫 Get Support** in the tickets channel."
     )
 
@@ -48,7 +48,7 @@ class Theme:
     @classmethod
     def get_error_embed(cls, title="Error", description=None, user=None):
         desc = description or ""
-        if "discord.gg/53sxaVWn92" not in desc:
+        if "discord.gg/MT6d7jh3rv" not in desc:
             desc = f"{desc}{cls.SUPPORT_LINE}" if desc else cls.SUPPORT_LINE.strip()
         return cls.get_embed(title=f"❌ {title}", description=desc, color=cls.ERROR, user=user)
 

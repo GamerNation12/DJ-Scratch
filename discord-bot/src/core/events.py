@@ -2130,7 +2130,7 @@ async def on_command_error(ctx, error):
         return await ctx.send("❌ The response was blocked by AutoMod. This usually happens if your username or requested data contains a blocked word.")
         
     await notify_owner(f"{ctx.prefix}{ctx.invoked_with}", error, source=ctx)
-    try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92")
+    try: await ctx.send("Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/MT6d7jh3rv")
     except: pass
 
 @bot.tree.error
@@ -2165,7 +2165,7 @@ async def on_app_command_error_tree(interaction: discord.Interaction, error: dis
     cmd_name = interaction.command.name if interaction.command else "unknown"
     await notify_owner(f"/{cmd_name}", error, source=interaction)
     
-    fallback_msg = "Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/53sxaVWn92"
+    fallback_msg = "Whoops! Something went wrong behind the scenes. The developer has been notified. If you need help, join our support server: https://discord.gg/MT6d7jh3rv"
     if not interaction.response.is_done(): 
         try: await interaction.response.send_message(fallback_msg, ephemeral=True)
         except: pass

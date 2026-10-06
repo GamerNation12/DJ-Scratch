@@ -4,7 +4,7 @@
   <p><em>Discord music-stats bot tracking Last.fm and Spotify listening, with a web dashboard and Android/desktop apps.</em></p>
   <p>
     <a href="https://dj-scratch.is-a-fullstack.dev">Website</a> ·
-    <a href="https://discord.gg/53sxaVWn92">Support server</a> ·
+    <a href="https://discord.gg/MT6d7jh3rv">Support server</a> ·
     <a href="https://github.com/GamerNation12/DJ-Scratch/releases/latest">Download apps</a>
   </p>
 </div>

@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const GUILD_ID = "1527127381897383946";
-const INVITE = "https://discord.gg/53sxaVWn92";
-const INVITE_CODE = "53sxaVWn92";
+const INVITE = "https://discord.gg/MT6d7jh3rv";
+const INVITE_CODE = "MT6d7jh3rv";
 const OWNER_ID = "759433582107426816";
 
 // Public support-server widget data. Guild preview needs no widget toggle;

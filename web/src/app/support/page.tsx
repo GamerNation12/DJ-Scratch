@@ -315,7 +315,7 @@ export default function SupportPage() {
 
         <p className="text-center text-zinc-500 text-sm mt-10">
           Prefer Discord? Join the{" "}
-          <a href="https://discord.gg/53sxaVWn92" target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white font-bold">
+          <a href="https://discord.gg/MT6d7jh3rv" target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white font-bold">
             support server
           </a>
           .
