@@ -10,12 +10,12 @@ export default function DownloadPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/GamerNation12/DJ-Scratch/releases")
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch releases");
-        return res.json();
-      })
+    // Same-origin proxy (cached hourly server-side): direct api.github.com
+    // calls 403 once the 60/hr unauthenticated rate limit is spent.
+    fetch("/api/releases")
+      .then(res => res.json())
       .then(data => {
+        if (!Array.isArray(data)) throw new Error("Failed to fetch releases");
         setReleases(data);
         setLoading(false);
       })
@@ -61,7 +61,15 @@ export default function DownloadPage() {
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-8 rounded-3xl text-center max-w-2xl mx-auto">
             <h3 className="text-xl font-bold mb-2">Oops!</h3>
             <p>{error}</p>
-            <p className="mt-4 text-sm opacity-80">Please check back later or visit our GitHub page directly.</p>
+            <p className="mt-4 text-sm opacity-80">Please check back later or grab them straight from GitHub:</p>
+            <a
+              href="https://github.com/GamerNation12/DJ-Scratch/releases"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mt-3 px-5 py-2 rounded-xl bg-white/5 border border-white/10 text-indigo-300 hover:text-white text-sm font-bold"
+            >
+              Open releases on GitHub
+            </a>
           </div>
         ) : releases.length === 0 ? (
           <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/10 p-12 rounded-3xl text-center max-w-2xl mx-auto">
