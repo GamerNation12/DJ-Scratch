@@ -46,6 +46,7 @@ async def process_overview(user, target=None, days=4):
         return _err("Link your account with `/login` first.")
     days = max(1, min(8, int(days or 4)))
     from src.utils.api import fetch_top_artists, fetch_top_albums, fetch_top_tracks, fetch_user_profile
+    from src.core.theme import Theme
     color = await _color(user)
     ta = await fetch_top_artists(lname, "7day", 1)
     tb = await fetch_top_albums(lname, "7day", 1)
@@ -122,6 +123,7 @@ async def process_year(user, target=None, year=None):
     import datetime as _dt
     year = int(year) if year else _dt.datetime.now().year
     from src.utils.api import fetch_top_artists, fetch_top_albums, fetch_top_tracks
+    from src.core.theme import Theme
     color = await _color(user)
     # Last.fm has no native year period; use 12month as best-effort proxy.
     ta = await fetch_top_artists(lname, "12month", 5)
@@ -617,6 +619,7 @@ async def process_search(user, query, target=None):
     if not lname or not query:
         return _err("Usage: `/search <query>`.")
     from src.utils.api import fetch_top_artists, fetch_top_albums, fetch_top_tracks
+    from src.core.theme import Theme
     color = await _color(user)
     q = query.lower()
     hits = []

@@ -211,6 +211,21 @@ def _is_owner(user_id) -> bool:
         return False
 
 
+async def _deny_interaction(interaction: discord.Interaction):
+    """Owner-gate reply that tolerates expired interactions (404/10062).
+
+    Non-owner slash uses can arrive after the 3s interaction window (slow
+    loop, client retries). Swallow Unknown-interaction instead of traceback.
+    """
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(embed=_owner_only_embed(), ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+    except discord.errors.NotFound:
+        pass
+
+
 def _owner_only_embed():
     from src.core.theme import Theme
     return Theme.get_premium_embed(
@@ -794,7 +809,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def remote_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._remote_result(interaction.user.id))
 
@@ -804,7 +819,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def play_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         if not query:
             await self._send_result(interaction, await self._resume_result(interaction.user.id))
@@ -817,7 +832,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def queue_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         if not query:
             await self._send_result(interaction, await self._queue_current_result(interaction.user.id))
@@ -829,7 +844,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def pause_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "pause"))
 
@@ -838,7 +853,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def skip_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "skip"))
 
@@ -847,7 +862,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def previous_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._control_result(interaction.user.id, "previous"))
 
@@ -857,7 +872,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def rclike_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._like_result(interaction.user.id, query, like=True))
 
@@ -867,7 +882,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def rcunlike_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer()
         await self._send_result(interaction, await self._like_result(interaction.user.id, query, like=False))
 
@@ -903,7 +918,7 @@ class SpotifyRemote(commands.Cog):
 
     async def play_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer(ephemeral=True)
         query = message.content
         session = self.bot.session
@@ -925,7 +940,7 @@ class SpotifyRemote(commands.Cog):
 
     async def queue_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         if not _is_owner(interaction.user.id):
-            return await interaction.response.send_message(embed=_owner_only_embed(), ephemeral=True)
+            return await _deny_interaction(interaction)
         await interaction.response.defer(ephemeral=True)
         query = message.content
         session = self.bot.session
