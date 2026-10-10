@@ -835,6 +835,257 @@ async def get_server_top_tracks(member_ids, limit=10, api_period='overall'):
     )
     return [(r['track_name'], r['artist_name'], r['plays']) for r in rows]
 
+# ---------- Community spotlight (daily random picks) ----------
+
+async def _ensure_spotlight_tables(conn):
+    await conn.execute(
+        "CREATE TABLE IF NOT EXISTS community_spotlight_posts ("
+        "guild_id VARCHAR(32) NOT NULL, kind VARCHAR(16) NOT NULL, "
+        "item_key TEXT NOT NULL, posted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+        "PRIMARY KEY (guild_id, kind, item_key))")
+    for col in ("spotlight_songs_channel", "spotlight_users_channel", "spotlight_albums_channel"):
+        try:
+            await conn.execute(f"ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS {col} TEXT")
+        except Exception:
+            pass
+
+
+async def get_spotlight_config(guild_id) -> dict:
+    """{songs, users, albums} channel IDs (or None) for community spotlights."""
+    cfg = {"songs": None, "users": None, "albums": None}
+    if not db_pool:
+        return cfg
+    try:
+        async with db_pool.acquire() as conn:
+            await _ensure_spotlight_tables(conn)
+            row = await conn.fetchrow(
+                "SELECT spotlight_songs_channel, spotlight_users_channel, spotlight_albums_channel "
+                "FROM server_settings WHERE guild_id = $1", str(guild_id))
+            if row:
+                cfg = {"songs": row["spotlight_songs_channel"],
+                       "users": row["spotlight_users_channel"],
+                       "albums": row["spotlight_albums_channel"]}
+    except Exception:
+        pass
+    return cfg
+
+
+async def set_spotlight_config(guild_id, songs=None, users=None, albums=None):
+    if not db_pool:
+        return
+    async with db_pool.acquire() as conn:
+        await _ensure_spotlight_tables(conn)
+        await conn.execute(
+            "INSERT INTO server_settings (guild_id, spotlight_songs_channel, spotlight_users_channel, spotlight_albums_channel) "
+            "VALUES ($1, $2, $3, $4) ON CONFLICT (guild_id) DO UPDATE SET "
+            "spotlight_songs_channel = $2, spotlight_users_channel = $3, spotlight_albums_channel = $4",
+            str(guild_id), songs, users, albums)
+
+
+async def spotlight_posted_keys(guild_id, kind) -> set:
+    if not db_pool:
+        return set()
+    try:
+        async with db_pool.acquire() as conn:
+            await _ensure_spotlight_tables(conn)
+            rows = await conn.fetch(
+                "SELECT item_key FROM community_spotlight_posts WHERE guild_id = $1 AND kind = $2",
+                str(guild_id), kind)
+            return {r["item_key"] for r in rows}
+    except Exception:
+        return set()
+
+
+async def record_spotlight_post(guild_id, kind, key):
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await _ensure_spotlight_tables(conn)
+            await conn.execute(
+                "INSERT INTO community_spotlight_posts (guild_id, kind, item_key) VALUES ($1, $2, $3) "
+                "ON CONFLICT (guild_id, kind, item_key) DO UPDATE SET posted_at = CURRENT_TIMESTAMP",
+                str(guild_id), kind, key)
+    except Exception:
+        pass
+
+
+async def clear_spotlight_history(guild_id, kind):
+    """Reset no-repeat memory once every candidate has been posted."""
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM community_spotlight_posts WHERE guild_id = $1 AND kind = $2",
+                str(guild_id), kind)
+    except Exception:
+        pass
+
+
+async def spotlight_recent_mentions(guild_id, days=7) -> set:
+    """User IDs pinged in the last N days (mention cooldown)."""
+    if not db_pool:
+        return set()
+    try:
+        from datetime import datetime, timedelta
+        async with db_pool.acquire() as conn:
+            await _ensure_spotlight_tables(conn)
+            rows = await conn.fetch(
+                "SELECT item_key FROM community_spotlight_posts WHERE guild_id = $1 AND kind = $2 "
+                "AND posted_at >= $3",
+                str(guild_id), "mention", datetime.utcnow() - timedelta(days=days))
+            return {r["item_key"] for r in rows}
+    except Exception:
+        return set()
+
+
+def _spotlight_window(days):
+    from datetime import datetime, timedelta
+    return datetime.utcnow() - timedelta(days=days)
+
+
+async def get_server_random_track(member_ids, exclude=None, days=30):
+    """(track, artist, plays) random community track. Falls back to all-time."""
+    exclude = exclude or set()
+    for window in (days, None):
+        try:
+            # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
+            # Private-mode users are never picked or counted.
+            parts = ["user_id = ANY($1)",
+                     "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+            args = [member_ids]
+            if window:
+                args.append(_spotlight_window(window))
+                parts.append(f"l.played_at >= ${len(args)}")
+            rows = await db_fetch(
+                f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l "
+                f"JOIN tracks t ON l.track_id = t.id WHERE {' AND '.join(parts)} "
+                f"GROUP BY t.track_name, t.artist_name")
+            fresh = [r for r in rows
+                     if f"{str(r['artist_name']).lower()}|{str(r['track_name']).lower()}" not in exclude]
+            pool = fresh or list(rows)
+            if not pool:
+                continue
+            import random as _random
+            pick = _random.choice(pool)
+            return (pick['track_name'], pick['artist_name'], int(pick['plays']))
+        except Exception:
+            continue
+    return None
+
+
+async def get_server_random_album(member_ids, exclude=None, days=30):
+    """(album, artist, plays) random community album. Falls back to all-time."""
+    exclude = exclude or set()
+    for window in (days, None):
+        try:
+            # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
+            # Private-mode users are never picked or counted.
+            parts = ["user_id = ANY($1)", "t.album_name IS NOT NULL AND t.album_name != ''",
+                     "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+            args = [member_ids]
+            if window:
+                args.append(_spotlight_window(window))
+                parts.append(f"l.played_at >= ${len(args)}")
+            rows = await db_fetch(
+                f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l "
+                f"JOIN tracks t ON l.track_id = t.id WHERE {' AND '.join(parts)} "
+                f"GROUP BY t.album_name, t.artist_name")
+            fresh = [r for r in rows
+                     if f"{str(r['artist_name']).lower()}|{str(r['album_name']).lower()}" not in exclude]
+            pool = fresh or list(rows)
+            if not pool:
+                continue
+            import random as _random
+            pick = _random.choice(pool)
+            return (pick['album_name'], pick['artist_name'], int(pick['plays']))
+        except Exception:
+            continue
+    return None
+
+
+async def get_server_random_listener(member_ids, exclude=None, days=30):
+    """(user_id, plays) random active community member. Falls back to all-time."""
+    exclude = exclude or set()
+    for window in (days, None):
+        try:
+            # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
+            # Private-mode users are never picked or counted.
+            parts = ["user_id = ANY($1)",
+                     "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+            args = [member_ids]
+            if window:
+                args.append(_spotlight_window(window))
+                parts.append(f"l.played_at >= ${len(args)}")
+            rows = await db_fetch(
+                f"SELECT user_id, COUNT(*) as plays FROM listens l WHERE {' AND '.join(parts)} "
+                f"GROUP BY user_id")
+            fresh = [r for r in rows if str(r['user_id']) not in exclude]
+            pool = fresh or list(rows)
+            if not pool:
+                continue
+            import random as _random
+            pick = _random.choice(pool)
+            return (str(pick['user_id']), int(pick['plays']))
+        except Exception:
+            continue
+    return None
+
+
+async def get_user_week_top_artist(user_id, days=7):
+    """(artist, plays) top artist for one user this week, or None."""
+    try:
+        rows = await db_fetch(
+            "SELECT t.artist_name, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id "
+            "WHERE l.user_id = $1 AND l.played_at >= $2 "
+            "AND l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE) "
+            "GROUP BY t.artist_name ORDER BY plays DESC LIMIT 1",
+            str(user_id), _spotlight_window(days))
+        if rows:
+            return (rows[0]['artist_name'], int(rows[0]['plays']))
+    except Exception:
+        pass
+    return None
+
+
+async def get_track_top_listener(member_ids, artist, track, days=30):
+    """user_id who played this track most (non-private), or None."""
+    try:
+        parts = ["user_id = ANY($1)", "LOWER(t.artist_name) = LOWER($2)", "LOWER(t.track_name) = LOWER($3)",
+                 "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+        args = [member_ids, artist, track]
+        if days:
+            args.append(_spotlight_window(days))
+            parts.append(f"l.played_at >= ${len(args)}")
+        rows = await db_fetch(
+            f"SELECT user_id, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id "
+            f"WHERE {' AND '.join(parts)} GROUP BY user_id ORDER BY plays DESC LIMIT 1", *args)
+        if rows:
+            return str(rows[0]['user_id'])
+    except Exception:
+        pass
+    return None
+
+
+async def get_album_top_listener(member_ids, artist, album, days=30):
+    """user_id who played this album most (non-private), or None."""
+    try:
+        parts = ["user_id = ANY($1)", "LOWER(t.artist_name) = LOWER($2)", "LOWER(t.album_name) = LOWER($3)",
+                 "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+        args = [member_ids, artist, album]
+        if days:
+            args.append(_spotlight_window(days))
+            parts.append(f"l.played_at >= ${len(args)}")
+        rows = await db_fetch(
+            f"SELECT user_id, COUNT(*) as plays FROM listens l JOIN tracks t ON l.track_id = t.id "
+            f"WHERE {' AND '.join(parts)} GROUP BY user_id ORDER BY plays DESC LIMIT 1", *args)
+        if rows:
+            return str(rows[0]['user_id'])
+    except Exception:
+        pass
+    return None
+
 async def get_global_whoknows(artist_name: str, limit: int = 15):
     rows = await db_fetch("""
         SELECT user_id, COUNT(*) as plays
