@@ -20,6 +20,7 @@ export default function Footer() {
           <Link href="/terms" className="hover:text-candy transition-colors">Terms</Link>
           <Link href="/privacy" className="hover:text-candy transition-colors">Privacy</Link>
           <Link href="/guidelines" className="hover:text-candy transition-colors">Standards</Link>
+          <Link href="/community" className="hover:text-candy transition-colors">Community</Link>
           <Link href="/support" className="hover:text-candy transition-colors">Help</Link>
           <a href="https://discord.gg/MT6d7jh3rv" target="_blank" rel="noreferrer" className="hover:text-candy transition-colors">Support</a>
         </div>

@@ -910,6 +910,46 @@ async def record_spotlight_post(guild_id, kind, key):
         pass
 
 
+async def record_spotlight_current(guild_id, kind, title, subtitle, key):
+    """Latest pick per board, powering the public web mirror + /today."""
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "CREATE TABLE IF NOT EXISTS spotlight_current ("
+                "guild_id VARCHAR(32) NOT NULL, kind VARCHAR(16) NOT NULL, "
+                "title TEXT NOT NULL DEFAULT '', subtitle TEXT NOT NULL DEFAULT '', "
+                "item_key TEXT NOT NULL DEFAULT '', "
+                "posted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                "PRIMARY KEY (guild_id, kind))")
+            await conn.execute(
+                "INSERT INTO spotlight_current (guild_id, kind, title, subtitle, item_key) "
+                "VALUES ($1, $2, $3, $4, $5) ON CONFLICT (guild_id, kind) DO UPDATE SET "
+                "title = $3, subtitle = $4, item_key = $5, posted_at = CURRENT_TIMESTAMP",
+                str(guild_id), kind, title or "", subtitle or "", key or "")
+    except Exception:
+        pass
+
+
+async def get_spotlight_current(guild_id) -> dict:
+    """{kind: {title, subtitle, key, posted_at}} latest picks for a guild."""
+    out: dict = {}
+    if not db_pool:
+        return out
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT kind, title, subtitle, item_key, posted_at FROM spotlight_current "
+                "WHERE guild_id = $1", str(guild_id))
+            for r in rows:
+                out[r["kind"]] = {"title": r["title"], "subtitle": r["subtitle"],
+                                  "key": r["item_key"], "posted_at": r["posted_at"]}
+    except Exception:
+        pass
+    return out
+
+
 async def clear_spotlight_history(guild_id, kind):
     """Reset no-repeat memory once every candidate has been posted."""
     if not db_pool:

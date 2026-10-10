@@ -181,11 +181,12 @@ class CommunitySpotlightCog(commands.Cog):
                 channel = guild.get_channel(int(channel_id))
                 if not isinstance(channel, discord.TextChannel):
                     continue
-                embed, key, pinged_uid = await builder(guild, member_ids, recent, names, fm)
+                embed, key, pinged_uid, title, subtitle = await builder(guild, member_ids, recent, names, fm)
                 if embed is None:
                     continue
                 msg = await channel.send(embed=embed)
                 await dbmod.record_spotlight_post(guild.id, kind, key)
+                await dbmod.record_spotlight_current(guild.id, kind, title, subtitle, key)
                 if pinged_uid:
                     await dbmod.record_spotlight_post(guild.id, "mention", pinged_uid)
                     recent.add(pinged_uid)
@@ -215,7 +216,7 @@ class CommunitySpotlightCog(commands.Cog):
         exclude = await dbmod.spotlight_posted_keys(guild.id, "songs")
         pick = await dbmod.get_server_random_track(member_ids, exclude)
         if not pick:
-            return None, None, None
+            return None, None, None, None, None
         (track, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("tracks") or [])
         if from_fm:
             # Freshness shared across sources: skip recently posted, else take it.
@@ -235,7 +236,7 @@ class CommunitySpotlightCog(commands.Cog):
             color=Theme.PREMIUM,
         )
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
-        return embed, key, pinged
+        return embed, key, pinged, track, f"{artist} • {plays:,} plays"
 
     async def _album_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
@@ -243,7 +244,7 @@ class CommunitySpotlightCog(commands.Cog):
         exclude = await dbmod.spotlight_posted_keys(guild.id, "albums")
         pick = await dbmod.get_server_random_album(member_ids, exclude)
         if not pick:
-            return None, None, None
+            return None, None, None, None, None
         (album, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("albums") or [])
         if from_fm:
             if f"{str(artist).lower()}|{str(album).lower()}" in exclude:
@@ -262,7 +263,7 @@ class CommunitySpotlightCog(commands.Cog):
             color=Theme.PRIMARY,
         )
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
-        return embed, key, pinged
+        return embed, key, pinged, album, f"{artist} • {plays:,} plays"
 
     async def _user_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
@@ -270,7 +271,7 @@ class CommunitySpotlightCog(commands.Cog):
         exclude = await dbmod.spotlight_posted_keys(guild.id, "users")
         pick = await dbmod.get_server_random_listener(member_ids, exclude)
         if not pick:
-            return None, None, None
+            return None, None, None, None, None
         uid, plays = pick
         fm_users = (fm or {}).get("users") or {}
         if fm_users:
@@ -280,6 +281,11 @@ class CommunitySpotlightCog(commands.Cog):
                 uid = _random.choice(candidates)
                 plays = fm_users[uid]
         who, pinged = self._ping_or_name(guild, uid, recent, names.get(uid, "a former member"))
+        try:
+            _m = guild.get_member(int(uid))
+            plain = _m.display_name if _m else names.get(uid, "a former member")
+        except Exception:
+            plain = names.get(uid, "a former member")
         top = await dbmod.get_user_week_top_artist(uid)
         top_line = f"\n🔥 Top artist this week: **{top[0]}** ({top[1]:,} plays)" if top else ""
         embed = Theme.get_embed(
@@ -288,7 +294,51 @@ class CommunitySpotlightCog(commands.Cog):
             color=Theme.SUCCESS,
         )
         embed.set_footer(text=f"Fresh pick daily • {guild.name} community")
-        return embed, uid, pinged
+        return embed, uid, pinged, plain, f"{plays:,} plays in the last 30 days"
+
+    @app_commands.command(name="today", description="Today's community picks (this server, or support server in DMs)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def today_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        from src.core import database as dbmod
+        from src.core.theme import Theme
+        guild_id = None
+        guild_name = "Support Server"
+        if interaction.guild is not None:
+            try:
+                cfg = await dbmod.get_spotlight_config(interaction.guild.id)
+            except Exception:
+                cfg = {}
+            if any((cfg or {}).values()):
+                guild_id = interaction.guild.id
+                guild_name = interaction.guild.name
+        if guild_id is None:
+            guild_id = 1527127381897383946  # support server fallback
+        try:
+            current = await dbmod.get_spotlight_current(guild_id)
+        except Exception:
+            current = {}
+        if not current:
+            return await interaction.followup.send(
+                "No picks posted yet — check back after the next daily drop.")
+        embed = Theme.get_embed(
+            title=f"🌟 Today's picks • {guild_name}",
+            color=Theme.PREMIUM,
+        )
+        labels = (("songs", "🎲 Song"), ("users", "🌟 Member"), ("albums", "💿 Album"))
+        for kind, label in labels:
+            item = (current or {}).get(kind) or {}
+            if item.get("title"):
+                embed.add_field(
+                    name=label,
+                    value=f"**{item['title']}**\n{item.get('subtitle') or ''}",
+                    inline=False,
+                )
+        if not embed.fields:
+            return await interaction.followup.send(
+                "No picks posted yet — check back after the next daily drop.")
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="spotlight", description="Daily random picks for #songs #users #albums (Admin only)")
     @app_commands.default_permissions(administrator=True)
