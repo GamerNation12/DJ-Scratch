@@ -1,6 +1,6 @@
 "use client";
 import { fetchApi } from "@/lib/fetchApi";
-import { loginWithDiscord } from "@/lib/activityAuth";
+import { loginWithDiscord, loginWithLastfm } from "@/lib/activityAuth";
 import { artSrc } from "@/lib/art";
 import { useSession } from "@/app/providers";
 import { useState, useEffect, use } from "react";
@@ -27,6 +27,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Onboarding checklist (owner only): persisted dismiss/share flags.
+  const [onboardDismissed, setOnboardDismissed] = useState(() => {
+    try { return localStorage.getItem("ds_onboard_done") === "1"; } catch { return false; }
+  });
+  const [onboardShared, setOnboardShared] = useState(() => {
+    try { return localStorage.getItem("ds_onboard_shared") === "1"; } catch { return false; }
+  });
 
   const shareProfile = async () => {
     const url = `${window.location.origin}/${encodeURIComponent(usernameParam)}`;
@@ -955,6 +962,87 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               </button>
             ))}
           </div>
+
+          {/* Onboarding checklist: owner only, hides itself as steps complete. */}
+          {isOwner && !onboardDismissed && profile && (() => {
+            const linked = !!(profile as any)?.lastfm_username;
+            const played = Number((profile as any)?.stats?.playcount || 0) > 0;
+            const steps = [
+              {
+                done: linked,
+                emoji: "🔗",
+                title: "Link Last.fm",
+                hint: "Connect your listening history.",
+                action: linked ? null : { label: "Link now", run: () => loginWithLastfm() },
+              },
+              {
+                done: played,
+                emoji: "🎧",
+                title: "Scrobble something",
+                hint: "Play a track — stats appear here.",
+                action: null,
+              },
+              {
+                done: onboardShared,
+                emoji: "🎁",
+                title: "Share your card",
+                hint: "Friends joining earns you both badges.",
+                action: onboardShared ? null : {
+                  label: "Copy link",
+                  run: () => {
+                    shareProfile();
+                    try { localStorage.setItem("ds_onboard_shared", "1"); } catch { /* ignore */ }
+                    setOnboardShared(true);
+                  },
+                },
+              },
+            ];
+            const doneCount = steps.filter((s) => s.done).length;
+            if (doneCount === steps.length) return null;
+            return (
+              <div className="mb-5 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl px-5 py-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-bold text-white">🚀 Get set up · {doneCount}/{steps.length}</span>
+                  <button
+                    onClick={() => {
+                      try { localStorage.setItem("ds_onboard_done", "1"); } catch { /* ignore */ }
+                      setOnboardDismissed(true);
+                    }}
+                    className="ml-auto text-zinc-500 hover:text-white text-xs font-bold px-2 py-1"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-2.5">
+                  {steps.map((s) => (
+                    <div
+                      key={s.title}
+                      className={`rounded-xl border px-3.5 py-3 flex items-center gap-3 ${
+                        s.done ? "bg-emerald-500/5 border-emerald-500/20" : "bg-black/30 border-white/10"
+                      }`}
+                    >
+                      <span className="text-xl shrink-0">{s.done ? "✅" : s.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-bold truncate ${s.done ? "text-zinc-500 line-through" : "text-white"}`}>
+                          {s.title}
+                        </div>
+                        <div className="text-xs text-zinc-500 truncate">{s.hint}</div>
+                      </div>
+                      {s.action && (
+                        <button
+                          onClick={s.action.run}
+                          className="shrink-0 px-3 py-1.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold transition-colors"
+                        >
+                          {s.action.label}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {profileSection === "overview" && (
           <>
