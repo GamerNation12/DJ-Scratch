@@ -2178,6 +2178,12 @@ async def on_command_error(ctx, error):
 
 @bot.tree.error
 async def on_app_command_error_tree(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    # Expired interaction token (404/10062): the 3s window lapsed before the
+    # bot answered (slow loop, client retry). The token is dead so nothing
+    # can be answered — drop it silently instead of traceback-spamming.
+    orig = error.original if isinstance(error, discord.app_commands.CommandInvokeError) else error
+    if isinstance(orig, discord.errors.NotFound) and getattr(orig, "code", None) == 10062:
+        return
     msg = None
     if isinstance(error, discord.app_commands.CommandOnCooldown):
         msg = f"⏳ Whoa there, slow down! You can use this command again in **{error.retry_after:.1f} seconds**."
