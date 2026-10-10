@@ -3,6 +3,29 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 
+async def _fm_json(session, method, username, extra=None, timeout_s=8):
+    """One bounded Last.fm call. None on any failure."""
+    import asyncio as _aio
+    import urllib.parse
+    from src.core.config import LASTFM_API_KEY
+    try:
+        u = urllib.parse.quote(username or "")
+        if not u:
+            return None
+        url = (f"https://ws.audioscrobbler.com/2.0/?method={method}&user={u}"
+               f"&api_key={LASTFM_API_KEY}&format=json")
+        if extra:
+            for k, v in extra.items():
+                url += f"&{k}={urllib.parse.quote(str(v))}"
+        async with session.get(url, timeout=timeout_s) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.json(content_type=None)
+    except Exception:
+        return None
+    return None
+
+
 class CommunitySpotlightCog(commands.Cog):
     """Daily random community picks: song / member / album of the day."""
 
@@ -39,6 +62,72 @@ class CommunitySpotlightCog(commands.Cog):
         except Exception:
             pass
 
+    async def _lastfm_pools(self, linked):
+        """Bounded Last.fm candidate pools: tracks/albums/users. Capped members, semaphore, timeouts."""
+        import asyncio as _aio
+        tracks: list = []
+        albums: list = []
+        users: dict = {}
+        try:
+            members = [(uid, lname) for uid, lname in (linked or {}).items() if lname][:20]
+            session = getattr(self.bot, "session", None)
+            if not members or session is None:
+                return {"tracks": tracks, "albums": albums, "users": users}
+            sem = _aio.Semaphore(5)
+
+            async def _one(uid, lname):
+                async with sem:
+                    try:
+                        t = await _fm_json(session, "user.gettoptracks", lname,
+                                           {"period": "7day", "limit": "5"})
+                        a = await _fm_json(session, "user.gettopalbums", lname,
+                                           {"period": "7day", "limit": "3"})
+                        return uid, t, a
+                    except Exception:
+                        return uid, None, None
+
+            results = await _aio.gather(*[_one(uid, lname) for uid, lname in members])
+            for uid, t, a in results:
+                if not isinstance(uid, str) and uid is not None:
+                    uid = str(uid)
+                week = 0
+                try:
+                    arr = ((t or {}).get("toptracks") or {}).get("track") or []
+                    arr = arr if isinstance(arr, list) else [arr]
+                    for x in arr[:5]:
+                        an = x.get("artist", {})
+                        an = an.get("name") if isinstance(an, dict) else an
+                        pc = int(x.get("playcount") or 0)
+                        if x.get("name") and an:
+                            tracks.append((x["name"], an, pc))
+                        week += pc
+                except Exception:
+                    pass
+                try:
+                    arr = ((a or {}).get("topalbums") or {}).get("album") or []
+                    arr = arr if isinstance(arr, list) else [arr]
+                    for x in arr[:3]:
+                        an = x.get("artist", {})
+                        an = an.get("name") if isinstance(an, dict) else an
+                        pc = int(x.get("playcount") or 0)
+                        if x.get("name") and an:
+                            albums.append((x["name"], an, pc))
+                except Exception:
+                    pass
+                if week > 0:
+                    users[uid] = week
+        except Exception:
+            pass
+        return {"tracks": tracks, "albums": albums, "users": users}
+
+    @staticmethod
+    def _coin_pick(db_pick, fm_pool):
+        """50/50 between local-DB pick and Last.fm pick (when available)."""
+        import random as _random
+        if fm_pool and _random.random() < 0.5:
+            return _random.choice(fm_pool), True
+        return db_pick, False
+
     async def _post_guild(self, guild: discord.Guild) -> dict:
         """Post today's picks. Returns {kind: message_id or None}."""
         from src.core import database as dbmod
@@ -55,6 +144,9 @@ class CommunitySpotlightCog(commands.Cog):
         member_ids = list(linked.keys())
         if not member_ids:
             return done
+        # Last.fm pools (bounded): each board flips 50/50 between local-DB
+        # and Last.fm data so both sources visibly feed the picks.
+        fm = await self._lastfm_pools(linked)
 
         jobs = []
         if cfg.get("songs"):
@@ -71,7 +163,7 @@ class CommunitySpotlightCog(commands.Cog):
                 channel = guild.get_channel(int(channel_id))
                 if not isinstance(channel, discord.TextChannel):
                     continue
-                embed, key, pinged_uid = await builder(guild, member_ids, recent, names)
+                embed, key, pinged_uid = await builder(guild, member_ids, recent, names, fm)
                 if embed is None:
                     continue
                 msg = await channel.send(embed=embed)
@@ -99,14 +191,18 @@ class CommunitySpotlightCog(commands.Cog):
             return m.display_name, None
         return f"<@{uid}>", uid
 
-    async def _song_embed(self, guild, member_ids, recent, names):
+    async def _song_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
         from src.core.theme import Theme
         exclude = await dbmod.spotlight_posted_keys(guild.id, "songs")
         pick = await dbmod.get_server_random_track(member_ids, exclude)
         if not pick:
             return None, None, None
-        track, artist, plays = pick
+        (track, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("tracks") or [])
+        if from_fm:
+            # Freshness shared across sources: skip recently posted, else take it.
+            if f"{str(artist).lower()}|{str(track).lower()}" in exclude:
+                (track, artist, plays), from_fm = pick, False
         key = f"{str(artist).lower()}|{str(track).lower()}"
         fan = await dbmod.get_track_top_listener(member_ids, artist, track)
         pinged = None
@@ -123,14 +219,17 @@ class CommunitySpotlightCog(commands.Cog):
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
         return embed, key, pinged
 
-    async def _album_embed(self, guild, member_ids, recent, names):
+    async def _album_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
         from src.core.theme import Theme
         exclude = await dbmod.spotlight_posted_keys(guild.id, "albums")
         pick = await dbmod.get_server_random_album(member_ids, exclude)
         if not pick:
             return None, None, None
-        album, artist, plays = pick
+        (album, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("albums") or [])
+        if from_fm:
+            if f"{str(artist).lower()}|{str(album).lower()}" in exclude:
+                (album, artist, plays), from_fm = pick, False
         key = f"{str(artist).lower()}|{str(album).lower()}"
         fan = await dbmod.get_album_top_listener(member_ids, artist, album)
         pinged = None
@@ -147,7 +246,7 @@ class CommunitySpotlightCog(commands.Cog):
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
         return embed, key, pinged
 
-    async def _user_embed(self, guild, member_ids, recent, names):
+    async def _user_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
         from src.core.theme import Theme
         exclude = await dbmod.spotlight_posted_keys(guild.id, "users")
@@ -155,6 +254,13 @@ class CommunitySpotlightCog(commands.Cog):
         if not pick:
             return None, None, None
         uid, plays = pick
+        fm_users = (fm or {}).get("users") or {}
+        if fm_users:
+            import random as _random
+            if _random.random() < 0.5:
+                candidates = [u for u in fm_users if u not in exclude] or list(fm_users.keys())
+                uid = _random.choice(candidates)
+                plays = fm_users[uid]
         who, pinged = self._ping_or_name(guild, uid, recent, names.get(uid, "a former member"))
         top = await dbmod.get_user_week_top_artist(uid)
         top_line = f"\n🔥 Top artist this week: **{top[0]}** ({top[1]:,} plays)" if top else ""
