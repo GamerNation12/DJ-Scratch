@@ -22,3 +22,24 @@ jobs:
           python-version: '3.11'
       - name: Compile all bot sources
         run: python -m compileall -q discord-bot deploy.py scripts
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pyflakes
+        run: pip install pyflakes
+      - name: Catch undefined names (NameError class)
+        # Bare `python -m pyflakes` is too noisy to gate on (unused imports,
+        # star-import maybes). Undefined names are the crashers — e.g. the
+        # fmbot_extras Theme NameErrors — so only those fail the build.
+        run: |
+          python -m pyflakes discord-bot/src deploy.py scripts > pyflakes-report.txt 2>&1 || true
+          cat pyflakes-report.txt
+          if grep -q "undefined name '" pyflakes-report.txt; then
+            echo "::error::pyflakes found undefined names (would crash at runtime)"
+            exit 1
+          fi
+          echo "No undefined names."

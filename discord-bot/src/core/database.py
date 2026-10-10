@@ -1349,6 +1349,33 @@ async def get_or_create_referral_code(user_id) -> str | None:
     return None
 
 
+# Playcount milestones celebrated once each via DM (see _maybe_milestone_ping).
+MILESTONES = [100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000]
+
+
+async def claim_milestone(user_id, milestone: int) -> bool:
+    """Record a milestone celebration. True if this is the first claim."""
+    uid = str(user_id)
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "CREATE TABLE IF NOT EXISTS milestone_pings ("
+                "user_id VARCHAR(32) NOT NULL, milestone INTEGER NOT NULL, "
+                "pinged_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                "PRIMARY KEY (user_id, milestone))")
+            row = await conn.fetchrow(
+                "INSERT INTO milestone_pings (user_id, milestone) VALUES ($1, $2) "
+                "ON CONFLICT (user_id, milestone) DO NOTHING RETURNING milestone",
+                uid, int(milestone),
+            )
+            return row is not None
+    except Exception as e:
+        print(f"{Log.RED}>>> milestone claim failed for {uid}: {e}{Log.RESET}")
+        return False
+
+
 async def get_referral_stats(user_id) -> dict:
     """Clicks + completed referrals for a sharer (for ,share / profile)."""
     uid = str(user_id)

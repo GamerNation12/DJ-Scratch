@@ -711,6 +711,7 @@ class TicketsCog(commands.Cog):
         except Exception:
             return await interaction.response.send_message(
                 "Owner only.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
         channel = interaction.guild.get_channel(TICKETS_CHANNEL_ID)
         if channel is None:
             try:
@@ -718,10 +719,10 @@ class TicketsCog(commands.Cog):
             except Exception:
                 channel = None
         if channel is None or not isinstance(channel, discord.TextChannel):
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "Tickets channel not found.", ephemeral=True)
         await channel.send(embed=self._panel_embed(), view=TicketPanelView())
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"Panel posted in {channel.mention}.", ephemeral=True)
 
     @commands.Cog.listener()

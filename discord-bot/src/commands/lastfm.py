@@ -666,6 +666,7 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def suggest_slash(self, interaction: discord.Interaction, suggestion: str):
+        await interaction.response.defer(ephemeral=True)
         await self.bot.process_suggestion(interaction, interaction.user, suggestion)
 
     @app_commands.command(name="bug", description="Report a bug directly to the developer")
@@ -673,14 +674,16 @@ class LastFmCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def bug_slash(self, interaction: discord.Interaction, bug: str):
+        await interaction.response.defer(ephemeral=True)
         await self.bot.process_suggestion(interaction, interaction.user, bug, is_bug=True)
 
     @app_commands.command(name="help", description="View all available commands")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def help_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         embed, view = await self.bot.get_help_embed(interaction.user, self.bot)
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.edit_original_response(embed=embed, view=view)
 
     @app_commands.command(name="crowns", description="See which of your top artists you have the most plays for")
     @app_commands.allowed_installs(guilds=True, users=False)

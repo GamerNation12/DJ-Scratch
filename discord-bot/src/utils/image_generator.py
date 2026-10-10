@@ -202,7 +202,7 @@ async def generate_music_card(
     card = await asyncio.to_thread(_base)
     if avatar is not None:
         await asyncio.to_thread(_circle_paste, card, avatar, (48, 40), 104)
-    thumb = art_full.resize((260, 260), Image.Resampling.LANCZOS)
+    thumb = await asyncio.to_thread(art_full.resize, (260, 260), Image.Resampling.LANCZOS)
     await asyncio.to_thread(_round_paste, card, thumb, (48, 204, 308, 464), 28)
     draw = ImageDraw.Draw(card)
 
@@ -282,9 +282,9 @@ async def generate_music_card(
         draw.text((52, H - 42), _fit_text(draw, short, fonts["invite"], W - 104), font=fonts["invite"], fill=WHITE)
 
     if animated and is_playing and eq_x:
-        return _animate_card(card, eq_x, eq_base)
+        return await asyncio.to_thread(_animate_card, card, eq_x, eq_base)
     buffer = io.BytesIO()
-    card.save(buffer, format="JPEG", quality=88)
+    await asyncio.to_thread(card.save, buffer, format="JPEG", quality=88)
     buffer.seek(0)
     return buffer
 
@@ -465,14 +465,7 @@ async def generate_recap_image(
                     break
         if burl:
             bimg = await download_image(session, burl)
-            bimg = (bimg.convert("RGB").resize((W, H), Image.Resampling.LANCZOS)
-                    .filter(ImageFilter.GaussianBlur(40)))
-            card = Image.blend(bimg, Image.new("RGB", (W, H), color=(10, 10, 16)), 0.62)
-            ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-            od = ImageDraw.Draw(ov)
-            for yy in range(0, H, 4):
-                od.line([(0, yy), (W, yy)], fill=(5, 5, 10, int(70 + 110 * yy / H)))
-            card = Image.alpha_composite(card.convert("RGBA"), ov).convert("RGB")
+            card = await asyncio.to_thread(_recap_backdrop, bimg, W, H)
         else:
             card = Image.new("RGB", (W, H), color=(14, 14, 18))
     except Exception:
@@ -585,9 +578,21 @@ async def generate_recap_image(
         draw.text((48, H - 42), _fit_text(draw, short, fonts["invite"], W - 104), font=fonts["invite"], fill=WHITE)
 
     buffer = io.BytesIO()
-    card.save(buffer, format="JPEG", quality=86)
+    await asyncio.to_thread(card.save, buffer, format="JPEG", quality=86)
     buffer.seek(0)
     return buffer
+
+
+def _recap_backdrop(bimg: Image.Image, W: int, H: int) -> Image.Image:
+    """Backdrop resize + heavy blur + dark blend. CPU-bound: call via to_thread."""
+    bimg = (bimg.convert("RGB").resize((W, H), Image.Resampling.LANCZOS)
+            .filter(ImageFilter.GaussianBlur(40)))
+    card = Image.blend(bimg, Image.new("RGB", (W, H), color=(10, 10, 16)), 0.62)
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    od = ImageDraw.Draw(ov)
+    for yy in range(0, H, 4):
+        od.line([(0, yy), (W, yy)], fill=(5, 5, 10, int(70 + 110 * yy / H)))
+    return Image.alpha_composite(card.convert("RGBA"), ov).convert("RGB")
 
 
 async def download_image(session: aiohttp.ClientSession, url: str, artist: str = None, album: str = None) -> Image.Image:
@@ -631,40 +636,48 @@ async def download_image(session: aiohttp.ClientSession, url: str, artist: str =
         pass
     return Image.new('RGBA', (300, 300), color=(30, 30, 30, 255))
 
+def _render_cell(img: Image.Image, item, cell_size, font_primary, font_secondary, show_text) -> Image.Image:
+    """Cell resize + text overlay. CPU-bound: call via to_thread."""
+    # Resize/Crop to cell size in-place
+    img.thumbnail((cell_size, cell_size), Image.Resampling.LANCZOS)
+    # Ensure it is exactly cell_size x cell_size (in case aspect ratio was off)
+    if img.size != (cell_size, cell_size):
+        img = img.resize((cell_size, cell_size), Image.Resampling.LANCZOS)
+
+    # Overlay text if requested
+    if show_text:
+        overlay = Image.new('RGBA', (cell_size, cell_size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        # Draw semi-transparent rectangle at bottom
+        draw.rectangle([(0, cell_size - 60), (cell_size, cell_size)], fill=(0, 0, 0, 180))
+
+        p_text = item.get('primary_text', '')
+        s_text = item.get('secondary_text', '')
+
+        if len(p_text) > 25: p_text = p_text[:22] + "..."
+        if len(s_text) > 30: s_text = s_text[:27] + "..."
+        # Draw text
+        draw.text((10, cell_size - 55), p_text, font=font_primary, fill=(255, 255, 255, 255))
+        draw.text((10, cell_size - 28), s_text, font=font_secondary, fill=(200, 200, 200, 255))
+
+        # In-place alpha composite to save memory
+        img.alpha_composite(overlay)
+        img = img.convert('RGB')
+
+    return img
+
+
 async def _process_cell(session, item, idx, columns, cell_size, chart, font_primary, font_secondary, show_text, semaphore):
     async with semaphore:
         img = await download_image(session, item.get('image_url'), item.get('fallback_artist'), item.get('fallback_album'))
-        
+
         row = idx // columns
         col = idx % columns
-        
-        # Resize/Crop to cell size in-place
-        img.thumbnail((cell_size, cell_size), Image.Resampling.LANCZOS)
-        # Ensure it is exactly cell_size x cell_size (in case aspect ratio was off)
-        if img.size != (cell_size, cell_size):
-            img = img.resize((cell_size, cell_size), Image.Resampling.LANCZOS)
-        
-        # Overlay text if requested
-        if show_text:
-            overlay = Image.new('RGBA', (cell_size, cell_size), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(overlay)
-            
-            # Draw semi-transparent rectangle at bottom
-            draw.rectangle([(0, cell_size - 60), (cell_size, cell_size)], fill=(0, 0, 0, 180))
-            
-            p_text = item.get('primary_text', '')
-            s_text = item.get('secondary_text', '')
-            
-            if len(p_text) > 25: p_text = p_text[:22] + "..."
-            if len(s_text) > 30: s_text = s_text[:27] + "..."
-            # Draw text
-            draw.text((10, cell_size - 55), p_text, font=font_primary, fill=(255, 255, 255, 255))
-            draw.text((10, cell_size - 28), s_text, font=font_secondary, fill=(200, 200, 200, 255))
-            
-            # In-place alpha composite to save memory
-            img.alpha_composite(overlay)
-            img = img.convert('RGB')
-            
+
+        img = await asyncio.to_thread(
+            _render_cell, img, item, cell_size, font_primary, font_secondary, show_text)
+
         chart.paste(img, (col * cell_size, row * cell_size))
 
 async def generate_chart(items: List[dict], columns: int, rows: int, show_text: bool = True) -> io.BytesIO:
@@ -698,6 +711,6 @@ async def generate_chart(items: List[dict], columns: int, rows: int, show_text: 
 
     # Save to BytesIO
     buffer = io.BytesIO()
-    chart.save(buffer, format='JPEG', quality=85)
+    await asyncio.to_thread(chart.save, buffer, format='JPEG', quality=85)
     buffer.seek(0)
     return buffer

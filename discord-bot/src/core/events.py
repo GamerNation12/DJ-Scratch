@@ -3132,6 +3132,46 @@ from src.core.database import format_name
 
 
 
+async def _maybe_milestone_ping(bot_instance, user_id, username):
+    """Fire-and-forget: DM once per crossed playcount milestone (100 … 1M)."""
+    try:
+        from src.core.database import MILESTONES, claim_milestone
+        prof = await fetch_user_profile(username)
+        try:
+            total = int((prof.get("user") or {}).get("playcount") or 0)
+        except Exception:
+            return
+        crossed = [m for m in MILESTONES if total >= m]
+        if not crossed:
+            return
+        newly = []
+        for m in crossed:
+            try:
+                if await claim_milestone(user_id, m):
+                    newly.append(m)
+            except Exception:
+                continue
+        if not newly:
+            return
+        top = max(newly)
+        try:
+            u = bot_instance.get_user(int(user_id)) if bot_instance else None
+            if u is None and bot_instance:
+                u = await bot_instance.fetch_user(int(user_id))
+            if u is None:
+                return
+            embed = Theme.get_embed(
+                title=f"🎉 {top:,} scrobbles!",
+                description=f"You just passed **{top:,}** total plays on Last.fm. Keep spinning.",
+                color=Theme.PREMIUM,
+            )
+            await u.send(embed=embed)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 async def process_fm(ctx_int, user, mode="full", track_data=None):
     bot_instance = getattr(ctx_int, 'client', getattr(ctx_int, 'bot', bot))
     session = getattr(bot_instance, 'session', None)
@@ -3139,6 +3179,12 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     username = await get_lastfm_username(user.id)
     if not username:
         return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
+
+    # Milestone pings ride along for free: cached profile, own task, zero /fm latency.
+    try:
+        asyncio.create_task(_maybe_milestone_ping(bot_instance, user.id, username))
+    except Exception:
+        pass
 
     # Footer label.
     scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}")
@@ -4925,11 +4971,19 @@ async def process_suggestion(ctx_int, user, suggestion_text, is_bug=False):
 
         view = SuggestionAuthorView(int(sugg_id), int(user.id)) if sugg_id else None
         if isinstance(ctx_int, discord.Interaction):
-            await ctx_int.response.send_message(embed=confirm, view=view, ephemeral=True)
+            if ctx_int.response.is_done():
+                await ctx_int.followup.send(embed=confirm, view=view, ephemeral=True)
+            else:
+                await ctx_int.response.send_message(embed=confirm, view=view, ephemeral=True)
         else:
             await ctx_int.send(embed=confirm, view=view)
     except Exception as e:
         print(f"Suggestion/Bug report error: {e}")
+        try:
+            if isinstance(ctx_int, discord.Interaction) and ctx_int.response.is_done():
+                await ctx_int.followup.send("❌ Couldn't save that — try again in a bit.", ephemeral=True)
+        except Exception:
+            pass
 async def process_crowns(guild, user):
     if not guild: return Theme.get_error_embed(description="Must be used in a server."), None
     
@@ -5604,7 +5658,7 @@ async def process_receipt(user, period='overall', limit=10):
     for t in tracks_raw:
         tracks.append((t['name'], t['artist']['name'], int(t['playcount'])))
         
-    buf = generate_receipt_image(username, period, tracks)
+    buf = await asyncio.to_thread(generate_receipt_image, username, period, tracks)
     file = discord.File(buf, filename="receipt.png")
     
     embed = Theme.get_embed(title=f"🧾 {format_name(user)}'s Top Tracks Receipt", color=LASTFM_COLOR)
