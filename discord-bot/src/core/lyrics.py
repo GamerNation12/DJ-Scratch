@@ -17,13 +17,21 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
     }
     
     try:
-        async with session.get(url, params=params) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                return {
-                    "synced": data.get("syncedLyrics"),
-                    "plain": data.get("plainLyrics")
-                }
+        if session is None:
+            return None
+        timeout = aiohttp.ClientTimeout(total=8)
+        for _ in range(2):
+            try:
+                async with session.get(url, params=params, timeout=timeout) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return {
+                            "synced": data.get("syncedLyrics"),
+                            "plain": data.get("plainLyrics")
+                        }
+                    return None
+            except Exception:
+                continue
     except Exception as e:
         print(f"{Log.RED}>>> Failed to fetch lyrics: {e}{Log.RESET}")
         
