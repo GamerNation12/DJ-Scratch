@@ -961,7 +961,7 @@ async def get_server_random_track(member_ids, exclude=None, days=30):
             rows = await db_fetch(
                 f"SELECT t.track_name, t.artist_name, COUNT(*) as plays FROM listens l "
                 f"JOIN tracks t ON l.track_id = t.id WHERE {' AND '.join(parts)} "
-                f"GROUP BY t.track_name, t.artist_name")
+                f"GROUP BY t.track_name, t.artist_name", *args)
             fresh = [r for r in rows
                      if f"{str(r['artist_name']).lower()}|{str(r['track_name']).lower()}" not in exclude]
             pool = fresh or list(rows)
@@ -991,7 +991,7 @@ async def get_server_random_album(member_ids, exclude=None, days=30):
             rows = await db_fetch(
                 f"SELECT t.album_name, t.artist_name, COUNT(*) as plays FROM listens l "
                 f"JOIN tracks t ON l.track_id = t.id WHERE {' AND '.join(parts)} "
-                f"GROUP BY t.album_name, t.artist_name")
+                f"GROUP BY t.album_name, t.artist_name", *args)
             fresh = [r for r in rows
                      if f"{str(r['artist_name']).lower()}|{str(r['album_name']).lower()}" not in exclude]
             pool = fresh or list(rows)
@@ -1020,7 +1020,7 @@ async def get_server_random_listener(member_ids, exclude=None, days=30):
                 parts.append(f"l.played_at >= ${len(args)}")
             rows = await db_fetch(
                 f"SELECT user_id, COUNT(*) as plays FROM listens l WHERE {' AND '.join(parts)} "
-                f"GROUP BY user_id")
+                f"GROUP BY user_id", *args)
             fresh = [r for r in rows if str(r['user_id']) not in exclude]
             pool = fresh or list(rows)
             if not pool:
