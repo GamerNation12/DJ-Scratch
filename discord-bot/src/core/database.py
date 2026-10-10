@@ -940,6 +940,24 @@ async def spotlight_recent_mentions(guild_id, days=7) -> set:
         return set()
 
 
+async def spotlight_posted_today(guild_id) -> set:
+    """Board kinds already posted since UTC midnight (restart/double-run guard)."""
+    if not db_pool:
+        return set()
+    try:
+        from datetime import datetime, timezone
+        async with db_pool.acquire() as conn:
+            await _ensure_spotlight_tables(conn)
+            start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            rows = await conn.fetch(
+                "SELECT DISTINCT kind FROM community_spotlight_posts "
+                "WHERE guild_id = $1 AND kind IN ('songs', 'users', 'albums') AND posted_at >= $2",
+                str(guild_id), start)
+            return {r["kind"] for r in rows}
+    except Exception:
+        return set()
+
+
 def _spotlight_window(days):
     from datetime import datetime, timedelta
     return datetime.utcnow() - timedelta(days=days)

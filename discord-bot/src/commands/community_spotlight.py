@@ -30,7 +30,9 @@ class CommunitySpotlightCog(commands.Cog):
     """Daily random community picks: song / member / album of the day."""
 
     def __init__(self, bot):
+        import asyncio as _aio
         self.bot = bot
+        self._lock = _aio.Lock()
 
     async def cog_load(self):
         if not self._daily.is_running():
@@ -128,12 +130,21 @@ class CommunitySpotlightCog(commands.Cog):
             return _random.choice(fm_pool), True
         return db_pick, False
 
-    async def _post_guild(self, guild: discord.Guild) -> dict:
+    async def _post_guild(self, guild: discord.Guild, force: bool = False) -> dict:
         """Post today's picks. Returns {kind: message_id or None}."""
         from src.core import database as dbmod
         from src.core.events import get_all_valid_users
         from src.core.theme import Theme
         done: dict = {}
+        # One run at a time per process: the daily loop fires on every
+        # restart, so without this a restart + manual post double up.
+        async with self._lock:
+            return await self._post_guild_inner(guild, force=force, done=done)
+
+    async def _post_guild_inner(self, guild: discord.Guild, force: bool, done: dict) -> dict:
+        from src.core import database as dbmod
+        from src.core.events import get_all_valid_users
+        from src.core.theme import Theme
         cfg = await dbmod.get_spotlight_config(guild.id)
         if not any(cfg.values()):
             return done
@@ -155,6 +166,13 @@ class CommunitySpotlightCog(commands.Cog):
             jobs.append(("users", cfg["users"], self._user_embed))
         if cfg.get("albums"):
             jobs.append(("albums", cfg["albums"], self._album_embed))
+        if not force:
+            # Restart guard: the loop runs on every boot, so skip boards
+            # already posted today (manual `now:True` bypasses this).
+            already = await dbmod.spotlight_posted_today(guild.id)
+            jobs = [j for j in jobs if j[0] not in already]
+            if not jobs:
+                return done
         # Ping cooldown: mentioned in the last 7 days -> plain name, no ping.
         recent = await dbmod.spotlight_recent_mentions(guild.id)
         names = {str(uid): (lname or "a former member") for uid, lname in linked.items()}
@@ -312,7 +330,7 @@ class CommunitySpotlightCog(commands.Cog):
                 albums=str(albums.id) if albums else current.get("albums"),
             )
         if now:
-            done = await self._post_guild(interaction.guild)
+            done = await self._post_guild(interaction.guild, force=True)
             if done:
                 return await interaction.followup.send(
                     f"✅ Posted: {', '.join(sorted(done))}.", ephemeral=True)
