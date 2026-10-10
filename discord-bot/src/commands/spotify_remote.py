@@ -226,6 +226,17 @@ async def _deny_interaction(interaction: discord.Interaction):
         pass
 
 
+async def _safe_defer(interaction: discord.Interaction, *, ephemeral: bool = False) -> bool:
+    """Defer tolerating expired interactions. False = token dead, caller must return."""
+    try:
+        if interaction.response.is_done():
+            return True
+        await interaction.response.defer(ephemeral=ephemeral)
+        return True
+    except discord.errors.NotFound:
+        return False
+
+
 def _owner_only_embed():
     from src.core.theme import Theme
     return Theme.get_premium_embed(
@@ -810,7 +821,7 @@ class SpotifyRemote(commands.Cog):
     async def remote_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._remote_result(interaction.user.id))
 
     @app_commands.command(name="play", description="Play a track, album or artist on Spotify (empty = resume) (Owner only)")
@@ -820,7 +831,7 @@ class SpotifyRemote(commands.Cog):
     async def play_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         if not query:
             await self._send_result(interaction, await self._resume_result(interaction.user.id))
         else:
@@ -833,7 +844,7 @@ class SpotifyRemote(commands.Cog):
     async def queue_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         if not query:
             await self._send_result(interaction, await self._queue_current_result(interaction.user.id))
         else:
@@ -845,7 +856,7 @@ class SpotifyRemote(commands.Cog):
     async def pause_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._control_result(interaction.user.id, "pause"))
 
     @app_commands.command(name="skip", description="Skip to the next Spotify track (Owner only)")
@@ -854,7 +865,7 @@ class SpotifyRemote(commands.Cog):
     async def skip_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._control_result(interaction.user.id, "skip"))
 
     @app_commands.command(name="previous", description="Go back to the previous Spotify track (Owner only)")
@@ -863,7 +874,7 @@ class SpotifyRemote(commands.Cog):
     async def previous_slash(self, interaction: discord.Interaction):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._control_result(interaction.user.id, "previous"))
 
     @app_commands.command(name="rclike", description="Like a track on Spotify (empty = current track) (Owner only)")
@@ -873,7 +884,7 @@ class SpotifyRemote(commands.Cog):
     async def rclike_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._like_result(interaction.user.id, query, like=True))
 
     @app_commands.command(name="rcunlike", description="Unlike a track on Spotify (empty = current track) (Owner only)")
@@ -883,7 +894,7 @@ class SpotifyRemote(commands.Cog):
     async def rcunlike_slash(self, interaction: discord.Interaction, query: str = None):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         await self._send_result(interaction, await self._like_result(interaction.user.id, query, like=False))
 
     @app_commands.command(name="spotify", description="Spotify link for your current track, or search")
@@ -891,7 +902,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotify_slash(self, interaction: discord.Interaction, query: str = None):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         embed = await self._link_result(interaction.user.id, query, "track")
         msg = await interaction.followup.send(embed=embed, wait=True)
         await self._maybe_add_sp_reactions(msg, embed)
@@ -901,7 +912,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotifyalbum_slash(self, interaction: discord.Interaction, query: str = None):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         embed = await self._link_result(interaction.user.id, query, "album")
         msg = await interaction.followup.send(embed=embed, wait=True)
         await self._maybe_add_sp_reactions(msg, embed)
@@ -911,7 +922,7 @@ class SpotifyRemote(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def spotifyartist_slash(self, interaction: discord.Interaction, query: str = None):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction): return
         embed = await self._link_result(interaction.user.id, query, "artist")
         msg = await interaction.followup.send(embed=embed, wait=True)
         await self._maybe_add_sp_reactions(msg, embed)
@@ -919,7 +930,7 @@ class SpotifyRemote(commands.Cog):
     async def play_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer(ephemeral=True)
+        if not await _safe_defer(interaction, ephemeral=True): return
         query = message.content
         session = self.bot.session
         track = await search_spotify_track(session, query)
@@ -941,7 +952,7 @@ class SpotifyRemote(commands.Cog):
     async def queue_context_menu(self, interaction: discord.Interaction, message: discord.Message):
         if not _is_owner(interaction.user.id):
             return await _deny_interaction(interaction)
-        await interaction.response.defer(ephemeral=True)
+        if not await _safe_defer(interaction, ephemeral=True): return
         query = message.content
         session = self.bot.session
         track = await search_spotify_track(session, query)
