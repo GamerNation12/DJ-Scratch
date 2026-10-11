@@ -1003,16 +1003,38 @@ def _spotlight_window(days):
     return datetime.utcnow() - timedelta(days=days)
 
 
-async def get_server_random_track(member_ids, exclude=None, days=30):
+async def get_global_fm_members(limit=20) -> dict:
+    """Linked, non-private users recently active — the global FM pool (any server)."""
+    out: dict = {}
+    if not db_pool:
+        return out
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT user_id, lastfm_username FROM user_settings "
+                "WHERE lastfm_username IS NOT NULL AND lastfm_username != '' "
+                "AND COALESCE(private_mode, FALSE) = FALSE "
+                "ORDER BY last_active DESC NULLS LAST LIMIT $1", int(limit))
+            for r in rows:
+                out[str(r["user_id"])] = r["lastfm_username"]
+    except Exception:
+        pass
+    return out
+
+
+async def get_server_random_track(member_ids=None, exclude=None, days=30):
     """(track, artist, plays) random community track. Falls back to all-time."""
     exclude = exclude or set()
     for window in (days, None):
         try:
             # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
             # Private-mode users are never picked or counted.
-            parts = ["user_id = ANY($1)",
-                     "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
-            args = [member_ids]
+            # member_ids None = whole community (any server), not one guild.
+            parts = ["l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+            args = []
+            if member_ids:
+                parts.append("user_id = ANY($1)")
+                args.append(member_ids)
             if window:
                 args.append(_spotlight_window(window))
                 parts.append(f"l.played_at >= ${len(args)}")
@@ -1033,16 +1055,20 @@ async def get_server_random_track(member_ids, exclude=None, days=30):
     return None
 
 
-async def get_server_random_album(member_ids, exclude=None, days=30):
+async def get_server_random_album(member_ids=None, exclude=None, days=30):
     """(album, artist, plays) random community album. Falls back to all-time."""
     exclude = exclude or set()
     for window in (days, None):
         try:
             # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
             # Private-mode users are never picked or counted.
-            parts = ["user_id = ANY($1)", "t.album_name IS NOT NULL AND t.album_name != ''",
+            # member_ids None = whole community (any server), not one guild.
+            parts = ["t.album_name IS NOT NULL AND t.album_name != ''",
                      "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
-            args = [member_ids]
+            args = []
+            if member_ids:
+                parts.append("user_id = ANY($1)")
+                args.append(member_ids)
             if window:
                 args.append(_spotlight_window(window))
                 parts.append(f"l.played_at >= ${len(args)}")
@@ -1063,16 +1089,19 @@ async def get_server_random_album(member_ids, exclude=None, days=30):
     return None
 
 
-async def get_server_random_listener(member_ids, exclude=None, days=30):
+async def get_server_random_listener(member_ids=None, exclude=None, days=30):
     """(user_id, plays) random active community member. Falls back to all-time."""
     exclude = exclude or set()
     for window in (days, None):
         try:
             # All sources count (Last.fm + imports) — it's a fun pick, not an audit.
             # Private-mode users are never picked or counted.
-            parts = ["user_id = ANY($1)",
-                     "l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
-            args = [member_ids]
+            # member_ids None = whole community (any server), not one guild.
+            parts = ["l.user_id NOT IN (SELECT user_id FROM user_settings WHERE private_mode IS TRUE)"]
+            args = []
+            if member_ids:
+                parts.append("user_id = ANY($1)")
+                args.append(member_ids)
             if window:
                 args.append(_spotlight_window(window))
                 parts.append(f"l.played_at >= ${len(args)}")

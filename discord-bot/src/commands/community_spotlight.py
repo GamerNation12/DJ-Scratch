@@ -101,7 +101,7 @@ class CommunitySpotlightCog(commands.Cog):
                         an = an.get("name") if isinstance(an, dict) else an
                         pc = int(x.get("playcount") or 0)
                         if x.get("name") and an:
-                            tracks.append((x["name"], an, pc))
+                            tracks.append((x["name"], an, pc, uid))
                         week += pc
                 except Exception:
                     pass
@@ -113,7 +113,7 @@ class CommunitySpotlightCog(commands.Cog):
                         an = an.get("name") if isinstance(an, dict) else an
                         pc = int(x.get("playcount") or 0)
                         if x.get("name") and an:
-                            albums.append((x["name"], an, pc))
+                            albums.append((x["name"], an, pc, uid))
                 except Exception:
                     pass
                 if week > 0:
@@ -148,16 +148,22 @@ class CommunitySpotlightCog(commands.Cog):
         cfg = await dbmod.get_spotlight_config(guild.id)
         if not any(cfg.values()):
             return done
+        # Global community: picks draw from every linked user (any server),
+        # not just this guild's members. Guild names only feed fallbacks.
         try:
             linked = await get_all_valid_users(guild)
         except Exception:
-            return done
-        member_ids = list(linked.keys())
-        if not member_ids:
-            return done
+            linked = {}
+        try:
+            global_names = await dbmod.get_global_fm_members(60)
+        except Exception:
+            global_names = {}
+        names = {str(uid): (lname or "a former member") for uid, lname in global_names.items()}
+        for uid, lname in (linked or {}).items():
+            names.setdefault(str(uid), lname or "a former member")
         # Last.fm pools (bounded): each board flips 50/50 between local-DB
         # and Last.fm data so both sources visibly feed the picks.
-        fm = await self._lastfm_pools(linked)
+        fm = await self._lastfm_pools({uid: lname for uid, lname in global_names.items()})
 
         jobs = []
         if cfg.get("songs"):
@@ -175,13 +181,12 @@ class CommunitySpotlightCog(commands.Cog):
                 return done
         # Ping cooldown: mentioned in the last 7 days -> plain name, no ping.
         recent = await dbmod.spotlight_recent_mentions(guild.id)
-        names = {str(uid): (lname or "a former member") for uid, lname in linked.items()}
         for kind, channel_id, builder in jobs:
             try:
                 channel = guild.get_channel(int(channel_id))
                 if not isinstance(channel, discord.TextChannel):
                     continue
-                embed, key, pinged_uid, title, subtitle = await builder(guild, member_ids, recent, names, fm)
+                embed, key, pinged_uid, title, subtitle = await builder(guild, None, recent, names, fm)
                 if embed is None:
                     continue
                 msg = await channel.send(embed=embed)
@@ -217,19 +222,34 @@ class CommunitySpotlightCog(commands.Cog):
         pick = await dbmod.get_server_random_track(member_ids, exclude)
         if not pick:
             return None, None, None, None, None
-        (track, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("tracks") or [])
-        if from_fm:
-            # Freshness shared across sources: skip recently posted, else take it.
-            if f"{str(artist).lower()}|{str(track).lower()}" in exclude:
-                (track, artist, plays), from_fm = pick, False
-        key = f"{str(artist).lower()}|{str(track).lower()}"
-        fan = await dbmod.get_track_top_listener(member_ids, artist, track)
+        chosen, from_fm = self._coin_pick(pick, (fm or {}).get("tracks") or [])
+        fuid = None
         pinged = None
-        if fan:
-            who, pinged = self._ping_or_name(guild, fan, recent, names.get(fan, "a former member"))
-            fan_line = f"\nBiggest fan: {who}"
-        else:
-            fan_line = ""
+        if from_fm:
+            try:
+                track, artist, plays, fuid = chosen[0], chosen[1], int(chosen[2]), str(chosen[3])
+            except Exception:
+                from_fm = False
+                fuid = None
+            # Freshness shared across sources: skip recently posted, else take it.
+            if from_fm and f"{str(artist).lower()}|{str(track).lower()}" in exclude:
+                (track, artist, plays), from_fm, fuid = pick, False, None
+        if not from_fm:
+            track, artist, plays = pick
+        key = f"{str(artist).lower()}|{str(track).lower()}"
+        fan = await dbmod.get_track_top_listener(None, artist, track)
+        lines = []
+        if from_fm and fuid:
+            who, p = self._ping_or_name(guild, fuid, recent, names.get(fuid, "a community member"))
+            lines.append(f"via {who}")
+            if p:
+                pinged = p
+        if fan and (not from_fm or fan != fuid):
+            who, p = self._ping_or_name(guild, fan, recent, names.get(fan, "a community member"))
+            lines.append(f"Biggest fan: {who}")
+            if p:
+                pinged = p
+        fan_line = ("\n" + "\n".join(lines)) if lines else ""
         embed = Theme.get_embed(
             title="🎲 Song of the Day",
             description=f"**{track}** by **{artist}**\n*{plays:,} community plays in the last 30 days*{fan_line}",
@@ -245,18 +265,34 @@ class CommunitySpotlightCog(commands.Cog):
         pick = await dbmod.get_server_random_album(member_ids, exclude)
         if not pick:
             return None, None, None, None, None
-        (album, artist, plays), from_fm = self._coin_pick(pick, (fm or {}).get("albums") or [])
-        if from_fm:
-            if f"{str(artist).lower()}|{str(album).lower()}" in exclude:
-                (album, artist, plays), from_fm = pick, False
-        key = f"{str(artist).lower()}|{str(album).lower()}"
-        fan = await dbmod.get_album_top_listener(member_ids, artist, album)
+        chosen, from_fm = self._coin_pick(pick, (fm or {}).get("albums") or [])
+        fuid = None
         pinged = None
-        if fan:
-            who, pinged = self._ping_or_name(guild, fan, recent, names.get(fan, "a former member"))
-            fan_line = f"\nBiggest fan: {who}"
-        else:
-            fan_line = ""
+        if from_fm:
+            try:
+                album, artist, plays, fuid = chosen[0], chosen[1], int(chosen[2]), str(chosen[3])
+            except Exception:
+                from_fm = False
+                fuid = None
+            # Freshness shared across sources: skip recently posted, else take it.
+            if from_fm and f"{str(artist).lower()}|{str(album).lower()}" in exclude:
+                (album, artist, plays), from_fm, fuid = pick, False, None
+        if not from_fm:
+            album, artist, plays = pick
+        key = f"{str(artist).lower()}|{str(album).lower()}"
+        fan = await dbmod.get_album_top_listener(None, artist, album)
+        lines = []
+        if from_fm and fuid:
+            who, p = self._ping_or_name(guild, fuid, recent, names.get(fuid, "a community member"))
+            lines.append(f"via {who}")
+            if p:
+                pinged = p
+        if fan and (not from_fm or fan != fuid):
+            who, p = self._ping_or_name(guild, fan, recent, names.get(fan, "a community member"))
+            lines.append(f"Biggest fan: {who}")
+            if p:
+                pinged = p
+        fan_line = ("\n" + "\n".join(lines)) if lines else ""
         embed = Theme.get_embed(
             title="💿 Album of the Day",
             description=f"**{album}** by **{artist}**\n*{plays:,} community plays in the last 30 days*{fan_line}",
@@ -296,32 +332,73 @@ class CommunitySpotlightCog(commands.Cog):
         embed.set_footer(text=f"Fresh pick daily • {guild.name} community")
         return embed, uid, pinged, plain, f"{plays:,} plays in the last 30 days"
 
-    @app_commands.command(name="today", description="Today's community picks (this server, or support server in DMs)")
+    async def _server_autocomplete(self, interaction: discord.Interaction, current: str):
+        """Servers the user shares with the bot (for /today anywhere)."""
+        try:
+            user_id = interaction.user.id
+            choices = []
+            for g in self.bot.guilds:
+                try:
+                    if g.get_member(user_id) is not None:
+                        choices.append(app_commands.Choice(name=g.name[:100], value=str(g.id)))
+                except Exception:
+                    continue
+            if current:
+                choices = [c for c in choices if current.lower() in c.name.lower()]
+            return choices[:25]
+        except Exception:
+            return []
+
+    @app_commands.command(name="today", description="Today's community picks (any server you're in)")
+    @app_commands.describe(server="Server to view (defaults to this one, else support)")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def today_slash(self, interaction: discord.Interaction):
+    @app_commands.autocomplete(server=_server_autocomplete)
+    async def today_slash(self, interaction: discord.Interaction, server: str | None = None):
         await interaction.response.defer()
         from src.core import database as dbmod
         from src.core.theme import Theme
-        guild_id = None
-        guild_name = "Support Server"
-        if interaction.guild is not None:
+        target = None
+        if server:
             try:
-                cfg = await dbmod.get_spotlight_config(interaction.guild.id)
+                if interaction.guild is not None and str(interaction.guild.id) == str(server):
+                    target = interaction.guild
+                else:
+                    g = self.bot.get_guild(int(server))
+                    if g is not None and g.get_member(interaction.user.id) is not None:
+                        target = g
             except Exception:
-                cfg = {}
-            if any((cfg or {}).values()):
-                guild_id = interaction.guild.id
-                guild_name = interaction.guild.name
-        if guild_id is None:
-            guild_id = 1527127381897383946  # support server fallback
+                target = None
+            if target is None:
+                return await interaction.followup.send(
+                    "Pick a server you're in (or leave it blank).")
+        elif interaction.guild is not None:
+            target = interaction.guild
+        if target is not None:
+            # Own server first: saved picks, else a live snapshot.
+            try:
+                current = await dbmod.get_spotlight_current(target.id)
+            except Exception:
+                current = {}
+            if current and any((v or {}).get("title") for v in current.values()):
+                return await interaction.followup.send(embed=self._today_embed(
+                    target.name, current))
+            snapshot = await self._snapshot_guild(target)
+            if snapshot:
+                return await interaction.followup.send(embed=snapshot)
+        # No-server / empty fallback: support server's picks.
         try:
-            current = await dbmod.get_spotlight_current(guild_id)
+            current = await dbmod.get_spotlight_current(1527127381897383946)
         except Exception:
             current = {}
-        if not current:
-            return await interaction.followup.send(
-                "No picks posted yet — check back after the next daily drop.")
+        if current and any((v or {}).get("title") for v in current.values()):
+            return await interaction.followup.send(embed=self._today_embed("Support Server", current))
+        return await interaction.followup.send(
+            "No picks posted yet — check back after the next daily drop.")
+
+    @staticmethod
+    def _today_embed(guild_name: str, current: dict):
+        from src.core.theme import Theme
         embed = Theme.get_embed(
             title=f"🌟 Today's picks • {guild_name}",
             color=Theme.PREMIUM,
@@ -335,10 +412,39 @@ class CommunitySpotlightCog(commands.Cog):
                     value=f"**{item['title']}**\n{item.get('subtitle') or ''}",
                     inline=False,
                 )
-        if not embed.fields:
-            return await interaction.followup.send(
-                "No picks posted yet — check back after the next daily drop.")
-        await interaction.followup.send(embed=embed)
+        return embed
+
+    async def _snapshot_guild(self, guild: discord.Guild):
+        """Live community snapshot for servers without posted picks (no pings, no history)."""
+        from src.core import database as dbmod
+        from src.core.events import get_all_valid_users
+        try:
+            linked = await get_all_valid_users(guild)
+        except Exception:
+            return None
+        member_ids = list(linked.keys())
+        if not member_ids:
+            return None
+        fm = await self._lastfm_pools(linked)
+        names = {str(uid): (lname or "a former member") for uid, lname in linked.items()}
+        # Suppress pings on pull views: everyone counts as recently mentioned.
+        recent = set(member_ids) | set(names.keys())
+        current: dict = {}
+        for kind, builder in (
+            ("songs", self._song_embed),
+            ("users", self._user_embed),
+            ("albums", self._album_embed),
+        ):
+            try:
+                embed, _key, _pinged, title, subtitle = await builder(
+                    guild, member_ids, recent, names, fm)
+                if title:
+                    current[kind] = {"title": title, "subtitle": subtitle}
+            except Exception:
+                continue
+        if not current:
+            return None
+        return self._today_embed(f"{guild.name} (live)", current)
 
     @app_commands.command(name="spotlight", description="Daily random picks for #songs #users #albums (Admin only)")
     @app_commands.default_permissions(administrator=True)
