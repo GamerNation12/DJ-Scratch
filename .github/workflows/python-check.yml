@@ -36,7 +36,7 @@ jobs:
         # star-import maybes). Undefined names are the crashers — e.g. the
         # fmbot_extras Theme NameErrors — so only those fail the build.
         run: |
-          python -m pyflakes discord-bot/src deploy.py scripts > pyflakes-report.txt 2>&1 || true
+          python -m pyflakes discord-bot/src discord-bot/main.py deploy.py scripts > pyflakes-report.txt 2>&1 || true
           cat pyflakes-report.txt
           if grep -q "undefined name '" pyflakes-report.txt; then
             echo "::error::pyflakes found undefined names (would crash at runtime)"

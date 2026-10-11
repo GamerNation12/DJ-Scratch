@@ -307,7 +307,7 @@ async def add_restarting_user(user_id, channel_id):
                     users = json.loads(row['value'])
                 except:
                     pass
-            
+
             entry = {"user_id": user_id, "channel_id": channel_id}
             if entry not in users:
                 users.append(entry)
@@ -317,6 +317,82 @@ async def add_restarting_user(user_id, channel_id):
                 )
     except Exception as e:
         print(f"Failed to save restart notif for {user_id}: {e}")
+
+
+async def add_restart_optout(user_id):
+    """Never ping this user for restarts (opt-out button)."""
+    from src.core.database import db_pool
+    import json
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_optout'")
+            ids = []
+            if row and row['value']:
+                try:
+                    ids = json.loads(row['value'])
+                except:
+                    pass
+            if str(user_id) not in [str(i) for i in ids]:
+                ids.append(str(user_id))
+                await conn.execute(
+                    "INSERT INTO global_settings (key, value) VALUES ('restart_optout', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    json.dumps(ids)
+                )
+    except Exception as e:
+        print(f"Failed to save restart opt-out for {user_id}: {e}")
+
+
+async def remove_restart_notif(user_id):
+    """Drop a pending back-online ping (opt-out applies to this restart too)."""
+    from src.core.database import db_pool
+    import json
+    if not db_pool:
+        return
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_notifs'")
+            if not row or not row['value']:
+                return
+            try:
+                users = json.loads(row['value'])
+            except:
+                return
+            kept = [u for u in users
+                    if not (isinstance(u, dict) and str(u.get("user_id")) == str(user_id))]
+            if len(kept) != len(users):
+                await conn.execute(
+                    "INSERT INTO global_settings (key, value) VALUES ('restart_notifs', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                    json.dumps(kept)
+                )
+    except Exception as e:
+        print(f"Failed to remove restart notif for {user_id}: {e}")
+
+
+class RestartPingOptOutView(discord.ui.View):
+    """'Don't ping me' button on the restarting warning."""
+
+    def __init__(self, user_id):
+        super().__init__(timeout=60)
+        self.user_id = int(user_id)
+
+    @discord.ui.button(label="Don't ping me", emoji="🔕", style=discord.ButtonStyle.secondary)
+    async def opt_out(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This button isn't for you.", ephemeral=True)
+        await add_restart_optout(self.user_id)
+        await remove_restart_notif(self.user_id)
+        button.disabled = True
+        button.label = "Ping off"
+        try:
+            await interaction.response.edit_message(view=self)
+        except Exception:
+            pass
+        try:
+            await interaction.followup.send("🔕 You won't be pinged for restarts anymore.", ephemeral=True)
+        except Exception:
+            pass
 
 _TOUCH_STAMPS: dict = {}  # (user_id, kind) -> last monotonic write
 _TOUCH_TTL = 600.0  # 10 min: purge cutoffs are 53/60 days, so this loses nothing
@@ -430,7 +506,7 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
             reason = getattr(bot, 'restart_reason', 'Maintenance')
-            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
+            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(interaction.user.id), delete_after=15)
         except:
             pass
         await add_restarting_user(interaction.user.id, interaction.channel.id)
@@ -445,7 +521,7 @@ async def check_restarting_prefix(ctx) -> bool:
         try:
             timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
             reason = getattr(bot, 'restart_reason', 'Maintenance')
-            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", delete_after=15)
+            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(ctx.author.id), delete_after=15)
         except:
             pass
         await add_restarting_user(ctx.author.id, ctx.channel.id)

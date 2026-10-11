@@ -115,12 +115,20 @@ async def on_ready_monitor():
                     try:
                         users = json.loads(row['value'])
                         if users:
+                            # Opt-outs never get the back-online ping.
+                            skipped = set()
+                            try:
+                                orow = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_optout'")
+                                if orow and orow['value']:
+                                    skipped = {str(i) for i in (json.loads(orow['value']) or [])}
+                            except Exception:
+                                pass
                             channel_notifs = {}
                             for item in users:
                                 if isinstance(item, dict):
                                     c_id = item.get("channel_id")
                                     u_id = item.get("user_id")
-                                    if c_id and u_id:
+                                    if c_id and u_id and str(u_id) not in skipped:
                                         if c_id not in channel_notifs:
                                             channel_notifs[c_id] = []
                                         channel_notifs[c_id].append(u_id)
