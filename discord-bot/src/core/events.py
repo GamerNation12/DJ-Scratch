@@ -2740,14 +2740,17 @@ class FMActionsView(discord.ui.View):
 
     async def show_lyrics(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        from src.core.lyrics import fetch_lyrics
+        from src.core.lyrics import fetch_lyrics, fetch_track_duration_ms, LyricsPagesView
         session = getattr(self.bot_instance, 'session', None)
-        lyrics = await fetch_lyrics(session, self.artist, self.song)
-        if lyrics:
-            if len(lyrics) > 4096:
-                lyrics = lyrics[:4093] + "..."
-            embed = Theme.get_embed(title=f"Lyrics for {self.song} by {self.artist}", description=lyrics, color=LASTFM_COLOR)
-            await interaction.followup.send(embed=embed, ephemeral=True)
+        lyrics_data = await fetch_lyrics(session, self.artist, self.song)
+        if lyrics_data and lyrics_data.get("plain"):
+            duration_ms = None
+            if not lyrics_data.get("synced"):
+                duration_ms = await fetch_track_duration_ms(session, self.artist, self.song)
+            view = LyricsPagesView(self.artist, self.song, lyrics_data.get("plain"),
+                                   lyrics_data.get("synced"), duration_ms)
+            await interaction.followup.send(
+                embed=view.page_embed(), view=view if view.has_pages else None, ephemeral=True)
         else:
             await interaction.followup.send("Could not find lyrics for this track.", ephemeral=True)
 
