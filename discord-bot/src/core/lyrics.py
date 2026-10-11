@@ -39,6 +39,30 @@ async def fetch_lyrics(session: aiohttp.ClientSession, artist: str, song: str):
     return None
 
 
+async def fetch_track_duration_ms(session, artist: str, track: str):
+    """Track length via iTunes (fmbot's fallback when no synced timestamps)."""
+    try:
+        if session is None:
+            return None
+        import urllib.parse
+        query = urllib.parse.quote(f"{artist or ''} {track or ''}".strip())
+        if not query:
+            return None
+        async with session.get(
+            f"https://itunes.apple.com/search?term={query}&entity=song&limit=1",
+            timeout=5,
+        ) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json(content_type=None)
+            results = data.get("results") or []
+            if results and results[0].get("trackTimeMillis"):
+                return int(results[0]["trackTimeMillis"])
+    except Exception:
+        pass
+    return None
+
+
 def lyrics_embed(artist: str, track: str, plain: str | None):
     """fmbot-style lyrics card: linked 'Lyrics for Artist - Track' title, full body."""
     from src.core.theme import Theme
@@ -141,11 +165,13 @@ def _paginate_lyrics(plain: str, synced: str | None, per_page: int = 20) -> list
 class LyricsPagesView(discord.ui.View):
     """fmbot-style pager: prev/next + page time-range label."""
 
-    def __init__(self, artist: str, track: str, plain: str, synced: str | None = None):
+    def __init__(self, artist: str, track: str, plain: str, synced: str | None = None,
+                 duration_ms: int | None = None):
         super().__init__(timeout=300)
         self.artist = artist
         self.track = track
         self.pages = _paginate_lyrics(plain, synced)
+        self.duration_ms = duration_ms
         self.index = 0
         self.prev_btn = discord.ui.Button(emoji="◀", style=discord.ButtonStyle.secondary)
         self.prev_btn.callback = self._prev
@@ -167,9 +193,15 @@ class LyricsPagesView(discord.ui.View):
         if not self.pages:
             return ""
         page = self.pages[min(self.index, len(self.pages) - 1)]
-        if page["start"] is None or page["end"] is None:
-            return ""
-        return f"{_fmt_ts(page['start'])} until {_fmt_ts(page['end'] + 3)}"
+        if page["start"] is not None and page["end"] is not None:
+            return f"{_fmt_ts(page['start'])} until {_fmt_ts(page['end'] + 3)}"
+        try:
+            if self.duration_ms:
+                total = int(self.duration_ms) // 1000
+                return f"{total // 60}:{total % 60:02d}"
+        except Exception:
+            pass
+        return ""
 
     def _sync(self):
         self.prev_btn.disabled = self.index <= 0

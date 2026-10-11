@@ -2625,11 +2625,15 @@ class FMDetailsView(discord.ui.View):
 
     async def show_lyrics(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        from src.core.lyrics import fetch_lyrics, LyricsPagesView
+        from src.core.lyrics import fetch_lyrics, fetch_track_duration_ms, LyricsPagesView
         session = getattr(self.bot_instance, 'session', None)
         lyrics_data = await fetch_lyrics(session, self.artist, self.song)
         if lyrics_data and lyrics_data.get("plain"):
-            view = LyricsPagesView(self.artist, self.song, lyrics_data.get("plain"), lyrics_data.get("synced"))
+            duration_ms = None
+            if not lyrics_data.get("synced"):
+                duration_ms = await fetch_track_duration_ms(session, self.artist, self.song)
+            view = LyricsPagesView(self.artist, self.song, lyrics_data.get("plain"),
+                                   lyrics_data.get("synced"), duration_ms)
             await interaction.followup.send(
                 embed=view.page_embed(), view=view if view.has_pages else None, ephemeral=True)
         else:

@@ -720,8 +720,12 @@ async def process_lyrics_cmd(user, bot, query=None):
         return _err("Usage: `/lyrics Artist - Track` (or play something).")
     data = await fetch_lyrics(getattr(bot, "session", None), artist, track)
     if data and data.get("plain"):
-        from src.core.lyrics import LyricsPagesView
-        view = LyricsPagesView(artist, track, data["plain"], data.get("synced"))
+        from src.core.lyrics import fetch_track_duration_ms, LyricsPagesView
+        duration_ms = None
+        if not data.get("synced"):
+            duration_ms = await fetch_track_duration_ms(
+                getattr(bot, "session", None), artist, track)
+        view = LyricsPagesView(artist, track, data["plain"], data.get("synced"), duration_ms)
         return view.page_embed(), (view if view.has_pages else None)
     return _err(f"No lyrics found for **{track}** by **{artist}**.")
 
