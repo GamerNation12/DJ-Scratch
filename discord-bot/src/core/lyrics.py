@@ -68,63 +68,122 @@ def lyrics_page_embed(artist: str, track: str, chunk: str, page: int, pages: int
     return embed
 
 
-def _paginate_lyrics(plain: str, per_page: int = 1000) -> list:
-    """Split lyrics into page chunks on blank lines (hard-split runaways)."""
+def _parse_synced(synced: str | None) -> list:
+    """[(seconds, text)] from lrclib [mm:ss.xx] lines."""
+    import re
+    out = []
+    for line in (synced or "").splitlines():
+        m = re.match(r"^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$", line.strip())
+        if m:
+            try:
+                out.append((int(m.group(1)) * 60 + float(m.group(2)), m.group(3).strip()))
+            except Exception:
+                continue
+    return out
+
+
+def _lev(a: str, b: str) -> int:
+    """Tiny Levenshtein for lyric-line alignment."""
+    a, b = (a or "").strip().lower(), (b or "").strip().lower()
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 2 and (not a or not b):
+        return 99
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i]
+        for j in range(1, lb + 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1])))
+        prev = cur
+    return prev[lb]
+
+
+def _fmt_ts(seconds: float) -> str:
+    total = max(0, int(seconds))
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def _paginate_lyrics(plain: str, synced: str | None, per_page: int = 20) -> list:
+    """20 plain lines per page; each page tracks its synced time range."""
     text = (plain or "").strip().replace("\r\n", "\n")
     if not text:
         return []
-    paras = [p.strip() for p in text.split("\n\n")]
-    pages, current = [], ""
-    for p in paras:
-        while len(p) > per_page:
-            if current:
-                pages.append(current)
-                current = ""
-            pages.append(p[:per_page])
-            p = p[per_page:]
-        candidate = f"{current}\n\n{p}".strip() if current else p
-        if len(candidate) > per_page and current:
-            pages.append(current)
-            current = p
-        else:
-            current = candidate
-    if current:
-        pages.append(current)
-    return [pg for pg in pages if pg]
+    lines = text.split("\n")
+    synced_entries = _parse_synced(synced)
+    pages = []
+    idx = 0
+    for i in range(0, len(lines), per_page):
+        chunk = lines[i:i + per_page]
+        start = end = None
+        if synced_entries:
+            try:
+                if idx < len(synced_entries):
+                    start = synced_entries[idx][0]
+                for line in chunk:
+                    if not line.strip():
+                        continue
+                    if idx >= len(synced_entries):
+                        break
+                    entry_text = synced_entries[idx][1]
+                    if _lev(entry_text, line) > 2:
+                        idx += 1
+                        if idx >= len(synced_entries):
+                            break
+                    end = synced_entries[idx][0]
+                    idx += 1
+            except Exception:
+                pass
+        pages.append({"text": "\n".join(chunk).strip(), "start": start, "end": end})
+    return [p for p in pages if p["text"]]
 
 
 class LyricsPagesView(discord.ui.View):
-    """◀ ▶ pager so long lyrics aren't a wall of text."""
+    """fmbot-style pager: prev/next + page time-range label."""
 
-    def __init__(self, artist: str, track: str, plain: str):
+    def __init__(self, artist: str, track: str, plain: str, synced: str | None = None):
         super().__init__(timeout=300)
         self.artist = artist
         self.track = track
-        self.pages = _paginate_lyrics(plain)
+        self.pages = _paginate_lyrics(plain, synced)
         self.index = 0
         self.prev_btn = discord.ui.Button(emoji="◀", style=discord.ButtonStyle.secondary)
         self.prev_btn.callback = self._prev
-        self.page_btn = discord.ui.Button(label="1/1", style=discord.ButtonStyle.secondary, disabled=True)
+        self.time_btn = discord.ui.Button(
+            label=self._time_label(), style=discord.ButtonStyle.secondary, disabled=True)
         self.next_btn = discord.ui.Button(emoji="▶", style=discord.ButtonStyle.secondary)
         self.next_btn.callback = self._next
-        for item in (self.prev_btn, self.page_btn, self.next_btn):
-            self.add_item(item)
+        self.add_item(self.prev_btn)
+        if self._time_label():
+            self.add_item(self.time_btn)
+        self.add_item(self.next_btn)
         self._sync()
 
     @property
     def has_pages(self) -> bool:
         return len(self.pages) > 1
 
+    def _time_label(self) -> str:
+        if not self.pages:
+            return ""
+        page = self.pages[min(self.index, len(self.pages) - 1)]
+        if page["start"] is None or page["end"] is None:
+            return ""
+        return f"{_fmt_ts(page['start'])} until {_fmt_ts(page['end'] + 3)}"
+
     def _sync(self):
-        total = max(1, len(self.pages))
-        self.page_btn.label = f"{min(self.index + 1, total)}/{total}"
         self.prev_btn.disabled = self.index <= 0
         self.next_btn.disabled = self.index >= len(self.pages) - 1
+        try:
+            self.time_btn.label = self._time_label() or "•"
+        except Exception:
+            pass
 
     def page_embed(self):
         if not self.pages:
             return lyrics_embed(self.artist, self.track, None)
-        return lyrics_page_embed(self.artist, self.track, self.pages[self.index], self.index, len(self.pages))
+        page = self.pages[self.index]
+        return lyrics_page_embed(self.artist, self.track, page["text"], self.index, len(self.pages))
 
     async def _go(self, interaction: discord.Interaction, index: int):
         self.index = max(0, min(index, len(self.pages) - 1))

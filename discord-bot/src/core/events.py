@@ -2629,7 +2629,7 @@ class FMDetailsView(discord.ui.View):
         session = getattr(self.bot_instance, 'session', None)
         lyrics_data = await fetch_lyrics(session, self.artist, self.song)
         if lyrics_data and lyrics_data.get("plain"):
-            view = LyricsPagesView(self.artist, self.song, lyrics_data.get("plain"))
+            view = LyricsPagesView(self.artist, self.song, lyrics_data.get("plain"), lyrics_data.get("synced"))
             await interaction.followup.send(
                 embed=view.page_embed(), view=view if view.has_pages else None, ephemeral=True)
         else:
