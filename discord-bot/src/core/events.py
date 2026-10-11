@@ -3982,6 +3982,11 @@ async def process_artist_tracks(user, artist_name):
     username = await get_lastfm_username(user.id)
     d_source = await get_user_data_source(user.id)
 
+    # Auto-detect from now-playing carries our own ", feat" suffixes
+    # ("fun., Janelle Monáe") which no lookup understands — fall back to
+    # the main artist below. Explicit args are left alone (real comma
+    # bands like "Earth, Wind & Fire" must keep working).
+    auto_detected = not artist_name
     if not artist_name:
         if not username or d_source == 'imported_only': return Theme.get_error_embed(description="Link account or provide an artist name."), None, None
         np_data = await fetch_now_playing(username, 1)
@@ -4010,7 +4015,12 @@ async def process_artist_tracks(user, artist_name):
         combined[track_name] = combined.get(track_name, 0) + plays if reg_dt is not None else max(combined.get(track_name, 0), plays)
 
     sorted_tracks = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-    if not sorted_tracks: return Theme.get_error_embed(description=f"No track data found for **{artist_name}**."), None, None
+    if not sorted_tracks:
+        if auto_detected and artist_name and "," in artist_name:
+            main = artist_name.split(",")[0].strip()
+            if main and main.lower() != artist_name.lower():
+                return await process_artist_tracks(user, main)
+        return Theme.get_error_embed(description=f"No track data found for **{artist_name}**."), None, None
 
     total_plays = sum(combined.values())
     
