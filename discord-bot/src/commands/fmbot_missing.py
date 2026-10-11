@@ -389,14 +389,14 @@ class FmbotMissingCog(commands.Cog):
     async def music_lyrics(self, interaction: discord.Interaction, query: str = None):
         from src.core import fmbot_extras as X
         await interaction.response.defer()
-        embed, _ = await X.process_lyrics_cmd(interaction.user, self.bot, query)
-        await interaction.followup.send(embed=embed)
+        embed, view = await X.process_lyrics_cmd(interaction.user, self.bot, query)
+        await interaction.followup.send(embed=embed, view=view)
 
     @commands.command(name="lyrics")
     async def lyrics_prefix(self, ctx, *, query: str = None):
         from src.core import fmbot_extras as X
-        embed, _ = await X.process_lyrics_cmd(ctx.author, self.bot, query)
-        await ctx.reply(embed=embed, mention_author=False)
+        embed, view = await X.process_lyrics_cmd(ctx.author, self.bot, query)
+        await ctx.reply(embed=embed, view=view, mention_author=False)
 
     @music.command(name="loved", description="Your loved tracks on Last.fm")
     @app_commands.allowed_installs(guilds=True, users=True)

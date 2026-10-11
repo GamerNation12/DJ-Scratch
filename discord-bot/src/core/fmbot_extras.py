@@ -701,7 +701,7 @@ async def process_gaps(user, target=None, days=30):
 # ---------- Phase 2: lyrics / loved / scrobble / links ----------
 
 async def process_lyrics_cmd(user, bot, query=None):
-    from src.core.lyrics import fetch_lyrics
+    from src.core.lyrics import fetch_lyrics, lyrics_embed
     from src.utils.api import fetch_now_playing
     lname = await _lname(user)
     artist = track = None
@@ -719,10 +719,10 @@ async def process_lyrics_cmd(user, bot, query=None):
     if not artist or not track:
         return _err("Usage: `/lyrics Artist - Track` (or play something).")
     data = await fetch_lyrics(getattr(bot, "session", None), artist, track)
-    color = await _color(user)
     if data and data.get("plain"):
-        desc = data["plain"][:3900] + ("..." if len(data["plain"]) > 3900 else "")
-        return _embed(user, f"Lyrics • {artist} - {track}", desc, color), None
+        from src.core.lyrics import LyricsPagesView
+        view = LyricsPagesView(artist, track, data["plain"])
+        return view.page_embed(), (view if view.has_pages else None)
     return _err(f"No lyrics found for **{track}** by **{artist}**.")
 
 
