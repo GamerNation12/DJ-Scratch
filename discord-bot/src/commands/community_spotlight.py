@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+SUPPORT_GUILD_ID = 1527127381897383946
+
 
 async def _fm_json(session, method, username, extra=None, timeout_s=8):
     """One bounded Last.fm call. None on any failure."""
@@ -52,6 +54,9 @@ class CommunitySpotlightCog(commands.Cog):
         except Exception:
             return
         for guild in list(self.bot.guilds):
+            # Support server only: boards live in #songs/#users/#albums there.
+            if int(getattr(guild, "id", 0)) != SUPPORT_GUILD_ID:
+                continue
             try:
                 await self._post_guild(guild)
             except Exception:
@@ -237,26 +242,23 @@ class CommunitySpotlightCog(commands.Cog):
         if not from_fm:
             track, artist, plays = pick
         key = f"{str(artist).lower()}|{str(track).lower()}"
-        fan = await dbmod.get_track_top_listener(None, artist, track)
-        lines = []
-        if from_fm and fuid:
-            who, p = self._ping_or_name(guild, fuid, recent, names.get(fuid, "a community member"))
-            lines.append(f"via {who}")
-            if p:
-                pinged = p
-        if fan and (not from_fm or fan != fuid):
-            who, p = self._ping_or_name(guild, fan, recent, names.get(fan, "a community member"))
-            lines.append(f"Biggest fan: {who}")
-            if p:
-                pinged = p
-        fan_line = ("\n" + "\n".join(lines)) if lines else ""
+        # One attribution only: the FM contributor, else the top local listener.
+        star = fuid if (from_fm and fuid) else await dbmod.get_track_top_listener(None, artist, track)
+        pinged = None
+        if star:
+            who, pinged = self._ping_or_name(guild, star, recent, names.get(star, "a community member"))
+            fan_line = f"\nBiggest fan: {who}"
+        else:
+            fan_line = ""
+        # FM picks count one user's week, not community plays — label honestly.
+        scope = "plays this week" if from_fm else "community plays in the last 30 days"
         embed = Theme.get_embed(
             title="🎲 Song of the Day",
-            description=f"**{track}** by **{artist}**\n*{plays:,} community plays in the last 30 days*{fan_line}",
+            description=f"**{track}** by **{artist}**\n*{plays:,} {scope}*{fan_line}",
             color=Theme.PREMIUM,
         )
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
-        return embed, key, pinged, track, f"{artist} • {plays:,} plays"
+        return embed, key, pinged, track, f"{artist} • {plays:,} {scope}"
 
     async def _album_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
@@ -280,26 +282,23 @@ class CommunitySpotlightCog(commands.Cog):
         if not from_fm:
             album, artist, plays = pick
         key = f"{str(artist).lower()}|{str(album).lower()}"
-        fan = await dbmod.get_album_top_listener(None, artist, album)
-        lines = []
-        if from_fm and fuid:
-            who, p = self._ping_or_name(guild, fuid, recent, names.get(fuid, "a community member"))
-            lines.append(f"via {who}")
-            if p:
-                pinged = p
-        if fan and (not from_fm or fan != fuid):
-            who, p = self._ping_or_name(guild, fan, recent, names.get(fan, "a community member"))
-            lines.append(f"Biggest fan: {who}")
-            if p:
-                pinged = p
-        fan_line = ("\n" + "\n".join(lines)) if lines else ""
+        # One attribution only: the FM contributor, else the top local listener.
+        star = fuid if (from_fm and fuid) else await dbmod.get_album_top_listener(None, artist, album)
+        pinged = None
+        if star:
+            who, pinged = self._ping_or_name(guild, star, recent, names.get(star, "a community member"))
+            fan_line = f"\nBiggest fan: {who}"
+        else:
+            fan_line = ""
+        # FM picks count one user's week, not community plays — label honestly.
+        scope = "plays this week" if from_fm else "community plays in the last 30 days"
         embed = Theme.get_embed(
             title="💿 Album of the Day",
-            description=f"**{album}** by **{artist}**\n*{plays:,} community plays in the last 30 days*{fan_line}",
+            description=f"**{album}** by **{artist}**\n*{plays:,} {scope}*{fan_line}",
             color=Theme.PRIMARY,
         )
         embed.set_footer(text=f"Fresh pick daily • from {guild.name}'s listening")
-        return embed, key, pinged, album, f"{artist} • {plays:,} plays"
+        return embed, key, pinged, album, f"{artist} • {plays:,} {scope}"
 
     async def _user_embed(self, guild, member_ids, recent, names, fm):
         from src.core import database as dbmod
@@ -309,6 +308,7 @@ class CommunitySpotlightCog(commands.Cog):
         if not pick:
             return None, None, None, None, None
         uid, plays = pick
+        from_fm = False
         fm_users = (fm or {}).get("users") or {}
         if fm_users:
             import random as _random
@@ -316,6 +316,7 @@ class CommunitySpotlightCog(commands.Cog):
                 candidates = [u for u in fm_users if u not in exclude] or list(fm_users.keys())
                 uid = _random.choice(candidates)
                 plays = fm_users[uid]
+                from_fm = True
         who, pinged = self._ping_or_name(guild, uid, recent, names.get(uid, "a former member"))
         try:
             _m = guild.get_member(int(uid))
@@ -324,13 +325,14 @@ class CommunitySpotlightCog(commands.Cog):
             plain = names.get(uid, "a former member")
         top = await dbmod.get_user_week_top_artist(uid)
         top_line = f"\n🔥 Top artist this week: **{top[0]}** ({top[1]:,} plays)" if top else ""
+        scope = "plays this week" if from_fm else "plays in the last 30 days"
         embed = Theme.get_embed(
             title="🌟 Member Spotlight",
-            description=f"{who} put up **{plays:,}** plays in the last 30 days!{top_line}",
+            description=f"{who} put up **{plays:,}** {scope}!{top_line}",
             color=Theme.SUCCESS,
         )
         embed.set_footer(text=f"Fresh pick daily • {guild.name} community")
-        return embed, uid, pinged, plain, f"{plays:,} plays in the last 30 days"
+        return embed, uid, pinged, plain, f"{plays:,} {scope}"
 
     async def _server_autocomplete(self, interaction: discord.Interaction, current: str):
         """Servers the user shares with the bot (for /today anywhere)."""
@@ -358,8 +360,10 @@ class CommunitySpotlightCog(commands.Cog):
         await interaction.response.defer()
         from src.core import database as dbmod
         from src.core.theme import Theme
-        target = None
+        # Default: the support server's posted picks — the same data as the
+        # support channels and the /community page. `server` views others.
         if server:
+            target = None
             try:
                 if interaction.guild is not None and str(interaction.guild.id) == str(server):
                     target = interaction.guild
@@ -371,11 +375,7 @@ class CommunitySpotlightCog(commands.Cog):
                 target = None
             if target is None:
                 return await interaction.followup.send(
-                    "Pick a server you're in (or leave it blank).")
-        elif interaction.guild is not None:
-            target = interaction.guild
-        if target is not None:
-            # Own server first: saved picks, else a live snapshot.
+                    "Pick a server you're in (or leave it blank for support picks).")
             try:
                 current = await dbmod.get_spotlight_current(target.id)
             except Exception:
@@ -386,7 +386,8 @@ class CommunitySpotlightCog(commands.Cog):
             snapshot = await self._snapshot_guild(target)
             if snapshot:
                 return await interaction.followup.send(embed=snapshot)
-        # No-server / empty fallback: support server's picks.
+            return await interaction.followup.send(
+                "That server has no picks yet — an admin can run `/spotlight` to set them up.")
         try:
             current = await dbmod.get_spotlight_current(1527127381897383946)
         except Exception:
@@ -395,6 +396,18 @@ class CommunitySpotlightCog(commands.Cog):
             return await interaction.followup.send(embed=self._today_embed("Support Server", current))
         return await interaction.followup.send(
             "No picks posted yet — check back after the next daily drop.")
+
+    @commands.command(name="today", aliases=["picks"])
+    async def today_prefix(self, ctx):
+        """Same data as the support server's picks, as a text command."""
+        from src.core import database as dbmod
+        try:
+            current = await dbmod.get_spotlight_current(SUPPORT_GUILD_ID)
+        except Exception:
+            current = {}
+        if current and any((v or {}).get("title") for v in current.values()):
+            return await ctx.send(embed=self._today_embed("Support Server", current))
+        await ctx.send("No picks posted yet — check back after the next daily drop.")
 
     @staticmethod
     def _today_embed(guild_name: str, current: dict):
@@ -446,7 +459,53 @@ class CommunitySpotlightCog(commands.Cog):
             return None
         return self._today_embed(f"{guild.name} (live)", current)
 
-    @app_commands.command(name="spotlight", description="Daily random picks for #songs #users #albums (Admin only)")
+    async def _configure(self, guild: discord.Guild, songs, users, albums, now: bool) -> str:
+        """Shared /spotlight +,spotlight core. Returns the reply text."""
+        from src.core import database as dbmod
+        if songs is None and users is None and albums is None and not now:
+            cfg = await dbmod.get_spotlight_config(guild.id)
+            lines = []
+            for kind, label in (("songs", "#songs"), ("users", "#users"), ("albums", "#albums")):
+                ch = cfg.get(kind)
+                lines.append(f"{label}: {'<#' + str(ch) + '>' if ch else '— not set'}")
+            return ("🌟 **Community spotlight config**\n" + "\n".join(lines)
+                    + "\n\nSet with channels, add `now` to post today immediately.")
+        if songs is not None or users is not None or albums is not None:
+            current = await dbmod.get_spotlight_config(guild.id)
+            await dbmod.set_spotlight_config(
+                guild.id,
+                songs=str(songs.id) if songs else current.get("songs"),
+                users=str(users.id) if users else current.get("users"),
+                albums=str(albums.id) if albums else current.get("albums"),
+            )
+        if now:
+            done = await self._post_guild(guild, force=True)
+            if done:
+                return f"✅ Posted: {', '.join(sorted(done))}."
+            return "Nothing posted — set channels first or no community listening found."
+        return "✅ Spotlight channels saved."
+
+    @commands.command(name="spotlight")
+    @commands.has_permissions(administrator=True)
+    async def spotlight_prefix(self, ctx, *, arg: str = ""):
+        """Text version: ,spotlight #songs #users #albums | ,spotlight now"""
+        if ctx.guild is None or int(ctx.guild.id) != SUPPORT_GUILD_ID:
+            return await ctx.send("Spotlight setup lives in the support server.")
+        word = (arg or "").strip().lower()
+        if word in ("now", "post", "send"):
+            return await ctx.send(await self._configure(ctx.guild, None, None, None, True))
+        mentioned = [c for c in ctx.message.channel_mentions
+                     if isinstance(c, discord.TextChannel)][:3]
+        if not mentioned and not word:
+            return await ctx.send(await self._configure(ctx.guild, None, None, None, False))
+        songs = mentioned[0] if len(mentioned) > 0 else None
+        users = mentioned[1] if len(mentioned) > 1 else None
+        albums = mentioned[2] if len(mentioned) > 2 else None
+        if songs is None and users is None and albums is None:
+            return await ctx.send("Mention channels: `,spotlight #songs #users #albums` — or `,spotlight now`.")
+        return await ctx.send(await self._configure(ctx.guild, songs, users, albums, False))
+
+    @app_commands.command(name="spotlight", description="Daily random picks for #songs #users #albums (Support server, Admin only)")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(
         songs="Channel for Song of the Day",
@@ -464,35 +523,12 @@ class CommunitySpotlightCog(commands.Cog):
     ):
         if interaction.guild is None:
             return await interaction.response.send_message("Run this in a server.", ephemeral=True)
+        if int(interaction.guild.id) != SUPPORT_GUILD_ID:
+            return await interaction.response.send_message(
+                "Spotlight setup lives in the support server.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
-        from src.core import database as dbmod
-        if songs is None and users is None and albums is None and not now:
-            cfg = await dbmod.get_spotlight_config(interaction.guild.id)
-            lines = []
-            for kind, label in (("songs", "#songs"), ("users", "#users"), ("albums", "#albums")):
-                ch = cfg.get(kind)
-                lines.append(f"{label}: {'<#' + str(ch) + '>' if ch else '— not set'}")
-            return await interaction.followup.send(
-                "🌟 **Community spotlight config**\n" + "\n".join(lines)
-                + "\n\nSet with `/spotlight songs:#songs users:#users albums:#albums`, add `now:True` to post today immediately.",
-                ephemeral=True,
-            )
-        if songs is not None or users is not None or albums is not None:
-            current = await dbmod.get_spotlight_config(interaction.guild.id)
-            await dbmod.set_spotlight_config(
-                interaction.guild.id,
-                songs=str(songs.id) if songs else current.get("songs"),
-                users=str(users.id) if users else current.get("users"),
-                albums=str(albums.id) if albums else current.get("albums"),
-            )
-        if now:
-            done = await self._post_guild(interaction.guild, force=True)
-            if done:
-                return await interaction.followup.send(
-                    f"✅ Posted: {', '.join(sorted(done))}.", ephemeral=True)
-            return await interaction.followup.send(
-                "Nothing posted — set channels first or no community listening found.", ephemeral=True)
-        return await interaction.followup.send("✅ Spotlight channels saved.", ephemeral=True)
+        msg = await self._configure(interaction.guild, songs, users, albums, now)
+        return await interaction.followup.send(msg, ephemeral=True)
 
 
 async def setup(bot):
