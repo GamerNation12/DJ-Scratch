@@ -22,7 +22,7 @@ on:
         description: 'Build Android App (.apk)'
         required: true
         type: boolean
-        default: false
+        default: true
       build_linux:
         description: 'Build Linux App (.AppImage/.deb)'
         required: true
@@ -161,6 +161,15 @@ jobs:
           $m = Select-String -Path ../../../../pubspec.yaml -Pattern 'version: (\d+\.\d+\.\d+)\+(\d+)'
           $json = "{`"build`": $($m.Matches[0].Groups[2].Value), `"name`": `"$($m.Matches[0].Groups[1].Value)`"}"
           Set-Content version.json $json -NoNewline
+
+      - name: Verify Android artifacts
+        # Never publish a release whose "latest" APK is stale: fail loudly
+        # instead of letting fail_on_unmatched_files hide a missing build.
+        if: ${{ steps.opts.outputs.BUILD_ANDROID == 'true' }}
+        run: |
+          if (!(Test-Path android-app/build/app/outputs/flutter-apk/DJ-Scratch.apk)) { throw "DJ-Scratch.apk missing after build" }
+          if (!(Test-Path android-app/build/app/outputs/flutter-apk/version.json)) { throw "version.json missing after build" }
+          Write-Host "Android artifacts present"
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
