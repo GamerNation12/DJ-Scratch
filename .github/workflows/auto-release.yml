@@ -141,7 +141,13 @@ jobs:
         run: |
           if ($env:GOOGLE_SERVICES_JSON) {
             $env:GOOGLE_SERVICES_JSON | Out-File android-app/android/app/google-services.json -NoNewline
-            Write-Host "google-services.json restored for FCM build"
+            try {
+              $cfg = Get-Content android-app/android/app/google-services.json -Raw | ConvertFrom-Json
+              $pkg = $cfg.client[0].client_info.android_client_info.package_name
+              Write-Host "google-services.json restored for FCM build (package: $pkg)"
+            } catch {
+              throw "GOOGLE_SERVICES_JSON secret is not valid JSON — check the secret value"
+            }
           } else {
             Write-Host "No GOOGLE_SERVICES_JSON secret; building without push support"
           }
