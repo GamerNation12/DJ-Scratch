@@ -27,6 +27,34 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Full listening history (Activity tab): paginated via /api/u/[id]/streams.
+  const [streams, setStreams] = useState<any[] | null>(null);
+  const [streamsTotal, setStreamsTotal] = useState(0);
+  const [streamsLoading, setStreamsLoading] = useState(false);
+  const [streamsBackfill, setStreamsBackfill] = useState<boolean | null>(null);
+
+  const loadMoreStreams = async () => {
+    const key = (profile as any)?.lastfm_username || usernameParam;
+    const off = streams?.length || 0;
+    setStreamsLoading(true);
+    try {
+      const res = await fetchApi(`/api/u/${encodeURIComponent(key)}/streams?period=${period}&limit=50&offset=${off}`);
+      const data = await res.json().catch(() => null);
+      if (data?.streams) {
+        setStreams([...(streams || []), ...data.streams]);
+        setStreamsTotal(Number(data.total || 0));
+        setStreamsBackfill(data.backfillDone ?? null);
+      }
+    } catch { /* keep what we have */ }
+    setStreamsLoading(false);
+  };
+
+  // Fresh history per profile/period.
+  useEffect(() => {
+    setStreams(null);
+    setStreamsTotal(0);
+    setStreamsBackfill(null);
+  }, [usernameParam, period]);
   // Onboarding checklist (owner only): persisted dismiss/share flags.
   const [onboardDismissed, setOnboardDismissed] = useState(() => {
     try { return localStorage.getItem("ds_onboard_done") === "1"; } catch { return false; }
@@ -307,7 +335,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [timezone, setTimezone] = useState<string>("UTC");
   const [showTrackPlaycount, setShowTrackPlaycount] = useState<boolean>(false);
   const [displayName, setDisplayName] = useState<string>("");
-  
+  const [bio, setBio] = useState<string>("");
+  const [website, setWebsite] = useState<string>("");
+
   const [unsavedFmMode, setUnsavedFmMode] = useState<"compact" | "full" | "stats">("full");
   const [unsavedShowFeatures, setUnsavedShowFeatures] = useState<boolean>(false);
   const [unsavedPrivateMode, setUnsavedPrivateMode] = useState<boolean>(false);
@@ -315,6 +345,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [unsavedTimezone, setUnsavedTimezone] = useState<string>("UTC");
   const [unsavedShowTrackPlaycount, setUnsavedShowTrackPlaycount] = useState<boolean>(false);
   const [unsavedDisplayName, setUnsavedDisplayName] = useState<string>("");
+  const [unsavedBio, setUnsavedBio] = useState<string>("");
+  const [unsavedWebsite, setUnsavedWebsite] = useState<string>("");
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -521,6 +553,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             if (data.timezone) { setTimezone(data.timezone); setUnsavedTimezone(data.timezone); }
             if (data.showTrackPlaycount !== undefined) { setShowTrackPlaycount(data.showTrackPlaycount); setUnsavedShowTrackPlaycount(data.showTrackPlaycount); }
             if (data.displayName !== undefined) { setDisplayName(data.displayName); setUnsavedDisplayName(data.displayName); }
+            if (data.bio !== undefined) { setBio(data.bio); setUnsavedBio(data.bio); }
+            if (data.website !== undefined) { setWebsite(data.website); setUnsavedWebsite(data.website); }
           }
         })
         .catch(console.error);
@@ -567,13 +601,15 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
       unsavedDataSource !== dataSource ||
       unsavedTimezone !== timezone ||
       unsavedShowTrackPlaycount !== showTrackPlaycount ||
-      unsavedDisplayName !== displayName
+      unsavedDisplayName !== displayName ||
+      unsavedBio !== bio ||
+      unsavedWebsite !== website
     ) {
       setHasUnsavedChanges(true);
     } else {
       setHasUnsavedChanges(false);
     }
-  }, [unsavedFmMode, unsavedShowFeatures, unsavedPrivateMode, unsavedDataSource, unsavedTimezone, unsavedShowTrackPlaycount, unsavedDisplayName, fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName]);
+  }, [unsavedFmMode, unsavedShowFeatures, unsavedPrivateMode, unsavedDataSource, unsavedTimezone, unsavedShowTrackPlaycount, unsavedDisplayName, unsavedBio, unsavedWebsite, fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName, bio, website]);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -588,7 +624,9 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
           dataSource: unsavedDataSource,
           timezone: unsavedTimezone,
           showTrackPlaycount: unsavedShowTrackPlaycount,
-          displayName: unsavedDisplayName
+          displayName: unsavedDisplayName,
+          bio: unsavedBio,
+          website: unsavedWebsite
         }),
       });
       if (res.ok) {
@@ -600,6 +638,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         if (data.timezone) setTimezone(data.timezone);
         if (data.showTrackPlaycount !== undefined) setShowTrackPlaycount(data.showTrackPlaycount);
         if (data.displayName !== undefined) setDisplayName(data.displayName);
+        if (data.bio !== undefined) { setBio(data.bio); setUnsavedBio(data.bio); }
+        if (data.website !== undefined) { setWebsite(data.website); setUnsavedWebsite(data.website); }
         setHasUnsavedChanges(false);
         toast.success("Settings saved successfully!");
       }
@@ -732,7 +772,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
     const share = topArtist && total > 0 ? Math.min(100, (Number(topArtist.playcount || 0) / total) * 100) : 0;
     const nextMilestone = total < 10 ? 10 : Math.pow(10, Math.ceil(Math.log10(total + 1)));
     const milestonePct = Math.min(100, (total / nextMilestone) * 100);
-    return { plays, playsPlus, artists, artistsPlus, wlabel, nowPlaying, topArtist, total, share, nextMilestone, milestonePct };
+    const minutesTotal = Math.floor(Number((profile as any)?.rhythm?.minutesTotalMs || 0) / 60000);
+    const listeningTime = minutesTotal <= 0 ? "" : minutesTotal >= 1440
+      ? `${Math.floor(minutesTotal / 1440)}d ${Math.floor((minutesTotal % 1440) / 60)}h`
+      : minutesTotal >= 60
+        ? `${Math.floor(minutesTotal / 60)}h ${minutesTotal % 60}m`
+        : `${minutesTotal}m`;
+    return { plays, playsPlus, artists, artistsPlus, wlabel, nowPlaying, topArtist, total, share, nextMilestone, milestonePct, listeningTime };
   })();
 
   if ((profileLoading && !profile) || status === "loading") {
@@ -834,6 +880,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     Welcome back, <span className="text-indigo-400">{displayUsername}</span>
                   </h1>
                   <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
+                  {(profile as any)?.bio && (
+                    <p className="text-zinc-300 text-sm mt-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
+                  )}
+                  {(profile as any)?.website && (
+                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mt-1 inline-block">
+                      🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
+                    </a>
+                  )}
                   <button
                     onClick={shareProfile}
                     className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-bold rounded-xl transition-all w-fit mx-auto md:mx-0"
@@ -860,6 +914,14 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 <>
                   <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
                   <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-4">DJ Scratch Profile</p>
+                  {(profile as any)?.bio && (
+                    <p className="text-zinc-300 text-sm mb-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
+                  )}
+                  {(profile as any)?.website && (
+                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mb-4 inline-block">
+                      🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
+                    </a>
+                  )}
                   <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
                   <a 
                     href={`https://www.last.fm/user/${profile?.lastfm_username || usernameParam}`} 
@@ -1051,7 +1113,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Plays · {insights.wlabel}</div>
               <div className="text-2xl font-display font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
-              <div className="text-xs text-zinc-400 mt-1">plays scrobbled</div>
+              <div className="text-xs text-zinc-400 mt-1">plays scrobbled{insights.listeningTime ? ` · ⏱ ${insights.listeningTime}` : ""}</div>
             </div>
             <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
               <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Artists · {insights.wlabel}</div>
@@ -1224,6 +1286,13 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                 )}
               </div>
               <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Link
+                  href={`/${encodeURIComponent(usernameParam)}/wrapped`}
+                  className="px-3 py-1 rounded-full text-[11px] font-bold transition-all bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30 border border-fuchsia-500/30"
+                  title="Watch your month as a story"
+                >
+                  ▶ Wrapped
+                </Link>
                 {(["week", "month"] as const).map((p) => (
                   <button
                     key={p}
@@ -1516,6 +1585,63 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
               )}
             </div>
           </div>
+
+          {/* Full history (stats.fm-style streams, inline + paged) */}
+          <div className="mt-6">
+            {streams === null ? (
+              <button
+                onClick={loadMoreStreams}
+                disabled={streamsLoading}
+                className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-bold text-zinc-300 transition-colors disabled:opacity-50"
+              >
+                {streamsLoading ? "Loading history…" : "Show full listening history"}
+              </button>
+            ) : (
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01] flex items-center gap-2">
+                  <h3 className="text-lg font-bold">📜 History</h3>
+                  <span className="text-zinc-500 text-xs font-semibold ml-auto">
+                    {streams.length.toLocaleString()} of {streamsTotal.toLocaleString()}
+                  </span>
+                </div>
+                {streamsBackfill === false && (
+                  <div className="px-6 py-2.5 text-xs text-amber-300/90 bg-amber-500/5 border-b border-white/5">
+                    Sync still running — newest scrobbles may lag behind.
+                  </div>
+                )}
+                <div className="divide-y divide-white/5">
+                  {streams.map((t: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 p-4">
+                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 flex items-center justify-center text-xl">🎵</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-white truncate">{t.name}</div>
+                        <div className="text-xs text-zinc-400 truncate mt-1">{t.artist}{t.album ? ` · ${t.album}` : ""}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] text-zinc-500 whitespace-nowrap">
+                          {new Date(t.playedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                        {t.ms > 0 && (
+                          <div className="text-[10px] text-zinc-600 font-semibold mt-0.5">
+                            {Math.floor(t.ms / 60000)}:{String(Math.floor((t.ms % 60000) / 1000)).padStart(2, "0")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {streams.length < streamsTotal && (
+                  <button
+                    onClick={loadMoreStreams}
+                    disabled={streamsLoading}
+                    className="w-full py-3 text-sm font-bold text-indigo-300 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors disabled:opacity-50"
+                  >
+                    {streamsLoading ? "Loading…" : `Load more (${(streamsTotal - streams.length).toLocaleString()} left)`}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           </>)}
            </>
           )}
@@ -1680,6 +1806,25 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     placeholder={usernameParam}
                     value={unsavedDisplayName}
                     onChange={(e) => setUnsavedDisplayName(e.target.value)}
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                  <label className="block text-lg font-semibold text-white mb-2 mt-6">Bio</label>
+                  <p className="text-sm text-zinc-400 mb-4">A short line shown on your public profile (max 300 characters).</p>
+                  <textarea
+                    placeholder="Tell the world about your taste…"
+                    value={unsavedBio}
+                    maxLength={300}
+                    rows={3}
+                    onChange={(e) => setUnsavedBio(e.target.value)}
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                  />
+                  <label className="block text-lg font-semibold text-white mb-2 mt-6">Website</label>
+                  <p className="text-sm text-zinc-400 mb-4">A link shown on your public profile.</p>
+                  <input
+                    type="url"
+                    placeholder="https://example.com"
+                    value={unsavedWebsite}
+                    onChange={(e) => setUnsavedWebsite(e.target.value)}
                     className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
@@ -1974,6 +2119,8 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                   setUnsavedTimezone(timezone);
                   setUnsavedShowTrackPlaycount(showTrackPlaycount);
                   setUnsavedDisplayName(displayName);
+                  setUnsavedBio(bio);
+                  setUnsavedWebsite(website);
                 }}
                 className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >

@@ -73,6 +73,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const cutoffDate = cutoffDays != null ? new Date(Date.now() - cutoffDays * 24 * 60 * 60 * 1000) : null;
 
   try {
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS bio TEXT`;
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS website TEXT`;
     let rows: any[] = [];
     // Fast path: raw Discord user IDs resolve directly, no name matching.
     // (Profile URLs use display names, which drift — the page falls back
@@ -80,7 +82,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (/^\d{5,25}$/.test(userId)) {
       try {
         rows = await sql`
-          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
+          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason, bio, website 
           FROM user_settings 
           WHERE user_id = ${userId}
         `;
@@ -91,7 +93,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (rows.length === 0) {
     try {
       rows = await sql`
-        SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
+        SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason, bio, website 
         FROM user_settings 
         WHERE REPLACE(REPLACE(discord_username, ' ', ''), '-', '') ILIKE REPLACE(REPLACE(${userId}, ' ', ''), '-', '') 
            OR REPLACE(REPLACE(lastfm_username, ' ', ''), '-', '') ILIKE REPLACE(REPLACE(${userId}, ' ', ''), '-', '') 
@@ -111,7 +113,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           WHERE discord_username IS NULL
         `;
         rows = await sql`
-          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason 
+          SELECT user_id, lastfm_username, private_mode, data_source, discord_username, display_name, is_banned, ban_reason, bio, website 
           FROM user_settings 
           WHERE REPLACE(REPLACE(discord_username, ' ', ''), '-', '') ILIKE REPLACE(REPLACE(${userId}, ' ', ''), '-', '') 
              OR REPLACE(REPLACE(lastfm_username, ' ', ''), '-', '') ILIKE REPLACE(REPLACE(${userId}, ' ', ''), '-', '') 
@@ -464,11 +466,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let rhythm: any = {
       clock: new Array(24).fill(0), daily: [], streak: 0,
       longestStreak: 0, genres: [], discoveries: [], avgPerDay: 0, samplePlays: 0,
+      minutesTotalMs: 0,
     };
     try {
       const useFm = !!lastfm_username && data_source !== "imported_only";
       const useIm = data_source !== "lastfm_only" && hasImported;
       const stamps: number[] = [];
+      const dayMin = new Map<string, number>();
       if (useFm) {
         const fromPart = cutoffDate ? `&from=${Math.floor(cutoffDate.getTime() / 1000)}` : "";
         const collect = (d: any) => {
@@ -495,11 +499,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
       if (useIm) {
         const imRows = cutoffDate
-          ? await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`
-          : await sql`SELECT played_at FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`;
+          ? await sql`SELECT played_at, COALESCE(ms_played, 0) AS ms FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`
+          : await sql`SELECT played_at, COALESCE(ms_played, 0) AS ms FROM listens WHERE user_id = ${uId} AND COALESCE(source,'import') != 'lastfm' ORDER BY played_at DESC LIMIT 2000`;
         for (const r of imRows) {
           const ms = new Date((r as any).played_at).getTime();
           if (Number.isFinite(ms) && ms > 0) stamps.push(Math.floor(ms / 1000));
+        }
+        // Listening time: exact window total from durations (any source with
+        // ms_played; Last.fm scrobbles carry none so they contribute 0).
+        try {
+          const msRows = cutoffDate
+            ? await sql`SELECT COALESCE(SUM(ms_played), 0) AS ms FROM listens WHERE user_id = ${uId} AND played_at >= ${cutoffDate}`
+            : await sql`SELECT COALESCE(SUM(ms_played), 0) AS ms FROM listens WHERE user_id = ${uId}`;
+          rhythm.minutesTotalMs = parseInt((msRows[0] as any)?.ms || "0", 10) || 0;
+        } catch { /* minutes stay 0 */ }
+        // Per-day minutes from the same sample (best-effort for huge libraries).
+        for (const r of imRows) {
+          const ms = new Date((r as any).played_at).getTime();
+          if (!Number.isFinite(ms) || ms <= 0) continue;
+          const key = new Date(ms).toISOString().slice(0, 10);
+          dayMin.set(key, (dayMin.get(key) || 0) + (parseInt((r as any)?.ms || "0", 10) || 0));
         }
       }
       const clock = new Array(24).fill(0);
@@ -510,10 +529,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const key = dt.toISOString().slice(0, 10);
         dayMap.set(key, (dayMap.get(key) || 0) + 1);
       }
-      const daily: { date: string; plays: number }[] = [];
+      const daily: { date: string; plays: number; minutes: number }[] = [];
       for (let i = 13; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-        daily.push({ date: d.slice(5), plays: dayMap.get(d) || 0 });
+        daily.push({ date: d.slice(5), plays: dayMap.get(d) || 0, minutes: Math.round((dayMin.get(d) || 0) / 60000) });
       }
       const daySet = new Set(dayMap.keys());
       const todayKey = new Date().toISOString().slice(0, 10);
@@ -535,6 +554,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       rhythm = {
         clock, daily, streak, longestStreak: longest,
         avgPerDay, samplePlays: stamps.length, genres: [], discoveries: [],
+        minutesTotalMs: rhythm.minutesTotalMs || 0,
       };
       // Top genres (single Last.fm call) and new discoveries run in parallel.
       const extraJobs: Promise<void>[] = [];
@@ -589,6 +609,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       success: true,
       period,
       lastfm_username: lastfm_username,
+      bio: (publicRows[0] as any)?.bio || null,
+      website: (publicRows[0] as any)?.website || null,
       users: discordUsers,
       stats: finalStats,
       windowStats,

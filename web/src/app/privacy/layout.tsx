@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | DJ Scratch",
-  description: "Privacy policy and data handling for DJ Scratch.",
-  openGraph: {
-    title: "Privacy Policy | DJ Scratch",
-    description: "Privacy policy and data handling for DJ Scratch.",
-  }
+  title: "Privacy Policy",
+  description: "How DJ Scratch collects, stores, and lets you delete your listening data.",
+  alternates: { canonical: "https://dj-scratch.is-a-fullstack.dev/privacy" },
 };
 
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+export default function PrivacyLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

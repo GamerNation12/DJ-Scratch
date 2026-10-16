@@ -117,7 +117,13 @@ export default function DashboardPage({ token, username }: { token: string | nul
     const total = Number(stats?.playcount || 0);
     const share = topArtist && total > 0 ? Math.min(100, (Number(topArtist.playcount || 0) / total) * 100) : 0;
     const next = total < 10 ? 10 : Math.pow(10, Math.ceil(Math.log10(total + 1)));
-    return { plays24h, uniqueArtists, topArtist, total, share, next, pct: Math.min(100, (total / next) * 100) };
+    const minutesTotal = Math.floor(Number((stats as any)?.rhythm?.minutesTotalMs || 0) / 60000);
+    const listeningTime = minutesTotal <= 0 ? "" : minutesTotal >= 1440
+      ? `${Math.floor(minutesTotal / 1440)}d ${Math.floor((minutesTotal % 1440) / 60)}h`
+      : minutesTotal >= 60
+        ? `${Math.floor(minutesTotal / 60)}h ${minutesTotal % 60}m`
+        : `${minutesTotal}m`;
+    return { plays24h, uniqueArtists, topArtist, total, share, next, pct: Math.min(100, (total / next) * 100), listeningTime };
   })();
 
   const rhythm = stats?.rhythm ?? null;
@@ -215,7 +221,7 @@ export default function DashboardPage({ token, username }: { token: string | nul
             <Card className="p-5">
               <div className="text-zinc-400 text-[11px] font-bold uppercase tracking-widest mb-1">Last 24 hours</div>
               <div className="text-3xl font-black">{insights.plays24h}</div>
-              <div className="text-xs text-zinc-500 mt-1">plays scrobbled</div>
+              <div className="text-xs text-zinc-500 mt-1">plays scrobbled{insights.listeningTime ? ` · ⏱ ${insights.listeningTime}` : ""}</div>
             </Card>
             <Card className="p-5">
               <div className="text-zinc-400 text-[11px] font-bold uppercase tracking-widest mb-1">In rotation</div>

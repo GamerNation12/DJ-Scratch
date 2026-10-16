@@ -15,9 +15,11 @@ export async function GET(req: Request) {
   const userId = (session.user as any).id;
 
   try {
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS bio TEXT`;
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS website TEXT`;
     const row = await sql`
-      SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name 
-      FROM user_settings 
+      SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, bio, website
+      FROM user_settings
       WHERE user_id = ${userId}
     `;
     const fmMode = row[0]?.fm_mode || "full";
@@ -27,8 +29,10 @@ export async function GET(req: Request) {
     const timezone = row[0]?.timezone || "UTC";
     const showTrackPlaycount = row[0]?.show_track_playcount || false;
     const displayName = row[0]?.display_name || "";
-    
-    return NextResponse.json({ fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName });
+    const bio = (row[0] as any)?.bio || "";
+    const website = (row[0] as any)?.website || "";
+
+    return NextResponse.json({ fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName, bio, website });
   } catch (error) {
     console.error("Error fetching settings:", error);
     return NextResponse.json({ fmMode: "full", showFeatures: false, privateMode: false, dataSource: "combined", timezone: "UTC", showTrackPlaycount: false });
@@ -48,8 +52,8 @@ export async function POST(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    const { fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName } = await req.json();
-    
+    const { fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName, bio, website } = await req.json();
+
     let currentFmMode = "full";
     let currentShowFeatures = false;
     let currentPrivateMode = false;
@@ -57,9 +61,13 @@ export async function POST(req: Request) {
     let currentTimezone = "UTC";
     let currentShowTrackPlaycount = false;
     let currentDisplayName = "";
+    let currentBio = "";
+    let currentWebsite = "";
 
     // Fetch current settings to handle partial updates
-    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom FROM user_settings WHERE user_id = ${userId}`;
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS bio TEXT`;
+    await sql`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS website TEXT`;
+    const row = await sql`SELECT fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom, bio, website FROM user_settings WHERE user_id = ${userId}`;
     if (row.length > 0) {
       currentFmMode = row[0].fm_mode;
       currentShowFeatures = row[0].show_features || false;
@@ -68,6 +76,8 @@ export async function POST(req: Request) {
       currentTimezone = row[0].timezone || "UTC";
       currentShowTrackPlaycount = row[0].show_track_playcount || false;
       currentDisplayName = row[0].display_name || "";
+      currentBio = (row[0] as any).bio || "";
+      currentWebsite = (row[0] as any).website || "";
     }
     let currentCustom = false;
     try {
@@ -83,6 +93,12 @@ export async function POST(req: Request) {
     const newTimezone = timezone !== undefined ? timezone : currentTimezone;
     const newShowTrackPlaycount = showTrackPlaycount !== undefined ? showTrackPlaycount : currentShowTrackPlaycount;
     const newDisplayName = displayName !== undefined ? (displayName.trim() || null) : currentDisplayName;
+    const newBio = bio !== undefined ? (String(bio).slice(0, 300).trim() || null) : (currentBio || null);
+    let newWebsite: string | null = currentWebsite || null;
+    if (website !== undefined) {
+      const w = String(website).trim().slice(0, 200);
+      newWebsite = !w ? null : (/^https?:\/\//i.test(w) ? w : `https://${w}`);
+    }
     // A name saved here is explicit — the bot must not overwrite it with the
     // Discord display name on later commands. Clearing re-enables syncing.
     const newCustom = displayName !== undefined ? !!displayName.trim() : currentCustom;
@@ -96,17 +112,19 @@ export async function POST(req: Request) {
     }
 
     await sql`
-      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom)
-      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount}, ${newDisplayName}, ${newCustom})
-      ON CONFLICT (user_id) DO UPDATE SET 
-        fm_mode = EXCLUDED.fm_mode, 
-        show_features = EXCLUDED.show_features, 
+      INSERT INTO user_settings (user_id, fm_mode, show_features, private_mode, data_source, timezone, show_track_playcount, display_name, display_name_custom, bio, website)
+      VALUES (${userId}, ${newFmMode}, ${newShowFeatures}, ${newPrivateMode}, ${newDataSource}, ${newTimezone}, ${newShowTrackPlaycount}, ${newDisplayName}, ${newCustom}, ${newBio}, ${newWebsite})
+      ON CONFLICT (user_id) DO UPDATE SET
+        fm_mode = EXCLUDED.fm_mode,
+        show_features = EXCLUDED.show_features,
         private_mode = EXCLUDED.private_mode,
         data_source = EXCLUDED.data_source,
         timezone = EXCLUDED.timezone,
         show_track_playcount = EXCLUDED.show_track_playcount,
         display_name = EXCLUDED.display_name,
-        display_name_custom = EXCLUDED.display_name_custom
+        display_name_custom = EXCLUDED.display_name_custom,
+        bio = EXCLUDED.bio,
+        website = EXCLUDED.website
     `;
 
     // Log the change
@@ -118,6 +136,8 @@ export async function POST(req: Request) {
     if (newTimezone !== currentTimezone) changedItems.push(`Timezone: ${newTimezone}`);
     if (newShowTrackPlaycount !== currentShowTrackPlaycount) changedItems.push(`Show Track Playcount: ${newShowTrackPlaycount}`);
     if (newDisplayName !== currentDisplayName) changedItems.push(`Display Name: ${newDisplayName || 'cleared'}`);
+    if ((newBio || "") !== (currentBio || "")) changedItems.push(`Bio updated`);
+    if ((newWebsite || "") !== (currentWebsite || "")) changedItems.push(`Website: ${newWebsite || 'cleared'}`);
     
     if (changedItems.length > 0) {
       await sql`CREATE TABLE IF NOT EXISTS website_logs (id SERIAL PRIMARY KEY, user_id TEXT, username TEXT, action TEXT, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
@@ -134,14 +154,16 @@ export async function POST(req: Request) {
       `;
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      fmMode: newFmMode, 
-      showFeatures: newShowFeatures, 
+    return NextResponse.json({
+      success: true,
+      fmMode: newFmMode,
+      showFeatures: newShowFeatures,
       privateMode: newPrivateMode,
       dataSource: newDataSource,
       timezone: newTimezone,
-      showTrackPlaycount: newShowTrackPlaycount
+      showTrackPlaycount: newShowTrackPlaycount,
+      bio: newBio,
+      website: newWebsite
     });
   } catch (error) {
     console.error("Error saving settings:", error);

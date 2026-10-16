@@ -22,8 +22,16 @@ const display = Bricolage_Grotesque({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dj-scratch.is-a-fullstack.dev"),
-  title: "DJ Scratch | Your Ultimate Music Stats Bot",
+  title: {
+    default: "DJ Scratch | Your Ultimate Music Stats Bot",
+    template: "%s | DJ Scratch",
+  },
   description: "Track, share, and analyze your music listening habits with DJ Scratch. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
+  keywords: ["DJ Scratch", "Discord music bot", "Last.fm stats", "Spotify stats", "music stats tracker", "stats.fm alternative", "scrobble tracker", "music recap", "listening history"],
+  authors: [{ name: "DJ Scratch" }],
+  creator: "DJ Scratch",
+  robots: { index: true, follow: true },
+  alternates: { canonical: "https://dj-scratch.is-a-fullstack.dev" },
   openGraph: {
     title: "DJ Scratch | Your Ultimate Music Stats Bot",
     description: "Track, share, and analyze your music listening habits with DJ Scratch. The most aesthetic and feature-rich Last.fm & Spotify Discord bot.",
@@ -51,6 +59,26 @@ export const metadata: Metadata = {
   },
 };
 
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      name: "DJ Scratch",
+      url: "https://dj-scratch.is-a-fullstack.dev",
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "DJ Scratch",
+      applicationCategory: "MultimediaApplication",
+      operatingSystem: "Discord",
+      url: "https://dj-scratch.is-a-fullstack.dev",
+      description:
+        "Track, share, and analyze your music listening habits with DJ Scratch. Last.fm & Spotify stats, recaps, and community leaderboards.",
+    },
+  ],
+};
+
 import LayoutWrapper from "@/components/LayoutWrapper";
 import ReferralRedeemer from "@/components/ReferralRedeemer";
 import ActivityLoginNotice from "@/components/ActivityLoginNotice";
@@ -68,6 +96,10 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${display.variable} antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
         <Providers>
           <ReferralRedeemer />
           <ActivityLoginNotice />

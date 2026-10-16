@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | DJ Scratch",
-  description: "Terms of service for DJ Scratch.",
-  openGraph: {
-    title: "Terms of Service | DJ Scratch",
-    description: "Terms of service for DJ Scratch.",
-  }
+  title: "Terms of Service",
+  description: "DJ Scratch terms of service.",
+  alternates: { canonical: "https://dj-scratch.is-a-fullstack.dev/terms" },
 };
 
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+export default function TermsLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }
