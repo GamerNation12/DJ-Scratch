@@ -111,11 +111,14 @@ class SupportInviteCog(commands.Cog):
             from src.core.database import db_pool
             tokens = []
             if db_pool:
-                async with db_pool.acquire() as conn:
-                    rows = await conn.fetch(
-                        "SELECT fcm_token FROM push_subscriptions WHERE user_id = $1",
-                        str(ctx.author.id))
-                    tokens = [r["fcm_token"] for r in rows if r["fcm_token"]]
+                try:
+                    async with db_pool.acquire() as conn:
+                        rows = await conn.fetch(
+                            "SELECT fcm_token FROM push_subscriptions WHERE user_id = $1",
+                            str(ctx.author.id))
+                        tokens = [r["fcm_token"] for r in rows if r["fcm_token"]]
+                except Exception:
+                    tokens = []  # table not created yet = no devices
             if not tokens:
                 return await ctx.send(
                     "📭 **No device registered** for this Discord account.\n"

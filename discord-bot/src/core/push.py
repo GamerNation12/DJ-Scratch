@@ -58,6 +58,11 @@ async def send_push(user_id, title: str, body: str, data: dict | None = None) ->
         if not db_pool:
             return False
         async with db_pool.acquire() as conn:
+            await conn.execute(
+                "CREATE TABLE IF NOT EXISTS push_subscriptions ("
+                "fcm_token TEXT PRIMARY KEY, user_id VARCHAR(32) NOT NULL, "
+                "platform TEXT NOT NULL DEFAULT 'android', "
+                "updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)")
             rows = await conn.fetch(
                 "SELECT fcm_token FROM push_subscriptions WHERE user_id = $1", str(user_id))
         tokens = [r["fcm_token"] for r in rows if r["fcm_token"]]
