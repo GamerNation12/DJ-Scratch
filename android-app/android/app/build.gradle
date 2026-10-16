@@ -1,10 +1,15 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // Reads google-services.json (FCM). Must come after the Android plugin.
-    id "com.google.gms.google-services"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Firebase (FCM): google-services.json is a git-ignored secret, so only
+// apply the plugin when it's present. Builds without it still succeed;
+// push stays inert in those builds.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()

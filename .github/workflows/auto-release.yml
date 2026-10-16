@@ -134,6 +134,18 @@ jobs:
         working-directory: desktop-app
         run: npm run build:vite && npx electron-builder -w --publish never
 
+      - name: Restore google-services.json (FCM)
+        if: ${{ steps.opts.outputs.BUILD_ANDROID == 'true' }}
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if ($env:GOOGLE_SERVICES_JSON) {
+            $env:GOOGLE_SERVICES_JSON | Out-File android-app/android/app/google-services.json -NoNewline
+            Write-Host "google-services.json restored for FCM build"
+          } else {
+            Write-Host "No GOOGLE_SERVICES_JSON secret; building without push support"
+          }
+
       - name: Build Android APK
         if: ${{ steps.opts.outputs.BUILD_ANDROID == 'true' }}
         working-directory: android-app
