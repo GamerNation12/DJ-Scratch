@@ -101,6 +101,18 @@ class PushService {
     } catch (_) {}
   }
 
+  /// Human-readable push state for the Settings screen.
+  static Future<String> status() async {
+    try {
+      if (Firebase.apps.isEmpty) return 'off (no Firebase config in this build)';
+      final t = await FirebaseMessaging.instance.getToken();
+      if (t == null || t.isEmpty) return 'off (no device token)';
+      return 'on';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
   /// Stop pushes for this device (call on logout).
   static Future<void> unregister() async {
     try {

@@ -31,6 +31,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
   bool? _spLinked;
   bool _spBusy = false;
+  String _pushStatus = '…';
 
   @override
   void initState() {
@@ -39,6 +40,9 @@ class _SettingsTabState extends State<SettingsTab> {
       if (mounted) setState(() => _version = '${p.version}+${p.buildNumber}');
     });
     _load();
+    PushService.status().then((s) {
+      if (mounted) setState(() => _pushStatus = s);
+    });
   }
 
   @override
@@ -242,6 +246,19 @@ class _SettingsTabState extends State<SettingsTab> {
                     style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
                 trailing: const Icon(Icons.system_update, color: Color(0xFF0AB5CD)),
                 onTap: () => runUpdateFlow(context),
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                tileColor: Colors.white.withOpacity(0.04),
+                title: Text('Push notifications', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                subtitle: Text(_pushStatus, style: GoogleFonts.inter(color: Colors.white54, fontSize: 12)),
+                trailing: const Icon(Icons.notifications, color: Color(0xFF0AB5CD)),
+                onTap: () async {
+                  await PushService.register();
+                  final s = await PushService.status();
+                  if (mounted) setState(() => _pushStatus = s);
+                },
               ),
               const SizedBox(height: 10),
               ListTile(
