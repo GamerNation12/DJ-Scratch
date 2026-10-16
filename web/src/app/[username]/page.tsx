@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import NowPlayingWidget from "@/components/NowPlayingWidget";
 import TrackModal from "@/components/TrackModal";
+import { Tabs } from "@/components/ui";
 import AdminClient from "@/app/admin/AdminClient";
 import Link from "next/link";
 
@@ -1006,25 +1007,17 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
         {(!isOwner || activeTab === "profile") && profile && !profileError && (
           <>
           {/* Profile section nav: Overview | Charts | Activity */}
-          <div className="flex flex-wrap items-center gap-2 mb-5">
-            {([
+          <Tabs
+            tabs={[
               { value: "overview", label: "Overview" },
               { value: "charts", label: "Charts" },
               { value: "activity", label: "Activity" },
-            ] as const).map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setProfileSection(s.value)}
-                className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  profileSection === s.value
-                    ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
-                    : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={profileSection}
+            onChange={(v) => setProfileSection(v as typeof profileSection)}
+            label="Profile sections"
+            className="mb-5"
+          />
 
           {/* Onboarding checklist: owner only, hides itself as steps complete. */}
           {isOwner && !onboardDismissed && profile && (() => {

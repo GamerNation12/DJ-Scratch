@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { artSrc } from "@/lib/art";
+import { Dialog, Skeleton } from "@/components/ui";
 
 interface TrackModalProps {
   isOpen: boolean;
@@ -63,19 +64,13 @@ export default function TrackModal({ isOpen, onClose, trackName, artistName, use
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-md"
-        onClick={onClose}
-      />
-      
-      {/* Modal Content */}
-      <div className="relative bg-zinc-950 border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
-        
+    <Dialog open={isOpen} onClose={onClose} label={`Track details for ${trackName} by ${artistName}`}
+      className="bg-zinc-950 border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
+
         {/* Close Button */}
-        <button 
+        <button
           onClick={onClose}
+          aria-label="Close"
           className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-white/10 rounded-full transition-colors z-10"
         >
           <svg className="w-5 h-5 text-zinc-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,9 +79,19 @@ export default function TrackModal({ isOpen, onClose, trackName, artistName, use
         </button>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-            <p className="mt-4 text-zinc-400 font-medium animate-pulse">Fetching track data...</p>
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
+              <Skeleton className="w-48 h-48 md:w-56 md:h-56 rounded-2xl shrink-0" />
+              <div className="flex-1 w-full">
+                <Skeleton className="h-9 w-3/4 rounded-xl mb-3" />
+                <Skeleton className="h-6 w-1/2 rounded-xl mb-6" />
+                <div className="flex gap-4">
+                  <Skeleton className="h-16 w-24 rounded-xl" />
+                  <Skeleton className="h-16 w-24 rounded-xl" />
+                  <Skeleton className="h-16 w-24 rounded-xl" />
+                </div>
+              </div>
+            </div>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-24 text-center px-6">
@@ -200,7 +205,6 @@ export default function TrackModal({ isOpen, onClose, trackName, artistName, use
 
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
