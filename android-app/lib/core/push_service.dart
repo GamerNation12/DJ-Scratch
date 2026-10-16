@@ -27,11 +27,24 @@ class PushService {
   static Future<void> init({GlobalKey<NavigatorState>? navKey}) async {
     if (_ready) return;
     if (navKey != null) navigatorKey = navKey;
+    // Explicit options first: deterministic, independent of the resource
+    // pipeline (values.xml / Gradle plugin). These are client identifiers,
+    // not secrets — they ship inside every APK anyway.
+    const opts = FirebaseOptions(
+      apiKey: 'AIzaSyCtGafhH8ilyqBJI_rvU3fugLFTrBZ0Qeg',
+      appId: '1:409062483292:android:aaefbe3aaa8945a7b84d99',
+      messagingSenderId: '409062483292',
+      projectId: 'dj-scratch-76243',
+    );
     try {
-      await Firebase.initializeApp();
-    } catch (e) {
-      _initError = '$e';
-      return; // No google-services.json — push stays off.
+      await Firebase.initializeApp(options: opts);
+    } catch (_) {
+      try {
+        await Firebase.initializeApp();
+      } catch (e) {
+        _initError = '$e';
+        return;
+      }
     }
     try {
       FirebaseMessaging.onBackgroundMessage(pushBackgroundHandler);
