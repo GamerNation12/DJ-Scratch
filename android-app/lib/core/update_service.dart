@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -11,16 +12,24 @@ import 'config.dart';
 class UpdateService {
   static const _channel = MethodChannel('djscratch/update');
 
-  /// Remote build number from the release pubspec, or null when unreachable.
+  /// Remote build number from the version.json pinned to the published APK
+  /// (source of truth). Returns null when unknown — the caller treats that
+  /// as "no update" rather than prompting on guesses.
+  ///
+  /// NOTE: this deliberately does NOT compare against main's pubspec: the
+  /// pubspec moves on every push (auto-bump), including pushes whose APK
+  /// never published, which caused endless "update available" loops.
   static Future<int?> remoteBuildNumber() async {
     try {
-      final res = await http.get(Uri.parse(AppConfig.updatePubspecUrl));
-      if (res.statusCode != 200) return null;
-      final m = RegExp(r'version:\s*\d+\.\d+\.\d+\+(\d+)').firstMatch(res.body);
-      return m == null ? null : int.parse(m.group(1)!);
-    } catch (_) {
-      return null;
-    }
+      final res = await http.get(Uri.parse(
+          'https://github.com/GamerNation12/DJ-Scratch/releases/latest/download/version.json'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final b = int.tryParse('${data['build']}');
+        if (b != null) return b;
+      }
+    } catch (_) {}
+    return null;
   }
 
   static Future<bool> isUpdateAvailable() async {

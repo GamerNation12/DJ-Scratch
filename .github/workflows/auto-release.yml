@@ -143,6 +143,12 @@ jobs:
           flutter build apk --release
           cd build/app/outputs/flutter-apk/
           Rename-Item app-release.apk DJ-Scratch.apk
+          # version.json pins the published APK's build number so the
+          # in-app updater compares against something real (not main's
+          # pubspec, which moves on every push and caused update loops).
+          $m = Select-String -Path ../../../../pubspec.yaml -Pattern 'version: (\d+\.\d+\.\d+)\+(\d+)'
+          $json = "{`"build`": $($m.Matches[0].Groups[2].Value), `"name`": `"$($m.Matches[0].Groups[1].Value)`"}"
+          Set-Content version.json $json -NoNewline
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -158,6 +164,7 @@ jobs:
             desktop-app/dist2/*.exe.blockmap
             desktop-app/dist2/latest.yml
             android-app/build/app/outputs/flutter-apk/DJ-Scratch.apk
+            android-app/build/app/outputs/flutter-apk/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
