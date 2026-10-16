@@ -145,42 +145,6 @@ jobs:
               $cfg = Get-Content android-app/android/app/google-services.json -Raw | ConvertFrom-Json
               $pkg = $cfg.client[0].client_info.android_client_info.package_name
               Write-Host "google-services.json restored for FCM build (package: $pkg)"
-              # Bake Firebase values directly (no google-services Gradle plugin):
-              # deterministic, works offline, and can't silently skip.
-              $client = $cfg.client[0]
-              $apiKey = $client.api_key[0].current_key
-              $appId = $client.client_info.mobilesdk_app_id
-              $projNum = $cfg.project_info.project_number
-              $projId = $cfg.project_info.project_id
-              $bucket = $cfg.project_info.storage_bucket
-              $xml = @"
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="google_app_id" translatable="false">$appId</string>
-              <string name="gcm_defaultSenderId" translatable="false">$projNum</string>
-              <string name="google_api_key" translatable="false">$apiKey</string>
-              <string name="google_crash_reporting_api_key" translatable="false">$apiKey</string>
-              <string name="google_project_id" translatable="false">$projId</string>
-              <string name="google_storage_bucket" translatable="false">$bucket</string>
-          </resources>
-          "@
-              New-Item -ItemType Directory -Force android-app/android/app/src/main/res/values | Out-Null
-              # Never clobber an existing values.xml — merge instead.
-              $valuesPath = "android-app/android/app/src/main/res/values/values.xml"
-              if (Test-Path $valuesPath) {
-                [xml]$existing = Get-Content $valuesPath -Raw
-                foreach ($s in ([xml]$xml).resources.string) {
-                  $dup = $existing.resources.string | Where-Object { $_.name -eq $s.name }
-                  if ($dup) { $dup.'#text' = $s.'#text' } else {
-                    $node = $existing.ImportNode($s, $true)
-                    $existing.resources.AppendChild($node) | Out-Null
-                  }
-                }
-                $existing.Save((Resolve-Path $valuesPath).Path)
-              } else {
-                Set-Content $valuesPath $xml -NoNewline
-              }
-              Write-Host "Firebase values.xml baked in"
             } catch {
               throw "GOOGLE_SERVICES_JSON secret is not valid JSON — check the secret value"
             }
