@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -44,6 +44,90 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
           Retry
         </button>
       )}
+    </div>
+  );
+}
+
+export function Dialog({ open, onClose, children, className = '', label = 'Dialog' }: {
+  open: boolean; onClose: () => void; children: ReactNode; className?: string; label?: string;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    panelRef.current?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
+        className={`relative outline-none ${className}`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <div aria-hidden="true" className={`animate-pulse bg-white/5 ${className}`} />;
+}
+
+export function Tabs({ tabs, value, onChange, className = '', label = 'Sections' }: {
+  tabs: ReadonlyArray<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+  label?: string;
+}) {
+  const btnRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusTab = (i: number) => {
+    const n = tabs.length;
+    const next = ((i % n) + n) % n;
+    btnRefs.current[next]?.focus();
+    onChange(tabs[next].value);
+  };
+
+  return (
+    <div role="tablist" aria-label={label} className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {tabs.map((t, i) => {
+        const active = t.value === value;
+        return (
+          <button
+            key={t.value}
+            ref={(el) => { btnRefs.current[i] = el; }}
+            role="tab"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(t.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') { e.preventDefault(); focusTab(i + 1); }
+              if (e.key === 'ArrowLeft') { e.preventDefault(); focusTab(i - 1); }
+              if (e.key === 'Home') { e.preventDefault(); focusTab(0); }
+              if (e.key === 'End') { e.preventDefault(); focusTab(tabs.length - 1); }
+            }}
+            className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
+              active
+                ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]'
+                : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5'
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

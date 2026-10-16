@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { canonicalUsername, decodeUser } from '../lib/auth';
 import { tasteLabel, tasteMatch } from '../lib/taste';
 import type { Friend, RecentTrack } from '../lib/types';
-import { Card, Empty, Spinner } from '../components/ui';
+import { Card, Dialog, Empty, Skeleton, Spinner } from '../components/ui';
 
 interface LiveEntry {
   track: string;
@@ -215,15 +215,24 @@ export default function FriendsPage({ token }: { token: string | null }) {
         )}
       </Card>
 
-      {matchFriend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setMatchFriend(null)}>
-          <div className="bg-zinc-900 border border-white/10 rounded-3xl max-w-lg w-full p-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Dialog open={!!matchFriend} onClose={() => setMatchFriend(null)}
+        label={`Taste match with ${matchFriend?.display_name || matchFriend?.friend_username || 'friend'}`}
+        className="bg-zinc-900 border border-white/10 rounded-3xl max-w-lg w-full p-8 max-h-[85vh] overflow-y-auto">
+        {matchFriend && (
+          <>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-xl font-black">You × {matchFriend.display_name || matchFriend.friend_username}</h3>
-              <button onClick={() => setMatchFriend(null)} className="p-2 hover:bg-white/10 rounded-xl text-zinc-400">✕</button>
+              <button onClick={() => setMatchFriend(null)} aria-label="Close" className="p-2 hover:bg-white/10 rounded-xl text-zinc-400">✕</button>
             </div>
             {matchLoading ? (
-              <Spinner label="Comparing top artists…" />
+              <div>
+                <Skeleton className="h-28 rounded-2xl mb-5" />
+                <div className="space-y-2">
+                  <Skeleton className="h-14 rounded-xl" />
+                  <Skeleton className="h-14 rounded-xl" />
+                  <Skeleton className="h-14 rounded-xl" />
+                </div>
+              </div>
             ) : matchError ? (
               <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-200 text-sm">{matchError}</div>
             ) : matchData ? (
@@ -243,9 +252,9 @@ export default function FriendsPage({ token }: { token: string | null }) {
                 </div>
               </>
             ) : null}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }

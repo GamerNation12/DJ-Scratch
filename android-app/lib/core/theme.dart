@@ -8,11 +8,28 @@ class AppTheme {
   static const green = Color(0xFF22C55E);
 
   static ThemeData dark() {
+    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: Brightness.dark);
     return ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: bg,
       primaryColor: accent,
       useMaterial3: true,
+      colorScheme: scheme.copyWith(primary: accent, secondary: accent),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      cardTheme: CardTheme(
+        color: card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white.withOpacity(0.05),
+        selectedColor: accent.withOpacity(0.25),
+        labelStyle: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: accent),
       textTheme: GoogleFonts.interTextTheme().apply(bodyColor: Colors.white, displayColor: Colors.white),
     );
   }
