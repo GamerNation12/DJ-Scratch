@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 const GUILD_ID = "1527127381897383946";
 const INVITE = "https://discord.gg/MT6d7jh3rv";
 
@@ -11,6 +13,10 @@ const PERKS = [
 ];
 
 export default function SupportWidget() {
+  // Click-to-load: Discord's widget response carries a Permissions-Policy
+  // header this browser build doesn't recognize (harmless console warning),
+  // and the iframe is heavy — only fetch it on demand.
+  const [showWidget, setShowWidget] = useState(false);
   return (
     <div className="relative overflow-hidden bg-zinc-900/40 backdrop-blur-md border border-white/10 rounded-3xl md:rounded-[2rem] p-6 md:p-10 max-w-5xl w-full hover:border-indigo-500/40 transition-all duration-500">
       <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none"></div>
@@ -47,15 +53,26 @@ export default function SupportWidget() {
         </div>
         <div className="flex justify-center md:justify-end">
           <div className="rounded-2xl p-[1px] bg-gradient-to-b from-indigo-500/50 via-white/10 to-emerald-500/30 shadow-2xl shadow-indigo-500/20">
-            <iframe
-              src={`https://discord.com/widget?id=${GUILD_ID}&theme=dark`}
-              width="340"
-              height="460"
-              frameBorder="0"
-              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-              title="DJ Scratch Support server"
-              className="rounded-2xl max-w-full block"
-            />
+            {showWidget ? (
+              <iframe
+                src={`https://discord.com/widget?id=${GUILD_ID}&theme=dark`}
+                width="340"
+                height="460"
+                frameBorder="0"
+                sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                title="DJ Scratch Support server"
+                className="rounded-2xl max-w-full block"
+              />
+            ) : (
+              <button
+                onClick={() => setShowWidget(true)}
+                className="w-[340px] max-w-full h-[460px] rounded-2xl bg-black/40 hover:bg-black/30 transition-colors flex flex-col items-center justify-center gap-3 text-zinc-300"
+              >
+                <span className="text-4xl">💬</span>
+                <span className="text-sm font-bold">Preview the server</span>
+                <span className="text-xs text-zinc-500">Loads Discord&apos;s widget</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
