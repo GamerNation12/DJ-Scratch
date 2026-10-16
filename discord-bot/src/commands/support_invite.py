@@ -102,6 +102,27 @@ class SupportInviteCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"Couldn't create the invite: {e}")
 
+    @commands.command(name="testpush")
+    async def testpush_prefix(self, ctx):
+        """Owner-only: send yourself a test push notification."""
+        if not _is_owner(ctx.author.id):
+            return await ctx.send("Only the bot owner can do that.")
+        try:
+            from src.core.push import send_push
+            ok = await send_push(
+                ctx.author.id,
+                "🔔 Test push",
+                "If you got this on your phone, push is wired up.",
+                {"type": "test"},
+            )
+        except Exception as e:
+            return await ctx.send(f"Push failed with an error: {e}")
+        if ok:
+            return await ctx.send("✅ Push accepted by Firebase — check your phone (background the app if it's open).")
+        return await ctx.send(
+            "❌ No push sent. Either this Discord account has no registered device "
+            "(log in on the app first), or Firebase isn't configured on the bot host."
+        )
     @commands.command(name="fixlogs", aliases=["backfilllogs"])
     async def fixlogs_prefix(self, ctx, limit: str = "200"):
         """Owner-only one-time backfill: rewrite old guild join/leave log embeds in the new style."""
