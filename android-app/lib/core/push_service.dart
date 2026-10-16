@@ -107,9 +107,8 @@ class PushService {
       final jwt = await AuthStore.readToken();
       final fcm = await FirebaseMessaging.instance.getToken();
       if (jwt == null || fcm == null) return;
-      await http.request(
+      await http.delete(
         Uri.parse('${AppConfig.apiBase}/api/push/register'),
-        method: 'DELETE',
         headers: {
           'Authorization': 'Bearer $jwt',
           'Content-Type': 'application/json'
