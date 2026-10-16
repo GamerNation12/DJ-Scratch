@@ -54,7 +54,8 @@ export interface UserStats {
 export interface LeaderboardEntry {
   username: string;
   avatar?: string;
-  total_scrobbles: string | number;
+  playcount?: string | number;
+  total_scrobbles?: string | number;
 }
 
 export interface Friend {

@@ -81,8 +81,9 @@ async def fetch_now_playing(u, l=1):
         d['recenttracks']['track'] = [d['recenttracks']['track']]
     return d
 
-async def fetch_recent_tracks(u, l=200, page=1):
-    d = await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&page={page}", max_retries=2, timeout_s=10)
+async def fetch_recent_tracks(u, l=200, page=1, from_uts=None):
+    extra = f"&from={int(from_uts)}" if from_uts else ""
+    d = await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&page={page}{extra}", max_retries=2, timeout_s=10)
     if d and 'recenttracks' in d and 'track' in d['recenttracks'] and isinstance(d['recenttracks']['track'], dict):
         d['recenttracks']['track'] = [d['recenttracks']['track']]
     return d

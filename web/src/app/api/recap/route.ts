@@ -165,19 +165,19 @@ export async function GET(req: Request) {
       const u = encodeURIComponent(lastfmUsername);
       try {
         const [art, trk, alb, ov] = await Promise.all([
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`, 300),
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=5`, 300),
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=3`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
+          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=15`, 300),
           upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=overall&limit=50`, 600),
         ]);
-        fmArtists = asList(art?.topartists?.artist).slice(0, 5).map((a: any) => ({
+        fmArtists = asList(art?.topartists?.artist).slice(0, 30).map((a: any) => ({
           name: a?.name || "Unknown", playcount: parseInt(a?.playcount || "0", 10) || 0, url: a?.url || null, image: bestImg(a),
         }));
-        fmTracks = asList(trk?.toptracks?.track).slice(0, 5).map((t: any) => ({
+        fmTracks = asList(trk?.toptracks?.track).slice(0, 30).map((t: any) => ({
           name: t?.name || "Unknown", artist: t?.artist?.name || "Unknown",
           playcount: parseInt(t?.playcount || "0", 10) || 0, url: t?.url || null, image: bestImg(t),
         }));
-        fmAlbums = asList(alb?.topalbums?.album).slice(0, 3).map((b: any) => ({
+        fmAlbums = asList(alb?.topalbums?.album).slice(0, 15).map((b: any) => ({
           name: b?.name || "Unknown", artist: b?.artist?.name || "Unknown",
           playcount: parseInt(b?.playcount || "0", 10) || 0, url: b?.url || null, image: bestImg(b),
         }));
@@ -186,29 +186,45 @@ export async function GET(req: Request) {
         }
       } catch { /* Last.fm partial failure -> fall through to imports */ }
 
-      // Window total: page recents (same approach as the Discord recap,
-      // capped at 3 pages to bound latency).
+      // Window total: exact count via @attr.total (limit=1 + from=cutoff) —
+      // no paging, no cap. Falls back to the page scan only if Last.fm
+      // omits the total.
       try {
-        const cutoff = Date.now() / 1000 - days * 86400;
-        for (let page = 1; page <= 3; page++) {
-          const d = await upstreamJson(
-            `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`,
-            120
-          );
-          const items = asList(d?.recenttracks?.track);
-          if (items.length === 0) break;
-          let oldest: number | null = null;
-          for (const t of items) {
-            if (t?.["@attr"]?.nowplaying === "true") continue;
-            const uts = parseInt(t?.date?.uts || "0", 10);
-            if (!Number.isFinite(uts) || uts <= 0) continue;
-            if (oldest === null || uts < oldest) oldest = uts;
-            if (uts >= cutoff) fmTotal++;
-          }
-          if (page === 3) fmCapped = true;
-          if (oldest !== null && oldest < cutoff) break;
+        const fromSec = Math.floor(Date.now() / 1000 - days * 86400);
+        const c = await upstreamJson(
+          `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=1&from=${fromSec}`,
+          120
+        );
+        const exact = parseInt(c?.recenttracks?.["@attr"]?.total ?? "NaN", 10);
+        if (Number.isFinite(exact)) {
+          fmTotal = exact;
+          fmCapped = false;
+        } else {
+          throw new Error("no total attr");
         }
-      } catch { /* total stays best-effort */ }
+      } catch {
+        try {
+          const cutoff = Date.now() / 1000 - days * 86400;
+          for (let page = 1; page <= 3; page++) {
+            const d = await upstreamJson(
+              `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`,
+              120
+            );
+            const items = asList(d?.recenttracks?.track);
+            if (items.length === 0) break;
+            let oldest: number | null = null;
+            for (const t of items) {
+              if (t?.["@attr"]?.nowplaying === "true") continue;
+              const uts = parseInt(t?.date?.uts || "0", 10);
+              if (!Number.isFinite(uts) || uts <= 0) continue;
+              if (oldest === null || uts < oldest) oldest = uts;
+              if (uts >= cutoff) fmTotal++;
+            }
+            if (page === 3) fmCapped = true;
+            if (oldest !== null && oldest < cutoff) break;
+          }
+        } catch { /* total stays best-effort */ }
+      }
     }
 
     // ---- Imported (DB) ----
@@ -222,9 +238,9 @@ export async function GET(req: Request) {
         const cutoff = new Date(Date.now() - days * 86400000);
         const [cnt, arts, trks, albs, overall] = await Promise.all([
           sql`SELECT COUNT(*) as count FROM listens WHERE user_id = ${targetId} AND played_at >= ${cutoff} AND COALESCE(source,'import') != 'lastfm'`,
-          sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 5`,
-          sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 5`,
-          sql`SELECT t.album_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND t.album_name IS NOT NULL AND t.album_name != '' AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.album_name, t.artist_name ORDER BY playcount DESC LIMIT 3`,
+          sql`SELECT t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY playcount DESC LIMIT 30`,
+          sql`SELECT t.track_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.track_name, t.artist_name ORDER BY playcount DESC LIMIT 30`,
+          sql`SELECT t.album_name, t.artist_name, COUNT(*) as playcount FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND l.played_at >= ${cutoff} AND t.album_name IS NOT NULL AND t.album_name != '' AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.album_name, t.artist_name ORDER BY playcount DESC LIMIT 15`,
           sql`SELECT t.artist_name FROM listens l JOIN tracks t ON l.track_id = t.id WHERE l.user_id = ${targetId} AND COALESCE(l.source,'import') != 'lastfm' GROUP BY t.artist_name ORDER BY COUNT(*) DESC LIMIT 50`,
         ]);
         imTotal = parseInt((cnt as any[])[0]?.count || "0", 10) || 0;
@@ -250,7 +266,7 @@ export async function GET(req: Request) {
           if (!cur.url && x.url) cur.url = x.url;
         } else m.set(k, { ...x });
       }
-      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 5);
+      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 30);
     }
     function mergeTracks(a: any[], b: any[]) {
       const m = new Map<string, any>();
@@ -264,7 +280,7 @@ export async function GET(req: Request) {
           if (!cur.url && x.url) cur.url = x.url;
         } else m.set(k, { ...x });
       }
-      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 5);
+      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 30);
     }
     function mergeAlbums(a: any[], b: any[]) {
       const m = new Map<string, any>();
@@ -278,7 +294,7 @@ export async function GET(req: Request) {
           if (!cur.url && x.url) cur.url = x.url;
         } else m.set(k, { ...x });
       }
-      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 3);
+      return [...m.values()].sort((x, y) => y.playcount - x.playcount).slice(0, 15);
     }
 
     const topArtists = dataSource === "imported_only" ? imArtists : dataSource === "lastfm_only" ? fmArtists : mergeArtists(fmArtists, imArtists);
@@ -287,22 +303,24 @@ export async function GET(req: Request) {
     const total = dataSource === "imported_only" ? imTotal : dataSource === "lastfm_only" ? fmTotal : Math.max(fmTotal, imTotal);
 
     // Fill blank covers (bot chain: Deezer -> iTunes), all in parallel.
+    // Art enrichment stays bounded (first rows only) so long uncapped
+    // lists don't fan out dozens of cover lookups; the rest render text-only.
     const artJobs: Promise<void>[] = [];
-    for (const t of topTracks) {
+    for (const t of topTracks.slice(0, 12)) {
       if (!t.image) {
         artJobs.push((async () => {
           t.image = (await deezerTrackArt(t.name, t.artist)) || (await itunesSongArt(t.name, t.artist)) || null;
         })());
       }
     }
-    for (const a of topArtists) {
+    for (const a of topArtists.slice(0, 12)) {
       if (!a.image) {
         artJobs.push((async () => {
           a.image = (await deezerArtistArt(a.name)) || null;
         })());
       }
     }
-    for (const b of topAlbums) {
+    for (const b of topAlbums.slice(0, 6)) {
       if (!b.image) {
         artJobs.push((async () => {
           b.image = (await deezerTrackArt(b.name, b.artist)) || (await itunesAlbumArt(b.name, b.artist)) || null;

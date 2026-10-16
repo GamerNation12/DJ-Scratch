@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/auth_store.dart';
 import '../../core/config.dart';
+import '../../core/push_service.dart';
 import '../shell/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final token = Uri.parse(result).queryParameters['token'];
       if (token != null && token.isNotEmpty) {
         await AuthStore.saveToken(token);
+        await PushService.register();
         if (mounted) {
           Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
         }

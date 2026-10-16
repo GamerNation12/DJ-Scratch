@@ -53,7 +53,7 @@ export default function LeaderboardPage({ token }: { token: string | null }) {
                 {u.avatar && <img src={u.avatar} className="w-11 h-11 rounded-full border border-white/10" alt="" />}
                 <div className="flex-1 font-bold truncate">{u.username}</div>
                 <div className="text-right">
-                  <div className="font-black">{Number(u.total_scrobbles).toLocaleString()}</div>
+                  <div className="font-black">{Number.isFinite(Number(u.playcount ?? u.total_scrobbles ?? 0)) ? Number(u.playcount ?? u.total_scrobbles ?? 0).toLocaleString() : "—"}</div>
                   <div className="text-[11px] text-zinc-500 uppercase font-bold">scrobbles</div>
                 </div>
               </div>

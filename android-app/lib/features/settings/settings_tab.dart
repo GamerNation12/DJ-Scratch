@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
 import '../../core/config.dart';
+import '../../core/push_service.dart';
 import '../../widgets/states.dart';
 import '../../widgets/update_flow.dart';
 import '../auth/login_screen.dart';
@@ -133,6 +134,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _logout() async {
+    await PushService.unregister();
     await AuthStore.clear();
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);

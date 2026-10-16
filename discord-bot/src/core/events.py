@@ -3249,6 +3249,13 @@ async def _maybe_milestone_ping(bot_instance, user_id, username):
             await u.send(embed=embed)
         except Exception:
             pass
+        try:
+            from src.core.push import send_push
+            await send_push(user_id, f"🎉 {top:,} scrobbles!",
+                            f"You just passed {top:,} total plays on Last.fm.",
+                            {"type": "milestone", "milestone": str(top)})
+        except Exception:
+            pass
     except Exception:
         pass
 

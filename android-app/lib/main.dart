@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'core/auth_store.dart';
+import 'core/push_service.dart';
 import 'core/theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/shell/main_screen.dart';
 
 void main() {
   runApp(const DjScratchApp());
+  // Best-effort: inert without google-services.json.
+  PushService.init(navKey: _navKey);
 }
+
+final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
 
 class DjScratchApp extends StatelessWidget {
   const DjScratchApp({super.key});
@@ -17,6 +22,7 @@ class DjScratchApp extends StatelessWidget {
       title: 'DJ Scratch',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
+      navigatorKey: _navKey,
       home: const AuthGate(),
     );
   }

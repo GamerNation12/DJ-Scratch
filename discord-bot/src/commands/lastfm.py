@@ -1395,33 +1395,42 @@ class LastFmCog(commands.Cog):
         discoveries = [n for n, _p in top_artists
                        if n and n.strip().lower() not in known][:5]
 
-        # Total plays in the window (paged, capped at 5x200 with a + marker).
+        # Total plays in the window: exact via @attr.total (no paging cap).
         total, capped = 0, False
         try:
             cutoff = _dt.now().timestamp() - days * 86400
-            for _page in range(1, 6):
-                _rd = await fetch_recent_tracks(username, 200, _page)
-                _rt = (((_rd or {}).get("recenttracks") or {}).get("track")) or []
-                if not _rt:
-                    break
-                _oldest = None
-                for r in _rt:
-                    if isinstance(r.get("@attr"), dict) and r["@attr"].get("nowplaying") == "true":
-                        continue
-                    try:
-                        uts = int((r.get("date") or {}).get("uts") or 0)
-                    except Exception:
-                        continue
-                    if _oldest is None or uts < _oldest:
-                        _oldest = uts
-                    if uts >= cutoff:
-                        total += 1
-                if _page == 5:
-                    capped = True
-                if _oldest is not None and _oldest < cutoff:
-                    break
+            _cd = await fetch_recent_tracks(username, 1, 1, from_uts=int(cutoff))
+            _total = (((_cd or {}).get("recenttracks") or {}).get("@attr") or {}).get("total")
+            if _total is not None:
+                total = int(_total)
+            else:
+                raise ValueError("no total attr")
         except Exception:
-            pass
+            try:
+                cutoff = _dt.now().timestamp() - days * 86400
+                for _page in range(1, 6):
+                    _rd = await fetch_recent_tracks(username, 200, _page)
+                    _rt = (((_rd or {}).get("recenttracks") or {}).get("track")) or []
+                    if not _rt:
+                        break
+                    _oldest = None
+                    for r in _rt:
+                        if isinstance(r.get("@attr"), dict) and r["@attr"].get("nowplaying") == "true":
+                            continue
+                        try:
+                            uts = int((r.get("date") or {}).get("uts") or 0)
+                        except Exception:
+                            continue
+                        if _oldest is None or uts < _oldest:
+                            _oldest = uts
+                        if uts >= cutoff:
+                            total += 1
+                    if _page == 5:
+                        capped = True
+                    if _oldest is not None and _oldest < cutoff:
+                        break
+            except Exception:
+                pass
 
         now = _dt.now()
         start = now - _td(days=days)

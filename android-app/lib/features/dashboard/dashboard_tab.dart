@@ -337,7 +337,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     Widget trackRows(List items) {
       return Column(children: [
-        for (var i = 0; i < items.length && i < 5; i++)
+        for (var i = 0; i < items.length; i++)
           Builder(builder: (_) {
             final m = (items[i] as Map).cast<String, dynamic>();
             final img = m['image'] as String?;
@@ -380,7 +380,7 @@ class _DashboardTabState extends State<DashboardTab> {
       final plays = items.map((e) => _asInt((e as Map)['playcount'])).toList();
       final mx = plays.isEmpty ? 1 : plays.reduce((a, b) => a > b ? a : b).clamp(1, 1 << 30);
       return Column(children: [
-        for (var i = 0; i < items.length && i < 5; i++)
+        for (var i = 0; i < items.length; i++)
           Builder(builder: (_) {
             final m = (items[i] as Map).cast<String, dynamic>();
             final img = m['image'] as String?;
@@ -432,7 +432,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     Widget albumRows(List items) {
       return Column(children: [
-        for (var i = 0; i < items.length && i < 3; i++)
+        for (var i = 0; i < items.length; i++)
           Builder(builder: (_) {
             final m = (items[i] as Map).cast<String, dynamic>();
             final img = m['image'] as String?;
