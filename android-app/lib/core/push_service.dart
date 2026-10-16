@@ -21,6 +21,7 @@ class PushService {
   static final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
   static bool _ready = false;
+  static String? _initError;
   static GlobalKey<NavigatorState>? navigatorKey;
 
   static Future<void> init({GlobalKey<NavigatorState>? navKey}) async {
@@ -28,7 +29,8 @@ class PushService {
     if (navKey != null) navigatorKey = navKey;
     try {
       await Firebase.initializeApp();
-    } catch (_) {
+    } catch (e) {
+      _initError = '$e';
       return; // No google-services.json — push stays off.
     }
     try {
@@ -104,7 +106,11 @@ class PushService {
   /// Human-readable push state for the Settings screen.
   static Future<String> status() async {
     try {
-      if (Firebase.apps.isEmpty) return 'off (no Firebase config in this build)';
+      if (Firebase.apps.isEmpty) {
+        final err = _initError;
+        if (err != null && err.isNotEmpty) return 'off ($err)';
+        return 'off (no Firebase config in this build)';
+      }
       final t = await FirebaseMessaging.instance.getToken();
       if (t == null || t.isEmpty) return 'off (no device token)';
       return 'on';
