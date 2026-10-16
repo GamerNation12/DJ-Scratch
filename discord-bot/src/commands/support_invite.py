@@ -108,6 +108,18 @@ class SupportInviteCog(commands.Cog):
         if not _is_owner(ctx.author.id):
             return await ctx.send("Only the bot owner can do that.")
         try:
+            from src.core.database import db_pool
+            tokens = []
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    rows = await conn.fetch(
+                        "SELECT fcm_token FROM push_subscriptions WHERE user_id = $1",
+                        str(ctx.author.id))
+                    tokens = [r["fcm_token"] for r in rows if r["fcm_token"]]
+            if not tokens:
+                return await ctx.send(
+                    "📭 **No device registered** for this Discord account.\n"
+                    "Install the latest APK (v2.0.8+), log out and back in on the app, then try again.")
             from src.core.push import send_push
             ok = await send_push(
                 ctx.author.id,
@@ -120,8 +132,9 @@ class SupportInviteCog(commands.Cog):
         if ok:
             return await ctx.send("✅ Push accepted by Firebase — check your phone (background the app if it's open).")
         return await ctx.send(
-            "❌ No push sent. Either this Discord account has no registered device "
-            "(log in on the app first), or Firebase isn't configured on the bot host."
+            "🔥 **Device registered, but Firebase rejected the send.** "
+            "The service key is missing/unreadable on the bot host — check the container has "
+            "`firebase-service-account.json` and restart the bot."
         )
     @commands.command(name="fixlogs", aliases=["backfilllogs"])
     async def fixlogs_prefix(self, ctx, limit: str = "200"):
