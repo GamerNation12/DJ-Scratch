@@ -27,34 +27,6 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  // Full listening history (Activity tab): paginated via /api/u/[id]/streams.
-  const [streams, setStreams] = useState<any[] | null>(null);
-  const [streamsTotal, setStreamsTotal] = useState(0);
-  const [streamsLoading, setStreamsLoading] = useState(false);
-  const [streamsBackfill, setStreamsBackfill] = useState<boolean | null>(null);
-
-  const loadMoreStreams = async () => {
-    const key = (profile as any)?.lastfm_username || usernameParam;
-    const off = streams?.length || 0;
-    setStreamsLoading(true);
-    try {
-      const res = await fetchApi(`/api/u/${encodeURIComponent(key)}/streams?period=${period}&limit=50&offset=${off}`);
-      const data = await res.json().catch(() => null);
-      if (data?.streams) {
-        setStreams([...(streams || []), ...data.streams]);
-        setStreamsTotal(Number(data.total || 0));
-        setStreamsBackfill(data.backfillDone ?? null);
-      }
-    } catch { /* keep what we have */ }
-    setStreamsLoading(false);
-  };
-
-  // Fresh history per profile/period.
-  useEffect(() => {
-    setStreams(null);
-    setStreamsTotal(0);
-    setStreamsBackfill(null);
-  }, [usernameParam, period]);
   // Onboarding checklist (owner only): persisted dismiss/share flags.
   const [onboardDismissed, setOnboardDismissed] = useState(() => {
     try { return localStorage.getItem("ds_onboard_done") === "1"; } catch { return false; }
@@ -412,6 +384,35 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
   const [period, setPeriod] = useState("overall");
   // Profile sub-sections keep the page short: Overview | Charts | Activity.
   const [profileSection, setProfileSection] = useState<"overview" | "charts" | "activity">("overview");
+
+  // Full listening history (Activity tab): paginated via /api/u/[id]/streams.
+  const [streams, setStreams] = useState<any[] | null>(null);
+  const [streamsTotal, setStreamsTotal] = useState(0);
+  const [streamsLoading, setStreamsLoading] = useState(false);
+  const [streamsBackfill, setStreamsBackfill] = useState<boolean | null>(null);
+
+  const loadMoreStreams = async () => {
+    const key = (profile as any)?.lastfm_username || usernameParam;
+    const off = streams?.length || 0;
+    setStreamsLoading(true);
+    try {
+      const res = await fetchApi(`/api/u/${encodeURIComponent(key)}/streams?period=${period}&limit=50&offset=${off}`);
+      const data = await res.json().catch(() => null);
+      if (data?.streams) {
+        setStreams([...(streams || []), ...data.streams]);
+        setStreamsTotal(Number(data.total || 0));
+        setStreamsBackfill(data.backfillDone ?? null);
+      }
+    } catch { /* keep what we have */ }
+    setStreamsLoading(false);
+  };
+
+  // Fresh history per profile/period.
+  useEffect(() => {
+    setStreams(null);
+    setStreamsTotal(0);
+    setStreamsBackfill(null);
+  }, [usernameParam, period]);
   // Weekly/monthly recap (same data as the Discord recap image).
   const [recapPeriod, setRecapPeriod] = useState<"week" | "month">("week");
   const [recap, setRecap] = useState<any>(null);
