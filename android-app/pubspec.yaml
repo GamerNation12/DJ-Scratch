@@ -14,8 +14,12 @@ dependencies:
   http: ^1.2.1
   flutter_web_auth_2: ^3.1.1
   flutter_secure_storage: ^9.2.2
-  firebase_core: ^5.0.0
-  firebase_messaging: ^17.0.0
+  # Era-pinned: CI Flutter 3.24 (Dart 3.5) can't take firebase 5.x/17.x
+  # (needs Dart 3.6+), and resolving newest-allowed mixes eras with
+  # mismatched Pigeon schemas ("Nonnull field projectId is null").
+  # core 3.8.x + messaging 15.0.x + interface 5.x shipped together.
+  firebase_core: '>=3.8.0 <3.9.0'
+  firebase_messaging: '>=15.0.0 <15.1.0'
   flutter_local_notifications: ^18.0.1
   package_info_plus: ^8.0.0
   google_fonts: ^6.2.1
