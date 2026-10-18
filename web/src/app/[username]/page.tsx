@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { Suspense } from "react";
 import { ProfilePageClient } from "@/components/ProfilePageClient";
 
 export const revalidate = 60;
@@ -71,11 +71,13 @@ export default async function ProfilePage({
   }
 
   return (
-    <ProfilePageClient
-      username={usernameParam}
-      profileData={profileData}
-      rhythmData={rhythmData}
-      recapData={recapData}
-    />
+    <Suspense>
+      <ProfilePageClient
+        username={usernameParam}
+        profileData={profileData}
+        rhythmData={rhythmData}
+        recapData={recapData}
+      />
+    </Suspense>
   );
 }
