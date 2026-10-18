@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ProfilePageClient } from "@/components/ProfilePageClient";
+import ProfilePageClient from "@/components/ProfilePageClient";
 
 export const revalidate = 60;
 
