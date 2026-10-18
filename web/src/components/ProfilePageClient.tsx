@@ -5,6 +5,7 @@ import { useSession } from "@/app/providers";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Tabs } from "@/components/ui";
+import { fetchApi } from "@/lib/fetchApi";
 
 export default function ProfilePageClient({
   usernameParam,
@@ -24,8 +25,32 @@ export default function ProfilePageClient({
   const [period, setPeriod] = useState("7day");
   const [recapPeriod, setRecapPeriod] = useState("week");
   const [activeTab, setActiveTab] = useState("profile");
+  const [profile, setProfile] = useState<any>(profileData || null);
   const [bio, setBio] = useState(profileData?.bio || "");
   const [website, setWebsite] = useState(profileData?.website || "");
+
+  // Fallback: if username lookup returned nothing and we're logged in,
+  // try fetching by our Discord user ID (display names drift; IDs don't).
+  useEffect(() => {
+    if (profile || status !== "authenticated") return;
+    const sessionUserId = (session?.user as any)?.id as string | undefined;
+    if (!sessionUserId) return;
+
+    (async () => {
+      try {
+        const res = await fetchApi(`/api/u/${sessionUserId}?period=overall`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && !data.error && isMounted.current) {
+          setProfile(data);
+          setBio(data.bio || "");
+          setWebsite(data.website || "");
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [profile, status, session]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -40,11 +65,11 @@ export default function ProfilePageClient({
     };
   }, []);
 
-  const displayName = profileData?.displayName || usernameParam;
-  const playcount = Number(profileData?.playcount || 0);
-  const topArtists = profileData?.topArtists || [];
-  const topTracks = profileData?.topTracks || [];
-  const recentTracks = profileData?.recentTracks || [];
+  const displayName = profile?.displayName || usernameParam;
+  const playcount = Number(profile?.playcount || 0);
+  const topArtists = profile?.topArtists || [];
+  const topTracks = profile?.topTracks || [];
+  const recentTracks = profile?.recentTracks || [];
   const isOwner =
     status === "authenticated" &&
     session?.user?.name === usernameParam;
@@ -55,16 +80,27 @@ export default function ProfilePageClient({
     return n.toString();
   };
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0e0618] text-white p-4">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">Loading...</h1>
+          <p className="text-zinc-400">Fetching your profile data.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto pb-28">
       {/* Profile Header */}
       <header className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-950/40 to-purple-950/30 p-6 md:p-8 mb-8">
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-            {profileData?.avatar && (
+            {profile?.avatar && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profileData.avatar}
+                src={profile.avatar}
                 alt={displayName}
                 className="w-20 h-20 rounded-full border-2 border-white/20"
               />
