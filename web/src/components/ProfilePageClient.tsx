@@ -113,11 +113,11 @@ export default function ProfilePageClient({
       {/* Tabs */}
       <Tabs
         tabs={[
-          { key: "profile", label: "Profile" },
-          { key: "charts", label: "Charts" },
-          { key: "activity", label: "Activity" },
+          { value: "profile", label: "Profile" },
+          { value: "charts", label: "Charts" },
+          { value: "activity", label: "Activity" },
         ]}
-        active={activeTab}
+        value={activeTab}
         onChange={(key) => setActiveTab(key as string)}
       />
 
