@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dj-scratch.is-a-fullstack.dev/sitemap.xml
