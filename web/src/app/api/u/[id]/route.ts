@@ -215,7 +215,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         ]);
 
         importedData.playcount = parseInt(playcountRes[0]?.count || "0", 10);
-        importedData.topArtists = topArtistsRes.map(row => ({ name: row.artist_name, playcount: parseInt(row.playcount, 10), url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}`, image: null }));
+        importedData.topArtists = await Promise.all(topArtistsRes.map(async (row) => {
+          const img = await getDeezerArtistImage(row.artist_name);
+          return { name: row.artist_name, playcount: parseInt(row.playcount, 10), url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}`, image: img?.url || null };
+        }));
         importedData.topTracks = topTracksRes.map(row => ({ name: row.track_name, artist: row.artist_name, playcount: parseInt(row.playcount, 10), url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}/_/${encodeURIComponent(row.track_name)}`, image: null }));
         importedData.recentTracks = recentTracksRes.map(row => ({ name: row.track_name, artist: row.artist_name, album: null, url: `https://www.last.fm/music/${encodeURIComponent(row.artist_name)}/_/${encodeURIComponent(row.track_name)}`, image: null, nowPlaying: false, date: Math.floor(new Date(row.played_at).getTime() / 1000).toString() }));
       } catch (e) {
@@ -293,9 +296,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } else if (data_source === 'lastfm_only') {
       finalStats = lastfmData;
     } else {
-      finalStats.playcount = useEra
-        ? lastfmData.playcount + importedData.playcount
-        : Math.max(lastfmData.playcount, importedData.playcount);
+      finalStats.playcount = lastfmData.playcount + importedData.playcount;
       finalStats.topAlbums = lastfmData.topAlbums;
 
       let artistMap = new Map();
@@ -303,9 +304,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const a of importedData.topArtists) {
         const key = a.name.toLowerCase();
         if (artistMap.has(key)) {
-          artistMap.get(key).playcount = useEra
-            ? artistMap.get(key).playcount + a.playcount
-            : Math.max(artistMap.get(key).playcount, a.playcount);
+          artistMap.get(key).playcount += a.playcount;
         } else {
           artistMap.set(key, { ...a });
         }
@@ -320,9 +319,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const t of importedData.topTracks) {
         const key = `${t.name.toLowerCase()}|${t.artist.toLowerCase()}`;
         if (trackMap.has(key)) {
-          trackMap.get(key).playcount = useEra
-            ? trackMap.get(key).playcount + t.playcount
-            : Math.max(trackMap.get(key).playcount, t.playcount);
+          trackMap.get(key).playcount += t.playcount;
         } else {
           trackMap.set(key, { ...t });
         }
