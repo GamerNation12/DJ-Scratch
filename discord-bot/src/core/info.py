@@ -1,8 +1,8 @@
 import discord
 from src.core.theme import Theme
-from src.core.database import db_fetch, format_name
+from src.core.database import db_fetch, format_name, get_local_artist_playcount
 from src.core.events import get_lastfm_username, fetch_now_playing
-from src.utils.api import fetch_artist_info, fetch_album_info, fetch_track_info
+from src.utils.api import fetch_artist_info, fetch_album_info, fetch_track_info, fetch_deezer_artist_image
 
 async def get_current_playing_fallback(user, type_needed="artist"):
     username = await get_lastfm_username(user.id)
@@ -43,14 +43,25 @@ async def process_artist_info(user, artist_name=None):
     embed = Theme.get_embed(title=actual_name, url=url, color=Theme.PRIMARY)
     embed.set_author(name=f"Artist Info for {format_name(user)}", icon_url=user.display_avatar.url)
     
-    desc = f"**Your Plays:** `{user_plays:,}`\n"
+    # Add imported plays from local DB (non-Last.fm scrobbles)
+    imported_plays = await get_local_artist_playcount(user.id, actual_name)
+    total_user_plays = user_plays + imported_plays
+
+    # Fetch artist cover image from Deezer
+    bot_instance = bot
+    session = getattr(bot_instance, 'session', None)
+    artist_image = await fetch_deezer_artist_image(session, actual_name) if session else None
+
+    desc = f"**Your Plays:** `{total_user_plays:,}`\n"
+    if imported_plays > 0:
+        desc += f"*({user_plays:,} from Last.fm + {imported_plays:,} imported)*\n"
     desc += f"**Global Listeners:** `{global_listeners:,}`\n"
     desc += f"**Global Scrobbles:** `{global_plays:,}`\n"
-    
     if tags: desc += f"\n**Tags:** {', '.join(tags[:5])}"
-    
+
     embed.description = desc
-    
+    if artist_image: embed.set_thumbnail(url=artist_image)
+
     return embed, None
 
 async def process_album_info(user, args=None):
