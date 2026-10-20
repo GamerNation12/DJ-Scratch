@@ -521,14 +521,18 @@ async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     asyncio.create_task(update_user_activity(interaction.user.id))
     if getattr(bot, 'is_restarting', False):
         opted_out = await is_restart_opted_out(interaction.user.id)
-        if not opted_out:
-            try:
-                timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-                reason = getattr(bot, 'restart_reason', 'Maintenance')
-                await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(interaction.user.id), delete_after=15)
-            except:
-                pass
-            await add_restarting_user(interaction.user.id, interaction.channel.id)
+        try:
+            timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
+            reason = getattr(bot, 'restart_reason', 'Maintenance')
+            msg = f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted!"
+            if not opted_out:
+                msg += " (We will ping you here when it's back online)"
+                await interaction.channel.send(msg, view=RestartPingOptOutView(interaction.user.id), delete_after=15)
+                await add_restarting_user(interaction.user.id, interaction.channel.id)
+            else:
+                await interaction.channel.send(msg, delete_after=15)
+        except:
+            pass
     return True
 
 @bot.check
@@ -538,14 +542,18 @@ async def check_restarting_prefix(ctx) -> bool:
     asyncio.create_task(update_user_activity(ctx.author.id))
     if getattr(bot, 'is_restarting', False):
         opted_out = await is_restart_opted_out(ctx.author.id)
-        if not opted_out:
-            try:
-                timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-                reason = getattr(bot, 'restart_reason', 'Maintenance')
-                await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(ctx.author.id), delete_after=15)
-            except:
-                pass
-            await add_restarting_user(ctx.author.id, ctx.channel.id)
+        try:
+            timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
+            reason = getattr(bot, 'restart_reason', 'Maintenance')
+            msg = f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted!"
+            if not opted_out:
+                msg += " (We will ping you here when it's back online)"
+                await ctx.send(msg, view=RestartPingOptOutView(ctx.author.id), delete_after=15)
+                await add_restarting_user(ctx.author.id, ctx.channel.id)
+            else:
+                await ctx.send(msg, delete_after=15)
+        except:
+            pass
     return True
 
 
