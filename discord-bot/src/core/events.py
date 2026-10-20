@@ -3549,8 +3549,20 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
+        # Extract release date from Last.fm wiki if available
+        release_date = None
+        if t_info and 'track' in t_info and 'wiki' in t_info['track']:
+            try:
+                pub = t_info['track']['wiki'].get('published', '')
+                if pub:
+                    release_date = pub.split(',')[0].strip()
+            except Exception:
+                pass
+
         if mode == "stats":
             desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
+            if release_date:
+                desc_lines.append(f"📅 Released: **{release_date}**")
             
             if len(tracks) > 1:
                 prev_t = tracks[1]
@@ -3673,6 +3685,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             return result, is_p
 
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
+        if release_date:
+            desc_lines.append(f"📅 Released: **{release_date}**")
         if show_playcount and track_plays != -1:
             if track_plays == 0 and live:
                 desc_lines.append("\n🎧 **First time listening!**")
