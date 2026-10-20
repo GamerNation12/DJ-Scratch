@@ -695,10 +695,15 @@ class SpotifyRemote(commands.Cog):
             return discord.Embed(color=0xFF0000, description=f"❌ Could not find that {kind} on Spotify.")
         name = info.get("name") or "Unknown"
         artists = ", ".join(info.get("artists") or []) or "Unknown Artist"
+        release_date = info.get("release_date") or (info.get("album") or {}).get("release_date")
         if kind == "track":
-            desc = f"🎵 **{name}** by **{artists}**\n[Open in Spotify]({url})"
+            desc = f"🎵 **{name}** by **{artists}**"
+            if release_date: desc += f"\n📅 Released: **{release_date}**"
+            desc += f"\n[Open in Spotify]({url})"
         elif kind == "album":
-            desc = f"💽 **{name}** by **{artists}**\n[Open in Spotify]({url})"
+            desc = f"💽 **{name}** by **{artists}**"
+            if release_date: desc += f"\n📅 Released: **{release_date}**"
+            desc += f"\n[Open in Spotify]({url})"
         else:
             desc = f"🎤 **{name}**\n[Open in Spotify]({url})"
         embed = discord.Embed(color=0x1DB954, description=desc)
