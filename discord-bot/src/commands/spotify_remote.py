@@ -696,6 +696,17 @@ class SpotifyRemote(commands.Cog):
         name = info.get("name") or "Unknown"
         artists = ", ".join(info.get("artists") or []) or "Unknown Artist"
         release_date = info.get("release_date") or (info.get("album") or {}).get("release_date")
+        if release_date:
+            try:
+                parts = release_date.split("-")
+                if len(parts) == 3:
+                    y, m, d = parts
+                    release_date = f"{m}-{d}-{y}"
+                elif len(parts) == 2:
+                    y, m = parts
+                    release_date = f"{m}-01-{y}"
+            except Exception:
+                pass
         if kind == "track":
             desc = f"🎵 **{name}** by **{artists}**"
             if release_date: desc += f"\n📅 Released: **{release_date}**"
