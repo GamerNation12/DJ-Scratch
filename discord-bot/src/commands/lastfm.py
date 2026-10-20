@@ -422,42 +422,10 @@ class LastFmCog(commands.Cog):
         app_commands.Choice(name="Full Embed", value="full"),
         app_commands.Choice(name="Compact (1 line)", value="compact"),
         app_commands.Choice(name="Stats (Detailed)", value="stats"),
-        app_commands.Choice(name="Suggestion Card", value="suggestion"),
     ])
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def fm_slash(self, interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
-        await interaction.response.defer()
-        if mode is not None:
-            m = mode.value
-        else:
-            m = await self.bot.get_user_fm_mode(interaction.user.id)
-            if not m: m = "full"
-        
-        result, is_p = await self.bot.process_fm(interaction, interaction.user, mode=m)
-        if result is None:
-            await interaction.edit_original_response(content=is_p)
-        elif isinstance(result, dict):
-            msg = await interaction.edit_original_response(**result)
-            if is_p: await self.bot.add_custom_reactions(msg)
-            if is_p:
-                try:
-                    from src.core.events import track_fm_message
-                    await track_fm_message(msg, interaction.user)
-                except Exception:
-                    pass
-
-    @app_commands.command(name="sp", description="View what you are currently listening to (Spotify-style)")
-    @app_commands.describe(mode="Choose embed style")
-    @app_commands.choices(mode=[
-        app_commands.Choice(name="Full Embed", value="full"),
-        app_commands.Choice(name="Compact (1 line)", value="compact"),
-        app_commands.Choice(name="Stats (Detailed)", value="stats"),
-        app_commands.Choice(name="Suggestion Card", value="suggestion"),
-    ])
-    @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def sp_slash(self, interaction: discord.Interaction, mode: app_commands.Choice[str] = None):
         await interaction.response.defer()
         if mode is not None:
             m = mode.value
@@ -1026,38 +994,13 @@ class LastFmCog(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "fm4", "np1", "np2", "np3", "np4", "n", "fn"])
+    @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n", "fn"])
     async def fm_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
         invoked = ctx.invoked_with
         if invoked in ["fm1", "np1"]: m = "compact"
         elif invoked in ["fm2", "np2"]: m = "full"
         elif invoked in ["fm3", "np3"]: m = "stats"
-        elif invoked in ["fm4", "np4"]: m = "suggestion"
-        else:
-            m = await self.bot.get_user_fm_mode(target_user.id)
-            if not m: m = "full"
-        result, is_p = await self.bot.process_fm(ctx, target_user, mode=m)
-        if result is None:
-            await self._reply_and_delete(ctx, is_p)
-        elif isinstance(result, dict):
-            msg = await self._reply_and_delete(ctx, **result)
-            if is_p: await self.bot.add_custom_reactions(msg)
-            if is_p:
-                try:
-                    from src.core.events import track_fm_message
-                    await track_fm_message(msg, target_user)
-                except Exception:
-                    pass
-
-    @commands.command(name="sp", aliases=["spotify", "sp1", "sp2", "sp3", "sp4"])
-    async def sp_prefix(self, ctx, *, args: str = None):
-        target_user, _ = await get_target_user(ctx, args)
-        invoked = ctx.invoked_with
-        if invoked == "sp1": m = "compact"
-        elif invoked == "sp2": m = "full"
-        elif invoked == "sp3": m = "stats"
-        elif invoked == "sp4": m = "suggestion"
         else:
             m = await self.bot.get_user_fm_mode(target_user.id)
             if not m: m = "full"

@@ -3672,22 +3672,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             result = {"embed": embed, "view": view}
             return result, is_p
 
-        if mode == "suggestion":
-            desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
-            if show_playcount and track_plays != -1:
-                if track_plays == 0 and live:
-                    desc_lines.append("\n🎧 **First time listening!**")
-                else:
-                    desc_lines.append(f"\n🔢 **{track_plays}** plays")
-            desc = chr(10).join(desc_lines)
-            embed = Theme.get_embed(title=f"🎵 {dname}'s {status}", description=desc, color=color)
-            embed.set_author(name=f"{dname} ({user.id})", icon_url=user.display_avatar.url)
-            if img: embed.set_thumbnail(url=img)
-            embed.set_footer(text=f"{scrobbler_label}")
-            view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="suggestion", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
-            result = {"embed": embed, "view": view}
-            return result, is_p
-
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
         if show_playcount and track_plays != -1:
             if track_plays == 0 and live:
