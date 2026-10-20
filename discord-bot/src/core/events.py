@@ -500,16 +500,35 @@ async def run_inactive_purge():
         print(f"Error in run_inactive_purge: {e}")
 
 
+async def is_restart_opted_out(user_id) -> bool:
+    """Check if the user has opted out of restart pings."""
+    from src.core.database import db_pool
+    import json
+    if not db_pool:
+        return False
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT value FROM global_settings WHERE key = 'restart_optout'")
+            if row and row['value']:
+                ids = {str(i) for i in (json.loads(row['value']) or [])}
+                return str(user_id) in ids
+    except Exception:
+        pass
+    return False
+
+
 async def check_restarting_slash(interaction: discord.Interaction) -> bool:
     asyncio.create_task(update_user_activity(interaction.user.id))
     if getattr(bot, 'is_restarting', False):
-        try:
-            timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            reason = getattr(bot, 'restart_reason', 'Maintenance')
-            await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(interaction.user.id), delete_after=15)
-        except:
-            pass
-        await add_restarting_user(interaction.user.id, interaction.channel.id)
+        opted_out = await is_restart_opted_out(interaction.user.id)
+        if not opted_out:
+            try:
+                timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
+                reason = getattr(bot, 'restart_reason', 'Maintenance')
+                await interaction.channel.send(f"⚠️ {interaction.user.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(interaction.user.id), delete_after=15)
+            except:
+                pass
+            await add_restarting_user(interaction.user.id, interaction.channel.id)
     return True
 
 @bot.check
@@ -518,13 +537,15 @@ async def check_restarting_prefix(ctx) -> bool:
     if ctx.command.name == "cancel": return True
     asyncio.create_task(update_user_activity(ctx.author.id))
     if getattr(bot, 'is_restarting', False):
-        try:
-            timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
-            reason = getattr(bot, 'restart_reason', 'Maintenance')
-            await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(ctx.author.id), delete_after=15)
-        except:
-            pass
-        await add_restarting_user(ctx.author.id, ctx.channel.id)
+        opted_out = await is_restart_opted_out(ctx.author.id)
+        if not opted_out:
+            try:
+                timestamp = int(bot.is_restarting) if isinstance(bot.is_restarting, float) else int(time.time() + 60)
+                reason = getattr(bot, 'restart_reason', 'Maintenance')
+                await ctx.send(f"⚠️ {ctx.author.mention}, **Warning:** The bot is restarting <t:{timestamp}:R> because: **{reason}**. Your command might be interrupted! (We will ping you here when it's back online)", view=RestartPingOptOutView(ctx.author.id), delete_after=15)
+            except:
+                pass
+            await add_restarting_user(ctx.author.id, ctx.channel.id)
     return True
 
 
