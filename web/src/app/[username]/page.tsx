@@ -1,83 +1,2145 @@
-import { Suspense } from "react";
-import ProfilePageClient from "@/components/ProfilePageClient";
+"use client";
+import { fetchApi } from "@/lib/fetchApi";
+import { loginWithDiscord, loginWithLastfm } from "@/lib/activityAuth";
+import { artSrc } from "@/lib/art";
+import { useSession } from "@/app/providers";
+import { useState, useEffect, use } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "react-hot-toast";
+import NowPlayingWidget from "@/components/NowPlayingWidget";
+import TrackModal from "@/components/TrackModal";
+import { Tabs } from "@/components/ui";
+import AdminClient from "@/app/admin/AdminClient";
+import Link from "next/link";
 
-export const revalidate = 60;
+export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
+  const resolvedParams = use(params);
+  const usernameParam = decodeURIComponent(resolvedParams.username || "");
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const displayUsername = session?.user?.name === "gamernation12" ? "GamerNation12" : session?.user?.name;
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  // Name lookups can 404 when a Discord display name drifted from every
+  // stored name — the profile then resolves the viewer by their own ID.
+  const [resolvedOwnProfile, setResolvedOwnProfile] = useState(false);
+  const isOwner = (status === "authenticated" && displayUsername && displayUsername === usernameParam) || resolvedOwnProfile;
 
-export default async function ProfilePage({
-  params,
-}: {
-  params: Promise<{ username: string }>;
-}) {
-  const { username: rawUsername } = await params;
-  const usernameParam = decodeURIComponent(rawUsername || "");
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  // Onboarding checklist (owner only): persisted dismiss/share flags.
+  const [onboardDismissed, setOnboardDismissed] = useState(() => {
+    try { return localStorage.getItem("ds_onboard_done") === "1"; } catch { return false; }
+  });
+  const [onboardShared, setOnboardShared] = useState(() => {
+    try { return localStorage.getItem("ds_onboard_shared") === "1"; } catch { return false; }
+  });
 
-  // Fetch profile data from the API on the server
-  let profileData: any = null;
-  let rhythmData: any = null;
-  let recapData: any = null;
-
-  try {
-    const profileRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "https://dj-scratch.is-a-fullstack.dev"}/api/u/${encodeURIComponent(usernameParam)}`,
-      { cache: "no-store" },
-    );
-    if (profileRes.ok) {
-      profileData = await profileRes.json();
+  const shareProfile = async () => {
+    const url = `${window.location.origin}/${encodeURIComponent(usernameParam)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      toast.success("Profile link copied!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      toast.error("Could not copy link.");
     }
-  } catch {
-    // profile fetch failed
-  }
+  };
 
-  try {
-    const rhythmRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "https://dj-scratch.is-a-fullstack.dev"}/api/u/${encodeURIComponent(usernameParam)}?period=7day`,
-      { cache: "no-store" },
-    );
-    if (rhythmRes.ok) {
-      rhythmData = await rhythmRes.json();
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "suggestions" | "import" | "admin">("profile");
+
+  // Admin role: controls visibility of the Admin Console tab.
+  // AdminClient re-verifies server-side; this just hides the button.
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "import" || tab === "suggestions" || tab === "settings" || tab === "profile" || tab === "admin") {
+      setActiveTab(tab);
     }
-  } catch {
-    // rhythm fetch failed
-  }
+  }, [searchParams]);
 
-  try {
-    const recapRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "https://dj-scratch.is-a-fullstack.dev"}/api/recap?user=${encodeURIComponent(usernameParam)}`,
-      { cache: "no-store" },
-    );
-    if (recapRes.ok) {
-      recapData = await recapRes.json();
+  // Referrals (?ref=CODE invite links): stash for logged-out visitors, redeem
+  // once authenticated. Both sides earn badges when the friend links Last.fm.
+  const [referral, setReferral] = useState<null | {
+    code: string; clicks: number; completed: number;
+    badges: { key: string; emoji: string; name: string; desc: string }[];
+  }>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      try { localStorage.setItem("dj_referral_code", ref.trim().toLowerCase()); } catch { /* ignore */ }
     }
-  } catch {
-    // recap fetch failed
-  }
+    if (status !== "authenticated") return;
+    let pending: string | null = ref && ref.trim() ? ref.trim() : null;
+    if (!pending) {
+      try { pending = localStorage.getItem("dj_referral_code"); } catch { pending = null; }
+    }
+    if (!pending) return;
+    const code = pending.toLowerCase();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/referrals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && (data as any)?.success) {
+          try { localStorage.removeItem("dj_referral_code"); } catch { /* ignore */ }
+          toast.success(`🎉 Invite from ${(data as any).sharer} counted! Link Last.fm so you both earn badges.`);
+          const url = new URL(window.location.href);
+          url.searchParams.delete("ref");
+          window.history.replaceState({}, "", url.toString());
+        } else if ((data as any)?.error) {
+          // Own-link clicks are expected noise — clear and stay quiet.
+          if (/own link/i.test(String((data as any).error))) {
+            try { localStorage.removeItem("dj_referral_code"); } catch { /* ignore */ }
+          } else {
+            toast.error(String((data as any).error));
+          }
+        } else if (!res.ok) {
+          toast.error("Couldn't count that invite — please try again.");
+        }
+      } catch { /* offline — retry next visit */ }
+    })();
+    return () => { cancelled = true; };
+  }, [status, searchParams]);
 
-  if (!profileData) {
-    // Fallback: try using Discord user ID if username lookup fails
-    // When logged in as the user, we can fall back to their ID
+  // Logged-out visitors arriving via ?ref=: nudge them to log in so the
+  // invite counts (the code is stashed above and redeemed after login).
+  const inviteRef = searchParams.get("ref");
+
+  // Owner: load my referral code + stats for the invite card.
+  useEffect(() => {
+    if (status !== "authenticated" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/referrals");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && (data as any)?.code) setReferral(data);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [status, isOwner]);
+
+  const copyInviteLink = async () => {
+    if (!referral?.code) return;
+    const url = `${window.location.origin}/${encodeURIComponent(usernameParam)}?ref=${referral.code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInvite(true);
+      toast.success("Invite link copied — you both earn badges when they join!");
+      setTimeout(() => setCopiedInvite(false), 2000);
+    } catch {
+      toast.error("Could not copy link.");
+    }
+  };
+
+  useEffect(() => {
+    if (status !== "authenticated" || !isOwner) {
+      setAdminRole(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/admin/check");
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && data.role) {
+          setAdminRole(data.role);
+        } else {
+          setAdminRole(null);
+          setActiveTab((prev) => (prev === "admin" ? "profile" : prev));
+        }
+      } catch {
+        if (!cancelled) {
+          setAdminRole(null);
+          setActiveTab((prev) => (prev === "admin" ? "profile" : prev));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [status, isOwner]);
+
+  // --- Import State ---
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<"idle" | "uploading" | "complete" | "error">("idle");
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importLocked, setImportLocked] = useState(false);
+  const [importLockReason, setImportLockReason] = useState<string | null>(null);
+  const [spotifyLinked, setSpotifyLinked] = useState<boolean | null>(null);
+  const [spotifyBusy, setSpotifyBusy] = useState(false);
+
+  // Reflect the bot owner's import lock (disabled_commands) in the UI.
+  // Server routes enforce it regardless; this just avoids a doomed upload.
+  useEffect(() => {
+    if (activeTab !== "import" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/import/status");
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setImportLocked(!!data.locked);
+          setImportLockReason(data.reason ?? null);
+        }
+      } catch {
+        /* fail open: the API routes still enforce the lock */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, isOwner]);
+
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+
+  // Spotify link status for the Connected Accounts card.
+  useEffect(() => {
+    if (activeTab !== "settings" || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi("/api/spotify/status");
+        const data = await res.json();
+        if (!cancelled && res.ok) setSpotifyLinked(!!data.linked);
+      } catch {
+        /* unknown: actions stay hidden */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, isOwner]);
+
+  const handleSpotifyDisconnect = async () => {
+    setSpotifyBusy(true);
+    try {
+      const res = await fetchApi("/api/spotify/disconnect", { method: "POST" });
+      if (res.ok) setSpotifyLinked(false);
+    } catch {
+      /* keep current state on failure */
+    } finally {
+      setSpotifyBusy(false);
+    }
+  };
+
+  const handleImportUpload = async () => {
+    if (!importFile) return;
+    if (importLocked) {
+      setImportError(importLockReason ? `Imports are currently disabled. ${importLockReason}` : "Imports are currently disabled by the bot owner.");
+      setImportStatus("error");
+      return;
+    }
+    setImportStatus("uploading");
+    setImportProgress(0);
+    setImportError(null);
+
+    const totalChunks = Math.ceil(importFile.size / CHUNK_SIZE);
+    
+    try {
+      const initRes = await fetchApi("/api/import/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: importFile.name, totalChunks })
+      });
+      const initData = await initRes.json();
+      if (!initRes.ok) throw new Error(initData.error || "Failed to initialize upload");
+      
+      const jobId = initData.jobId;
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, importFile.size);
+        const chunk = importFile.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("jobId", jobId);
+        formData.append("chunkIndex", i.toString());
+        formData.append("chunk", chunk);
+
+        const chunkRes = await fetchApi("/api/import/chunk", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!chunkRes.ok) throw new Error("Failed to upload chunk " + i);
+
+        setImportProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
+
+      const finRes = await fetchApi("/api/import/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId })
+      });
+
+      if (!finRes.ok) throw new Error("Failed to finalize upload");
+
+      setImportStatus("complete");
+    } catch (err: any) {
+      console.error(err);
+      setImportError(err.message);
+      setImportStatus("error");
+    }
+  };
+
+  // --- Public Profile State ---
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  // Period switches keep stale data on screen (no full-page spinner) with a
+  // small "updating" pill on the tops while the new period loads.
+  const [topsLoading, setTopsLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // --- Dashboard Settings State ---
+  const [fmMode, setFmMode] = useState<"compact" | "full" | "stats">("full");
+  const [showFeatures, setShowFeatures] = useState<boolean>(false);
+  const [privateMode, setPrivateMode] = useState<boolean>(false);
+  const [dataSource, setDataSource] = useState<"combined" | "imported_only" | "lastfm_only">("combined");
+  const [timezone, setTimezone] = useState<string>("UTC");
+  const [showTrackPlaycount, setShowTrackPlaycount] = useState<boolean>(false);
+  const [displayName, setDisplayName] = useState<string>("");
+  const [bio, setBio] = useState<string>("");
+  const [website, setWebsite] = useState<string>("");
+
+  const [unsavedFmMode, setUnsavedFmMode] = useState<"compact" | "full" | "stats">("full");
+  const [unsavedShowFeatures, setUnsavedShowFeatures] = useState<boolean>(false);
+  const [unsavedPrivateMode, setUnsavedPrivateMode] = useState<boolean>(false);
+  const [unsavedDataSource, setUnsavedDataSource] = useState<"combined" | "imported_only" | "lastfm_only">("combined");
+  const [unsavedTimezone, setUnsavedTimezone] = useState<string>("UTC");
+  const [unsavedShowTrackPlaycount, setUnsavedShowTrackPlaycount] = useState<boolean>(false);
+  const [unsavedDisplayName, setUnsavedDisplayName] = useState<string>("");
+  const [unsavedBio, setUnsavedBio] = useState<string>("");
+  const [unsavedWebsite, setUnsavedWebsite] = useState<string>("");
+  
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // --- Suggestions & Stats ---
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [newSuggestionTitle, setNewSuggestionTitle] = useState("");
+  const [newSuggestionDesc, setNewSuggestionDesc] = useState("");
+  const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [editingSuggId, setEditingSuggId] = useState<string | null>(null);
+  const [editSuggTitle, setEditSuggTitle] = useState("");
+  const [editSuggDesc, setEditSuggDesc] = useState("");
+
+  const saveSuggestionEdit = async (id: string) => {
+    if (!editSuggTitle.trim() || !editSuggDesc.trim()) {
+      toast.error("Title and description can't be empty.");
+      return;
+    }
+    try {
+      const res = await fetchApi(`/api/suggestions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editSuggTitle.trim(), description: editSuggDesc.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.error || "Couldn't save.");
+      setEditingSuggId(null);
+      fetchSuggestions();
+      toast.success("Suggestion updated!");
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't save.");
+    }
+  };
+
+  const cancelSuggestion = async (id: string) => {
+    if (!window.confirm("Cancel this suggestion? It will be removed.")) return;
+    try {
+      const res = await fetchApi(`/api/suggestions/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.error || "Couldn't cancel.");
+      fetchSuggestions();
+      toast.success("Suggestion cancelled.");
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't cancel.");
+    }
+  };
+
+  const [userStats, setUserStats] = useState<any>(null);
+  const [userStatsLoading, setUserStatsLoading] = useState(true);
+  const [botStatus, setBotStatus] = useState<string | null>(null);
+
+  // Listening period for top stats (Top Artists / Albums / Tracks).
+  // Recents + insights always reflect the latest activity.
+  const PERIODS = [
+    { value: "7day", label: "7D" },
+    { value: "1month", label: "1M" },
+    { value: "3month", label: "3M" },
+    { value: "6month", label: "6M" },
+    { value: "12month", label: "1Y" },
+    { value: "overall", label: "All" },
+  ];
+  const [period, setPeriod] = useState("overall");
+  // Profile sub-sections keep the page short: Overview | Charts | Activity.
+  const [profileSection, setProfileSection] = useState<"overview" | "charts" | "activity">("overview");
+
+  // Full listening history (Activity tab): paginated via /api/u/[id]/streams.
+  const [streams, setStreams] = useState<any[] | null>(null);
+  const [streamsTotal, setStreamsTotal] = useState(0);
+  const [streamsLoading, setStreamsLoading] = useState(false);
+  const [streamsBackfill, setStreamsBackfill] = useState<boolean | null>(null);
+
+  const loadMoreStreams = async () => {
+    const key = (profile as any)?.lastfm_username || usernameParam;
+    const off = streams?.length || 0;
+    setStreamsLoading(true);
+    try {
+      const res = await fetchApi(`/api/u/${encodeURIComponent(key)}/streams?period=${period}&limit=50&offset=${off}`);
+      const data = await res.json().catch(() => null);
+      if (data?.streams) {
+        setStreams([...(streams || []), ...data.streams]);
+        setStreamsTotal(Number(data.total || 0));
+        setStreamsBackfill(data.backfillDone ?? null);
+      }
+    } catch { /* keep what we have */ }
+    setStreamsLoading(false);
+  };
+
+  // Fresh history per profile/period.
+  useEffect(() => {
+    setStreams(null);
+    setStreamsTotal(0);
+    setStreamsBackfill(null);
+  }, [usernameParam, period]);
+  // Weekly/monthly recap (same data as the Discord recap image).
+  const [recapPeriod, setRecapPeriod] = useState<"week" | "month">("week");
+  const [recap, setRecap] = useState<any>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
+  const [recapOpen, setRecapOpen] = useState(true);
+  // Tops start compact (8 artists / 4 albums) with a show-more toggle.
+  const [showAllArtists, setShowAllArtists] = useState(false);
+  const [showAllAlbums, setShowAllAlbums] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRecapLoading(true);
+    setRecapError(null);
+    (async () => {
+      try {
+        const res = await fetchApi(`/api/recap?user=${encodeURIComponent(usernameParam)}&period=${recapPeriod}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setRecap(null);
+          setRecapError((data as any)?.error || "No recap yet.");
+        } else {
+          setRecap(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecap(null);
+          setRecapError("Couldn't load recap.");
+        }
+      } finally {
+        if (!cancelled) setRecapLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [usernameParam, recapPeriod]);
+  const PERIOD_LONG: Record<string, string> = {
+    "7day": "last 7 days",
+    "1month": "last month",
+    "3month": "last 3 months",
+    "6month": "last 6 months",
+    "12month": "last year",
+    "overall": "of all time",
+  };
+  const periodLong = PERIOD_LONG[period] || "of all time";
+
+  // Fetch Public Profile Data
+  useEffect(() => {
+    let isMounted = true;
+    // Permanent errors (unknown user, private, banned) never resolve by
+    // retrying — stop polling so a missing profile doesn't 404 forever.
+    let stopPolling = false;
+    // Whether one good payload has rendered: transient poll failures keep
+    // stale data on screen instead of flashing the error state.
+    let hasData = false;
+    // One-time fallback: if the name lookup 404s while logged in, retry via
+    // your own Discord ID (display names drift; IDs don't). Sticks to the ID
+    // URL for subsequent polls once it succeeds.
+    let triedIdFallback = false;
+    let useIdUrl = false;
+    setProfileLoading(true);
+    setTopsLoading(true);
+    setResolvedOwnProfile(false);
+
+    const fetchProfile = async () => {
+      if (stopPolling) return;
+      try {
+        const key = useIdUrl && sessionUserId ? sessionUserId : usernameParam;
+        // Safe parse: gateway 504s return HTML, not JSON.
+        const safeJson = async (r: Response) => {
+          try { return await r.json(); } catch { return null; }
+        };
+        // Route has revalidate=60: no cache-buster so polls share cached responses
+        // instead of stampeding DB + Last.fm (the old t=Date.now() defeated it).
+        let res = await fetchApi(`/api/u/${encodeURIComponent(key)}?period=${period}`);
+        let data = await safeJson(res);
+        if (res.status === 404 && !useIdUrl && sessionUserId && !triedIdFallback) {
+          triedIdFallback = true;
+          const res2 = await fetchApi(`/api/u/${sessionUserId}?period=${period}`);
+          const data2 = await safeJson(res2);
+          if (data2 && !data2.error) {
+            useIdUrl = true;
+            res = res2;
+            data = data2;
+            if (isMounted) {
+              setResolvedOwnProfile(true);
+              toast("Couldn't find that username — showing your profile instead.");
+            }
+          }
+        }
+        if (isMounted) {
+          if (!data) {
+            // Transient failure (504/timeout with no JSON body): keep the
+            // last good data on screen instead of flashing an error.
+            if (!hasData) setProfileError("Failed to load profile.");
+          } else if (data.error) {
+            // Permanent errors stop polling; transient ones (500/504 from
+            // the API) keep stale data visible and retry silently.
+            if (res.status === 404 || res.status === 403) {
+              setProfileError(data.error);
+              stopPolling = true;
+            } else if (!hasData) {
+              setProfileError(data.error);
+            }
+          } else {
+            hasData = true;
+            setProfileError(null);
+            setProfile(data);
+          }
+        }
+      } catch (err) {
+        if (isMounted && !hasData) setProfileError("Failed to load profile.");
+      } finally {
+        if (isMounted) { setProfileLoading(false); setTopsLoading(false); }
+      }
+    };
+
+    fetchProfile();
+    const intervalId = setInterval(fetchProfile, 30000); // Poll every 30 seconds
+
+    return () => {
+      isMounted = false;
+      stopPolling = true;
+      clearInterval(intervalId);
+    };
+  }, [usernameParam, period, status, sessionUserId]);
+
+  // Fetch Dashboard Data (only if owner)
+  useEffect(() => {
+    if (isOwner) {
+      fetchApi("/api/settings")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data) {
+            if (data.fmMode) { setFmMode(data.fmMode); setUnsavedFmMode(data.fmMode); }
+            if (data.showFeatures !== undefined) { setShowFeatures(data.showFeatures); setUnsavedShowFeatures(data.showFeatures); }
+            if (data.privateMode !== undefined) { setPrivateMode(data.privateMode); setUnsavedPrivateMode(data.privateMode); }
+            if (data.dataSource) { setDataSource(data.dataSource); setUnsavedDataSource(data.dataSource); }
+            if (data.timezone) { setTimezone(data.timezone); setUnsavedTimezone(data.timezone); }
+            if (data.showTrackPlaycount !== undefined) { setShowTrackPlaycount(data.showTrackPlaycount); setUnsavedShowTrackPlaycount(data.showTrackPlaycount); }
+            if (data.displayName !== undefined) { setDisplayName(data.displayName); setUnsavedDisplayName(data.displayName); }
+            if (data.bio !== undefined) { setBio(data.bio); setUnsavedBio(data.bio); }
+            if (data.website !== undefined) { setWebsite(data.website); setUnsavedWebsite(data.website); }
+          }
+        })
+        .catch(console.error);
+
+      fetchSuggestions();
+
+      fetchApi("/api/user-stats")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) setUserStats(data.stats);
+        })
+        .catch(console.error)
+        .finally(() => setUserStatsLoading(false));
+
+      fetchApi("/api/bot-status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status) setBotStatus(data.status);
+        })
+        .catch(console.error);
+    }
+  }, [isOwner]);
+
+  const fetchSuggestions = async () => {
+    setSuggestionsLoading(true);
+    try {
+      const res = await fetchApi("/api/suggestions");
+      if (res.ok) {
+        const data = await res.json();
+        setSuggestions(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (
+      unsavedFmMode !== fmMode ||
+      unsavedShowFeatures !== showFeatures ||
+      unsavedPrivateMode !== privateMode ||
+      unsavedDataSource !== dataSource ||
+      unsavedTimezone !== timezone ||
+      unsavedShowTrackPlaycount !== showTrackPlaycount ||
+      unsavedDisplayName !== displayName ||
+      unsavedBio !== bio ||
+      unsavedWebsite !== website
+    ) {
+      setHasUnsavedChanges(true);
+    } else {
+      setHasUnsavedChanges(false);
+    }
+  }, [unsavedFmMode, unsavedShowFeatures, unsavedPrivateMode, unsavedDataSource, unsavedTimezone, unsavedShowTrackPlaycount, unsavedDisplayName, unsavedBio, unsavedWebsite, fmMode, showFeatures, privateMode, dataSource, timezone, showTrackPlaycount, displayName, bio, website]);
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetchApi("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fmMode: unsavedFmMode,
+          showFeatures: unsavedShowFeatures,
+          privateMode: unsavedPrivateMode,
+          dataSource: unsavedDataSource,
+          timezone: unsavedTimezone,
+          showTrackPlaycount: unsavedShowTrackPlaycount,
+          displayName: unsavedDisplayName,
+          bio: unsavedBio,
+          website: unsavedWebsite
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.fmMode) setFmMode(data.fmMode);
+        if (data.showFeatures !== undefined) setShowFeatures(data.showFeatures);
+        if (data.privateMode !== undefined) setPrivateMode(data.privateMode);
+        if (data.dataSource) setDataSource(data.dataSource);
+        if (data.timezone) setTimezone(data.timezone);
+        if (data.showTrackPlaycount !== undefined) setShowTrackPlaycount(data.showTrackPlaycount);
+        if (data.displayName !== undefined) setDisplayName(data.displayName);
+        if (data.bio !== undefined) { setBio(data.bio); setUnsavedBio(data.bio); }
+        if (data.website !== undefined) { setWebsite(data.website); setUnsavedWebsite(data.website); }
+        setHasUnsavedChanges(false);
+        toast.success("Settings saved successfully!");
+      }
+    } catch (err) {
+      console.error("Error saving settings:", err);
+      toast.error("Failed to save settings.");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const submitSuggestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSuggestionTitle || !newSuggestionDesc) return;
+    setSubmittingSuggestion(true);
+    try {
+      const res = await fetchApi("/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newSuggestionTitle, description: newSuggestionDesc })
+      });
+      if (res.ok) {
+        setNewSuggestionTitle("");
+        setNewSuggestionDesc("");
+        fetchSuggestions();
+        toast.success("Suggestion submitted!");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to submit suggestion.");
+    } finally {
+      setSubmittingSuggestion(false);
+    }
+  };
+
+  const ToggleSwitch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
+    <button 
+      onClick={onChange}
+      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${checked ? 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+    >
+      <span className="sr-only">Toggle</span>
+      <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-300 ease-out ${checked ? 'translate-x-5 scale-105' : 'translate-x-0'}`} />
+    </button>
+  );
+
+  const CustomSelect = ({ value, options, onChange }: { value: string, options: {label: string, value: string}[], onChange: (val: string) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedOption = options.find(o => o.value === value) || options[0];
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0e0618] text-white p-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Profile Not Found</h1>
-          <p className="text-zinc-400">
-            The user <strong>{usernameParam}</strong> was not found.
-          </p>
-          <a href="/" className="text-indigo-400 hover:text-indigo-400 underline">
-            {"← Back to Home"}
-          </a>
-        </div>
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center justify-between gap-3 bg-[#170b28]/60 hover:bg-white/5 border rounded-xl px-4 py-3 text-white font-semibold focus:outline-none transition-all shadow-sm ${isOpen ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-white/10 hover:border-white/20'}`}
+        >
+          <span className="truncate">{selectedOption.label}</span>
+          <span className={`shrink-0 text-zinc-500 text-[10px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : ''}`}>▼</span>
+        </button>
+        
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+            <div className="absolute z-50 w-full mt-2 bg-[#170b28]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-y-auto overflow-x-hidden max-h-60 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-fade-in-up styled-scrollbar">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 truncate hover:bg-indigo-500/20 transition-colors ${value === opt.value ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-zinc-300 font-medium'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const getStatusBadge = (status: string, title?: string) => {
+    const isBug = title?.toLowerCase().includes("bug");
+    switch(status) {
+      case 'approved': 
+        if (isBug) return <span className="px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Investigating</span>;
+        return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Approved</span>;
+      case 'denied': 
+        if (isBug) return <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Not a Bug</span>;
+        return <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Denied</span>;
+      case 'completed': 
+        if (isBug) return <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Fixed</span>;
+        return <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Update Released</span>;
+      default: 
+        return <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-xs font-bold uppercase tracking-wider">Pending</span>;
+    }
+  };
+
+  // Listening insights derived from the latest profile payload.
+  // Recents always reflect the latest activity; the plays/artists cards
+  // follow the selected timeframe tab via server-computed windowStats
+  // (24h computation kept as fallback for stale payloads).
+  const WINDOW_SHORT: Record<string, string> = {
+    "7day": "7D", "1month": "1M", "3month": "3M",
+    "6month": "6M", "12month": "1Y", "overall": "ALL TIME",
+  };
+  const wlabel = WINDOW_SHORT[period] || period;
+  const insights = (() => {
+    const stats = profile?.stats;
+    const recents: any[] = Array.isArray(stats?.recentTracks) ? stats.recentTracks : [];
+    const now = Date.now();
+    const inWindow = (t: any) =>
+      !t.nowPlaying && t.date && now - parseInt(t.date) * 1000 < 24 * 60 * 60 * 1000;
+    const plays24h = recents.filter(inWindow).length;
+    // Same 24h window as plays (now-playing counts for neither until scrobbled).
+    const uniqueArtists24h = new Set(
+      recents.filter(inWindow).map((t) => (t.artist || "").toLowerCase()).filter(Boolean)
+    ).size;
+    const ws = (profile as any)?.windowStats;
+    const plays = ws && typeof ws.plays === "number" ? ws.plays : plays24h;
+    const playsPlus = ws ? !!ws.playsCapped : false;
+    const artists = ws && typeof ws.artists === "number" ? ws.artists : uniqueArtists24h;
+    const artistsPlus = ws ? !!ws.artistsCapped : false;
+    const nowPlaying = recents.find((t) => t.nowPlaying) || null;
+    const topArtist = stats?.topArtists?.[0] || null;
+    const total = Number(stats?.playcount || 0);
+    const share = topArtist && total > 0 ? Math.min(100, (Number(topArtist.playcount || 0) / total) * 100) : 0;
+    const nextMilestone = total < 10 ? 10 : Math.pow(10, Math.ceil(Math.log10(total + 1)));
+    const milestonePct = Math.min(100, (total / nextMilestone) * 100);
+    const minutesTotal = Math.floor(Number((profile as any)?.rhythm?.minutesTotalMs || 0) / 60000);
+    const listeningTime = minutesTotal <= 0 ? "" : minutesTotal >= 1440
+      ? `${Math.floor(minutesTotal / 1440)}d ${Math.floor((minutesTotal % 1440) / 60)}h`
+      : minutesTotal >= 60
+        ? `${Math.floor(minutesTotal / 60)}h ${minutesTotal % 60}m`
+        : `${minutesTotal}m`;
+    return { plays, playsPlus, artists, artistsPlus, wlabel, nowPlaying, topArtist, total, share, nextMilestone, milestonePct, listeningTime };
+  })();
+
+  if ((profileLoading && !profile) || status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0e0618]">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
+  // If the profile does not exist or is private, and the user is NOT the owner
+  if (profileError && !isOwner) {
+    let icon = "🔒";
+    let title = "Profile Unavailable";
+    
+    const errorLower = profileError.toLowerCase();
+    
+    const isFatalError = errorLower.includes("private") || errorLower.includes("not found");
+    if (!profile || isFatalError) {
+      if (errorLower.includes("not found")) {
+        icon = "👻";
+        title = "User Not Found";
+      } else if (errorLower.includes("server error") || errorLower.includes("failed to load")) {
+        icon = "⚠️";
+        title = "Server Error";
+      } else if (errorLower.includes("private")) {
+        icon = "🔒";
+        title = "Private Profile";
+      }
+
+      return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0e0618] text-white p-4 relative overflow-hidden">
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="bg-[#170b28]/40 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] max-w-md w-full text-center shadow-2xl relative z-10 animate-fade-in-up">
+          <div className="text-7xl mb-6 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transform transition-transform hover:scale-110">{icon}</div>
+          <h2 className="text-3xl font-display font-black mb-3 tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400">{title}</h2>
+          <p className="text-zinc-400 text-base mb-8 leading-relaxed font-medium">
+            {profileError === "Internal Server Error" 
+              ? "We hit a snag while trying to load this profile. Please try again later."
+              : profileError}
+          </p>
+          <Link href="/" className="px-8 py-3.5 bg-white text-black hover:bg-zinc-200 rounded-xl font-bold transition-all inline-block shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95">
+            Return Home
+          </Link>
+        </div>
+      </div>
+    );
+    }
+  }
+
   return (
-    <Suspense>
-      <ProfilePageClient
-        username={usernameParam}
-        profileData={profileData}
-        rhythmData={rhythmData}
-        recapData={recapData}
+    <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden relative pb-32">
+      {/* Background Blurs */}
+      <div className="fixed top-0 left-1/4 w-1/2 h-[500px] bg-indigo-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
+      <div className="fixed bottom-0 right-1/4 w-1/3 h-[400px] bg-purple-600/10 rounded-full blur-[160px] pointer-events-none z-0" />
+      
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 relative z-10 max-w-7xl animate-fade-in-up">
+        
+        {/* Invite banner for logged-out visitors arriving via ?ref= */}
+        {inviteRef && status === "unauthenticated" && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
+            <div className="text-amber-200 text-sm font-semibold">
+              🎁 You&apos;ve been invited to DJ Scratch! Log in to count the invite — you both earn badges.
+            </div>
+            <button
+              onClick={() => { void loginWithDiscord(); }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/25 hover:bg-amber-500/35 border border-amber-500/40 text-amber-100 text-sm font-bold rounded-xl transition-all whitespace-nowrap"
+            >
+              Login with Discord
+            </button>
+          </div>
+        )}
+
+        {/* HERO BANNER (Modified to handle both owner view and public view) */}
+        <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none" />
+          
+          <div className="relative flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-4 md:gap-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
+              <span className="block w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-zinc-900/50 shadow-2xl relative z-10 overflow-hidden bg-zinc-800 shrink-0">
+                <span className="absolute inset-0 flex items-center justify-center text-3xl md:text-5xl font-display font-black text-indigo-300">
+                  {(displayUsername || "?").charAt(0).toUpperCase()}
+                </span>
+                <img
+                  src={profile?.users?.[0]?.avatar || session?.user?.image || "/logo.png?v=2"}
+                  alt="Avatar"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => { const t = e.currentTarget; if (!t.src.includes("/logo.png")) t.src = "/logo.png?v=2"; }}
+                />
+              </span>
+            </div>
+            <div className="flex flex-col justify-center h-full">
+              {isOwner ? (
+                <>
+                  <h1 className="font-display text-3xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
+                    Welcome back, <span className="text-indigo-400">{displayUsername}</span>
+                  </h1>
+                  <p className="text-zinc-400 text-lg">Manage your integration, preferences, and account data.</p>
+                  {(profile as any)?.bio && (
+                    <p className="text-zinc-300 text-sm mt-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
+                  )}
+                  {(profile as any)?.website && (
+                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mt-1 inline-block">
+                      🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
+                    </a>
+                  )}
+                  <button
+                    onClick={shareProfile}
+                    className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-bold rounded-xl transition-all w-fit mx-auto md:mx-0"
+                  >
+                    {copiedLink ? "✓ Copied!" : "⧉ Share my profile"}
+                  </button>
+                  {referral && (
+                    <div className="mt-3 p-4 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl w-fit">
+                      <div className="text-amber-300 text-sm font-bold mb-1">🎁 Invite friends — earn badges together</div>
+                      <div className="text-zinc-400 text-xs mb-2">
+                        {referral.completed} joined • {referral.clicks} clicked
+                        {referral.badges?.length > 0 && <> • {referral.badges.map((b) => b.emoji).join(" ")}</>}
+                      </div>
+                      <button
+                        onClick={copyInviteLink}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-sm font-bold rounded-xl transition-all"
+                      >
+                        {copiedInvite ? "✓ Copied!" : "⧉ Copy invite link"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-2">{profile?.users?.[0]?.name || usernameParam}</h1>
+                  <p className="text-indigo-400 text-sm font-semibold uppercase tracking-widest mb-4">DJ Scratch Profile</p>
+                  {(profile as any)?.bio && (
+                    <p className="text-zinc-300 text-sm mb-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
+                  )}
+                  {(profile as any)?.website && (
+                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mb-4 inline-block">
+                      🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
+                    </a>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
+                  <a 
+                    href={`https://www.last.fm/user/${profile?.lastfm_username || usernameParam}`} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-[#ba0000] hover:bg-[#d50000] text-white text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-[#ba0000]/30 w-fit"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 13.932c-1.353 0-2.457-1.127-2.457-2.52 0-1.391 1.104-2.518 2.457-2.518 1.35 0 2.454 1.127 2.454 2.518 0 1.393-1.104 2.52-2.454 2.52m-.032-7.593c-2.316 0-4.227 1.636-4.707 3.821h-.041l-.988-3.666H7.135l1.631 5.922c-.655 1.579-2.029 2.584-3.665 2.584-1.634 0-2.906-1.154-2.906-2.616 0-1.464 1.258-2.619 2.906-2.619.673 0 1.298.243 1.834.717l2.179-2.81c-1.077-.962-2.502-1.554-4.013-1.554-3.088 0-5.022 2.306-5.022 5.253 0 2.946 2.052 5.266 5.022 5.266 2.873 0 5.158-2.051 5.626-4.664h.043c.535 2.529 2.766 4.664 5.728 4.664 3.09 0 5.568-2.519 5.568-5.656 0-3.136-2.478-5.645-5.568-5.645"/></svg>
+                    View on Last.fm
+                  </a>
+                  <button
+                    onClick={shareProfile}
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-bold rounded-xl transition-all w-fit"
+                  >
+                    {copiedLink ? "✓ Copied!" : "⧉ Share profile"}
+                  </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Right Side Stats/Widgets */}
+          {isOwner ? (
+            <div className="w-full md:w-auto md:min-w-[300px]">
+              <NowPlayingWidget />
+            </div>
+          ) : (
+            profile?.stats?.playcount > 0 && (
+              <div className="bg-[#170b28]/60 border border-white/10 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl flex items-center justify-center gap-4 hover:border-indigo-500/30 transition-colors">
+                 <div className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Scrobbles</div>
+                 <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+                   {profile.stats.playcount.toLocaleString()}
+                 </div>
+              </div>
+            )
+          )}
+        </div>
+
+        {/* TAB SWITCHER (Only visible to owner) */}
+        {isOwner && (
+          <div className="flex items-center justify-center mb-8">
+            <div className="bg-[#170b28]/60 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+              <button 
+                onClick={() => setActiveTab("profile")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-300 shadow-lg border border-indigo-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>🌍</span> Public Profile
+              </button>
+              <button 
+                onClick={() => setActiveTab("settings")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'settings' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>⚙️</span> Preferences
+              </button>
+              <button 
+                onClick={() => setActiveTab("suggestions")}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'suggestions' ? 'bg-emerald-500/20 text-emerald-300 shadow-lg border border-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>💡</span> Feedback & Ideas
+              </button>
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'import' ? 'bg-amber-500/20 text-amber-300 shadow-lg border border-amber-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>📥</span> Import
+              </button>
+              {adminRole && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${activeTab === 'admin' ? 'bg-red-500/20 text-red-300 shadow-lg border border-red-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span>🛡️</span> Admin
+              </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- PROFILE TAB --- */}
+        {(!isOwner || activeTab === "profile") && profile && !profileError && (
+          <>
+          {/* Profile section nav: Overview | Charts | Activity */}
+          <Tabs
+            tabs={[
+              { value: "overview", label: "Overview" },
+              { value: "charts", label: "Charts" },
+              { value: "activity", label: "Activity" },
+            ]}
+            value={profileSection}
+            onChange={(v) => setProfileSection(v as typeof profileSection)}
+            label="Profile sections"
+            className="mb-5"
+          />
+
+          {/* Onboarding checklist: owner only, hides itself as steps complete. */}
+          {isOwner && !onboardDismissed && profile && (() => {
+            const linked = !!(profile as any)?.lastfm_username;
+            const played = Number((profile as any)?.stats?.playcount || 0) > 0;
+            const steps = [
+              {
+                done: linked,
+                emoji: "🔗",
+                title: "Link Last.fm",
+                hint: "Connect your listening history.",
+                action: linked ? null : { label: "Link now", run: () => loginWithLastfm() },
+              },
+              {
+                done: played,
+                emoji: "🎧",
+                title: "Scrobble something",
+                hint: "Play a track — stats appear here.",
+                action: null,
+              },
+              {
+                done: onboardShared,
+                emoji: "🎁",
+                title: "Share your card",
+                hint: "Friends joining earns you both badges.",
+                action: onboardShared ? null : {
+                  label: "Copy link",
+                  run: () => {
+                    shareProfile();
+                    try { localStorage.setItem("ds_onboard_shared", "1"); } catch { /* ignore */ }
+                    setOnboardShared(true);
+                  },
+                },
+              },
+            ];
+            const doneCount = steps.filter((s) => s.done).length;
+            if (doneCount === steps.length) return null;
+            return (
+              <div className="mb-5 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl px-5 py-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-bold text-white">🚀 Get set up · {doneCount}/{steps.length}</span>
+                  <button
+                    onClick={() => {
+                      try { localStorage.setItem("ds_onboard_done", "1"); } catch { /* ignore */ }
+                      setOnboardDismissed(true);
+                    }}
+                    className="ml-auto text-zinc-500 hover:text-white text-xs font-bold px-2 py-1"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-2.5">
+                  {steps.map((s) => (
+                    <div
+                      key={s.title}
+                      className={`rounded-xl border px-3.5 py-3 flex items-center gap-3 ${
+                        s.done ? "bg-emerald-500/5 border-emerald-500/20" : "bg-black/30 border-white/10"
+                      }`}
+                    >
+                      <span className="text-xl shrink-0">{s.done ? "✅" : s.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-bold truncate ${s.done ? "text-zinc-500 line-through" : "text-white"}`}>
+                          {s.title}
+                        </div>
+                        <div className="text-xs text-zinc-500 truncate">{s.hint}</div>
+                      </div>
+                      {s.action && (
+                        <button
+                          onClick={s.action.run}
+                          className="shrink-0 px-3 py-1.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold transition-colors"
+                        >
+                          {s.action.label}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {profileSection === "overview" && (
+          <>
+          {/* Listening insights */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Plays · {insights.wlabel}</div>
+              <div className="text-2xl font-display font-black text-white">{insights.plays.toLocaleString()}{insights.playsPlus ? "+" : ""}</div>
+              <div className="text-xs text-zinc-400 mt-1">plays scrobbled{insights.listeningTime ? ` · ⏱ ${insights.listeningTime}` : ""}</div>
+            </div>
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Artists · {insights.wlabel}</div>
+              <div className="text-2xl font-display font-black text-white">{insights.artists.toLocaleString()}{insights.artistsPlus ? "+" : ""}</div>
+              <div className="text-xs text-zinc-400 mt-1">distinct artists</div>
+            </div>
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">Top artist share</div>
+              <div className="text-2xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+                {insights.share.toFixed(1)}%
+              </div>
+              <div className="text-xs text-zinc-400 mt-1 truncate">{insights.topArtist?.name || "—"}</div>
+            </div>
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-4 shadow-xl">
+              <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-1">
+                Next milestone · {insights.nextMilestone.toLocaleString()}
+              </div>
+              <div className="text-2xl font-display font-black text-white">{(insights.nextMilestone - insights.total).toLocaleString()}</div>
+              <div className="text-xs text-zinc-400 mt-1 mb-2">plays to go</div>
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
+                  style={{ width: `${insights.milestonePct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Listening rhythm (stats.fm-style, server-computed) */}
+          {(() => {
+            const r = (profile as any)?.rhythm;
+            if (!r) return null;
+            const clock: number[] = Array.isArray(r.clock) && r.clock.length === 24 ? r.clock : [];
+            const cmax = Math.max(1, ...clock);
+            const daily: any[] = Array.isArray(r.daily) ? r.daily : [];
+            const dmax = Math.max(1, ...daily.map((d: any) => Number(d?.plays) || 0));
+            const genres: any[] = Array.isArray(r.genres) ? r.genres : [];
+            const gmax = Math.max(1, ...genres.map((g: any) => Number(g?.count) || 0));
+            const discoveries: string[] = Array.isArray(r.discoveries) ? r.discoveries.filter(Boolean) : [];
+            const hasAny = clock.some((c) => c > 0) || daily.some((d: any) => (d?.plays || 0) > 0)
+              || genres.length > 0 || discoveries.length > 0 || (r.streak || 0) > 0;
+            if (!hasAny) return null;
+            const hourLabel = (h: number) => {
+              if (h === 0) return "12a";
+              if (h === 12) return "12p";
+              return h < 12 ? `${h}a` : `${h - 12}p`;
+            };
+            return (
+              <div className="mb-6 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2.5 mb-4 flex-wrap">
+                  <h3 className="text-lg font-bold">🕓 Listening rhythm</h3>
+                  {(r.streak || 0) > 0 && (
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-orange-300 bg-orange-500/10 border border-orange-500/20 inline-flex items-center gap-1.5">
+                      <img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-4 h-4" />
+                      {r.streak}-day streak
+                    </span>
+                  )}
+                  {(r.avgPerDay || 0) > 0 && (
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+                      ~{r.avgPerDay} plays/day
+                    </span>
+                  )}
+                </div>
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Plays by hour · UTC</div>
+                    <div className="flex items-end gap-[3px] h-24">
+                      {clock.map((c: number, h: number) => (
+                        <div key={h} className="flex-1 flex flex-col items-center justify-end h-full" title={`${hourLabel(h)}: ${c} plays`}>
+                          <div
+                            className={`w-full rounded-t ${c === cmax && c > 0 ? "bg-gradient-to-t from-fuchsia-600 to-fuchsia-400" : "bg-indigo-500/50"}`}
+                            style={{ height: `${Math.max(3, (c / cmax) * 100)}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-[3px] mt-1">
+                      {clock.map((_: number, h: number) => (
+                        <div key={h} className="flex-1 text-center text-[9px] text-zinc-600">
+                          {h % 6 === 0 ? hourLabel(h) : ""}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Last 14 days</div>
+                    <div className="flex items-end gap-1.5 h-24">
+                      {daily.map((d: any, i: number) => (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d?.date}: ${d?.plays} plays`}>
+                          <div
+                            className={`w-full rounded-t ${i === daily.length - 1 ? "bg-gradient-to-t from-emerald-600 to-emerald-400" : "bg-indigo-500/50"}`}
+                            style={{ height: `${Math.max(3, ((Number(d?.plays) || 0) / dmax) * 100)}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5 mt-1">
+                      {daily.map((d: any, i: number) => (
+                        <div key={i} className="flex-1 text-center text-[9px] text-zinc-600">
+                          {i % 2 === 0 ? String(d?.date || "") : ""}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {(genres.length > 0 || discoveries.length > 0) && (
+                  <div className="grid sm:grid-cols-2 gap-6 mt-5 pt-5 border-t border-white/5">
+                    {genres.length > 0 && (
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top genres</div>
+                        <div className="space-y-1.5">
+                          {genres.slice(0, 4).map((g: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-zinc-200 text-xs font-semibold truncate flex-1">{g?.name}</span>
+                              <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden shrink-0">
+                                <div
+                                  className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full"
+                                  style={{ width: `${Math.max(4, ((Number(g?.count) || 0) / gmax) * 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-zinc-500 text-xs w-10 text-right shrink-0">{Number(g?.count || 0).toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {discoveries.length > 0 && (
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">New discoveries · {wlabel}</div>
+                        <div className="text-sm text-zinc-300 leading-relaxed">{discoveries.slice(0, 6).join("  •  ")}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {insights.nowPlaying && (
+            <div className="mb-6 bg-green-500/5 border border-green-500/20 rounded-2xl px-5 py-3 flex items-center gap-4">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+              <p className="text-sm text-zinc-300 truncate">
+                <span className="font-bold text-white">{insights.nowPlaying.name}</span>
+                <span className="text-zinc-500"> — {insights.nowPlaying.artist}</span>
+              </p>
+              <span className="ml-auto text-[10px] font-display font-black uppercase tracking-widest text-green-400 shrink-0">Now playing</span>
+            </div>
+          )}
+
+          {/* Weekly/monthly recap — compact, collapsible, site-styled */}
+          <div className="mb-6 bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+            <div
+              onClick={() => setRecapOpen(!recapOpen)}
+              className="w-full px-6 py-4 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-bold flex items-center gap-2 flex-wrap">
+                  <span>📊 Recap</span>
+                  <span className="text-[#0AB5CD] text-xs font-black uppercase tracking-widest">
+                    {recap?.title || (recapPeriod === "month" ? "Month" : "Week")}
+                  </span>
+                  {recap && (
+                    <span className="text-zinc-400 text-xs font-semibold">
+                      · {recap?.label} · {Number(recap.total || 0).toLocaleString()}{recap?.capped ? "+" : ""} plays
+                    </span>
+                  )}
+                </div>
+                {!recap && (
+                  <div className="text-zinc-500 text-xs mt-0.5">{recapPeriod === "month" ? "Last 30 days" : "Last 7 days"}</div>
+                )}
+              </div>
+              <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Link
+                  href={`/${encodeURIComponent(usernameParam)}/wrapped`}
+                  className="px-3 py-1 rounded-full text-[11px] font-bold transition-all bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30 border border-fuchsia-500/30"
+                  title="Watch your month as a story"
+                >
+                  ▶ Wrapped
+                </Link>
+                {(["week", "month"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setRecapPeriod(p)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
+                      recapPeriod === p
+                        ? "bg-[#0AB5CD] text-black"
+                        : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
+                    }`}
+                  >
+                    {p === "week" ? "1W" : "1M"}
+                  </button>
+                ))}
+              </div>
+              <span className={`shrink-0 text-zinc-500 text-xs transition-transform duration-300 ${recapOpen ? "rotate-180" : ""}`}>▼</span>
+            </div>
+            {recapOpen && (
+              <div className="px-6 pb-5">
+                {recapLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="w-5 h-5 border-2 border-[#0AB5CD] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : recap ? (
+                  <>
+                    <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top tracks</div>
+                        <div className="space-y-2">
+                          {(recap.topTracks || []).map((t: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2.5 min-w-0">
+                              {t.image ? (
+                                <img src={artSrc(t.image)} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">🎵</div>
+                              )}
+                              <div className="text-zinc-500 font-black text-sm w-4 shrink-0">{i + 1}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-bold truncate">{t.name}</div>
+                                <div className="text-zinc-500 text-xs truncate">{t.artist} · {Number(t.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top artists</div>
+                        <div className="space-y-2">
+                          {(recap.topArtists || []).map((a: any, i: number) => {
+                            const max = Math.max(1, ...(recap.topArtists || []).map((x: any) => Number(x.playcount || 0)));
+                            return (
+                              <div key={i} className="flex items-center gap-2.5 min-w-0">
+                                {a.image ? (
+                                  <img src={artSrc(a.image)} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-sm shrink-0">🎤</div>
+                                )}
+                                <div className="text-white text-sm font-bold truncate w-28 shrink-0">{a.name}</div>
+                                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden min-w-[30px]">
+                                  <div className="h-full bg-[#0AB5CD] rounded-full" style={{ width: `${Math.max(4, (Number(a.playcount || 0) / max) * 100)}%` }} />
+                                </div>
+                                <div className="text-zinc-500 text-xs font-bold shrink-0 w-8 text-right">{Number(a.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    {(recap.topAlbums || []).length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest mb-2">Top albums</div>
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {(recap.topAlbums || []).map((b: any, i: number) => (
+                            <div key={i} className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5 flex items-center gap-2.5 min-w-0">
+                              {b.image ? (
+                                <img src={artSrc(b.image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">💿</div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-white text-xs font-bold truncate">{b.name}</div>
+                                <div className="text-zinc-500 text-[11px] truncate">{b.artist} · {Number(b.playcount || 0).toLocaleString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {(recap.discoveries || []).length > 0 && (
+                      <div className="mt-3 text-xs text-zinc-400">
+                        <span className="text-[#F1C40F] font-bold uppercase tracking-widest text-[11px]">New finds · </span>
+                        {(recap.discoveries || []).join("  •  ")}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-zinc-500 text-sm">{recapError || "No recap yet."}</div>
+                )}
+              </div>
+            )}
+          </div>
+          </>)}
+
+          {profileSection === "charts" && (
+          <>
+          {/* Period selector for Top Artists / Albums / Tracks */}
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 mr-1">Tops:</span>
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  period === p.value
+                    ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                    : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            {topsLoading && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
+                <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+                Updating…
+              </span>
+            )}
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6 items-start animate-fade-in">
+            {/* Top Artists Grid */}
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-lg font-bold flex items-center gap-2">⭐ Top Artists</h3>
+                  <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened artists ${periodLong}.` : `Their most listened artists ${periodLong}.`}</p>
+               </div>
+               <div className="p-4 sm:p-5 grid grid-cols-2 gap-3">
+                 {profile.stats?.topArtists?.length > 0 ? (showAllArtists ? profile.stats.topArtists : profile.stats.topArtists.slice(0, 8)).map((artist: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={artist.url} 
+                     target="_blank"
+                     rel="noreferrer"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3 flex flex-col items-center text-center transition-all group"
+                   >
+                     <div className="w-14 h-14 rounded-full bg-zinc-800 mb-2 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                        {artist.image && !artist.image.includes("2a96cbd8b46e442fc41c2b86b821562f") ? (
+                          <img src={artSrc(artist.image)} alt={artist.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl bg-zinc-800">🎤</div>
+                        )}
+                     </div>
+                     <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{artist.name}</div>
+                     <div className="text-xs text-zinc-500 font-medium mt-0.5">{parseInt(artist.playcount).toLocaleString()} plays</div>
+                   </a>
+                 )) : (
+                   <div className="col-span-2 text-center py-8 text-zinc-500">No top artists found.</div>
+                 )}
+               </div>
+               {(profile.stats?.topArtists?.length || 0) > 8 && (
+                 <button
+                   onClick={() => setShowAllArtists(!showAllArtists)}
+                   className="w-full py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors"
+                 >
+                   {showAllArtists ? "Show less ▲" : `Show all ${profile.stats.topArtists.length} ▼`}
+                 </button>
+               )}
+            </div>
+
+            {/* Top Albums Grid */}
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                 <h3 className="text-lg font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-5 h-5 inline-block" /> Top Albums</h3>
+                  <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most listened albums ${periodLong}.` : `Their most listened albums ${periodLong}.`}</p>
+               </div>
+               <div className="p-4 sm:p-5 grid grid-cols-2 gap-3">
+                 {profile.stats?.topAlbums?.length > 0 ? (showAllAlbums ? profile.stats.topAlbums : profile.stats.topAlbums.slice(0, 4)).map((album: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={album.url} 
+                     target="_blank"
+                     rel="noreferrer"
+                     className="bg-[#170b28]/30 hover:bg-zinc-800/50 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3 flex flex-col items-center text-center transition-all group"
+                   >
+                     <div className="w-14 h-14 rounded-xl bg-zinc-800 mb-2 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+                        {album.image ? (
+                          <img src={artSrc(album.image)} alt={album.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800"><img src="https://cdn.discordapp.com/emojis/1527125818713837701.gif" alt="VinylRecord" className="w-7 h-7 opacity-50" /></div>
+                        )}
+                     </div>
+                     <div className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors line-clamp-1 w-full">{album.name}</div>
+                     <div className="text-xs text-zinc-400 truncate mt-0.5 w-full">{album.artist}</div>
+                     <div className="text-[10px] text-zinc-500 font-medium mt-0.5 uppercase tracking-wider">{parseInt(album.playcount).toLocaleString()} plays</div>
+                   </a>
+                 )) : (
+                   <div className="col-span-2 text-center py-8 text-zinc-500">No top albums found.</div>
+                 )}
+               </div>
+               {(profile.stats?.topAlbums?.length || 0) > 4 && (
+                 <button
+                   onClick={() => setShowAllAlbums(!showAllAlbums)}
+                   className="w-full py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors"
+                 >
+                   {showAllAlbums ? "Show less ▲" : `Show all ${profile.stats.topAlbums.length} ▼`}
+                 </button>
+               )}
+            </div>
+
+            {/* Top Tracks List */}
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+               <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-lg font-bold flex items-center gap-2"><img src="https://cdn.discordapp.com/emojis/1551046550862569561.gif" alt="fire" className="w-5 h-5" /> Top Tracks</h3>
+                  <p className="text-zinc-400 text-sm mt-1">{isOwner ? `Your most played songs ${periodLong}.` : `Their most played songs ${periodLong}.`}</p>
+               </div>
+               <div className="divide-y divide-white/5">
+                 {profile.stats?.topTracks?.length > 0 ? profile.stats.topTracks.map((track: any, i: number) => (
+                   <button 
+                     key={i} 
+                     onClick={() => setSelectedTrack(track)}
+                     className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
+                   >
+                     <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
+                       {track.image ? (
+                         <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
+                       ) : (
+                         <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
+                       )}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
+                         {track.name}
+                       </div>
+                       <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
+                     </div>
+                     <div className="text-xs font-bold text-indigo-400 whitespace-nowrap shrink-0">
+                       {parseInt(track.playcount).toLocaleString()}
+                       <span className="text-[10px] text-zinc-500 uppercase tracking-widest ml-1 font-normal">plays</span>
+                     </div>
+                   </button>
+                 )) : (
+                   <div className="text-center py-8 text-zinc-500">No top tracks found.</div>
+                 )}
+               </div>
+             </div>
+           </div>
+          </>)}
+
+          {profileSection === "activity" && (
+          <>
+                    {/* Recent Tracks List */}
+          <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative animate-fade-in">
+            <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+              <h3 className="text-lg font-bold flex items-center gap-2">🎧 Recent Tracks</h3>
+              <p className="text-zinc-400 text-sm mt-1">{isOwner ? "What you've been listening to lately." : "What they've been listening to lately."}</p>
+            </div>
+            <div className="divide-y divide-white/5">
+              {profile.stats?.recentTracks?.length > 0 ? profile.stats.recentTracks.map((track: any, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedTrack(track)}
+                  className="w-full text-left flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors group"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 overflow-hidden shadow-md">
+                    {track.image ? (
+                      <img src={artSrc(track.image)} alt="Album Art" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xl">🎵</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-white truncate group-hover:text-indigo-400 transition-colors flex items-center gap-2">
+                      {track.name}
+                      {track.nowPlaying && (
+                        <span className="shrink-0 flex items-center gap-1 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-green-500/20">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                          Playing
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-zinc-400 truncate mt-1">{track.artist}</div>
+                  </div>
+                  {!track.nowPlaying && track.date && (
+                    <div className="text-[10px] text-zinc-500 whitespace-nowrap shrink-0">
+                      {new Date(parseInt(track.date) * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  )}
+                </button>
+              )) : (
+                <div className="text-center py-8 text-zinc-500">No recent tracks found.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Full history (stats.fm-style streams, inline + paged) */}
+          <div className="mt-6">
+            {streams === null ? (
+              <button
+                onClick={loadMoreStreams}
+                disabled={streamsLoading}
+                className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-bold text-zinc-300 transition-colors disabled:opacity-50"
+              >
+                {streamsLoading ? "Loading history…" : "Show full listening history"}
+              </button>
+            ) : (
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01] flex items-center gap-2">
+                  <h3 className="text-lg font-bold">📜 History</h3>
+                  <span className="text-zinc-500 text-xs font-semibold ml-auto">
+                    {streams.length.toLocaleString()} of {streamsTotal.toLocaleString()}
+                  </span>
+                </div>
+                {streamsBackfill === false && (
+                  <div className="px-6 py-2.5 text-xs text-amber-300/90 bg-amber-500/5 border-b border-white/5">
+                    Sync still running — newest scrobbles may lag behind.
+                  </div>
+                )}
+                <div className="divide-y divide-white/5">
+                  {streams.map((t: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 p-4">
+                      <div className="w-12 h-12 rounded-lg bg-zinc-800 shrink-0 flex items-center justify-center text-xl">🎵</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-white truncate">{t.name}</div>
+                        <div className="text-xs text-zinc-400 truncate mt-1">{t.artist}{t.album ? ` · ${t.album}` : ""}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] text-zinc-500 whitespace-nowrap">
+                          {new Date(t.playedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                        {t.ms > 0 && (
+                          <div className="text-[10px] text-zinc-600 font-semibold mt-0.5">
+                            {Math.floor(t.ms / 60000)}:{String(Math.floor((t.ms % 60000) / 1000)).padStart(2, "0")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {streams.length < streamsTotal && (
+                  <button
+                    onClick={loadMoreStreams}
+                    disabled={streamsLoading}
+                    className="w-full py-3 text-sm font-bold text-indigo-300 hover:text-white hover:bg-white/[0.03] border-t border-white/5 transition-colors disabled:opacity-50"
+                  >
+                    {streamsLoading ? "Loading…" : `Load more (${(streamsTotal - streams.length).toLocaleString()} left)`}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          </>)}
+           </>
+          )}
+
+         {isOwner && activeTab === "profile" && profileError && (
+          <div className="text-center p-8 text-zinc-500 bg-[#170b28]/30 rounded-3xl border border-white/5 border-dashed">
+            {profileError}
+          </div>
+        )}
+
+        {/* --- SETTINGS TAB --- */}
+        {isOwner && activeTab === "settings" && (
+          <div className="grid lg:grid-cols-2 gap-8 items-start animate-fade-in">
+            {/* LEFT COLUMN */}
+            <div className="space-y-8">
+              {/* Display Layout Card */}
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-20" />
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Display Layout</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Select the default style for your Last.fm embeds.</p>
+                </div>
+                
+                <div className="p-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { id: "compact", icon: "📝", title: "Compact", desc: "1-line minimal view" },
+                      { id: "full", icon: "🖼️", title: "Full Embed", desc: "Detailed visual view" },
+                      { id: "stats", icon: "📊", title: "Stats View", desc: "Statistics & charts" }
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setUnsavedFmMode(mode.id as any)}
+                        className={`relative flex flex-col items-start p-6 rounded-2xl border transition-all duration-300 text-left group ${
+                          unsavedFmMode === mode.id
+                            ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.15)] sm:scale-105 z-10"
+                            : "bg-[#170b28]/30 border-white/5 hover:border-white/20 hover:bg-[#170b28]/60"
+                        }`}
+                      >
+                        <div className={`text-2xl mb-4 transition-transform duration-300 ${unsavedFmMode === mode.id ? 'scale-110' : 'group-hover:scale-110'}`}>{mode.icon}</div>
+                        <div className={`text-lg font-bold ${unsavedFmMode === mode.id ? 'text-indigo-300' : 'text-white'}`}>{mode.title}</div>
+                        <div className="text-sm text-zinc-500 mt-1">{mode.desc}</div>
+                        
+                        <div className={`absolute top-4 right-4 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${unsavedFmMode === mode.id ? 'border-indigo-500' : 'border-zinc-700'}`}>
+                          {unsavedFmMode === mode.id && <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-fade-in"></div>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Source & Timezone */}
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl shadow-2xl relative z-20">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01] rounded-t-3xl">
+                  <h3 className="text-xl font-bold">Localization</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Configure where the bot pulls stats and resets.</p>
+                </div>
+                
+                <div className="divide-y divide-white/5">
+                  <div className="p-8 flex flex-col gap-4">
+                    <div>
+                      <div className="text-lg font-semibold text-white mb-1">Active Data Source</div>
+                      <div className="text-sm text-zinc-400">Choose between Last.fm, imported Spotify data, or combined.</div>
+                    </div>
+                    <CustomSelect 
+                      value={unsavedDataSource} 
+                      onChange={(val) => setUnsavedDataSource(val as any)}
+                      options={[
+                        { value: "combined", label: "Combined" },
+                        { value: "lastfm_only", label: "Last.fm Only" },
+                        { value: "imported_only", label: "Imported Only" }
+                      ]}
+                    />
+                  </div>
+
+                  <div className="p-8 flex flex-col gap-4">
+                    <div>
+                      <div className="text-lg font-semibold text-white mb-1">Timezone</div>
+                      <div className="text-sm text-zinc-400">Set your local timezone so daily resets are accurate.</div>
+                    </div>
+                    <CustomSelect 
+                      value={unsavedTimezone} 
+                      onChange={(val) => setUnsavedTimezone(val)}
+                      options={[
+                        { value: "UTC", label: "UTC (Default)" },
+                        { value: "America/New_York", label: "America/New_York" },
+                        { value: "America/Chicago", label: "America/Chicago" },
+                        { value: "America/Denver", label: "America/Denver" },
+                        { value: "America/Los_Angeles", label: "America/Los_Angeles" },
+                        { value: "Europe/London", label: "Europe/London" },
+                        { value: "Europe/Berlin", label: "Europe/Berlin" },
+                        { value: "Asia/Tokyo", label: "Asia/Tokyo" },
+                        { value: "Australia/Sydney", label: "Australia/Sydney" }
+                      ]}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Connected Accounts */}
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Connected Accounts</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Music services linked to your Discord account.</p>
+                </div>
+                <div className="divide-y divide-white/5">
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Last.fm</div>
+                      <div className="text-sm text-zinc-400">
+                        {profile?.lastfm_username ? <>Linked as <span className="text-white font-medium">{profile.lastfm_username}</span></> : "Not linked"}
+                      </div>
+                    </div>
+                    {!profile?.lastfm_username && (
+                      <span className="shrink-0 text-xs text-zinc-500">Link with /login in Discord</span>
+                    )}
+                  </div>
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Spotify</div>
+                      <div className="text-sm text-zinc-400">
+                        {spotifyLinked === null ? "Checking…" : spotifyLinked ? "Linked — remote control, likes, and Music dashboard ready" : "Not linked"}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {spotifyLinked === true ? (
+                        <button
+                          onClick={handleSpotifyDisconnect}
+                          disabled={spotifyBusy}
+                          className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {spotifyBusy ? "Working…" : "Disconnect"}
+                        </button>
+                      ) : spotifyLinked === false && session?.user?.id ? (
+                        <a
+                          href={`/api/auth/spotify/login?discord_id=${session.user.id}`}
+                          className="inline-block px-5 py-2.5 bg-green-500/15 hover:bg-green-500/25 border border-green-500/25 text-green-300 text-sm font-bold rounded-xl transition-all"
+                        >
+                          Connect
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN */}
+            <div className="space-y-8">
+              {/* Profile Details Card */}
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Profile Details</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Customize how you appear on the dashboard.</p>
+                </div>
+                <div className="p-8">
+                  <label className="block text-lg font-semibold text-white mb-2">Custom Display Name</label>
+                  <p className="text-sm text-zinc-400 mb-4">Overrides your Discord/Last.fm username on your public profile URL and page.</p>
+                  <input
+                    type="text"
+                    placeholder={usernameParam}
+                    value={unsavedDisplayName}
+                    onChange={(e) => setUnsavedDisplayName(e.target.value)}
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                  <label className="block text-lg font-semibold text-white mb-2 mt-6">Bio</label>
+                  <p className="text-sm text-zinc-400 mb-4">A short line shown on your public profile (max 300 characters).</p>
+                  <textarea
+                    placeholder="Tell the world about your taste…"
+                    value={unsavedBio}
+                    maxLength={300}
+                    rows={3}
+                    onChange={(e) => setUnsavedBio(e.target.value)}
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                  />
+                  <label className="block text-lg font-semibold text-white mb-2 mt-6">Website</label>
+                  <p className="text-sm text-zinc-400 mb-4">A link shown on your public profile.</p>
+                  <input
+                    type="url"
+                    placeholder="https://example.com"
+                    value={unsavedWebsite}
+                    onChange={(e) => setUnsavedWebsite(e.target.value)}
+                    className="w-full bg-[#170b28] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Feature Toggles Card */}
+              <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+                <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                  <h3 className="text-xl font-bold">Feature & Privacy Toggles</h3>
+                  <p className="text-zinc-400 text-sm mt-1">Fine-tune exactly how the bot behaves.</p>
+                </div>
+                
+                <div className="divide-y divide-white/5">
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Show Track Playcounts</div>
+                      <div className="text-sm text-zinc-400">
+                        Display your personal playcount for the current track right in the Now Playing embed.
+                      </div>
+                    </div>
+                    <div className="shrink-0 pt-1 sm:pt-0">
+                      <ToggleSwitch checked={unsavedShowTrackPlaycount} onChange={() => setUnsavedShowTrackPlaycount(!unsavedShowTrackPlaycount)} />
+                    </div>
+                  </div>
+
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1">Show Featured Artists</div>
+                      <div className="text-sm text-zinc-400">
+                        Automatically extract featured artists from the track name and display them distinctly.
+                      </div>
+                    </div>
+                    <div className="shrink-0 pt-1 sm:pt-0">
+                      <ToggleSwitch checked={unsavedShowFeatures} onChange={() => setUnsavedShowFeatures(!unsavedShowFeatures)} />
+                    </div>
+                  </div>
+
+                  <div className="p-8 flex items-start sm:items-center justify-between gap-6 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-white mb-1 flex items-center gap-3">
+                        Private Mode 
+                        <span className="text-[10px] uppercase font-bold bg-amber-500/10 text-amber-500 px-2.5 py-0.5 rounded-full border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]">Privacy</span>
+                      </div>
+                      <div className="text-sm text-zinc-400">
+                        Hide your Last.fm username and profile link from bot embeds and disable public profile.
+                      </div>
+                    </div>
+                    <div className="shrink-0 pt-1 sm:pt-0">
+                      <ToggleSwitch checked={unsavedPrivateMode} onChange={() => setUnsavedPrivateMode(!unsavedPrivateMode)} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- SUGGESTIONS TAB --- */}
+        {isOwner && activeTab === "suggestions" && (
+          <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
+            {/* Submit Suggestion Card */}
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20" />
+              <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                <h3 className="text-xl font-bold flex items-center gap-2">💡 Submit Feedback</h3>
+                <p className="text-zinc-400 text-sm mt-1">Have an idea for the bot or dashboard? Let the developer know.</p>
+              </div>
+              <form onSubmit={submitSuggestion} className="p-8 space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-zinc-300 mb-2">Idea Title</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={newSuggestionTitle}
+                    onChange={(e) => setNewSuggestionTitle(e.target.value)}
+                    placeholder="e.g. Add a new embed layout"
+                    className="w-full bg-[#170b28]/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-zinc-300 mb-2">Description</label>
+                  <textarea 
+                    required
+                    value={newSuggestionDesc}
+                    onChange={(e) => setNewSuggestionDesc(e.target.value)}
+                    placeholder="Describe how it should work..."
+                    rows={4}
+                    className="w-full bg-[#170b28]/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600 shadow-inner"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={submittingSuggestion}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                >
+                  {submittingSuggestion ? "Submitting..." : "Send Suggestion"}
+                </button>
+              </form>
+            </div>
+
+            {/* My Suggestions List */}
+            <div className="bg-[#170b28]/80 backdrop-blur-3xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
+                <h3 className="text-xl font-bold">My Submissions</h3>
+                <p className="text-zinc-400 text-sm mt-1">Track the status of your ideas submitted from Discord or the Web.</p>
+              </div>
+              <div className="divide-y divide-white/5">
+                {suggestionsLoading ? (
+                  <div className="p-8 text-center text-zinc-500">Loading...</div>
+                ) : suggestions.length === 0 ? (
+                  <div className="p-8 text-center text-zinc-500 italic bg-white/[0.01]">You haven't submitted any suggestions yet.</div>
+                ) : (
+                  suggestions.map((s) => (
+                    <div key={s.id} className="p-8 hover:bg-white/[0.02] transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                        <div>
+                          <h4 className="text-lg font-bold text-white">{s.title}</h4>
+                          <p className="text-xs text-zinc-500 mt-1">{new Date(s.created_at).toLocaleString()}</p>
+                        </div>
+                        <div className="shrink-0">{getStatusBadge(s.status, s.title)}</div>
+                      </div>
+                      <p className="text-zinc-400 text-sm mb-5 leading-relaxed bg-[#170b28]/30 p-5 rounded-2xl border border-white/5">
+                        {s.description}
+                      </p>
+                      {s.status === "pending" && editingSuggId !== String(s.id) && (
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => { setEditingSuggId(String(s.id)); setEditSuggTitle(s.title || ""); setEditSuggDesc(s.description || ""); }}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => cancelSuggestion(String(s.id))}
+                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-xs font-bold text-red-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                      {s.status === "pending" && editingSuggId === String(s.id) && (
+                        <div className="space-y-3 mb-2">
+                          <input
+                            value={editSuggTitle}
+                            onChange={(e) => setEditSuggTitle(e.target.value)}
+                            maxLength={120}
+                            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-fuchsia-400/60"
+                          />
+                          <textarea
+                            value={editSuggDesc}
+                            onChange={(e) => setEditSuggDesc(e.target.value)}
+                            rows={3}
+                            maxLength={2000}
+                            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-fuchsia-400/60 resize-y"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => saveSuggestionEdit(String(s.id))}
+                              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-lg transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingSuggId(null)}
+                              className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {s.admin_feedback && (
+                        <div className="bg-indigo-500/10 border border-indigo-500/20 p-5 rounded-2xl relative shadow-[0_0_15px_rgba(99,102,241,0.05)]">
+                          <div className="absolute -left-1.5 top-6 w-3 h-3 bg-[#13131c] rotate-45 border-l border-t border-indigo-500/20"></div>
+                          <h5 className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-2">Developer Reply</h5>
+                          <p className="text-indigo-100 text-sm leading-relaxed">{s.admin_feedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* --- IMPORT TAB --- */}
+        {isOwner && activeTab === "import" && (
+          <div className="bg-[#170b28]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in-up">
+            <h2 className="text-2xl font-display font-black text-white mb-2 flex items-center gap-3">
+              <span className="text-amber-400">📥</span> Import Data
+            </h2>
+            <p className="text-zinc-400 mb-8 max-w-2xl">
+              Upload your Spotify Extended Streaming History or Apple Music Play Activity here. The data will be chunked and securely processed by the bot in the background.
+            </p>
+
+            {importLocked && (
+              <div className="mb-6 p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">🔒</div>
+                <div>
+                  <h3 className="text-red-400 font-bold text-lg mb-1">Imports Disabled</h3>
+                  <p className="text-red-300/80 text-sm">{importLockReason || "The bot owner has temporarily disabled history imports."}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              <div className="p-6 bg-[#170b28] border border-white/5 rounded-2xl">
+                <input
+                  type="file"
+                  accept=".zip,.json,.csv"
+                  disabled={importLocked}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setImportFile(file);
+                  }}
+                  className="block w-full text-sm text-zinc-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-amber-500/20 file:text-amber-300 hover:file:bg-amber-500/30 transition-colors"
+                />
+                {importFile && (
+                  <p className="mt-4 text-sm text-zinc-300">
+                    Selected file: <span className="font-bold text-white">{importFile.name}</span> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                
+                <div className="mt-6">
+                  <button
+                    onClick={handleImportUpload}
+                    disabled={!importFile || importStatus === "uploading" || importStatus === "complete" || importLocked}
+                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${!importFile || importStatus === "uploading" || importStatus === "complete" || importLocked ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]"}`}
+                  >
+                    {importLocked ? "Imports Disabled" : importStatus === "uploading" ? "Uploading..." : "Start Import"}
+                  </button>
+                </div>
+              </div>
+
+              {importStatus === "uploading" && (
+                <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl animate-pulse">
+                  <p className="text-amber-300 font-bold mb-2 flex justify-between">
+                    <span>⏳ Uploading... Please keep this tab open.</span>
+                    <span>{importProgress}%</span>
+                  </p>
+                  <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden">
+                    <div className="bg-amber-500 h-3 rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div>
+                  </div>
+                </div>
+              )}
+
+              {importStatus === "complete" && (
+                <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-4 animate-fade-in-up">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">✅</div>
+                  <div>
+                    <h3 className="text-green-400 font-bold text-lg mb-1">Upload Complete!</h3>
+                    <p className="text-green-300/80 text-sm">You can now safely close this website. The Discord bot is downloading and processing your data in the background and will DM you when it's finished.</p>
+                  </div>
+                </div>
+              )}
+
+              {importStatus === "error" && (
+                <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-2xl shrink-0">❌</div>
+                  <div>
+                    <h3 className="text-red-400 font-bold text-lg mb-1">Upload Failed</h3>
+                    <p className="text-red-300/80 text-sm">{importError}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {/* --- ADMIN TAB (owner dashboard + admin role only) --- */}
+        {isOwner && adminRole && activeTab === "admin" && (
+          <div className="bg-[#170b28]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 animate-fade-in">
+            <AdminClient embedded />
+          </div>
+        )}
+      </main>
+
+      {/* Floating Save Pill (Only for owner when settings change) */}
+      {isOwner && (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 transition-all duration-500 z-50 ${hasUnsavedChanges ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+          <div className="bg-[#170b28]/95 backdrop-blur-3xl border border-indigo-500/40 p-3 pr-4 rounded-full shadow-[0_10px_50px_rgba(99,102,241,0.3)] flex items-center gap-6">
+            <div className="flex items-center gap-3 pl-4">
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
+              <div className="text-indigo-100 text-sm font-bold tracking-wide">UNSAVED CHANGES</div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  setUnsavedFmMode(fmMode);
+                  setUnsavedShowFeatures(showFeatures);
+                  setUnsavedPrivateMode(privateMode);
+                  setUnsavedDataSource(dataSource);
+                  setUnsavedTimezone(timezone);
+                  setUnsavedShowTrackPlaycount(showTrackPlaycount);
+                  setUnsavedDisplayName(displayName);
+                  setUnsavedBio(bio);
+                  setUnsavedWebsite(website);
+                }}
+                className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+              >
+                DISCARD
+              </button>
+              <button 
+                onClick={saveSettings}
+                disabled={savingSettings}
+                className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-full transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.6)] disabled:opacity-50 disabled:shadow-none"
+              >
+                {savingSettings ? "SAVING..." : "SAVE"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Track Info Modal */}
+      <TrackModal
+        isOpen={!!selectedTrack}
+        onClose={() => setSelectedTrack(null)}
+        trackName={selectedTrack?.name}
+        artistName={selectedTrack?.artist}
+        username={profile?.lastfm_username || usernameParam}
+        fallbackImage={selectedTrack?.image}
       />
-    </Suspense>
+    </div>
   );
 }
