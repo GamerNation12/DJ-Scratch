@@ -3549,20 +3549,23 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
-        # Extract release date from Last.fm wiki if available (MM-DD-YYYY format)
+        # Extract release date from album info (MM-DD-YYYY format)
         release_date = None
-        if t_info and 'track' in t_info and 'wiki' in t_info['track']:
+        if album and artist:
             try:
-                pub = t_info['track']['wiki'].get('published', '')
-                if pub:
-                    date_str = pub.split(',')[0].strip()
-                    parts = date_str.split()
-                    if len(parts) == 3:
-                        day, month, year = parts
-                        month_num = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}.get(month, '01')
-                        release_date = f"{month_num}-{day.zfill(2)}-{year}"
-                    else:
-                        release_date = date_str
+                from src.utils.api import fetch_album_info
+                album_info = await fetch_album_info(username or "dj-scratch", artist, album)
+                if album_info and 'album' in album_info and 'wiki' in album_info['album']:
+                    pub = album_info['album']['wiki'].get('published', '')
+                    if pub:
+                        date_str = pub.split(',')[0].strip()
+                        parts = date_str.split()
+                        if len(parts) == 3:
+                            day, month, year = parts
+                            month_num = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}.get(month, '01')
+                            release_date = f"{month_num}-{day.zfill(2)}-{year}"
+                        else:
+                            release_date = date_str
             except Exception:
                 pass
 
