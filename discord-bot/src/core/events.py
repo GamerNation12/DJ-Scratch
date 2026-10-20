@@ -3549,9 +3549,22 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
-        # Extract release date from album info (MM-DD-YYYY format)
+        # Extract release date from Spotify album data (MM-DD-YYYY format)
         release_date = None
-        if album and artist:
+        if s_info:
+            try:
+                rd = s_info.get("release_date")
+                if rd:
+                    parts = rd.split("-")
+                    if len(parts) == 3:
+                        y, m, d = parts
+                        release_date = f"{m}-{d}-{y}"
+                    elif len(parts) == 2:
+                        y, m = parts
+                        release_date = f"{m}-01-{y}"
+            except Exception:
+                pass
+        if not release_date and album and artist:
             try:
                 from src.utils.api import fetch_album_info
                 album_info = await fetch_album_info(username or "dj-scratch", artist, album)
@@ -3571,9 +3584,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
         if mode == "stats":
             desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]
-            if release_date:
-                desc_lines.append(f"📅 Released: **{release_date}**")
-            
+
             if len(tracks) > 1:
                 prev_t = tracks[1]
                 p_artist, p_song, p_album = prev_t['artist']['#text'], prev_t['name'], prev_t['album']['#text']
@@ -3690,21 +3701,19 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     footer_parts.append(f"📅 {release_date}")
                 if show_playcount and track_plays != -1:
                     footer_parts.append(f"🔢 {track_plays} plays")
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"{scrobbler_label}{frozen_note}")
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else None)
             else:
                 if release_date:
                     footer_parts.append(f"📅 {release_date}")
                 if show_playcount and track_plays != -1:
                     footer_parts.append(f"🔢 {track_plays} plays")
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else scrobbler_label)
+                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else None)
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             result = {"embed": embed, "view": view}
             return result, is_p
 
         desc_lines = [f"**[{song}]({track_url})**", f"by **{artist}**", f"*{album}*"]
-        if release_date:
-            desc_lines.append(f"📅 Released: **{release_date}**")
         if show_playcount and track_plays != -1:
             if track_plays == 0 and live:
                 desc_lines.append("\n🎧 **First time listening!**")
@@ -3716,14 +3725,14 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        footer_parts_full = [scrobbler_label]
+        footer_parts_full = []
         if not live and not is_cached:
             footer_parts_full.append("Scrobbles frozen? Run ,outofsync")
         if release_date:
             footer_parts_full.append(f"📅 {release_date}")
         if show_playcount and track_plays != -1:
             footer_parts_full.append(f"🔢 {track_plays} plays")
-        footer_text = " | ".join(footer_parts_full)
+        footer_text = " | ".join(footer_parts_full) if footer_parts_full else ""
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • Avatar CD: {mins}m {secs}s"
