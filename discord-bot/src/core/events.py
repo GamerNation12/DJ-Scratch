@@ -3683,8 +3683,16 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                 frozen_note = "" if is_cached else " | Scrobbles frozen? Run ,outofsync"
                 if not is_cached:
                     footer_parts.append("Scrobbles frozen? Run ,outofsync")
+                if release_date:
+                    footer_parts.append(f"📅 {release_date}")
+                if show_playcount and track_plays != -1:
+                    footer_parts.append(f"🔢 {track_plays} plays")
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"{scrobbler_label}{frozen_note}")
             else:
+                if release_date:
+                    footer_parts.append(f"📅 {release_date}")
+                if show_playcount and track_plays != -1:
+                    footer_parts.append(f"🔢 {track_plays} plays")
                 embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else scrobbler_label)
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
@@ -3705,10 +3713,14 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
+        footer_parts_full = [scrobbler_label]
         if not live and not is_cached:
-            footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
-        else:
-            footer_text = scrobbler_label
+            footer_parts_full.append("Scrobbles frozen? Run ,outofsync")
+        if release_date:
+            footer_parts_full.append(f"📅 {release_date}")
+        if show_playcount and track_plays != -1:
+            footer_parts_full.append(f"🔢 {track_plays} plays")
+        footer_text = " | ".join(footer_parts_full)
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • Avatar CD: {mins}m {secs}s"
