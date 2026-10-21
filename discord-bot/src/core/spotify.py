@@ -38,6 +38,7 @@ def _norm_track(track):
         "spotify_url": track.get("external_urls", {}).get("spotify"),
         "album_name": track.get("album", {}).get("name"),
         "album_images": track.get("album", {}).get("images", []),
+        "release_date": track.get("album", {}).get("release_date"),
     }
 
 
@@ -51,6 +52,7 @@ def _norm_album(album):
         "spotify_url": album.get("external_urls", {}).get("spotify"),
         "album_name": album.get("name"),
         "album_images": album.get("images", []),
+        "release_date": album.get("release_date"),
     }
 
 
@@ -146,7 +148,8 @@ async def get_spotify_track_info(session: aiohttp.ClientSession, artist: str, so
                         "spotify_url": track.get("external_urls", {}).get("spotify"),
                         "preview_url": track.get("preview_url"),
                         "image_url": track.get("album", {}).get("images", [{}])[0].get("url") if track.get("album", {}).get("images") else None,
-                        "artists": [a.get("name") for a in track.get("artists", [])]
+                        "artists": [a.get("name") for a in track.get("artists", [])],
+                        "release_date": track.get("album", {}).get("release_date")
                     }
                     if cache_key:
                         _TRACK_CACHE[cache_key] = (info, time.time() + _TRACK_TTL)
@@ -430,6 +433,7 @@ async def get_currently_playing_track(session: aiohttp.ClientSession, user_id: s
                     "spotify_url": track.get("external_urls", {}).get("spotify"),
                     "album_name": track.get("album", {}).get("name"),
                     "album_images": track.get("album", {}).get("images", []),
+                    "release_date": track.get("album", {}).get("release_date"),
                     "is_playing": bool(data.get("is_playing")),
                     "progress_ms": data.get("progress_ms") or 0,
                     "duration_ms": (track.get("duration_ms") or 0),

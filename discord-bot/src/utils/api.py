@@ -277,6 +277,39 @@ async def scrobble_bot_track(session, artist, track, album=None):
         return f"EXC_{e}"
     return "UNKNOWN_ERROR"
 
+async def fetch_musicbrainz_release_date(session, artist_name, track_name, album_name=None):
+    """Return a release date string (YYYY-MM-DD) for an album from MusicBrainz."""
+    headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
+    try:
+        if album_name:
+            async with _LASTFM_SEM:
+                async with session.get(
+                    f"https://musicbrainz.org/ws/2/release-group/?query=release-group:{urllib.parse.quote(album_name)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
+                    headers=headers, timeout=aiohttp.ClientTimeout(total=5)
+                ) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        for g in (data.get("release-groups") or []):
+                            date = g.get("first-release-date")
+                            if date:
+                                return date
+        async with _LASTFM_SEM:
+            async with session.get(
+                f"https://musicbrainz.org/ws/2/recording/?query=recording:{urllib.parse.quote(track_name)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
+                headers=headers, timeout=aiohttp.ClientTimeout(total=5)
+            ) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    for rec in (data.get("recordings") or []):
+                        for rel in (rec.get("release-list") or []):
+                            date = rel.get("date")
+                            if date:
+                                return date
+    except Exception as e:
+        logging.error(f"MusicBrainz release date fetch error: {e}")
+    return None
+
+
 async def fetch_musicbrainz_artist_info(session, artist_name):
     url = f"https://musicbrainz.org/ws/2/artist/?query=artist:{urllib.parse.quote(artist_name)}&fmt=json"
     headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
