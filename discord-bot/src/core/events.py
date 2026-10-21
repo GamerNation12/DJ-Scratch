@@ -3345,6 +3345,9 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         
         spotify_url = None
         track_plays = -1
+        s_info = None
+        s_artists = None
+        s_track_name = None
         
         if is_cached:
             p = track_data['processed']
@@ -3549,9 +3552,21 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
-        # Extract release date from Spotify album data (MM-DD-YYYY format)
+        # Extract release date. Prefer MusicBrainz (original album date) over
+        # Spotify, which can return a deluxe/reissue date (e.g. 2020 for a 2018 track).
         release_date = None
-        if s_info:
+        if album and artist:
+            try:
+                from src.utils.api import fetch_musicbrainz_release_date
+                mb_date = await fetch_musicbrainz_release_date(session, artist, raw_song, album)
+                if mb_date:
+                    parts = mb_date.split("-")
+                    if len(parts) == 3:
+                        y, m, d = parts
+                        release_date = f"{m}-{d}-{y}"
+            except Exception:
+                pass
+        if not release_date and s_info:
             try:
                 rd = s_info.get("release_date")
                 if rd:
@@ -3562,17 +3577,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                     elif len(parts) == 2:
                         y, m = parts
                         release_date = f"{m}-01-{y}"
-            except Exception:
-                pass
-        if not release_date and album and artist:
-            try:
-                from src.utils.api import fetch_musicbrainz_release_date
-                mb_date = await fetch_musicbrainz_release_date(session, artist, raw_song, album)
-                if mb_date:
-                    parts = mb_date.split("-")
-                    if len(parts) == 3:
-                        y, m, d = parts
-                        release_date = f"{m}-{d}-{y}"
             except Exception:
                 pass
 
@@ -3664,10 +3668,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
                         pass
                     crown_winner = None
 
-            footer_parts = []
+            footer_lines = []
             if a_info and 'artist' in a_info and 'tags' in a_info['artist'] and 'tag' in a_info['artist']['tags']:
                 tags = [tag['name'].lower() for tag in a_info['artist']['tags']['tag'][:4]]
-                if tags: footer_parts.append(" - ".join(tags))
+                if tags: footer_lines.append(" - ".join(tags))
                 
             stats_line = []
             if t_info and 'track' in t_info and t_info['track'].get('userloved') == '1':
@@ -3680,25 +3684,20 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if crown_winner:
                 stats_line.append(f"👑 {crown_winner['name']} ({crown_winner['plays']} plays)")
             
+            meta = []
+            if release_date:
+                meta.append(f"📅 {release_date}")
+            if show_playcount and track_plays > 0:
+                meta.append(f"🔢 {track_plays} plays")
             if stats_line:
-                footer_parts.append(" • ".join(stats_line))
+                meta.append(" • ".join(stats_line))
+            if not live and not is_cached:
+                meta.append("Scrobbles frozen? Run ,outofsync")
+            if meta:
+                footer_lines.append(" • ".join(meta))
                 
             disp_u = 'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username
-            if not live:
-                frozen_note = "" if is_cached else " | Scrobbles frozen? Run ,outofsync"
-                if not is_cached:
-                    footer_parts.append("Scrobbles frozen? Run ,outofsync")
-                if release_date:
-                    footer_parts.append(f"📅 {release_date}")
-                if show_playcount and track_plays > 0:
-                    footer_parts.append(f"🔢 {track_plays} plays")
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else f"{scrobbler_label}{frozen_note}")
-            else:
-                if release_date:
-                    footer_parts.append(f"📅 {release_date}")
-                if show_playcount and track_plays > 0:
-                    footer_parts.append(f"🔢 {track_plays} plays")
-                embed.set_footer(text=chr(10).join(footer_parts) if footer_parts else scrobbler_label)
+            embed.set_footer(text=chr(10).join(footer_lines) if footer_lines else scrobbler_label)
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             result = {"embed": embed, "view": view}
@@ -3720,10 +3719,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             footer_parts_full.append(f"📅 {release_date}")
         if show_playcount and track_plays > 0:
             footer_parts_full.append(f"🔢 {track_plays} plays")
-        footer_text = " | ".join(footer_parts_full)
+        footer_text = " • ".join(footer_parts_full)
         if cd > 0:
             mins, secs = divmod(cd, 60)
-            footer_text += f" • Avatar CD: {mins}m {secs}s"
+            footer_text += f" • ⏱️ Avatar CD: {mins}m {secs}s"
         embed.set_footer(text=footer_text)
         
         view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})

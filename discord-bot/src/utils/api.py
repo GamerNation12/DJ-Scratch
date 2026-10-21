@@ -277,14 +277,38 @@ async def scrobble_bot_track(session, artist, track, album=None):
         return f"EXC_{e}"
     return "UNKNOWN_ERROR"
 
-async def fetch_musicbrainz_release_date(session, artist_name, track_name, album_name=None):
-    """Return a release date string (YYYY-MM-DD) for an album from MusicBrainz."""
+_RELEASE_DATE_CACHE = {}
+_EDITION_RE = None
+
+
+def _strip_edition(name):
+    """Drop trailing edition markers like '(Deluxe)' so MusicBrainz matches the original album."""
+    global _EDITION_RE
+    if _EDITION_RE is None:
+        import re
+        _EDITION_RE = re.compile(
+            r"\s*\((?:deluxe(?: edition)?|super deluxe(?: edition)?|expanded edition|"
+            r"special edition|limited edition|anniversary edition|tour edition|"
+            r"remastered|remaster|collector'?s edition|explicit|clean|edition)\)\s*$",
+            re.I,
+        )
+    cur = (name or "").strip()
+    prev = None
+    while prev != cur:
+        prev = cur
+        cur = _EDITION_RE.sub("", cur).strip()
+    return cur
+
+
+async def _mb_release_group(session, artist_name, album_name):
     headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
-    try:
-        if album_name:
+    for cand in (album_name.strip(), _strip_edition(album_name)):
+        if not cand:
+            continue
+        try:
             async with _LASTFM_SEM:
                 async with session.get(
-                    f"https://musicbrainz.org/ws/2/release-group/?query=release-group:{urllib.parse.quote(album_name)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
+                    f"https://musicbrainz.org/ws/2/release-group/?query=release-group:{urllib.parse.quote(cand)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
                     headers=headers, timeout=aiohttp.ClientTimeout(total=5)
                 ) as r:
                     if r.status == 200:
@@ -293,21 +317,42 @@ async def fetch_musicbrainz_release_date(session, artist_name, track_name, album
                             date = g.get("first-release-date")
                             if date:
                                 return date
-        async with _LASTFM_SEM:
-            async with session.get(
-                f"https://musicbrainz.org/ws/2/recording/?query=recording:{urllib.parse.quote(track_name)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
-                headers=headers, timeout=aiohttp.ClientTimeout(total=5)
-            ) as r:
-                if r.status == 200:
-                    data = await r.json()
-                    for rec in (data.get("recordings") or []):
-                        for rel in (rec.get("release-list") or []):
-                            date = rel.get("date")
+        except Exception:
+            continue
+    return None
+
+
+async def fetch_musicbrainz_release_date(session, artist_name, track_name, album_name=None):
+    """Return an original release date (YYYY-MM-DD) for an album from MusicBrainz."""
+    key = ((artist_name or "").lower(), (track_name or "").lower(), (album_name or "").lower())
+    if key in _RELEASE_DATE_CACHE:
+        return _RELEASE_DATE_CACHE[key]
+    headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
+    date = None
+    try:
+        if album_name:
+            date = await _mb_release_group(session, artist_name, album_name)
+        if not date:
+            async with _LASTFM_SEM:
+                async with session.get(
+                    f"https://musicbrainz.org/ws/2/recording/?query=recording:{urllib.parse.quote(track_name)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5&inc=releases",
+                    headers=headers, timeout=aiohttp.ClientTimeout(total=5)
+                ) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        for rec in (data.get("recordings") or []):
+                            for rel in (rec.get("release-list") or []):
+                                if rel.get("date"):
+                                    date = rel["date"]
+                                    break
                             if date:
-                                return date
+                                break
     except Exception as e:
         logging.error(f"MusicBrainz release date fetch error: {e}")
-    return None
+    _RELEASE_DATE_CACHE[key] = date
+    if len(_RELEASE_DATE_CACHE) > 2000:
+        _RELEASE_DATE_CACHE.pop(next(iter(_RELEASE_DATE_CACHE)))
+    return date
 
 
 async def fetch_musicbrainz_artist_info(session, artist_name):
