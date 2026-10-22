@@ -296,6 +296,7 @@ async def scrobble_bot_track(session, artist, track, album=None):
     return "UNKNOWN_ERROR"
 
 _RELEASE_DATE_CACHE = {}
+_MB_GROUP_DATE_CACHE = {}
 _EDITION_RE = None
 
 
@@ -318,25 +319,88 @@ def _strip_edition(name):
     return cur
 
 
+def _normalize_title(name):
+    """Lowercase, strip accents/punctuation for loose title comparison."""
+    s = unicodedata.normalize("NFKD", name or "")
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]+", "", s.lower())
+
+
+def _pick_release_date(releases):
+    """Earliest meaningful release date from a list of MusicBrainz releases.
+
+    MusicBrainz's ``first-release-date`` includes bootlegs/promos, which can be
+    years off the real release (e.g. a 2004-01-08 bootleg making an album that
+    came out 2004-06-08 look like a January release). Only trust official
+    releases, and prefer full YYYY-MM-DD dates over year-only ones.
+    """
+    official_full, official_partial, other_full, other_partial = [], [], [], []
+    for rel in releases or []:
+        date = (rel.get("date") or "").strip()
+        if not date:
+            continue
+        status = (rel.get("status") or "").lower()
+        if status in ("bootleg", "promotion", "pseudo-release"):
+            continue
+        full = len(date.split("-")) == 3
+        if status == "official":
+            (official_full if full else official_partial).append(date)
+        else:
+            (other_full if full else other_partial).append(date)
+    for bucket in (official_full, official_partial, other_full, other_partial):
+        if bucket:
+            return min(bucket)
+    return None
+
+
+async def _mb_group_date(session, group_id, headers):
+    """Earliest official release date for a MusicBrainz release group."""
+    if not group_id:
+        return None
+    if group_id in _MB_GROUP_DATE_CACHE:
+        return _MB_GROUP_DATE_CACHE[group_id]
+    date = None
+    try:
+        async with _LASTFM_SEM:
+            async with session.get(
+                f"https://musicbrainz.org/ws/2/release-group/{group_id}?inc=releases&fmt=json",
+                headers=headers, timeout=aiohttp.ClientTimeout(total=5)
+            ) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    date = _pick_release_date(data.get("releases"))
+    except Exception:
+        date = None
+    _MB_GROUP_DATE_CACHE[group_id] = date
+    if len(_MB_GROUP_DATE_CACHE) > 2000:
+        _MB_GROUP_DATE_CACHE.pop(next(iter(_MB_GROUP_DATE_CACHE)))
+    return date
+
+
 async def _mb_release_group(session, artist_name, album_name):
     headers = {"User-Agent": "DJScratchBot/1.0 ( https://github.com/GamerNation12/DJ-Scratch )"}
     for cand in (album_name.strip(), _strip_edition(album_name)):
-        if not cand:
+        target = _normalize_title(cand)
+        if not target:
             continue
+        groups = []
         try:
             async with _LASTFM_SEM:
                 async with session.get(
-                    f"https://musicbrainz.org/ws/2/release-group/?query=release-group:{urllib.parse.quote(cand)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=5",
+                    f"https://musicbrainz.org/ws/2/release-group/?query=releasegroup:{urllib.parse.quote(cand)}%20AND%20artist:{urllib.parse.quote(artist_name)}&fmt=json&limit=10",
                     headers=headers, timeout=aiohttp.ClientTimeout(total=5)
                 ) as r:
                     if r.status == 200:
                         data = await r.json()
-                        for g in (data.get("release-groups") or []):
-                            date = g.get("first-release-date")
-                            if date:
-                                return date
+                        groups = data.get("release-groups") or []
         except Exception:
             continue
+        # Only exact title matches; a fuzzy hit would attach another album's date.
+        exact = [g for g in groups if _normalize_title(g.get("title")) == target]
+        for g in exact[:3]:
+            date = await _mb_group_date(session, g.get("id"), headers)
+            if date:
+                return date
     return None
 
 
@@ -358,13 +422,10 @@ async def fetch_musicbrainz_release_date(session, artist_name, track_name, album
                 ) as r:
                     if r.status == 200:
                         data = await r.json()
+                        all_releases = []
                         for rec in (data.get("recordings") or []):
-                            for rel in (rec.get("release-list") or []):
-                                if rel.get("date"):
-                                    date = rel["date"]
-                                    break
-                            if date:
-                                break
+                            all_releases.extend(rec.get("release-list") or [])
+                        date = _pick_release_date(all_releases)
     except Exception as e:
         logging.error(f"MusicBrainz release date fetch error: {e}")
     _RELEASE_DATE_CACHE[key] = date
