@@ -3303,9 +3303,6 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     except Exception:
         pass
 
-    # Footer label.
-    scrobbler_label = (f"Scrobbling as {'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username}")
-
     is_cached = False
     if track_data is not None and isinstance(track_data, dict) and 'raw_data' in track_data:
         data = track_data['raw_data']
@@ -3542,7 +3539,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
             if img: embed.set_thumbnail(url=img)
             
-            footer_text = f"{scrobbler_label} | Scrobbles frozen? Run ,outofsync"
+            footer_text = "Scrobbles frozen? Run ,outofsync"
             if cd > 0:
                 m, s = divmod(int(cd), 60)
                 footer_text += f" • Avatar CD: {m}m {s}s"
@@ -3696,8 +3693,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             if meta:
                 footer_lines.append(" • ".join(meta))
                 
-            disp_u = 'DJ Scratch' if (username or '').lower() == 'dj-scratch' else username
-            embed.set_footer(text=chr(10).join(footer_lines) if footer_lines else scrobbler_label)
+            if footer_lines:
+                embed.set_footer(text=chr(10).join(footer_lines))
             
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="stats", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             result = {"embed": embed, "view": view}
@@ -3712,7 +3709,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         embed.set_author(name=f"{dname}'s {status}", icon_url=user.display_avatar.url)
         if img: embed.set_thumbnail(url=img)
         
-        footer_parts_full = [scrobbler_label]
+        footer_parts_full = []
         if not live and not is_cached:
             footer_parts_full.append("Scrobbles frozen? Run ,outofsync")
         if release_date:
@@ -3723,7 +3720,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
         if cd > 0:
             mins, secs = divmod(cd, 60)
             footer_text += f" • ⏱️ Avatar CD: {mins}m {secs}s"
-        embed.set_footer(text=footer_text)
+        if footer_text:
+            embed.set_footer(text=footer_text)
         
         view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="full", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
         result = {"embed": embed, "view": view}
@@ -3904,8 +3902,7 @@ class TopItemsPaginator(discord.ui.View):
         embed.set_thumbnail(url=self.user.display_avatar.url)
         
         footer_text = f"Page {self.current_page + 1}/{self.max_pages} — {len(self.sorted_items)} items"
-        if self.username: footer_text += f"\nScrobbling as {'DJ Scratch' if self.username.lower() == 'dj-scratch' else self.username}"
-        else: footer_text += "\nUsing Imported Data"
+        if not self.username: footer_text += "\nUsing Imported Data"
         embed.set_footer(text=footer_text)
         return embed
 
@@ -4220,7 +4217,6 @@ async def process_recent(user):
                     thumbnail_url = img_url
                     
             embed.set_thumbnail(url=thumbnail_url)
-            embed.set_footer(text=f"Scrobbling as {'DJ Scratch' if username.lower() == 'dj-scratch' else username}")
             return embed, None
     # Fallback to local DB
     if d_source != 'lastfm_only':

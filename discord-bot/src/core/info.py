@@ -1,7 +1,7 @@
 import discord
 from src.core.theme import Theme
 from src.core.database import db_fetch, format_name, get_local_artist_playcount
-from src.core.events import get_lastfm_username, fetch_now_playing
+from src.core.events import get_lastfm_username, fetch_now_playing, bot
 from src.utils.api import fetch_artist_info, fetch_album_info, fetch_track_info, fetch_deezer_artist_image
 
 async def get_current_playing_fallback(user, type_needed="artist"):
@@ -48,8 +48,7 @@ async def process_artist_info(user, artist_name=None):
     total_user_plays = user_plays + imported_plays
 
     # Fetch artist cover image from Deezer
-    bot_instance = bot
-    session = getattr(bot_instance, 'session', None)
+    session = getattr(bot, 'session', None)
     artist_image = await fetch_deezer_artist_image(session, actual_name) if session else None
 
     desc = f"**Your Plays:** `{total_user_plays:,}`\n"
