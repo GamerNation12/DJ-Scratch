@@ -3549,33 +3549,41 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
             view = FMActionsView(bot_instance, raw_artist, img, is_p=is_p, cd=cd, user=user, spotify_url=spotify_url, song=raw_song, current_mode="compact", track_data={'raw_data': data, 'processed': {'artist': artist, 'song': song, 'img': img, 'spotify_url': spotify_url, 'track_plays': track_plays, 't_info': t_info if 't_info' in locals() else None}})
             return {"content": content, "view": view}, is_p
 
-        # Extract release date. Prefer MusicBrainz (original album date) over
-        # Spotify, which can return a deluxe/reissue date (e.g. 2020 for a 2018 track).
-        release_date = None
-        if album and artist:
-            try:
-                from src.utils.api import fetch_musicbrainz_release_date
-                mb_date = await fetch_musicbrainz_release_date(session, artist, raw_song, album)
-                if mb_date:
-                    parts = mb_date.split("-")
-                    if len(parts) == 3:
-                        y, m, d = parts
-                        release_date = f"{m}-{d}-{y}"
-            except Exception:
-                pass
-        if not release_date and s_info:
+        # Extract release date. Spotify's album date is the label-provided one,
+        # so it's the baseline; MusicBrainz is only used when it points at a
+        # clearly earlier original release (deluxe/reissue date on Spotify).
+        # Small MusicBrainz differences are often bad entries (leaks/bootlegs),
+        # e.g. Nelly's "5.0" has a bogus 2010-10-16 release next to the real
+        # 2010-11-16 one.
+        spotify_date = None
+        if s_info:
             try:
                 rd = s_info.get("release_date")
                 if rd:
                     parts = rd.split("-")
                     if len(parts) == 3:
-                        y, m, d = parts
-                        release_date = f"{m}-{d}-{y}"
+                        spotify_date = rd
                     elif len(parts) == 2:
-                        y, m = parts
-                        release_date = f"{m}-01-{y}"
+                        spotify_date = f"{rd}-01"
             except Exception:
                 pass
+
+        from src.utils.api import choose_release_date
+
+        mb_date = None
+        if album and artist:
+            try:
+                from src.utils.api import fetch_musicbrainz_release_date
+                mb_date = await fetch_musicbrainz_release_date(session, artist, raw_song, album)
+            except Exception:
+                pass
+
+        chosen_date = choose_release_date(spotify_date, mb_date)
+
+        release_date = None
+        if chosen_date and len(chosen_date.split("-")) == 3:
+            _y, _m, _d = chosen_date.split("-")
+            release_date = f"{_m}-{_d}-{_y}"
 
         if mode == "stats":
             desc_lines = [f"**[{song}]({track_url})**", f"**{artist}** • *{album}*"]

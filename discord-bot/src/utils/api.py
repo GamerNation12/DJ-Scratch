@@ -5,6 +5,7 @@ import time
 import unicodedata
 import urllib.parse
 import logging
+from datetime import datetime
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
 from src.core.database import format_name
@@ -351,6 +352,29 @@ def _pick_release_date(releases):
         if bucket:
             return min(bucket)
     return None
+
+
+def choose_release_date(spotify_date, mb_date):
+    """Combine Spotify's album date with MusicBrainz's original release date.
+
+    Spotify carries the label's date, but for deluxe/reissue editions it can be
+    years later than the original album. MusicBrainz can fill that gap, yet it
+    also contains bad entries (leaks/bootlegs) a few days or weeks early, so only
+    trust it when it is more than ~6 months older than Spotify's date.
+    """
+    def _parse(value):
+        if value and len(value.split("-")) == 3:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                return None
+        return None
+
+    sp = _parse(spotify_date)
+    mb = _parse(mb_date)
+    if sp and mb:
+        return mb_date if (sp - mb).days > 180 else spotify_date
+    return spotify_date if sp else (mb_date if mb else None)
 
 
 async def _mb_group_date(session, group_id, headers):
