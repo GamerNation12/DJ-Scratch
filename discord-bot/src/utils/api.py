@@ -1,6 +1,8 @@
 import aiohttp
 import asyncio
+import re
 import time
+import unicodedata
 import urllib.parse
 import logging
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
@@ -195,15 +197,31 @@ async def fetch_user_artist_tracks_lastfm(u, artist):
     user_tracks.sort(key=lambda x: x[1], reverse=True)
     return user_tracks
 
+def _normalize_artist_name(name):
+    """Lowercase, strip accents/punctuation so 'NF', 'NF!' and 'N.F.' compare equal."""
+    s = unicodedata.normalize("NFKD", name or "")
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]+", "", s.lower())
+
+
 async def fetch_deezer_artist_image(session, artist_name):
-    url = f"https://api.deezer.com/search/artist?q={urllib.parse.quote(artist_name)}"
+    # Ask for a batch of results: Deezer's top hit is often a similarly named
+    # artist (e.g. "NF!" for "NF"), so only accept an exact name match and
+    # break ties by popularity.
+    url = f"https://api.deezer.com/search/artist?q={urllib.parse.quote(artist_name)}&limit=25"
     try:
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
             if r.status == 200:
                 data = await r.json()
-                if data and 'data' in data and len(data['data']) > 0:
-                    artist = data['data'][0]
-                    return artist.get('picture_xl') or artist.get('picture_big') or artist.get('picture')
+                artists = data.get('data') if isinstance(data, dict) else None
+                target = _normalize_artist_name(artist_name)
+                if not artists or not target:
+                    return None
+                matches = [a for a in artists if _normalize_artist_name(a.get('name')) == target]
+                if not matches:
+                    return None
+                artist = max(matches, key=lambda a: a.get('nb_fan') or 0)
+                return artist.get('picture_xl') or artist.get('picture_big') or artist.get('picture')
     except Exception as e:
         logging.error(f"Deezer fetch error: {e}")
     return None
