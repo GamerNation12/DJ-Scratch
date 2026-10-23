@@ -58,19 +58,10 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">6. Advertising</h2>
           <p className="text-gray-300">
-            We use Google AdSense to display advertisements. Third-party vendors, including Google, use cookies to serve ads based on your prior visits to this website or other websites. Google&apos;s use of advertising cookies enables it and its partners to serve ads to you based on your visit to this site and/or other sites on the Internet.
+            We use Adsterra to display advertisements. Adsterra and its advertising partners may use cookies, web beacons, and similar technologies to serve and measure ads, limit how often you see the same ad, and detect invalid or fraudulent traffic.
           </p>
           <p className="text-gray-300">
-            You may opt out of personalized advertising by visiting{' '}
-            <a
-              href="https://www.google.com/settings/ads"
-              target="_blank"
-              rel="noreferrer"
-              className="text-indigo-300 hover:text-indigo-200 underline"
-            >
-              Google Ads Settings
-            </a>{' '}
-            or{' '}
+            You can control or opt out of personalized advertising through your browser settings and industry opt-out tools such as{' '}
             <a
               href="https://www.aboutads.info"
               target="_blank"
@@ -78,17 +69,26 @@ export default function PrivacyPolicy() {
               className="text-indigo-300 hover:text-indigo-200 underline"
             >
               www.aboutads.info
-            </a>
-            . For more information about how Google uses data from partner sites, see{' '}
+            </a>{' '}
+            and{' '}
             <a
-              href="https://policies.google.com/technologies/partner-sites"
+              href="https://www.youronlinechoices.com"
               target="_blank"
               rel="noreferrer"
               className="text-indigo-300 hover:text-indigo-200 underline"
             >
-              Google&apos;s Privacy &amp; Terms
+              www.youronlinechoices.com
             </a>
-            . Where required by law, we use a consent management platform to request consent before setting advertising cookies.
+            . For more information about how Adsterra handles data, see the{' '}
+            <a
+              href="https://adsterra.com/privacy-policy-managed/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200 underline"
+            >
+              Adsterra Privacy Policy
+            </a>
+            . Where required by law, we show a consent banner before setting advertising cookies. You can change your choice at any time using the Cookies link in the footer.
           </p>
         </section>
 

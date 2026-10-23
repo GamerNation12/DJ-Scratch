@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useEffect, useState, Suspense } from "react";
 import SupportWidget from "@/components/SupportWidget";
 import LoginError from "@/components/LoginError";
+import AdsterraNative from "@/components/AdsterraNative";
+import AdsterraBanner from "@/components/AdsterraBanner";
 import { Reveal, CountUp, handleSpot } from "@/components/motion";
 import { loginWithDiscord, loginWithLastfm } from "@/lib/activityAuth";
 import { FAQ_ITEMS } from "@/lib/faq";
@@ -148,6 +150,26 @@ function HomeContent() {
           </div>
         </section>
 
+        {/* Mobile banner (desktop uses the 728x90 below). */}
+        <section className="container mx-auto px-4 pb-8 w-full relative z-10 flex lg:hidden justify-center">
+          <AdsterraBanner
+            adKey="dc7fcefe5a24627aac72b26b5fabcd38"
+            width={320}
+            height={50}
+            showOn="mobile"
+          />
+        </section>
+
+        {/* Desktop leaderboard ad (hidden on smaller screens). */}
+        <section className="container mx-auto px-4 pb-10 w-full max-w-5xl relative z-10 hidden lg:flex justify-center">
+          <AdsterraBanner
+            adKey="4a5eb0b52be587d22612c8d1013849f4"
+            width={728}
+            height={90}
+            showOn="desktop"
+          />
+        </section>
+
         {/* Marquee divider */}
         <div className="w-full overflow-hidden border-y-2 border-black bg-gradient-to-r from-fuchsia-600 via-amber-400 to-lime-300 py-3 -rotate-1 scale-[1.02] my-4">
           <div className="flex whitespace-nowrap animate-marquee w-max">
@@ -269,6 +291,11 @@ function HomeContent() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Native ad placement between features and the community section. */}
+        <section className="container mx-auto px-4 pb-20 w-full max-w-5xl relative z-10">
+          <AdsterraNative />
         </section>
 
         {/* Community / Support Server Section */}

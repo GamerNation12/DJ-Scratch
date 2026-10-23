@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { COOKIE_CONSENT_OPEN_EVENT } from "@/lib/cookieConsent";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -30,6 +31,15 @@ export default function Footer() {
           <div className="flex items-center gap-6 text-xs font-semibold text-zinc-500 uppercase tracking-widest">
             <Link href="/terms" className="hover:text-candy transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-candy transition-colors">Privacy</Link>
+            <button
+              type="button"
+              onClick={() =>
+                window.dispatchEvent(new Event(COOKIE_CONSENT_OPEN_EVENT))
+              }
+              className="hover:text-candy transition-colors"
+            >
+              Cookies
+            </button>
             <Link href="/guidelines" className="hover:text-candy transition-colors">Standards</Link>
             <Link href="/community" className="hover:text-candy transition-colors">Community</Link>
             <Link href="/support" className="hover:text-candy transition-colors">Help</Link>
