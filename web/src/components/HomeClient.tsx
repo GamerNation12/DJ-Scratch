@@ -151,7 +151,7 @@ function HomeContent() {
         </section>
 
         {/* Mobile banner (desktop uses the 728x90 below). */}
-        <section className="container mx-auto px-4 pb-8 w-full relative z-10 flex lg:hidden justify-center">
+        <section className="container mx-auto px-0 sm:px-4 pb-8 w-full relative z-10 flex lg:hidden justify-center">
           <AdsterraBanner
             adKey="dc7fcefe5a24627aac72b26b5fabcd38"
             width={320}
