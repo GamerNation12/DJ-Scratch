@@ -131,6 +131,7 @@ const JSON_LD = {
 import LayoutWrapper from "@/components/LayoutWrapper";
 import ReferralRedeemer from "@/components/ReferralRedeemer";
 import ActivityLoginNotice from "@/components/ActivityLoginNotice";
+import Script from "next/script";
 import { headers } from "next/headers";
 
 export default async function RootLayout({
@@ -145,6 +146,18 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${display.variable} antialiased`}
       >
+        {/* Google AdSense site-verification snippet. beforeInteractive puts it
+            in the initial <head> HTML, which is what AdSense checks. Skip it
+            inside the Discord Activity iframe. */}
+        {!isDiscordActivity && (
+          <Script
+            id="adsense"
+            async
+            strategy="beforeInteractive"
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2217524102967934"
+            crossOrigin="anonymous"
+          />
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }}
