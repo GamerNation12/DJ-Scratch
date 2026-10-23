@@ -6,7 +6,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto space-y-8">
         <h1 className="text-4xl font-display font-extrabold mb-8">Privacy Policy</h1>
         
-        <p className="text-gray-400">Last updated: 6/27/2026</p>
+        <p className="text-gray-400">Last updated: 10/23/2026</p>
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">1. Information We Collect</h2>
@@ -37,7 +37,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">3. Data Storage and Security</h2>
           <p className="text-gray-300">
-            We are committed to keeping your data secure. All data is stored securely and is only accessible to the development team. We do not sell or share your personal data with third parties.
+            We are committed to keeping your data secure. All data is stored securely and is only accessible to the development team. We do not sell your personal data. We share it only with service providers that help us operate the service (such as hosting, authentication and music-data providers), with advertising partners as described in Section 6, or when required by law.
           </p>
         </section>
 
@@ -49,7 +49,51 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">5. Contact Us</h2>
+          <h2 className="text-2xl font-semibold">5. Cookies and Similar Technologies</h2>
+          <p className="text-gray-300">
+            DJ Scratch uses cookies and similar technologies to keep you signed in, remember your preferences, measure site usage, and — where advertising is enabled — serve and measure ads. You can block or delete cookies through your browser settings, though some parts of the service may stop working correctly.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold">6. Advertising</h2>
+          <p className="text-gray-300">
+            We use Google AdSense to display advertisements. Third-party vendors, including Google, use cookies to serve ads based on your prior visits to this website or other websites. Google&apos;s use of advertising cookies enables it and its partners to serve ads to you based on your visit to this site and/or other sites on the Internet.
+          </p>
+          <p className="text-gray-300">
+            You may opt out of personalized advertising by visiting{' '}
+            <a
+              href="https://www.google.com/settings/ads"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200 underline"
+            >
+              Google Ads Settings
+            </a>{' '}
+            or{' '}
+            <a
+              href="https://www.aboutads.info"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200 underline"
+            >
+              www.aboutads.info
+            </a>
+            . For more information about how Google uses data from partner sites, see{' '}
+            <a
+              href="https://policies.google.com/technologies/partner-sites"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200 underline"
+            >
+              Google&apos;s Privacy &amp; Terms
+            </a>
+            . Where required by law, we use a consent management platform to request consent before setting advertising cookies.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold">7. Contact Us</h2>
           <p className="text-gray-300">
             If you have any questions or concerns about this Privacy Policy, please contact the developer or join our support server.
           </p>
