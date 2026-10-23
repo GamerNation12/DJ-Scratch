@@ -291,7 +291,7 @@ function HomeContent() {
 
         {/* Crawlable guide + FAQ. Server-rendered so search engines always
             see real content instead of the app shell. */}
-        <section id="faq" className="container mx-auto px-4 pb-28 w-full max-w-5xl relative z-10">
+        <section id="faq" className="container mx-auto px-4 pb-12 w-full max-w-5xl relative z-10">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-fuchsia-400/50 bg-fuchsia-500/10 text-fuchsia-200 text-xs font-extrabold mb-6 uppercase tracking-widest -rotate-1">
               Guide
@@ -317,16 +317,6 @@ function HomeContent() {
                 <p className="text-zinc-400 text-sm leading-relaxed">{item.a}</p>
               </div>
             ))}
-          </div>
-
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm font-bold text-zinc-400">
-            <Link href="/leaderboard" className="hover:text-white transition-colors">Server leaderboards</Link>
-            <Link href="/tools" className="hover:text-white transition-colors">Music stats tools</Link>
-            <Link href="/tools/whoknows" className="hover:text-white transition-colors">Who knows an artist?</Link>
-            <Link href="/download" className="hover:text-white transition-colors">Download the apps</Link>
-            <Link href="/community" className="hover:text-white transition-colors">Community picks</Link>
-            <Link href="/import" className="hover:text-white transition-colors">Import your history</Link>
-            <Link href="/support" className="hover:text-white transition-colors">Help &amp; support</Link>
           </div>
         </section>
       </main>
