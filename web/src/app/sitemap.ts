@@ -3,6 +3,10 @@ import { sql } from "@/lib/db";
 
 const BASE = "https://dj-scratch.is-a-fullstack.dev";
 
+// Regenerate hourly so new public profiles (and renamed users) show up without
+// needing a redeploy. The sitemap is cached by default in Next.js.
+export const revalidate = 3600;
+
 // Public content pages. App-gated pages (admin, dashboard, import,
 // logging-in, login-callback, music, friends) stay out of the index.
 const STATIC_PATHS = [
@@ -43,7 +47,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!r.slug) continue;
       urls.push({
         url: `${BASE}/${encodeURIComponent(r.slug)}`,
-        lastModified: now,
         changeFrequency: "daily",
         priority: 0.6,
       });
