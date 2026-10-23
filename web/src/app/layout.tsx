@@ -30,7 +30,17 @@ export const metadata: Metadata = {
   keywords: ["DJ Scratch", "Discord music bot", "Last.fm stats", "Spotify stats", "music stats tracker", "stats.fm alternative", "scrobble tracker", "music recap", "listening history"],
   authors: [{ name: "DJ Scratch" }],
   creator: "DJ Scratch",
-  robots: { index: true, follow: true },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   alternates: { canonical: "https://dj-scratch.is-a-fullstack.dev" },
   openGraph: {
     title: "DJ Scratch | Your Ultimate Music Stats Bot",
@@ -59,22 +69,61 @@ export const metadata: Metadata = {
   },
 };
 
+const SITE_URL = "https://dj-scratch.is-a-fullstack.dev";
+const DISCORD_URL = "https://discord.gg/MT6d7jh3rv";
+
 const JSON_LD = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "WebSite",
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
       name: "DJ Scratch",
-      url: "https://dj-scratch.is-a-fullstack.dev",
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo.png?v=2`,
+      description:
+        "DJ Scratch is a free Last.fm and Spotify stats Discord bot with now-playing cards, crowns, leaderboards and recaps.",
+      sameAs: [
+        DISCORD_URL,
+        "https://github.com/GamerNation12/DJ-Scratch",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: "DJ Scratch",
+      alternateName: ["DJ Scratch Bot", "DJ Scratch Music Stats"],
+      url: SITE_URL,
+      description:
+        "Track, share, and analyze your music listening habits with DJ Scratch, the Last.fm & Spotify stats Discord bot.",
+      inLanguage: "en",
+      publisher: { "@id": `${SITE_URL}/#organization` },
     },
     {
       "@type": "SoftwareApplication",
+      "@id": `${SITE_URL}/#app`,
       name: "DJ Scratch",
       applicationCategory: "MultimediaApplication",
+      applicationSubCategory: "Music Stats Discord Bot",
       operatingSystem: "Discord",
-      url: "https://dj-scratch.is-a-fullstack.dev",
+      url: SITE_URL,
+      image: `${SITE_URL}/logo.png?v=2`,
       description:
-        "Track, share, and analyze your music listening habits with DJ Scratch. Last.fm & Spotify stats, recaps, and community leaderboards.",
+        "Track, share, and analyze your music listening habits with DJ Scratch. Last.fm & Spotify stats, recaps, crowns and community leaderboards.",
+      featureList: [
+        "Last.fm and Spotify now-playing cards",
+        "Server crowns and leaderboards",
+        "Weekly and monthly listening recaps",
+        "Shareable music stat cards",
+        "Listening history import",
+        "Private mode",
+      ],
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      publisher: { "@id": `${SITE_URL}/#organization` },
     },
   ],
 };
@@ -98,7 +147,7 @@ export default async function RootLayout({
       >
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }}
         />
         <Providers>
           <ReferralRedeemer />
