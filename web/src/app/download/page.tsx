@@ -1,46 +1,124 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
+// Server-rendered so search engines see real download links/content instead of
+// a client-side loading spinner (which Google classified as a soft 404).
+// Cached hourly; the GitHub token is optional but avoids the 60/hr limit.
+export const revalidate = 3600;
 
-export default function DownloadPage() {
-  const [releases, setReleases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type ReleaseAsset = {
+  name: string;
+  size: number;
+  browser_download_url: string;
+};
 
-  useEffect(() => {
-    // Same-origin proxy (cached hourly server-side): direct api.github.com
-    // calls 403 once the 60/hr unauthenticated rate limit is spent.
-    fetch("/api/releases")
-      .then(res => res.json())
-      .then(data => {
-        if (!Array.isArray(data)) throw new Error("Failed to fetch releases");
-        setReleases(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setError("Could not load releases at this time.");
-        setLoading(false);
-      });
-  }, []);
+type Release = {
+  id: number;
+  name?: string;
+  tag_name: string;
+  published_at: string;
+  body?: string;
+  prerelease?: boolean;
+  assets: ReleaseAsset[];
+};
+
+const RELEASES_URL = "https://github.com/GamerNation12/DJ-Scratch/releases";
+
+async function getReleases(): Promise<Release[]> {
+  try {
+    const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    const res = await fetch(
+      "https://api.github.com/repos/GamerNation12/DJ-Scratch/releases",
+      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function PlatformLinks({ release }: { release?: Release }) {
+  const exe = release?.assets.find((a) => a.name.endsWith(".exe"));
+  const apk = release?.assets.find((a) => a.name.endsWith(".apk"));
+  const linux =
+    release?.assets.find((a) => a.name.endsWith(".AppImage")) ||
+    release?.assets.find((a) => a.name.endsWith(".deb"));
+
+  const rows = [
+    {
+      label: "Windows",
+      detail: exe ? `.exe • ${(exe.size / 1024 / 1024).toFixed(1)} MB` : "Installer on GitHub",
+      href: exe?.browser_download_url || RELEASES_URL,
+      className: "bg-indigo-500 hover:bg-indigo-400",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+      ),
+    },
+    {
+      label: "Android",
+      detail: apk ? `.apk • ${(apk.size / 1024 / 1024).toFixed(1)} MB` : "APK on GitHub",
+      href: apk?.browser_download_url || RELEASES_URL,
+      className: "bg-emerald-500 hover:bg-emerald-400",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+      ),
+    },
+    {
+      label: "Linux",
+      detail: linux
+        ? `${linux.name.endsWith(".deb") ? ".deb" : ".AppImage"} • ${(linux.size / 1024 / 1024).toFixed(1)} MB`
+        : "AppImage on GitHub",
+      href: linux?.browser_download_url || RELEASES_URL,
+      className: "bg-amber-500 hover:bg-amber-400",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      {rows.map((row) => (
+        <a
+          key={row.label}
+          href={row.href}
+          target="_blank"
+          rel="noreferrer"
+          className={`flex items-center gap-4 ${row.className} transition-colors p-4 rounded-2xl`}
+        >
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+            {row.icon}
+          </div>
+          <div>
+            <div className="font-bold text-white leading-tight">{row.label}</div>
+            <div className="text-xs text-white/80 mt-1">{row.detail}</div>
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+export default async function DownloadPage() {
+  const releases = await getReleases();
+  const latest = releases[0];
 
   return (
     <div className="min-h-screen bg-[#0e0618] text-white font-sans selection:bg-indigo-500/30 overflow-hidden relative flex flex-col items-center">
-      {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex justify-center items-center opacity-30">
         <div className="absolute w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] mix-blend-screen animate-blob"></div>
         <div className="absolute w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] mix-blend-screen animate-blob animation-delay-200"></div>
       </div>
       <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] pointer-events-none z-0 mix-blend-overlay"></div>
-      
+
       <main className="relative z-10 w-full max-w-5xl mx-auto px-4 pt-24 pb-24">
         <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-12 font-medium">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back to Home
         </Link>
-        
-        <div className="text-center mb-16">
+
+        <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-6 shadow-[0_0_30px_rgba(99,102,241,0.15)]">
             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
@@ -48,166 +126,86 @@ export default function DownloadPage() {
             Download DJ Scratch
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto font-medium">
-            Get the ultimate Last.fm and Discord experience right on your desktop or mobile device.
+            Get the ultimate Last.fm and Spotify stats experience on Windows, Linux and Android.
           </p>
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-            <div className="text-zinc-500 font-medium animate-pulse">Loading latest releases...</div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-8 rounded-3xl text-center max-w-2xl mx-auto">
-            <h3 className="text-xl font-bold mb-2">Oops!</h3>
-            <p>{error}</p>
-            <p className="mt-4 text-sm opacity-80">Please check back later or grab them straight from GitHub:</p>
-            <a
-              href="https://github.com/GamerNation12/DJ-Scratch/releases"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block mt-3 px-5 py-2 rounded-xl bg-white/5 border border-white/10 text-indigo-300 hover:text-white text-sm font-bold"
-            >
-              Open releases on GitHub
-            </a>
-          </div>
-        ) : releases.length === 0 ? (
-          <div className="bg-[#170b28]/50 backdrop-blur-xl border border-white/10 p-12 rounded-3xl text-center max-w-2xl mx-auto">
-            <h3 className="text-2xl font-bold mb-3">No releases yet!</h3>
-            <p className="text-zinc-400">We are currently preparing the first public release. Please check back soon.</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {releases.map((release, idx) => {
-              const exeAsset = release.assets.find((a: any) => a.name.endsWith('.exe'));
-              const apkAsset = release.assets.find((a: any) => a.name.endsWith('.apk'));
-              const linuxAsset = release.assets.find((a: any) => a.name.endsWith('.AppImage')) || release.assets.find((a: any) => a.name.endsWith('.deb'));
-              const isLatest = idx === 0;
+        <section className="bg-[#170b28]/40 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-8 mb-10">
+          <h2 className="text-2xl font-display font-extrabold mb-4">
+            {latest ? `Latest version${latest.name ? `: ${latest.name}` : ""}` : "Get the latest build"}
+          </h2>
+          <PlatformLinks release={latest} />
+          <p className="text-xs text-zinc-500 mt-4">
+            {latest?.published_at
+              ? `Published ${new Date(latest.published_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}. `
+              : ""}
+            Every download is also available on{" "}
+            <a href={RELEASES_URL} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-indigo-200 font-semibold">
+              GitHub Releases
+            </a>.
+          </p>
+        </section>
 
-              return (
-                <div key={release.id} className={`bg-[#170b28]/40 backdrop-blur-md border ${isLatest ? 'border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.1)]' : 'border-white/10'} rounded-3xl p-6 md:p-8 overflow-hidden relative group`}>
-                  {isLatest && (
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none -mr-32 -mt-32"></div>
-                  )}
-                  
-                  <div className="flex flex-col md:flex-row gap-8 relative z-10">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-4">
-                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{release.name || release.tag_name}</h2>
-                        {isLatest && (
-                          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-display font-black uppercase tracking-widest rounded-full border border-indigo-500/30">
-                            Latest
-                          </span>
-                        )}
-                        {release.prerelease && (
-                          <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-display font-black uppercase tracking-widest rounded-full border border-amber-500/30">
-                            Beta
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="text-sm text-zinc-500 font-mono mb-6 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
-                        Published on {new Date(release.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                      </div>
-
-                      <div className="prose prose-invert prose-zinc max-w-none prose-p:text-zinc-400 prose-a:text-indigo-400 hover:prose-a:text-indigo-300">
-                        {/* We use a simple whitespace pre-wrap for the markdown body to render it cleanly without a heavy markdown parser for now */}
-                        <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed bg-[#170b28]/50 p-6 rounded-2xl border border-white/5">
-                          {release.body || "No release notes provided."}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="md:w-72 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
-                      <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-2">Assets</h3>
-                      
-                      {exeAsset ? (
-                        <div className="flex flex-col gap-2">
-                          <a 
-                            href={exeAsset.browser_download_url}
-                            className="flex items-center gap-4 bg-indigo-500 hover:bg-indigo-400 transition-colors p-4 rounded-2xl group/btn"
-                          >
-                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-                            </div>
-                            <div>
-                              <div className="font-bold text-white leading-tight">Windows</div>
-                              <div className="text-xs text-indigo-100 mt-1">.exe • {(exeAsset.size / 1024 / 1024).toFixed(1)} MB</div>
-                            </div>
-                          </a>
-                          <div className="text-[10px] text-zinc-500 bg-black/20 p-3 rounded-xl border border-white/5 leading-relaxed">
-                            <span className="font-bold text-zinc-400">Note:</span> If Microsoft Defender SmartScreen pops up, click <b>More info</b> &rarr; <b>Run anyway</b>. This happens for all unsigned indie apps!
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-4 bg-zinc-800/50 p-4 rounded-2xl opacity-50 cursor-not-allowed border border-white/5">
-                          <div className="w-10 h-10 bg-zinc-700 rounded-xl flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-                          </div>
-                          <div>
-                            <div className="font-bold text-zinc-400 leading-tight">Windows</div>
-                            <div className="text-xs text-zinc-500 mt-1">Not available</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {apkAsset ? (
-                        <a 
-                          href={apkAsset.browser_download_url}
-                          className="flex items-center gap-4 bg-emerald-500 hover:bg-emerald-400 transition-colors p-4 rounded-2xl group/btn"
-                        >
-                          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-                          </div>
-                          <div>
-                            <div className="font-bold text-white leading-tight">Android</div>
-                            <div className="text-xs text-emerald-100 mt-1">.apk • {(apkAsset.size / 1024 / 1024).toFixed(1)} MB</div>
-                          </div>
-                        </a>
-                      ) : (
-                        <div className="flex items-center gap-4 bg-zinc-800/50 p-4 rounded-2xl opacity-50 cursor-not-allowed border border-white/5">
-                          <div className="w-10 h-10 bg-zinc-700 rounded-xl flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-                          </div>
-                          <div>
-                            <div className="font-bold text-zinc-400 leading-tight">Android</div>
-                            <div className="text-xs text-zinc-500 mt-1">Not available</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {linuxAsset ? (
-                        <a
-                          href={linuxAsset.browser_download_url}
-                          className="flex items-center gap-4 bg-amber-500 hover:bg-amber-400 transition-colors p-4 rounded-2xl group/btn"
-                        >
-                          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-                          </div>
-                          <div>
-                            <div className="font-bold text-white leading-tight">Linux</div>
-                            <div className="text-xs text-amber-100 mt-1">{linuxAsset.name.endsWith('.deb') ? '.deb' : '.AppImage'} • {(linuxAsset.size / 1024 / 1024).toFixed(1)} MB</div>
-                          </div>
-                        </a>
-                      ) : (
-                        <div className="flex items-center gap-4 bg-zinc-800/50 p-4 rounded-2xl opacity-50 cursor-not-allowed border border-white/5">
-                          <div className="w-10 h-10 bg-zinc-700 rounded-xl flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-                          </div>
-                          <div>
-                            <div className="font-bold text-zinc-400 leading-tight">Linux</div>
-                            <div className="text-xs text-zinc-500 mt-1">Not available</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+        {releases.length > 1 && (
+          <section className="mb-14">
+            <h2 className="text-xl font-display font-extrabold mb-4">Previous releases</h2>
+            <div className="space-y-4">
+              {releases.slice(1).map((release) => (
+                <div key={release.id} className="bg-[#170b28]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5">
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <h3 className="text-lg font-bold text-white">{release.name || release.tag_name}</h3>
+                    {release.prerelease && (
+                      <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-display font-black uppercase tracking-widest rounded-full border border-amber-500/30">Beta</span>
+                    )}
+                    <span className="text-xs text-zinc-500">
+                      {new Date(release.published_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                    </span>
                   </div>
+                  <PlatformLinks release={release} />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          </section>
         )}
+
+        {latest?.body && (
+          <section className="mb-14">
+            <h2 className="text-xl font-display font-extrabold mb-4">Release notes</h2>
+            <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed bg-[#170b28]/50 p-6 rounded-2xl border border-white/5">
+              {latest.body}
+            </div>
+          </section>
+        )}
+
+        <section className="grid gap-6 md:grid-cols-2 mb-14">
+          <div className="bg-[#170b28]/40 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+            <h2 className="text-xl font-display font-extrabold mb-3">What you get</h2>
+            <ul className="space-y-2 text-zinc-400 text-sm leading-relaxed">
+              <li>• Your Last.fm and Spotify listening stats in one place</li>
+              <li>• Now playing, top artists, albums and tracks</li>
+              <li>• Weekly and monthly recaps plus shareable music cards</li>
+              <li>• Crowns, streaks and server leaderboards</li>
+              <li>• Private mode and imported listening history</li>
+            </ul>
+          </div>
+          <div className="bg-[#170b28]/40 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+            <h2 className="text-xl font-display font-extrabold mb-3">How to install</h2>
+            <ol className="space-y-2 text-zinc-400 text-sm leading-relaxed list-decimal list-inside">
+              <li>Download the build for your platform above.</li>
+              <li>Windows: run the <span className="text-zinc-200 font-semibold">.exe</span>. If SmartScreen appears, choose More info → Run anyway.</li>
+              <li>Android: open the <span className="text-zinc-200 font-semibold">.apk</span> and allow installs from your browser when prompted.</li>
+              <li>Linux: make the AppImage executable (<span className="text-zinc-200 font-semibold">chmod +x</span>) and run it.</li>
+              <li>Open the app and log in with Discord to load your stats.</li>
+            </ol>
+          </div>
+        </section>
+
+        <p className="text-center text-zinc-500 text-sm">
+          Prefer the browser? Use the{" "}
+          <Link href="/" className="text-indigo-300 hover:text-indigo-200 font-semibold">web dashboard</Link>,{" "}
+          <Link href="/leaderboard" className="text-indigo-300 hover:text-indigo-200 font-semibold">global leaderboards</Link> or the{" "}
+          <Link href="/tools" className="text-indigo-300 hover:text-indigo-200 font-semibold">free stats tools</Link>.
+        </p>
       </main>
     </div>
   );
