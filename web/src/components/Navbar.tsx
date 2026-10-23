@@ -51,7 +51,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             {/* Mobile Menu Toggle */}
             <button 
-              className="md:hidden text-zinc-400 hover:text-white transition-colors"
+              className="xl:hidden text-zinc-400 hover:text-white transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,7 +74,7 @@ export default function Navbar() {
               </span>
             </Link>
 
-            <div className="hidden md:flex space-x-2 border-l border-white/10 pl-6">
+            <div className="hidden xl:flex space-x-2 border-l border-white/10 pl-6">
               <Link
                 href="/"
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -138,6 +138,16 @@ export default function Navbar() {
               >
                 <Wrench className="w-3.5 h-3.5" />
                 Tools
+              </Link>
+              <Link
+                href="/commands"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/commands"
+                    ? "bg-volt/15 text-volt"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Commands
               </Link>
               <Link
                 href="/support"
@@ -209,7 +219,7 @@ export default function Navbar() {
                   href="/invite"
                   target="_blank" 
                   rel="noreferrer"
-                  className="hidden md:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
+                  className="hidden xl:flex text-xs font-semibold text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all"
                 >
                   Invite
                 </a>
@@ -235,7 +245,7 @@ export default function Navbar() {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-4 right-4 bg-[#150a24]/95 backdrop-blur-xl border border-fuchsia-500/20 rounded-2xl p-4 shadow-2xl shadow-fuchsia-950/50 pointer-events-auto animate-fade-in-up">
+        <div className="xl:hidden absolute top-20 left-4 right-4 bg-[#150a24]/95 backdrop-blur-xl border border-fuchsia-500/20 rounded-2xl p-4 shadow-2xl shadow-fuchsia-950/50 pointer-events-auto animate-fade-in-up">
           <div className="flex flex-col space-y-2">
             <Link
               href="/"
@@ -299,6 +309,16 @@ export default function Navbar() {
               }`}
             >
               Tools
+            </Link>
+            <Link
+              href="/commands"
+              className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname === "/commands"
+                  ? "bg-volt/15 text-volt"
+                  : "text-zinc-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Commands
             </Link>
             <Link
               href="/support"

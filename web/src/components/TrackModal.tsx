@@ -3,6 +3,15 @@ import { useState, useEffect } from "react";
 import { artSrc } from "@/lib/art";
 import { Dialog, Skeleton } from "@/components/ui";
 
+// Last.fm wiki summaries are user-editable HTML. Never inject them directly:
+// a crafted <img onerror> would run in our origin and could read the JWT from
+// localStorage. Render the text content instead.
+function wikiText(html: string): string {
+  if (typeof window === "undefined") return html.replace(/<[^>]*>/g, " ");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
+}
+
 interface TrackModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -196,10 +205,9 @@ export default function TrackModal({ isOpen, onClose, trackName, artistName, use
             {data?.wiki?.summary && (
               <div className="mt-8 pt-8 border-t border-white/10">
                 <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-3">About this track</h3>
-                <div 
-                  className="text-zinc-300 text-sm leading-relaxed prose prose-invert max-w-none prose-a:text-indigo-400 hover:prose-a:text-indigo-300"
-                  dangerouslySetInnerHTML={{ __html: data.wiki.summary }} 
-                />
+                <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap">
+                  {wikiText(String(data.wiki.summary))}
+                </p>
               </div>
             )}
 

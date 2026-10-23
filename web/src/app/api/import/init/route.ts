@@ -23,6 +23,14 @@ export async function POST(req: Request) {
     if (!filename || typeof totalChunks !== "number") {
       return NextResponse.json({ error: "Missing filename or totalChunks" }, { status: 400 });
     }
+    if (String(filename).length > 255) {
+      return NextResponse.json({ error: "Filename is too long" }, { status: 400 });
+    }
+    // 500 x 2 MB chunks = 1 GB ceiling. Stop a token holder from filling
+    // the database/storage with an arbitrarily large upload job.
+    if (!Number.isInteger(totalChunks) || totalChunks < 1 || totalChunks > 500) {
+      return NextResponse.json({ error: "Invalid totalChunks" }, { status: 400 });
+    }
 
     const lockReason = await getDisabledCommandReason("import");
     if (lockReason) {

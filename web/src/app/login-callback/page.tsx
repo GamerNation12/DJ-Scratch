@@ -12,6 +12,7 @@ function LoginCallbackInner() {
   useEffect(() => {
     const token = searchParams.get("token");
     const discordId = searchParams.get("discord_id");
+    const state = searchParams.get("state");
     const interactionToken = searchParams.get("interaction_token");
     const appId = searchParams.get("app_id");
     const channelId = searchParams.get("channel_id");
@@ -26,6 +27,7 @@ function LoginCallbackInner() {
     const processLogin = async () => {
       try {
         let url = `https://dj-scratch.is-a-fullstack.dev/api/auth/lastfm/callback?token=${token}&discord_id=${discordId}`;
+        if (state) url += `&state=${encodeURIComponent(state)}`;
         if (interactionToken) url += `&interaction_token=${interactionToken}`;
         if (appId) url += `&app_id=${appId}`;
         // Prefix flow: lets the API refresh the original Discord message.

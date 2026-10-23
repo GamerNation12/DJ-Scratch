@@ -28,17 +28,23 @@ export async function POST(req: Request) {
     const chunkIndex = parseInt(chunkIndexStr, 10);
     const fileBlob = formData.get("chunk") as Blob;
 
-    if (!jobId || isNaN(chunkIndex) || !fileBlob) {
+    if (!jobId || !Number.isInteger(chunkIndex) || !fileBlob) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    if (fileBlob.size > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: "Chunk is too large" }, { status: 413 });
     }
 
     const arrayBuffer = await fileBlob.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     const userId = String((decoded as any).id);
-    const [job] = await sql`SELECT user_id FROM import_jobs WHERE id = ${jobId}`;
+    const [job] = await sql`SELECT user_id, total_chunks FROM import_jobs WHERE id = ${jobId}`;
     if (!job || job.user_id !== userId) {
       return NextResponse.json({ error: "Job not found or unauthorized" }, { status: 404 });
+    }
+    if (chunkIndex < 0 || chunkIndex >= job.total_chunks) {
+      return NextResponse.json({ error: "Invalid chunk index" }, { status: 400 });
     }
 
     await sql`

@@ -12,6 +12,25 @@ from src.utils.autocomplete import (
 )
 
 
+def _lastfm_link_state(discord_id: int) -> str:
+    """Sign the Discord ID (with a timestamp) so the web callback can reject
+    forged or replayed links."""
+    import hashlib
+    import hmac
+    import os
+    import time
+    secret = os.getenv("LASTFM_SHARED_SECRET") or os.getenv("LASTFM_API_SECRET")
+    if not secret:
+        raise RuntimeError("LASTFM_SHARED_SECRET/LASTFM_API_SECRET is not configured")
+    issued_at = str(int(time.time()))
+    signature = hmac.new(
+        secret.encode(),
+        f"lastfm-link:{discord_id}:{issued_at}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{issued_at}.{signature}"
+
+
 def _spotify_login_url(user_id: int, channel_id=None, message_id=None) -> str:
     import os
     app_url = os.getenv("NEXT_PUBLIC_APP_URL", "https://dj-scratch.is-a-fullstack.dev")
@@ -342,7 +361,7 @@ class LastFmCog(commands.Cog):
 
             import urllib.parse
             from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-            cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}"
+            cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}&state={_lastfm_link_state(interaction.user.id)}"
             auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
 
             # Send first so we have a message id: callbacks PATCH this message
@@ -946,7 +965,7 @@ class LastFmCog(commands.Cog):
 
         import urllib.parse
         from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-        cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}"
+        cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}&state={_lastfm_link_state(ctx.author.id)}"
         auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
 
         view = discord.ui.View()

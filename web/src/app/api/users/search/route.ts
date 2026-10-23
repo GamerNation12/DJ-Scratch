@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       WHERE iu.username ILIKE ${"%" + q + "%"}
         AND iu.id != ${userId}
         AND (us.private_mode IS NOT TRUE)
+        AND (us.is_banned IS NOT TRUE)
         AND e.user_id IS NULL
       ORDER BY iu.username ASC
       LIMIT 10

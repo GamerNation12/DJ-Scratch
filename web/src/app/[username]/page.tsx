@@ -12,6 +12,11 @@ import { Tabs } from "@/components/ui";
 import AdminClient from "@/app/admin/AdminClient";
 import Link from "next/link";
 
+function safeWebsiteHref(value: unknown): string {
+  const raw = String(value || "").trim();
+  return /^https?:\/\//i.test(raw) ? raw : "#";
+}
+
 export default function CombinedProfileDashboard({ params }: { params: Promise<{ username: string }> }) {
   const resolvedParams = use(params);
   const usernameParam = decodeURIComponent(resolvedParams.username || "");
@@ -886,7 +891,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     <p className="text-zinc-300 text-sm mt-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
                   )}
                   {(profile as any)?.website && (
-                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mt-1 inline-block">
+                    <a href={safeWebsiteHref((profile as any).website)} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mt-1 inline-block">
                       🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
                     </a>
                   )}
@@ -920,7 +925,7 @@ export default function CombinedProfileDashboard({ params }: { params: Promise<{
                     <p className="text-zinc-300 text-sm mb-2 max-w-xl mx-auto md:mx-0 whitespace-pre-wrap">{(profile as any).bio}</p>
                   )}
                   {(profile as any)?.website && (
-                    <a href={(profile as any).website} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mb-4 inline-block">
+                    <a href={safeWebsiteHref((profile as any).website)} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-white text-sm font-semibold mb-4 inline-block">
                       🔗 {(profile as any).website.replace(/^https?:\/\//, "").split("/")[0]}
                     </a>
                   )}

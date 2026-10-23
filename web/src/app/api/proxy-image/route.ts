@@ -50,7 +50,15 @@ export async function GET(req: Request) {
       return new NextResponse('Not an image', { status: 415 });
     }
 
+    const MAX_BYTES = 10 * 1024 * 1024;
+    const declaredLength = Number(res.headers.get('content-length') || 0);
+    if (declaredLength > MAX_BYTES) {
+      return new NextResponse('Image too large', { status: 413 });
+    }
     const buffer = await res.arrayBuffer();
+    if (buffer.byteLength > MAX_BYTES) {
+      return new NextResponse('Image too large', { status: 413 });
+    }
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': type.split(";")[0] || 'image/jpeg',

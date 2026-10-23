@@ -1,7 +1,14 @@
 import { sql } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { getAdminFromRequest } from "@/lib/admin";
 
 export async function GET(req: Request) {
+  // DDL is owner-only. This endpoint is not called by the UI; it exists for
+  // manual recovery, so an unauthenticated visitor must not be able to run it.
+  if (!(await getAdminFromRequest(req, ["owner"]))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS imported_users (

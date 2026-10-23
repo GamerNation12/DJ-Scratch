@@ -8,6 +8,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
   const discordId = searchParams.get("discord_id"); // Optional for web login
+  const state = searchParams.get("state");
 
   if (!token) {
     // NOTE: no per-route CORS headers — middleware.ts echoes the caller
@@ -19,13 +20,52 @@ export async function GET(req: Request) {
   }
 
   const apiKey = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
-  const sharedSecret = process.env.LASTFM_SHARED_SECRET || "e566dd2098e65ed746edc1a4a5ef62f0";
+  // Never fall back to a secret committed to the repo. Set
+  // LASTFM_SHARED_SECRET in the deployment environment.
+  const sharedSecret = process.env.LASTFM_SHARED_SECRET || process.env.LASTFM_API_SECRET;
 
   if (!sharedSecret) {
     return NextResponse.json(
       { success: false, error: "Configuration error: LASTFM_SHARED_SECRET is not set in the environment. Please contact the bot owner." },
       { status: 500 }
     );
+  }
+
+  // Account-linking callbacks must carry the HMAC the bot put in the login
+  // URL. Without this, anyone could pair their own Last.fm token with any
+  // Discord ID by calling the callback directly.
+  if (discordId) {
+    if (!/^\d{5,25}$/.test(discordId)) {
+      return NextResponse.json({ success: false, error: "Invalid Discord ID." }, { status: 400 });
+    }
+    const [issuedAt, providedSignature] = (state || "").split(".");
+    const issuedSeconds = Number(issuedAt);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (
+      !providedSignature ||
+      !Number.isInteger(issuedSeconds) ||
+      Math.abs(nowSeconds - issuedSeconds) > 30 * 60
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired login state. Please run /login again." },
+        { status: 403 }
+      );
+    }
+    const expectedSignature = crypto
+      .createHmac("sha256", sharedSecret)
+      .update(`lastfm-link:${discordId}:${issuedAt}`)
+      .digest("hex");
+    const providedBuffer = Buffer.from(providedSignature, "hex");
+    const expectedBuffer = Buffer.from(expectedSignature, "hex");
+    if (
+      providedBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired login state. Please run /login again." },
+        { status: 403 }
+      );
+    }
   }
 
   try {
@@ -35,7 +75,14 @@ export async function GET(req: Request) {
     const sigString = `api_key${apiKey}methodauth.getSessiontoken${token}${sharedSecret}`;
     const apiSig = crypto.createHash("md5").update(sigString, "utf8").digest("hex");
 
-    const url = `http://ws.audioscrobbler.com/2.0/?method=auth.getSession&api_key=${apiKey}&token=${token}&api_sig=${apiSig}&format=json`;
+    const params = new URLSearchParams({
+      method: "auth.getSession",
+      api_key: apiKey,
+      token,
+      api_sig: apiSig,
+      format: "json",
+    });
+    const url = `https://ws.audioscrobbler.com/2.0/?${params.toString()}`;
     
     const res = await fetch(url);
     const data = await res.json();

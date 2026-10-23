@@ -27,6 +27,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
+    // Moderators can enforce bans, but cannot reset profiles or edit names,
+    // and nobody below owner can target an owner/admin account.
+    if (
+      role === "moderator" &&
+      actionType !== "BAN" &&
+      actionType !== "UNBAN"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const targetRole = await getAdminRole(String(userId));
+    if (targetRole === "owner" || (role !== "owner" && targetRole === "admin")) {
+      return NextResponse.json(
+        { error: "Cannot moderate an admin account" },
+        { status: 403 }
+      );
+    }
+
     if (actionType === 'BAN') {
       const reason = payload?.reason || "No reason provided.";
       const durationHours = payload?.durationHours; // If null, permanent

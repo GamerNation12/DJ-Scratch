@@ -42,6 +42,7 @@ export async function GET(req: Request) {
       WHERE LOWER(t.artist_name) = LOWER(${artist})
       ${extraFilter}
       AND (us.private_mode IS NOT TRUE)
+      AND (us.is_banned IS NOT TRUE)
       GROUP BY l.user_id, name, avatar
       ORDER BY plays DESC
       LIMIT 15
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
       WHERE LOWER(t.artist_name) = LOWER(${artist})
       ${extraFilter}
       AND (us.private_mode IS NOT TRUE)
+      AND (us.is_banned IS NOT TRUE)
     `;
 
     const top = rows.map((r: any) => ({

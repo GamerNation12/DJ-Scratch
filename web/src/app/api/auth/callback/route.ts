@@ -29,7 +29,6 @@ export async function GET(request: Request) {
   });
 
   const tokenData = await tokenResponse.json();
-  console.log("Discord Token Exchange Result:", tokenData);
 
   if (!tokenData.access_token) {
     const errorMsg = encodeURIComponent(tokenData.error_description || tokenData.error || 'Unknown_Discord_Error');

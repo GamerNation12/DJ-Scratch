@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     const lastfmUsername = row[0].lastfm_username;
 
     const res = await fetch(
-      `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
+      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
       { next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) }
     );
     const data = await res.json().catch(() => null);

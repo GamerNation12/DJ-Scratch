@@ -14,7 +14,8 @@ export async function GET() {
       SELECT us.user_id, us.lastfm_username, us.discord_username, us.display_name, us.data_source, iu.avatar_url
       FROM user_settings us
       LEFT JOIN imported_users iu ON iu.id = us.user_id
-      WHERE us.private_mode = FALSE 
+      WHERE us.private_mode = FALSE
+      AND us.is_banned IS NOT TRUE
       AND us.discord_username IS NOT NULL
     `;
 
@@ -47,7 +48,7 @@ export async function GET() {
 
       try {
         const lastfmFetchUrl = (r.lastfm_username && dataSource !== 'imported_only') 
-          ? `http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${r.lastfm_username}&api_key=${LASTFM_API_KEY}&format=json` 
+          ? `https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${encodeURIComponent(r.lastfm_username)}&api_key=${LASTFM_API_KEY}&format=json`
           : null;
 
         const promises: any[] = [

@@ -20,9 +20,11 @@ export async function GET(req: Request) {
     }
 
     const topUsersResult = await sql`
-      SELECT user_id, COUNT(*) as count
-      FROM listens
-      GROUP BY user_id
+      SELECT l.user_id, COUNT(*) as count
+      FROM listens l
+      LEFT JOIN user_settings us ON us.user_id = l.user_id
+      WHERE (us.private_mode IS NOT TRUE) AND (us.is_banned IS NOT TRUE)
+      GROUP BY l.user_id
       ORDER BY count DESC
       LIMIT 3
     `;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { getAdminFromRequest } from '@/lib/admin';
 
 async function sendDiscordIPC(content: string) {
   const botToken = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
@@ -17,7 +18,11 @@ async function sendDiscordIPC(content: string) {
 }
 
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!(await getAdminFromRequest(request, ['owner']))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Ensure table exists (fixes 500 errors if bot hasn't run migrations)
     await sql`
@@ -50,6 +55,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!(await getAdminFromRequest(request, ['owner']))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { userId, commandName, duration } = body;
@@ -92,6 +101,10 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!(await getAdminFromRequest(request, ['owner']))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { userId, commandName } = body;

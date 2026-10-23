@@ -57,7 +57,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (publicRows.length === 0) {
       return NextResponse.json({ error: "This profile is private." }, { status: 403 });
     }
-    if (publicRows[0].is_banned) {
+    if (publicRows.some((r) => r.is_banned)) {
       return NextResponse.json({ error: "This user is banned." }, { status: 403 });
     }
     const uId = publicRows[0].user_id;

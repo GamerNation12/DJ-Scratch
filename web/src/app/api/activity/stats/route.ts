@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
+const VALID_PERIODS = new Set(["7day", "1month", "3month", "6month", "12month", "overall"]);
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
-  const period = searchParams.get('period') || 'overall';
+  const periodParam = searchParams.get('period') || 'overall';
+  const period = VALID_PERIODS.has(periodParam) ? periodParam : 'overall';
 
   if (!userId) {
     return NextResponse.json({ error: "Missing userId parameter." }, { status: 400 });
@@ -14,7 +16,7 @@ export async function GET(req: Request) {
 
   try {
     const rows = await sql`
-      SELECT user_id, lastfm_username 
+      SELECT user_id, lastfm_username, private_mode, is_banned
       FROM user_settings 
       WHERE user_id = ${userId}
     `;
@@ -22,8 +24,15 @@ export async function GET(req: Request) {
     if (rows.length === 0 || !rows[0].lastfm_username) {
       return NextResponse.json({ error: "User has not set up their Last.fm account." }, { status: 404 });
     }
+    if (rows[0].private_mode) {
+      return NextResponse.json({ error: "This profile is private." }, { status: 403 });
+    }
+    if (rows[0].is_banned) {
+      return NextResponse.json({ error: "This user is banned." }, { status: 403 });
+    }
 
-    const lastfm_username = rows[0].lastfm_username;
+    const lastfm_username = encodeURIComponent(String(rows[0].lastfm_username));
+    const lastfmPeriod = encodeURIComponent(period);
 
     // Fetch Last.fm Data
     let lastfmData = {
@@ -36,11 +45,11 @@ export async function GET(req: Request) {
 
     try {
       const [infoRes, artistRes, albumRes, trackRes, recentRes] = await Promise.all([
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${period}`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${period}`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${period}`),
-        fetch(`http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`)
+        fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json`),
+        fetch(`https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${lastfmPeriod}`),
+        fetch(`https://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${lastfmPeriod}`),
+        fetch(`https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5&period=${lastfmPeriod}`),
+        fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${lastfm_username}&api_key=${LASTFM_API_KEY}&format=json&limit=5`)
       ]);
 
       const [infoData, artistData, albumData, trackData, recentData] = await Promise.all([

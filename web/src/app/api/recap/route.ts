@@ -165,10 +165,10 @@ export async function GET(req: Request) {
       const u = encodeURIComponent(lastfmUsername);
       try {
         const [art, trk, alb, ov] = await Promise.all([
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=15`, 300),
-          upstreamJson(`http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=overall&limit=50`, 600),
+          upstreamJson(`https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
+          upstreamJson(`https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=30`, 300),
+          upstreamJson(`https://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=${apiPeriod}&limit=15`, 300),
+          upstreamJson(`https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${u}&api_key=${LASTFM_API_KEY}&format=json&period=overall&limit=50`, 600),
         ]);
         fmArtists = asList(art?.topartists?.artist).slice(0, 30).map((a: any) => ({
           name: a?.name || "Unknown", playcount: parseInt(a?.playcount || "0", 10) || 0, url: a?.url || null, image: bestImg(a),
@@ -192,7 +192,7 @@ export async function GET(req: Request) {
       try {
         const fromSec = Math.floor(Date.now() / 1000 - days * 86400);
         const c = await upstreamJson(
-          `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=1&from=${fromSec}`,
+          `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=1&from=${fromSec}`,
           120
         );
         const exact = parseInt(c?.recenttracks?.["@attr"]?.total ?? "NaN", 10);
@@ -207,7 +207,7 @@ export async function GET(req: Request) {
           const cutoff = Date.now() / 1000 - days * 86400;
           for (let page = 1; page <= 3; page++) {
             const d = await upstreamJson(
-              `http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`,
+              `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${u}&api_key=${LASTFM_API_KEY}&format=json&limit=200&page=${page}`,
               120
             );
             const items = asList(d?.recenttracks?.track);

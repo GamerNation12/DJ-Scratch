@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const baseUrl = host.includes('localhost') ? `http://${host}` : `https://${host}`;
   const callbackUrl = encodeURIComponent(`${baseUrl}/api/auth/lastfm/callback`);
   
-  const lastFmAuthUrl = `http://www.last.fm/api/auth/?api_key=${apiKey}&cb=${callbackUrl}`;
+  const lastFmAuthUrl = `https://www.last.fm/api/auth/?api_key=${apiKey}&cb=${callbackUrl}`;
   
   return NextResponse.redirect(lastFmAuthUrl);
 }

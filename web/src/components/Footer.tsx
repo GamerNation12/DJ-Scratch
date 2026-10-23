@@ -14,6 +14,7 @@ export default function Footer() {
         <nav aria-label="Site" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 pb-8 mb-8 border-b border-white/10 text-sm font-bold text-zinc-400">
           <Link href="/#features" className="hover:text-white transition-colors">Features</Link>
           <Link href="/leaderboard" className="hover:text-white transition-colors">Leaderboards</Link>
+          <Link href="/commands" className="hover:text-white transition-colors">Commands</Link>
           <Link href="/tools" className="hover:text-white transition-colors">Stats Tools</Link>
           <Link href="/tools/whoknows" className="hover:text-white transition-colors">Who Knows</Link>
           <Link href="/download" className="hover:text-white transition-colors">Download</Link>

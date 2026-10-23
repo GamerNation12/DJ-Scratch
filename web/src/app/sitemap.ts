@@ -11,6 +11,7 @@ export const revalidate = 3600;
 // logging-in, login-callback, music, friends) stay out of the index.
 const STATIC_PATHS = [
   "/",
+  "/commands",
   "/leaderboard",
   "/download",
   "/support",

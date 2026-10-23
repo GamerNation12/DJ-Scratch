@@ -43,6 +43,7 @@ export async function GET(req: Request) {
       )
       WHERE fof.cand != ${userId}
         AND (us.private_mode IS NOT TRUE)
+        AND (us.is_banned IS NOT TRUE)
         AND e.user_id IS NULL
       ORDER BY fof.mutuals DESC
       LIMIT 8
@@ -68,6 +69,7 @@ export async function GET(req: Request) {
         )
         WHERE iu.id != ${userId}
           AND (us.private_mode IS NOT TRUE)
+          AND (us.is_banned IS NOT TRUE)
           AND (us.last_active IS NOT NULL)
           AND e.user_id IS NULL
         ORDER BY us.last_active DESC

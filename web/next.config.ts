@@ -1,11 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // NOTE: Next 16 removed the `eslint` key (and `next lint`); builds no
-  // longer run ESLint, so there is nothing to ignore here anymore.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
   },
@@ -30,6 +25,20 @@ const nextConfig: NextConfig = {
     // desktop app (app://), Activities, and both domains all work. Do NOT
     // set Allow-Origin here — duplicate values fail the browser check.
     return [
+      {
+        // Safe defaults for every response. Frame-related headers are left
+        // alone because Discord Activities intentionally embed the site.
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
+      },
       {
         source: "/(.*).apk",
         headers: [

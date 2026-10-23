@@ -32,13 +32,13 @@ export async function GET(req: Request) {
     if (lastfmUsername) {
       try {
         const infoRes = await fetch(
-          `http://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json`,
+          `https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json`,
           { next: { revalidate: 300 } }
         );
         const infoData = await infoRes.json();
         
         const artistRes = await fetch(
-          `http://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
+          `https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${lastfmUsername}&api_key=${LASTFM_API_KEY}&format=json&limit=1`,
           { next: { revalidate: 3600 } }
         );
         const artistData = await artistRes.json();

@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
+import { getAdminFromRequest } from '@/lib/admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  const admin = await getAdminFromRequest(req, ['owner', 'admin']);
+  if (!admin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const pteroUrl = process.env.PTERO_URL?.replace(/\/$/, "");
     const pteroKey = process.env.PTERO_API_KEY;
@@ -34,10 +42,13 @@ export async function GET(req: Request) {
     const data = await response.json();
     
     // The response contains data.data.token and data.data.socket
-    return NextResponse.json({
-      token: data.data.token,
-      socket: data.data.socket
-    });
+    return NextResponse.json(
+      {
+        token: data.data.token,
+        socket: data.data.socket
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
 
   } catch (error: any) {
     console.error('Terminal websocket error:', error);

@@ -20,6 +20,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    const allowedTypes = new Set([
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif",
+    ]);
+    if (!allowedTypes.has(file.type)) {
+      return NextResponse.json(
+        { error: "Only PNG, JPEG, WebP or GIF images are allowed" },
+        { status: 415 }
+      );
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Image must be 8 MB or smaller" },
+        { status: 413 }
+      );
+    }
+
     // Proxy the upload to freeimage.host for permanent hotlinkable images
     const formData = new FormData();
     formData.append("source", file);

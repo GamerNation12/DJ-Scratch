@@ -76,6 +76,20 @@ export async function POST(req: Request) {
 
       if (finalTargetId === userId) return NextResponse.json({ error: "Cannot add yourself" }, { status: 400 });
 
+      // Private and banned profiles are not addable through the API even if
+      // the caller skips the search endpoint and posts a raw target ID.
+      const targetSettings = await sql`
+        SELECT private_mode, is_banned FROM user_settings WHERE user_id = ${finalTargetId}
+      `;
+      if (targetSettings.length > 0) {
+        if (targetSettings[0].private_mode) {
+          return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+        if (targetSettings[0].is_banned) {
+          return NextResponse.json({ error: "This user is banned." }, { status: 403 });
+        }
+      }
+
       const existing = await sql`SELECT status FROM friends WHERE user_id = ${finalTargetId} AND friend_id = ${userId}`;
       if (existing.length > 0 && existing[0].status === 'pending') {
         await sql`UPDATE friends SET status='accepted' WHERE user_id=${finalTargetId} AND friend_id=${userId}`;
@@ -113,6 +127,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, status: 'pending' });
     } 
     else if (action === "accept") {
+      // Only accept a request that was actually sent to this user. Without
+      // this check, POST { action: "accept", targetId: anyone } creates a
+      // one-sided friendship with an arbitrary account.
+      const pending = await sql`
+        SELECT 1 FROM friends
+        WHERE user_id = ${finalTargetId} AND friend_id = ${userId} AND status = 'pending'
+      `;
+      if (pending.length === 0) {
+        return NextResponse.json({ error: "No pending friend request" }, { status: 404 });
+      }
       await sql`UPDATE friends SET status='accepted' WHERE user_id=${finalTargetId} AND friend_id=${userId}`;
       await sql`INSERT INTO friends (user_id, friend_id, status) VALUES (${userId}, ${finalTargetId}, 'accepted') ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'`;
       await sendDiscordDM(finalTargetId, `**${(user as any).name}** accepted your friend request on DJ Scratch!`);
@@ -124,8 +148,8 @@ export async function POST(req: Request) {
     }
     
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (err: any) {
+  } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Internal Error", details: err.message, stack: err.stack }, { status: 500 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
