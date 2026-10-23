@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
-import CookieConsent from "./CookieConsent";
 import { useEffect, useState } from "react";
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -30,7 +29,6 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
         {children}
       </div>
       <Footer />
-      <CookieConsent />
     </>
   );
 }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AdsterraBanner from "@/components/AdsterraBanner";
 
 // Server-rendered so search engines see real download links/content instead of
 // a client-side loading spinner (which Google classified as a soft 404).
@@ -146,14 +145,6 @@ export default async function DownloadPage() {
             </a>.
           </p>
         </section>
-
-        <div className="flex justify-center mb-14">
-          <AdsterraBanner
-            adKey="ec34d3dbfeac486d6db49b4371486d11"
-            width={300}
-            height={250}
-          />
-        </div>
 
         {releases.length > 1 && (
           <section className="mb-14">

@@ -37,7 +37,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">3. Data Storage and Security</h2>
           <p className="text-gray-300">
-            We are committed to keeping your data secure. All data is stored securely and is only accessible to the development team. We do not sell your personal data. We share it only with service providers that help us operate the service (such as hosting, authentication and music-data providers), with advertising partners as described in Section 6, or when required by law.
+            We are committed to keeping your data secure. All data is stored securely and is only accessible to the development team. We do not sell your personal data. We share it only with service providers that help us operate the service (such as hosting, authentication and music-data providers), or when required by law.
           </p>
         </section>
 
@@ -51,49 +51,12 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">5. Cookies and Similar Technologies</h2>
           <p className="text-gray-300">
-            DJ Scratch uses cookies and similar technologies to keep you signed in, remember your preferences, measure site usage, and — where advertising is enabled — serve and measure ads. You can block or delete cookies through your browser settings, though some parts of the service may stop working correctly.
+            DJ Scratch uses cookies and similar technologies to keep you signed in, remember your preferences, and measure site usage. You can block or delete cookies through your browser settings, though some parts of the service may stop working correctly.
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">6. Advertising</h2>
-          <p className="text-gray-300">
-            We use Adsterra to display advertisements. Adsterra and its advertising partners may use cookies, web beacons, and similar technologies to serve and measure ads, limit how often you see the same ad, and detect invalid or fraudulent traffic.
-          </p>
-          <p className="text-gray-300">
-            You can control or opt out of personalized advertising through your browser settings and industry opt-out tools such as{' '}
-            <a
-              href="https://www.aboutads.info"
-              target="_blank"
-              rel="noreferrer"
-              className="text-indigo-300 hover:text-indigo-200 underline"
-            >
-              www.aboutads.info
-            </a>{' '}
-            and{' '}
-            <a
-              href="https://www.youronlinechoices.com"
-              target="_blank"
-              rel="noreferrer"
-              className="text-indigo-300 hover:text-indigo-200 underline"
-            >
-              www.youronlinechoices.com
-            </a>
-            . For more information about how Adsterra handles data, see the{' '}
-            <a
-              href="https://adsterra.com/privacy-policy-managed/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-indigo-300 hover:text-indigo-200 underline"
-            >
-              Adsterra Privacy Policy
-            </a>
-            . Where required by law, we show a consent banner before setting advertising cookies. You can change your choice at any time using the Cookies link in the footer.
-          </p>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">7. Contact Us</h2>
+          <h2 className="text-2xl font-semibold">6. Contact Us</h2>
           <p className="text-gray-300">
             If you have any questions or concerns about this Privacy Policy, please contact the developer or join our support server.
           </p>
