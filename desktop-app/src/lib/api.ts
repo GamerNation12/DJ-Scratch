@@ -115,4 +115,44 @@ export const api = {
     request<{ linked?: boolean }>(`/api/spotify/status`, token),
   spotifyDisconnect: (token: string | null) =>
     request(`/api/spotify/disconnect`, token, { method: 'POST', body: JSON.stringify({}) }),
+
+  // --- Admin API ---
+  getAdminUsers: (token: string | null) =>
+    request<{ admins: string[]; moderators: string[] }>(`/api/admin/access`, token),
+  setAdminUser: (token: string | null, id: string, role: 'admin' | 'moderator') =>
+    request<{ success: boolean; adminUsers: { admins: string[]; moderators: string[] } }>(`/api/admin/access`, token, {
+      method: 'POST', body: JSON.stringify({ id, role }),
+    }),
+  removeAdminUser: (token: string | null, id: string) =>
+    request<{ success: boolean; adminUsers: { admins: string[]; moderators: string[] } }>(`/api/admin/access`, token, {
+      method: 'DELETE', body: JSON.stringify({ id }),
+    }),
+  getAdminUsersList: (token: string | null) =>
+    request<{ success: boolean; users: Array<{ user_id: string; discord_username: string | null; lastfm_username: string | null; display_name: string | null; is_banned: boolean; ban_reason: string | null; ban_expires_at: string | null; private_mode: boolean }> }>(`/api/admin/users`, token),
+  adminUserAction: (token: string | null, userId: string, actionType: 'BAN' | 'UNBAN' | 'EDIT_NAME' | 'RESET', payload?: Record<string, unknown>) =>
+    request<{ success: boolean; message: string }>(`/api/admin/users/action`, token, {
+      method: 'POST', body: JSON.stringify({ userId, actionType, payload }),
+    }),
+  getLockedCommands: (token: string | null) =>
+    request<string[]>(`/api/admin/locked-commands`, token),
+  lockCommand: (token: string | null, commandName: string, reason: string) =>
+    request<{ success: boolean }>(`/api/admin/commands`, token, {
+      method: 'POST', body: JSON.stringify({ command_name: commandName, reason }),
+    }),
+  unlockCommand: (token: string | null, commandName: string) =>
+    request<{ success: boolean }>(`/api/admin/commands?command=${encodeURIComponent(commandName)}`, token, { method: 'DELETE' }),
+  getPermissions: (token: string | null) =>
+    request<Array<{ user_id: string; command_name: string; granted_at: string; expires_at: string | null }>>(`/api/admin/permissions`, token),
+  addPermission: (token: string | null, userId: string, commandName: string, duration: string | null) =>
+    request<{ success: boolean }>(`/api/admin/permissions`, token, {
+      method: 'POST', body: JSON.stringify({ userId, commandName, duration }),
+    }),
+  removePermission: (token: string | null, userId: string, commandName: string) =>
+    request<{ success: boolean }>(`/api/admin/permissions`, token, {
+      method: 'DELETE', body: JSON.stringify({ userId, commandName }),
+    }),
+  adminAction: (token: string | null, actionType: string, payload?: Record<string, unknown>) =>
+    request<{ success: boolean; message: string }>(`/api/admin/action`, token, {
+      method: 'POST', body: JSON.stringify({ actionType, payload }),
+    }),
 };
