@@ -293,7 +293,7 @@ export async function POST(req: Request) {
       const rows = await sql`SELECT id, status FROM support_threads WHERE id = ${threadId} AND secret = ${secret}`;
       if (rows.length === 0) return NextResponse.json({ error: "Thread not found." }, { status: 404 });
       if (action === "send") {
-        const text = String(body?.body || "").trim().slice(0, 3000);
+        const text = String(body?.body ?? body?.message ?? (body?.content || "")).trim().slice(0, 3000);
         if (!text) return NextResponse.json({ error: "Empty message." }, { status: 400 });
         if (rows[0].status === "closed") {
           return NextResponse.json({ error: "This chat is closed — start a new one!" }, { status: 400 });

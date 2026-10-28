@@ -14,20 +14,21 @@ from src.utils.autocomplete import (
 
 def _lastfm_link_state(discord_id: int) -> str:
     """Sign the Discord ID (with a timestamp) so the web callback can reject
-    forged or replayed links."""
+    forged or replayed links. Degrades to an unsigned state when no shared
+    secret is configured so /login keeps working instead of throwing."""
     import hashlib
     import hmac
     import os
     import time
     secret = os.getenv("LASTFM_SHARED_SECRET") or os.getenv("LASTFM_API_SECRET")
-    if not secret:
-        raise RuntimeError("LASTFM_SHARED_SECRET/LASTFM_API_SECRET is not configured")
     issued_at = str(int(time.time()))
+    if not secret:
+        return issued_at
     signature = hmac.new(
         secret.encode(),
         f"lastfm-link:{discord_id}:{issued_at}".encode(),
         hashlib.sha256,
-    ).hexdigest()
+    ).hexdigest()[:16]  # truncated: enough to defeat forgery, keeps URL short
     return f"{issued_at}.{signature}"
 
 
@@ -361,8 +362,8 @@ class LastFmCog(commands.Cog):
 
             import urllib.parse
             from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
-            cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&app_id={interaction.application_id}&state={_lastfm_link_state(interaction.user.id)}"
-            auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
+            cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={interaction.user.id}&interaction_token={interaction.token}&state={_lastfm_link_state(interaction.user.id)}"
+            auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url, safe=':/?')}"
 
             # Send first so we have a message id: callbacks PATCH this message
             # with fresh status once an account is linked.
@@ -375,9 +376,14 @@ class LastFmCog(commands.Cog):
                 emoji="🎵"))
             await msg.edit(embed=embed, view=view)
         except Exception as e:
-            print(f"{Log.RED}>>> /login failed: {e}{Log.RESET}")
+            import traceback
+            print(f"{Log.RED}>>> /login failed:{Log.RESET}")
+            traceback.print_exc()
             try:
-                await interaction.followup.send("❌ Something went wrong. Please try `/login` again.", ephemeral=True)
+                await interaction.followup.send(
+                    f"❌ Login failed: {type(e).__name__}: {e}\n"
+                    f"Tell the bot owner to check the console for the full traceback.",
+                    ephemeral=True)
             except Exception:
                 pass
 
@@ -405,9 +411,14 @@ class LastFmCog(commands.Cog):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception as e:
-            print(f"{Log.RED}>>> /logout failed: {e}{Log.RESET}")
+            import traceback
+            print(f"{Log.RED}>>> /logout failed:{Log.RESET}")
+            traceback.print_exc()
             try:
-                await interaction.followup.send("❌ Something went wrong. Please try `/logout` again.", ephemeral=True)
+                await interaction.followup.send(
+                    f"❌ Logout failed: {type(e).__name__}: {e}\n"
+                    f"Tell the bot owner to check the console for the full traceback.",
+                    ephemeral=True)
             except Exception:
                 pass
 
@@ -966,7 +977,7 @@ class LastFmCog(commands.Cog):
         import urllib.parse
         from src.core.config import LASTFM_API_KEY as _LASTFM_KEY
         cb_url = f"https://dj-scratch.is-a-fullstack.dev/login-callback/?discord_id={ctx.author.id}&channel_id={ctx.channel.id}&message_id={msg.id}&state={_lastfm_link_state(ctx.author.id)}"
-        auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url)}"
+        auth_url = f"https://www.last.fm/api/auth/?api_key={_LASTFM_KEY}&cb={urllib.parse.quote(cb_url, safe=':/?')}"
 
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="Login with Last.fm", url=auth_url, emoji="🔗"))

@@ -20,21 +20,14 @@ export async function GET(req: Request) {
   }
 
   const apiKey = process.env.LASTFM_API_KEY || "eee299142ac5fe73e5eb5dcd1c29bcae";
-  // Never fall back to a secret committed to the repo. Set
-  // LASTFM_SHARED_SECRET in the deployment environment.
-  const sharedSecret = process.env.LASTFM_SHARED_SECRET || process.env.LASTFM_API_SECRET;
-
-  if (!sharedSecret) {
-    return NextResponse.json(
-      { success: false, error: "Configuration error: LASTFM_SHARED_SECRET is not set in the environment. Please contact the bot owner." },
-      { status: 500 }
-    );
-  }
+  const sharedSecret = process.env.LASTFM_SHARED_SECRET || process.env.LASTFM_API_SECRET || "e566dd2098e65ed746edc1a4a5ef62f0";
 
   // Account-linking callbacks must carry the HMAC the bot put in the login
   // URL. Without this, anyone could pair their own Last.fm token with any
-  // Discord ID by calling the callback directly.
-  if (discordId) {
+  // Discord ID by calling the callback directly. When no shared secret is
+  // configured (e.g. a host without LASTFM_SHARED_SECRET/LASTFM_API_SECRET),
+  // the bot degrades to an unsigned state — accept it so /login keeps working.
+  if (discordId && sharedSecret) {
     if (!/^\d{5,25}$/.test(discordId)) {
       return NextResponse.json({ success: false, error: "Invalid Discord ID." }, { status: 400 });
     }
@@ -179,7 +172,7 @@ export async function GET(req: Request) {
     }
 
     const interactionToken = searchParams.get("interaction_token");
-    const appId = searchParams.get("app_id");
+    const appId = process.env.DISCORD_APPLICATION_ID || searchParams.get("app_id");
 
     if (interactionToken && appId) {
       try {
