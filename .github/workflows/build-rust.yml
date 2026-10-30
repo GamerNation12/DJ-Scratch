@@ -41,7 +41,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: desktop-rust
-        run: npm ci
+        run: npm install
 
       - name: Build frontend
         working-directory: desktop-rust
