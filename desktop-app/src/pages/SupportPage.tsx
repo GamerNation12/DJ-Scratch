@@ -64,10 +64,19 @@ export default function SupportPage({ token }: { token: string | null }) {
   const [firstMessage, setFirstMessage] = useState('');
   const [starting, setStarting] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  };
 
   useEffect(() => {
+    if (!atBottom) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, atBottom]);
 
   const poll = useCallback(async () => {
     if (!thread) return;
@@ -90,8 +99,14 @@ export default function SupportPage({ token }: { token: string | null }) {
     if (!thread) return;
     setLoading(true);
     poll().finally(() => setLoading(false));
+    const el = scrollRef.current;
+    el?.addEventListener('scroll', handleScroll);
+    handleScroll();
     const id = setInterval(poll, 4000);
-    return () => clearInterval(id);
+    return () => {
+      el?.removeEventListener('scroll', handleScroll);
+      clearInterval(id);
+    };
   }, [thread, poll]);
 
   const start = async (e: React.FormEvent) => {
@@ -240,7 +255,7 @@ export default function SupportPage({ token }: { token: string | null }) {
           </span>
           <span className="normal-case font-semibold">Replies refresh every few seconds</span>
         </div>
-        <div className="h-[50vh] overflow-y-auto p-5 space-y-3 bg-black/20">
+        <div ref={scrollRef} className="h-[50vh] overflow-y-auto p-5 space-y-3 bg-black/20">
           {loading && messages.length === 0 ? (
             <Spinner label="Loading messages…" />
           ) : messages.length === 0 ? (
