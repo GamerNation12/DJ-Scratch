@@ -185,6 +185,40 @@ if __name__ == "__main__":
         
     print(f"Starting DJ Scratch {'(TEST MODE) ' if is_test else ''}Bot...")
     try:
+        # Suppress transient Discord gateway DNS failures — the bot auto-
+        # reconnects fine; these stack traces are host-infrastructure noise
+        # we can't fix and only clutter the console.
+        class _SuppressDNSNoise(logging.Filter):
+            _KEYS = (
+                "name resolution",
+                "getaddrinfo",
+                "ClientConnectorDNSError",
+                "socket.gaierror",
+                "Temporary failure in name resolution",
+            )
+
+            def filter(self, record: logging.LogRecord) -> bool:
+                msg = record.getMessage()
+                if any(k in msg for k in self._KEYS):
+                    return False
+                if record.exc_info:
+                    et, _, _ = record.exc_info
+                    if et and any(k in et.__name__ for k in ("gaierror", "ClientConnectorDNSError")):
+                        return False
+                return True
+
+        for _lg_name in (
+            "discord",
+            "discord.client",
+            "discord.gateway",
+            "discord.http",
+            "discord.state",
+            "aiohttp",
+            "aiohttp.client",
+            "aiohttp.connector",
+        ):
+            logging.getLogger(_lg_name).addFilter(_SuppressDNSNoise())
+
         bot.run(token, log_level=logging.WARNING)
     except Exception as e:
         print(f"CRITICAL: Bot crashed with unhandled exception: {e}")
