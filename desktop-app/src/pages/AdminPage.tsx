@@ -15,7 +15,7 @@ type AdminUser = {
   private_mode: boolean;
 };
 
-type AdminTab = 'overview' | 'users' | 'admins' | 'commands' | 'permissions' | 'actions' | 'support';
+type AdminTab = 'overview' | 'users' | 'admins' | 'commands' | 'permissions' | 'actions';
 
 export default function AdminPage({ token }: { token: string | null }) {
   const [tab, setTab] = useState<AdminTab>('overview');
@@ -65,7 +65,6 @@ export default function AdminPage({ token }: { token: string | null }) {
     { value: 'commands', label: 'Commands' },
     { value: 'permissions', label: 'Permissions' },
     { value: 'actions', label: 'Bot Actions' },
-    { value: 'support', label: 'Support' },
   ];
 
   useEffect(() => {
@@ -561,84 +560,6 @@ export default function AdminPage({ token }: { token: string | null }) {
             <input value={sendChannelId} onChange={(e) => setSendChannelId(e.target.value)} placeholder="Channel ID" className="px-4 py-2 rounded-xl bg-black/40 border border-white/10 text-sm" />
             <input value={sendMessage} onChange={(e) => setSendMessage(e.target.value)} placeholder="Message content" className="px-4 py-2 rounded-xl bg-black/40 border border-white/10 text-sm" />
             <button onClick={handleSendMessage} className="px-4 py-2 rounded-xl bg-indigo-600 font-bold hover:bg-indigo-500">Send</button>
-          </div>
-        </div>
-      </Card>
-    ),
-    support: (
-      <Card className="p-6 flex flex-col h-full">
-        <SectionTitle>Support Inbox</SectionTitle>
-        <div className="mt-4 grid md:grid-cols-[300px_1fr] gap-4 h-full">
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-            {supportThreads.length === 0 ? (
-              <p className="text-zinc-500 text-sm p-4">No chats yet.</p>
-            ) : (
-              supportThreads.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => { setActiveThread(t.id); loadSupportMsgs(t.id); }}
-                  className={`w-full text-left p-3 rounded-2xl border-2 transition-all ${
-                    activeThread === t.id
-                      ? 'border-fuchsia-400/60 bg-fuchsia-500/10'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm truncate">{t.name}</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'open' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'}`}>
-                      {t.status}
-                    </span>
-                  </div>
-                  <div className="text-xs text-zinc-500 truncate mt-1">{t.email}</div>
-                  <div className="text-xs text-zinc-400 truncate mt-1">{t.preview || '—'}</div>
-                </button>
-              ))
-            )}
-          </div>
-          <div className="bg-[#170b28]/80 border-2 border-white/10 rounded-3xl p-4 flex flex-col h-full min-h-[60vh]">
-            {!activeThread ? (
-              <p className="text-zinc-500 text-sm m-auto">Pick a chat. 👈</p>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="font-bold">{activeThread}</div>
-                    <div className="text-xs text-zinc-500">{supportThreads.find((t) => t.id === activeThread)?.name}</div>
-                  </div>
-                  <button onClick={closeSupportThread} className="text-xs font-bold text-zinc-400 hover:text-white underline">Close chat</button>
-                </div>
-                <div className="flex-1 space-y-2 overflow-y-auto pr-1 mb-4 max-h-[40vh]">
-                  {supportMsgs.length === 0 ? (
-                    <p className="text-zinc-500 text-sm p-4">No messages yet.</p>
-                  ) : (
-                    supportMsgs.map((m) => (
-                      <div key={m.id} className={`flex ${m.sender === 'owner' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap ${
-                          m.sender === 'owner'
-                            ? 'bg-indigo-600 text-white rounded-br-md'
-                            : 'bg-white/10 border border-white/10 rounded-bl-md'
-                        }`}>
-                          {m.body}
-                          {m.sender === 'owner' && m.email_sent && (
-                            <div className="text-[10px] opacity-70 mt-1">✉️ emailed</div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <form onSubmit={sendSupportReply} className="flex gap-2">
-                  <input
-                    value={supportDraft}
-                    onChange={(e) => setSupportDraft(e.target.value)}
-                    placeholder="Reply…"
-                    maxLength={3000}
-                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm placeholder:text-zinc-500 focus:outline-none focus:border-fuchsia-400/60"
-                  />
-                  <button type="submit" className="px-5 py-3 bg-white text-zinc-950 font-extrabold rounded-xl text-sm disabled:opacity-60">Send</button>
-                </form>
-              </>
-            )}
           </div>
         </div>
       </Card>
