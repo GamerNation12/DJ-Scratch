@@ -73,6 +73,11 @@ function setupUpdater() {
     const { autoUpdater } = require('electron-updater');
     autoUpdater.logger = console;
     autoUpdater.autoDownload = true;
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'GamerNation12',
+      repo: 'DJ-Scratch',
+    });
 
     autoUpdater.on('update-available', (info) => {
       mainWindow?.webContents.send('djscratch:update-available', info || {});
