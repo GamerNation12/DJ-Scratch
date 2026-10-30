@@ -1,0 +1,63 @@
+name: Build Desktop (Rust/Tauri)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop-rust/**'
+      - '.github/workflows/build-rust.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: llvm-tools
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop-rust/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop-rust/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: desktop-rust/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: desktop-rust
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop-rust
+        run: npm run build
+
+      - name: Install desktop-rust dependencies
+        working-directory: desktop-rust/src-tauri
+        run: cargo fetch
+
+      - name: Build Rust/Tauri app
+        working-directory: desktop-rust/src-tauri
+        run: cargo build --release
+
+      - name: Upload desktop binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dj-scratch-desktop
+          path: desktop-rust/src-tauri/target/release/dj-scratch-desktop.exe
+          retention-days: 7

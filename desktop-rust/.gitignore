@@ -1,0 +1,9 @@
+/node_modules
+/build
+/dist
+/target
+.env
+.env.local
+*.log
+.DS_Store
+.kilo/

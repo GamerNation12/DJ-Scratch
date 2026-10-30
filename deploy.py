@@ -47,8 +47,8 @@ def _connect(host, port, username, password, tries=5):
 
 def deploy():
     load_dotenv()
-    host = "mango.fps.ms"
-    port = 2022
+    host = "kiwi.fps.ms"
+    port = 10367
     username = "gamernation120.5be081c1"
     password = os.getenv("PTERO_PASSWORD")
 

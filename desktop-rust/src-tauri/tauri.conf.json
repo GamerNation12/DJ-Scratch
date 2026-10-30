@@ -1,0 +1,54 @@
+{
+  "productName": "DJ Scratch",
+  "version": "2.2.10",
+  "identifier": "com.djscratch.desktop",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DJ Scratch",
+        "width": 1240,
+        "height": 840,
+        "minWidth": 980,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/GamerNation12/DJ-Scratch/releases/latest/download/latest.yml"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IGIwbDNZU0E5TTFLQ3JCRGpCeUJDakZzdDFBTk5RUWdVZzRIZWtQc0xUc2xtcC95WUwzWjYxbGw4NHFDcjZYcG9UU3JEdjhDK1JzU0w4VFlmMlZ3cHhjUkdqUWFVMmV3UjBLcnFmZjlKVjF0c3ZpLzBxTlNkTzJQVGhZcGxHV0lLYkF0eUlESUtxckJGdHlxbVg3eDRNQ3VnM2dIbHZ5Tm1aRVFiY0xWUWhYMmYyY1NXb2lPdWpBPT0K"
+    },
+    "dialog": {},
+    "shell": {
+      "open": true
+    },
+    "fs": {
+      "scope": ["$APP/*"]
+    }
+  }
+}
