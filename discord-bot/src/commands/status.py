@@ -47,6 +47,16 @@ class StatusCog(commands.Cog):
         
         await ctx.send("✅ Status monitoring channel set! The message above will now update every minute.", delete_after=5)
 
+    @commands.command(name="recapstoggle", hidden=True)
+    @commands.is_owner()
+    async def recapstoggle(self, ctx):
+        """Toggle weekly/monthly recaps on or off for the whole bot."""
+        current = await get_global_setting('recaps_enabled')
+        new_value = 'false' if current != 'false' else 'true'
+        await set_global_setting('recaps_enabled', new_value)
+        state = "disabled" if new_value == 'false' else "enabled"
+        await ctx.send(f"✅ Recaps are now {state}.", delete_after=5)
+
     async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
@@ -251,6 +261,10 @@ class StatusCog(commands.Cog):
             from datetime import datetime, timezone
             from src.core.config import Log
             from src.core.database import get_global_setting, set_global_setting, db_pool
+            recaps_enabled = await get_global_setting('recaps_enabled')
+            if recaps_enabled == 'false':
+                self._recap_running = False
+                return
             now = datetime.now(timezone.utc)
             iso = now.isocalendar()
             week_key = f"{iso[0]}-W{iso[1]:02d}"

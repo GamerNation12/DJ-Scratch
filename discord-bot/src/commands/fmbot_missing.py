@@ -48,6 +48,12 @@ class FmbotMissingCog(commands.Cog):
     async def stats_recap(self, interaction: discord.Interaction, period: app_commands.Choice[str] = None,
                           user: discord.User = None):
         from src.core import fmbot_extras as X
+        from src.core.database import get_global_setting
+        recaps_enabled = await get_global_setting('recaps_enabled')
+        if recaps_enabled == 'false':
+            await interaction.response.send_message(
+                "Recaps are currently disabled by the server admin.", ephemeral=True)
+            return
         await interaction.response.defer()
         embed, _ = await X.process_recap(interaction.user, user, period.value if period else "7day")
         await interaction.followup.send(embed=embed)
@@ -55,6 +61,10 @@ class FmbotMissingCog(commands.Cog):
     @commands.command(name="recap")
     async def recap_prefix(self, ctx, period: str = "7day"):
         from src.core import fmbot_extras as X
+        from src.core.database import get_global_setting
+        recaps_enabled = await get_global_setting('recaps_enabled')
+        if recaps_enabled == 'false':
+            return await ctx.reply("Recaps are currently disabled by the server admin.", mention_author=False)
         embed, _ = await X.process_recap(ctx.author, None, period)
         await ctx.reply(embed=embed, mention_author=False)
 

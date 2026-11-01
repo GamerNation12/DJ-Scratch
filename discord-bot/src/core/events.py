@@ -993,7 +993,8 @@ async def setup_hook():
                                 ADD COLUMN IF NOT EXISTS badge_display TEXT DEFAULT 'all',
                                 ADD COLUMN IF NOT EXISTS display_name_custom BOOLEAN DEFAULT FALSE,
                                 ADD COLUMN IF NOT EXISTS recap_pending_week TEXT,
-                                ADD COLUMN IF NOT EXISTS recap_pending_month TEXT
+                                ADD COLUMN IF NOT EXISTS recap_pending_month TEXT,
+                                ADD COLUMN IF NOT EXISTS recaps_enabled BOOLEAN DEFAULT TRUE
                             """,
                             timeout=20,
                         )
