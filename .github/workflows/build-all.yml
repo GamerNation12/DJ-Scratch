@@ -44,11 +44,19 @@ jobs:
         working-directory: mobile
         run: npm install
 
+      - name: Install Gradle
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://services.gradle.org/distributions/gradle-8.0-bin.zip" -OutFile gradle.zip
+          Expand-Archive gradle.zip -DestinationPath .
+          echo "GRADLE_HOME=$(Get-Location)\gradle-8.0" >> $env:GITHUB_ENV
+          echo "$(Get-Location)\gradle-8.0\bin" >> $env:GITHUB_PATH
+
       - name: Build mobile APK (Release)
         working-directory: mobile/android
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-        run: ./gradlew assembleRelease
+        run: gradle assembleRelease
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
