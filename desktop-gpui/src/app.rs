@@ -1,6 +1,6 @@
 use gpui::{Entity, SharedString};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JwtUser {
@@ -24,6 +24,8 @@ pub struct AppState {
     pub is_admin: bool,
     pub messages: Vec<ChatBubble>,
     pub status: String,
+    pub logs: Vec<String>,
+    pub is_building: bool,
 }
 
 impl AppState {
@@ -34,6 +36,15 @@ impl AppState {
             is_admin: false,
             messages: Vec::new(),
             status: "open".to_string(),
+            logs: Vec::new(),
+            is_building: false,
+        }
+    }
+
+    pub fn add_log(&mut self, line: String) {
+        self.logs.push(line);
+        if self.logs.len() > 500 {
+            self.logs.remove(0);
         }
     }
 }
