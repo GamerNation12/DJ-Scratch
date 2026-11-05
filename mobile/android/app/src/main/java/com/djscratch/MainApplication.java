@@ -1,0 +1,11 @@
+package com.djscratch;
+
+import android.app.Application;
+import com.facebook.react.ReactApplication;
+
+public class MainApplication extends Application implements ReactApplication {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+    }
+}

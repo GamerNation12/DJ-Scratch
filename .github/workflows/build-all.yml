@@ -1,0 +1,82 @@
+name: Build Desktop & Mobile
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'desktop-gpui/**'
+      - '.github/workflows/build-all.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Build mobile APK (Release)
+        working-directory: mobile/android
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+        run: ./gradlew assembleRelease
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop-gpui/target
+          key: ${{ runner.os }}-cargo-gpui-${{ hashFiles('desktop-gpui/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-gpui-
+
+      - name: Fetch GPUI dependencies
+        working-directory: desktop-gpui
+        run: cargo fetch
+
+      - name: Build desktop GPUI app (Release)
+        working-directory: desktop-gpui
+        run: cargo build --release
+
+      - name: Upload mobile APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dj-scratch-mobile
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
+
+      - name: Upload desktop GPUI binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dj-scratch-desktop-gpui
+          path: desktop-gpui/target/release/dj-scratch-desktop.exe
+          retention-days: 7
