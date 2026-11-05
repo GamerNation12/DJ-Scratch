@@ -36,8 +36,9 @@ jobs:
           build-tools: 34.0.0
 
       - name: Accept Android SDK licenses
+        shell: pwsh
         run: |
-          yes | $env:ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          echo y | & "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --licenses || true
 
       - name: Install mobile dependencies
         working-directory: mobile
