@@ -29,7 +29,15 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          api-level: 34
+          target: android
+          build-tools: 34.0.0
+
+      - name: Accept Android SDK licenses
+        run: |
+          yes | $env:ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Install mobile dependencies
         working-directory: mobile
