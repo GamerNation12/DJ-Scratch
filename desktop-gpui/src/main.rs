@@ -1,118 +1,68 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "console")]
 
 use anyhow::Result;
-use gpui::{
-    App, View, WindowContext, AppContext, Entity, Render, SharedString, px, div, text, FontWeight,
-    Size, FlexDirection, WindowOptions,
-};
-
-mod app;
-mod components;
-
-use app::AppState;
-use components::*;
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
 
 fn main() -> Result<()> {
-    App::new().run(|cx| {
-        cx.activate(true);
-        cx.open_window(WindowOptions::default(), |cx| {
-            cx.new_view(|_| AppView::new(cx))
-        })?;
-        Ok(())
-    })
-}
+    println!("DJ Scratch Desktop Builder v2.21.0");
+    println!("=====================================");
+    println!();
+    println!("1. Build & Release (mobile APK + desktop EXE)");
+    println!("2. Exit");
+    println!();
+    print!("Choose an option: ");
 
-struct AppView {
-    app_state: Entity<AppState>,
-    active_tab: Entity<ActiveTab>,
-}
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
 
-impl AppView {
-    fn new(cx: &mut WindowContext) -> Self {
-        let app_state = cx.new_entity(|_| AppState::new());
-        let active_tab = cx.new_entity(|_| ActiveTab::new(Tab::Dashboard));
+    if input.trim() != "1" {
+        return Ok(());
+    }
 
-        Self {
-            app_state,
-            active_tab,
+    // Find the repo root from the exe location
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    let repo_root = exe_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf();
+    let script = repo_root.join("build-all.ps1");
+
+    println!("\nRunning: {} -Release", script.display());
+    println!("----------------------------------------");
+
+    let mut cmd = Command::new("powershell");
+    cmd.arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-File")
+        .arg(&script)
+        .arg("-Release")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = cmd.spawn()?;
+
+    if let Some(stdout) = child.stdout.take() {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                println!("{}", line);
+            }
         }
     }
-}
 
-impl Render for AppView {
-    fn render(&mut self, cx: &mut WindowContext) -> impl IntoElement {
-        let tab = cx.read(self.active_tab).0;
-        div()
-            .id("app")
-            .size(Size::percent(100.0), Size::percent(100.0))
-            .bg("#09090b")
-            .child(
-                div()
-                    .flex()
-                    .flex_dir(FlexDirection::Row)
-                    .size(Size::percent(100.0), Size::percent(100.0))
-                    .child(SidebarView::new(self.active_tab.clone(), cx))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_dir(FlexDirection::Column)
-                            .size(Size::percent(100.0), Size::percent(100.0))
-                            .child(match tab {
-                                Tab::Dashboard => DashboardView::new(self.app_state.clone(), cx).into_any_element(),
-                                Tab::Leaderboard => LeaderboardView::new(),
-                                Tab::Friends => FriendsView::new(),
-                                Tab::Tools => ToolsView::new(),
-                                Tab::Support => SupportView::new(),
-                                Tab::Admin => AdminView::new(),
-                                Tab::Settings => SettingsView::new(),
-                            })
-                            .child(LogPanel::new(cx.read(self.app_state).logs.clone())),
-                    ),
-            )
+    let status = child.wait()?;
+    if status.success() {
+        println!("\n=== Build & Release Complete ===");
+    } else {
+        println!("\n=== Build & Release Failed ===");
     }
-}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Tab {
-    Dashboard,
-    Leaderboard,
-    Friends,
-    Tools,
-    Support,
-    Admin,
-    Settings,
-}
+    println!("\nPress Enter to exit...");
+    let mut _exit = String::new();
+    std::io::stdin().read_line(&mut _exit)?;
 
-impl Tab {
-    fn label(&self) -> SharedString {
-        match self {
-            Tab::Dashboard => "Dashboard".into(),
-            Tab::Leaderboard => "Leaderboard".into(),
-            Tab::Friends => "Friends".into(),
-            Tab::Tools => "Tools".into(),
-            Tab::Support => "Support".into(),
-            Tab::Admin => "Admin".into(),
-            Tab::Settings => "Settings".into(),
-        }
-    }
-}
-
-struct ActiveTab(Tab);
-
-impl ActiveTab {
-    fn new(tab: Tab) -> Self {
-        Self(tab)
-    }
-}
-
-impl Default for ActiveTab {
-    fn default() -> Self {
-        Self(Tab::Dashboard)
-    }
-}
-
-struct App;
-
-impl gpui::App for App {
-    type State = ();
+    Ok(())
 }
