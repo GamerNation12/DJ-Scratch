@@ -2,8 +2,9 @@ import Link from "next/link";
 
 // Server-rendered so search engines see real download links/content instead of
 // a client-side loading spinner (which Google classified as a soft 404).
+// Revalidates every 60 seconds so new GitHub releases appear quickly.
 // Cached hourly; the GitHub token is optional but avoids the 60/hr limit.
-export const revalidate = 3600;
+export const revalidate = 60;
 
 type ReleaseAsset = {
   name: string;
@@ -29,7 +30,7 @@ async function getReleases(): Promise<Release[]> {
     if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     const res = await fetch(
       "https://api.github.com/repos/GamerNation12/DJ-Scratch/releases",
-      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) }
+      { headers, next: { revalidate: 60 }, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return [];
     const data = await res.json().catch(() => null);
