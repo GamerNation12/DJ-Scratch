@@ -154,8 +154,11 @@ if ($Release) {
         "2. Download the EXE and run on Windows" | Add-Content $releaseNotes
 
         $existingTag = $null
+        $prevErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         $viewResult = & gh release view $tag --json tagName -q .tagName 2>$null
-        if ($LASTEXITCODE -eq 0) {
+        $ErrorActionPreference = $prevErrorAction
+        if ($LASTEXITCODE -eq 0 -and $viewResult) {
             $existingTag = $viewResult
         }
         if ($existingTag -eq $tag) {
