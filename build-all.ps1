@@ -94,7 +94,7 @@ Write-Host "Running: gradle assembleRelease" -ForegroundColor Yellow
 gradle assembleRelease
 if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease failed" }
 
-$apk = Join-Path $androidDir "app\build\outputs\apk\release\app-release-unsigned.apk"
+$apk = Join-Path $androidDir "app\build\outputs\apk\release\app-release.apk"
 if (Test-Path $apk) {
     $apkFileName = "DJ-Scratch-mobile-v" + $version + ".apk"
     $apkDest = Join-Path $outDir $apkFileName
