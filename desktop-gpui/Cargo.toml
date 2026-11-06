@@ -1,6 +1,6 @@
 [package]
 name = "dj-scratch-desktop"
-version = "2.21.0"
+version = "2.21.1"
 edition = "2021"
 description = "DJ Scratch Desktop Builder — builds mobile APK + desktop EXE"
 
