@@ -1,0 +1,14 @@
+C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\deps\serde-c2578d78a548a291.d: C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\build\serde-64458c9d95d76d5f\out/private.rs
+
+C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\deps\libserde-c2578d78a548a291.rlib: C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\build\serde-64458c9d95d76d5f\out/private.rs
+
+C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\deps\libserde-c2578d78a548a291.rmeta: C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\build\serde-64458c9d95d76d5f\out/private.rs
+
+C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\minec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\minec\Documents\GitHub\Dj-Scratch\desktop-gpui\target\release\build\serde-64458c9d95d76d5f\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\minec\\Documents\\GitHub\\Dj-Scratch\\desktop-gpui\\target\\release\\build\\serde-64458c9d95d76d5f\\out

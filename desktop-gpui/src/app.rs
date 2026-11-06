@@ -1,6 +1,5 @@
 use gpui::{Entity, SharedString};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::AtomicBool;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JwtUser {

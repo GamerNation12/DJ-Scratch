@@ -4,6 +4,7 @@ use gpui::{
 };
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader};
+use std::thread;
 
 use crate::app::AppState;
 use crate::{ActiveTab, Tab};
@@ -88,12 +89,12 @@ impl Render for MainContentView {
             .size(Size::percent(100.0), Size::percent(100.0))
             .child(match tab {
                 Tab::Dashboard => DashboardView::new(self.app_state.clone(), cx).into_any_element(),
-                Tab::Leaderboard => LeaderboardView::new().into_any_element(),
-                Tab::Friends => FriendsView::new().into_any_element(),
-                Tab::Tools => ToolsView::new().into_any_element(),
-                Tab::Support => SupportView::new().into_any_element(),
-                Tab::Admin => AdminView::new().into_any_element(),
-                Tab::Settings => SettingsView::new().into_any_element(),
+                Tab::Leaderboard => LeaderboardView::new(),
+                Tab::Friends => FriendsView::new(),
+                Tab::Tools => ToolsView::new(),
+                Tab::Support => SupportView::new(),
+                Tab::Admin => AdminView::new(),
+                Tab::Settings => SettingsView::new(),
             })
     }
 }
@@ -228,6 +229,7 @@ impl Render for LeaderboardView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Leaderboard").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("Top listeners coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
@@ -237,6 +239,7 @@ impl Render for FriendsView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Friends").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("Your friends list coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
@@ -246,6 +249,7 @@ impl Render for ToolsView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Tools").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("Desktop tools coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
@@ -255,6 +259,7 @@ impl Render for SupportView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Support Chat").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("Chat with the team coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
@@ -264,6 +269,7 @@ impl Render for AdminView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Admin").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("Admin panel coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
@@ -273,6 +279,7 @@ impl Render for SettingsView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         page_container()
             .child(text("Settings").font_weight(FontWeight::BOLD).text_size(px(26.0)))
+            .child(text("App settings coming soon.").text_color("rgba(255,255,255,0.5)"))
     }
 }
 
