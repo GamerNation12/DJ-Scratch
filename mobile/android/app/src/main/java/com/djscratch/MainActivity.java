@@ -38,7 +38,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         // Check for updates on app start
-        new UpdateCheckTask().execute();
+        new UpdateCheckTask(this).execute();
     }
 
     private static class UpdateCheckTask extends AsyncTask<Void, Void, String> {
