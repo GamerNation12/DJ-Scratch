@@ -169,9 +169,6 @@ jobs:
           $json = "{`"build`": $($m.Matches[0].Groups[2].Value), `"name`": `"$($m.Matches[0].Groups[1].Value)`"}"
           Set-Content version.json $json -NoNewline
 
-      - name: Verify Android artifacts
-        continue-on-error: true
-
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
