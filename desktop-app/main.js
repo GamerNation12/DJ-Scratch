@@ -5,9 +5,7 @@ const path = require('path');
 const http = require('http');
 const url = require('url');
 
-const serve = require('electron-serve');
-const electronServe = serve.default || serve;
-const loadURL = electronServe({ directory: 'build' });
+const fs = require('fs');
 
 const AUTH_PORT = 43210;
 const DISCORD_CLIENT_ID = '1521582398188290049';
@@ -45,7 +43,8 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  loadURL(mainWindow);
+  const indexPath = path.join(__dirname, 'build', 'index.html');
+  mainWindow.loadFile(indexPath);
 
   // Show only when the first frame is ready — no blank-window flash.
   mainWindow.once('ready-to-show', () => {
