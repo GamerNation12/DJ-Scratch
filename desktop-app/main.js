@@ -117,9 +117,6 @@ function setupUpdater() {
         autoUpdater.checkForUpdatesAndNotify();
       });
     } catch {}
-
-    autoUpdater.checkForUpdatesAndNotify();
-    setInterval(() => autoUpdater.checkForUpdatesAndNotify(), 6 * 60 * 60 * 1000);
   } catch (err) {
     console.error('updater unavailable', err);
   }
