@@ -16,8 +16,17 @@ subprojects {
 subprojects {
     project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         kotlinOptions {
-            jvmTarget = "1.8"
-            languageVersion = "1.8"
+            jvmTarget = "17"
+            languageVersion = "17"
+        }
+    }
+}
+
+gradle.projectsEvaluated {
+    subprojects { project ->
+        project.tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
         }
     }
 }
