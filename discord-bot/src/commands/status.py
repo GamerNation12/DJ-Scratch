@@ -295,6 +295,13 @@ class StatusCog(commands.Cog):
                     await set_global_setting(_s, _k)
                 return
             for period, key, setting in due:
+                # New period: reset per-user sent flags so everyone gets a fresh recap.
+                _sent_col = 'recap_sent_week' if period == 'week' else 'recap_sent_month'
+                try:
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(f"UPDATE user_settings SET {_sent_col} = FALSE")
+                except Exception:
+                    pass
                 await self._deliver_recap(period, key, setting, rows)
         except Exception as e:
             try:
@@ -315,9 +322,16 @@ class StatusCog(commands.Cog):
         cog = self.bot.get_cog("LastFmCog")
         if cog is None or not rows:
             return 0
+        _sent_col = 'recap_sent_week' if period == 'week' else 'recap_sent_month'
         for row in rows:
             uid = row['user_id']
             try:
+                # Per-user dedup: never send the same period's recap twice.
+                async with db_pool.acquire() as _conn:
+                    already = await _conn.fetchval(
+                        f"SELECT {_sent_col} FROM user_settings WHERE user_id = $1", uid)
+                if already:
+                    continue
                 u = self.bot.get_user(int(uid))
                 if u is None:
                     u = await self.bot.fetch_user(int(uid))
@@ -330,6 +344,13 @@ class StatusCog(commands.Cog):
                 embed = cog._recap_message(u, period, total, label)
                 await u.send(embed=embed,
                              file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
+                # Mark this user as having received this period's recap.
+                try:
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(
+                            f"UPDATE user_settings SET {_sent_col} = TRUE WHERE user_id = $1", uid)
+                except Exception:
+                    pass
                 sent += 1
                 await _aio.sleep(2)
             except discord.Forbidden:
