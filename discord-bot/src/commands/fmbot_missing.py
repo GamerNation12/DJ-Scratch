@@ -400,13 +400,19 @@ class FmbotMissingCog(commands.Cog):
         from src.core import fmbot_extras as X
         await interaction.response.defer()
         embed, view = await X.process_lyrics_cmd(interaction.user, self.bot, query)
-        await interaction.followup.send(embed=embed, view=view)
+        kwargs = {"embed": embed}
+        if view is not None:
+            kwargs["view"] = view
+        await interaction.followup.send(**kwargs)
 
     @commands.command(name="lyrics")
     async def lyrics_prefix(self, ctx, *, query: str = None):
         from src.core import fmbot_extras as X
         embed, view = await X.process_lyrics_cmd(ctx.author, self.bot, query)
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        kwargs = {"embed": embed, "mention_author": False}
+        if view is not None:
+            kwargs["view"] = view
+        await ctx.reply(**kwargs)
 
     @music.command(name="loved", description="Your loved tracks on Last.fm")
     @app_commands.allowed_installs(guilds=True, users=True)
