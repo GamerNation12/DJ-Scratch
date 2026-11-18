@@ -58,6 +58,22 @@ class StatusCog(commands.Cog):
         state = "disabled" if new_value == 'false' else "enabled"
         await ctx.send(f"✅ Recaps are now {state}.", delete_after=5)
 
+    async def _announce_embed(self, message: str):
+        return discord.Embed(
+            title="📢 Global Announcement",
+            description=message,
+            color=discord.Color.purple(),
+            timestamp=discord.utils.utcnow()
+        )
+
+    async def _dm_embed(self, message: str):
+        return discord.Embed(
+            title="📢 DJ Scratch Announcement",
+            description=message,
+            color=discord.Color.purple(),
+            timestamp=discord.utils.utcnow()
+        )
+
     @app_commands.command(name="announce", description="Send a global announcement to all servers and DM all linked users (owner only)")
     @app_commands.describe(message="The announcement message to send")
     @app_commands.allowed_installs(guilds=True, users=True)
@@ -82,7 +98,7 @@ class StatusCog(commands.Cog):
                         except Exception:
                             continue
                 if channel:
-                    await channel.send(f"📢 **Global Announcement**\n{message}", delete_after=300)
+                    await channel.send(embed=self._announce_embed(message), delete_after=300)
                     sent_srv += 1
                 else:
                     failed_srv += 1
@@ -99,7 +115,7 @@ class StatusCog(commands.Cog):
                 u = self.bot.get_user(int(uid))
                 if u is None:
                     u = await self.bot.fetch_user(int(uid))
-                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
+                await u.send(embed=self._dm_embed(message))
                 sent_dm += 1
                 import asyncio
                 await asyncio.sleep(4.5)
@@ -140,7 +156,7 @@ class StatusCog(commands.Cog):
                         except Exception:
                             continue
                 if channel:
-                    await channel.send(f"📢 **Global Announcement**\n{message}", delete_after=300)
+                    await channel.send(embed=self._announce_embed(message), delete_after=300)
                     sent_srv += 1
                 else:
                     failed_srv += 1
@@ -157,7 +173,7 @@ class StatusCog(commands.Cog):
                 u = self.bot.get_user(int(uid))
                 if u is None:
                     u = await self.bot.fetch_user(int(uid))
-                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
+                await u.send(embed=self._dm_embed(message))
                 sent_dm += 1
                 import asyncio
                 await asyncio.sleep(4.5)
@@ -196,7 +212,11 @@ class StatusCog(commands.Cog):
                         continue
                     async for m in c.history(limit=100, after=cutoff):
                         scanned += 1
-                        if m.author.id == self.bot.user.id and m.content.startswith("📢 **Global Announcement**"):
+                        is_ann = m.author.id == self.bot.user.id and (
+                            (isinstance(m.content, str) and m.content.startswith("📢 **Global Announcement**"))
+                            or (m.embeds and m.embeds[0].title and "Global Announcement" in m.embeds[0].title)
+                        )
+                        if is_ann:
                             try:
                                 await m.delete()
                                 deleted += 1
@@ -222,7 +242,11 @@ class StatusCog(commands.Cog):
                         continue
                     async for m in c.history(limit=100, after=cutoff):
                         scanned += 1
-                        if m.author.id == self.bot.user.id and m.content.startswith("📢 **Global Announcement**"):
+                        is_ann = m.author.id == self.bot.user.id and (
+                            (isinstance(m.content, str) and m.content.startswith("📢 **Global Announcement**"))
+                            or (m.embeds and m.embeds[0].title and "Global Announcement" in m.embeds[0].title)
+                        )
+                        if is_ann:
                             try:
                                 await m.delete()
                                 deleted += 1
