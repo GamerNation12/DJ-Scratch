@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 import psutil
 import time
@@ -56,6 +57,60 @@ class StatusCog(commands.Cog):
         await set_global_setting('recaps_enabled', new_value)
         state = "disabled" if new_value == 'false' else "enabled"
         await ctx.send(f"✅ Recaps are now {state}.", delete_after=5)
+
+    @app_commands.command(name="announce", description="Send a global announcement to all servers (owner only)")
+    @app_commands.describe(message="The announcement message to send")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def announce(self, interaction: discord.Interaction, message: str):
+        if not interaction.user.id == self.bot.owner_id:
+            return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        sent = 0
+        failed = 0
+        for g in self.bot.guilds:
+            try:
+                channel = None
+                # Try announcement channel first
+                if g.guild_id and hasattr(g, 'get_channel'):
+                    for c in g.text_channels:
+                        if c.permissions_for(g.me).send_messages:
+                            channel = c
+                            break
+                if channel is None:
+                    channel = g.system_channel
+                if channel:
+                    await channel.send(f"📢 **Global Announcement**\n{message}")
+                    sent += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+        await interaction.followup.send(f"✅ Announcement sent to {sent} server(s). Failed: {failed}", ephemeral=True)
+
+    @commands.command(name="announce", hidden=True)
+    @commands.is_owner()
+    async def announce_prefix(self, ctx, *, message: str):
+        """Send a global announcement to all servers (owner only)."""
+        sent = 0
+        failed = 0
+        for g in self.bot.guilds:
+            try:
+                channel = None
+                for c in g.text_channels:
+                    if c.permissions_for(g.me).send_messages:
+                        channel = c
+                        break
+                if channel is None:
+                    channel = g.system_channel
+                if channel:
+                    await channel.send(f"📢 **Global Announcement**\n{message}")
+                    sent += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+        await ctx.send(f"✅ Announcement sent to {sent} server(s). Failed: {failed}", delete_after=10)
 
     async def build_status_embed(self, offline=False):
         if offline:
