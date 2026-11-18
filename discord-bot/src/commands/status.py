@@ -178,6 +178,62 @@ class StatusCog(commands.Cog):
             f"Failed: **{failed_srv}** srv / **{failed_dm}** DMs. Stored **{pending}** for next-command delivery.",
             delete_after=10)
 
+    @app_commands.command(name="cleanup_announcements", description="Delete recent announcement messages from all servers (owner only)")
+    @app_commands.describe(minutes="How far back to scan (default 60)")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def cleanup_announcements(self, interaction: discord.Interaction, minutes: int = 60):
+        if not await self.bot.is_owner(interaction.user):
+            return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        deleted = 0
+        scanned = 0
+        cutoff = discord.utils.utcnow() - timedelta(minutes=minutes)
+        for g in self.bot.guilds:
+            try:
+                for c in g.text_channels:
+                    if not c.permissions_for(g.me).manage_messages:
+                        continue
+                    async for m in c.history(limit=100, after=cutoff):
+                        scanned += 1
+                        if m.author.id == self.bot.user.id and m.content.startswith("📢 **Global Announcement**"):
+                            try:
+                                await m.delete()
+                                deleted += 1
+                                import asyncio
+                                await asyncio.sleep(1)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        await interaction.followup.send(f"🗑️ Deleted {deleted} announcement message(s) from {scanned} scanned.", ephemeral=True)
+
+    @commands.command(name="cleanup_announcements", hidden=True)
+    @commands.is_owner()
+    async def cleanup_announcements_prefix(self, ctx, minutes: int = 60):
+        """Delete recent announcement messages from all servers (owner only)."""
+        deleted = 0
+        scanned = 0
+        cutoff = discord.utils.utcnow() - timedelta(minutes=minutes)
+        for g in self.bot.guilds:
+            try:
+                for c in g.text_channels:
+                    if not c.permissions_for(g.me).manage_messages:
+                        continue
+                    async for m in c.history(limit=100, after=cutoff):
+                        scanned += 1
+                        if m.author.id == self.bot.user.id and m.content.startswith("📢 **Global Announcement**"):
+                            try:
+                                await m.delete()
+                                deleted += 1
+                                import asyncio
+                                await asyncio.sleep(1)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        await ctx.send(f"🗑️ Deleted {deleted} announcement message(s) from {scanned} scanned.", delete_after=10)
+
     async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
