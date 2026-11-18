@@ -128,10 +128,11 @@ class StatusCog(commands.Cog):
         if not await self.bot.is_owner(interaction.user):
             return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
-        from src.core.database import get_all_valid_users
+        from src.core.database import get_all_valid_users, db_pool
         users = await get_all_valid_users()
         sent = 0
         failed = 0
+        pending = 0
         for uid in users:
             try:
                 u = self.bot.get_user(int(uid))
@@ -143,19 +144,29 @@ class StatusCog(commands.Cog):
                 import asyncio
                 await asyncio.sleep(4.5)
             except discord.Forbidden:
+                # DMs closed: store for delivery on their next command
+                try:
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(
+                            "UPDATE user_settings SET pending_announcement = $1 WHERE user_id = $2",
+                            message, uid)
+                    pending += 1
+                except Exception:
+                    pass
                 failed += 1
             except Exception:
                 failed += 1
-        await interaction.followup.send(f"✅ DM sent to {sent} user(s). Failed: {failed}", ephemeral=True)
+        await interaction.followup.send(f"✅ DM sent to {sent} user(s). Failed: {failed}. Stored {pending} for next-command delivery.", ephemeral=True)
 
     @commands.command(name="announce_dm", hidden=True)
     @commands.is_owner()
     async def announce_dm_prefix(self, ctx, *, message: str):
         """DM the announcement to all linked users (owner only)."""
-        from src.core.database import get_all_valid_users
+        from src.core.database import get_all_valid_users, db_pool
         users = await get_all_valid_users()
         sent = 0
         failed = 0
+        pending = 0
         for uid in users:
             try:
                 u = self.bot.get_user(int(uid))
@@ -166,10 +177,18 @@ class StatusCog(commands.Cog):
                 import asyncio
                 await asyncio.sleep(4.5)
             except discord.Forbidden:
+                try:
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(
+                            "UPDATE user_settings SET pending_announcement = $1 WHERE user_id = $2",
+                            message, uid)
+                    pending += 1
+                except Exception:
+                    pass
                 failed += 1
             except Exception:
                 failed += 1
-        await ctx.send(f"✅ DM sent to {sent} user(s). Failed: {failed}", delete_after=10)
+        await ctx.send(f"✅ DM sent to {sent} user(s). Failed: {failed}. Stored {pending} for next-command delivery.", delete_after=10)
 
     async def build_status_embed(self, offline=False):
         if offline:

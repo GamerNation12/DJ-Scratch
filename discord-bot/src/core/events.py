@@ -996,7 +996,8 @@ async def setup_hook():
                                 ADD COLUMN IF NOT EXISTS recap_pending_month TEXT,
                                 ADD COLUMN IF NOT EXISTS recap_sent_week BOOLEAN DEFAULT FALSE,
                                 ADD COLUMN IF NOT EXISTS recap_sent_month BOOLEAN DEFAULT FALSE,
-                                ADD COLUMN IF NOT EXISTS recaps_enabled BOOLEAN DEFAULT TRUE
+                                ADD COLUMN IF NOT EXISTS recaps_enabled BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS pending_announcement TEXT DEFAULT NULL
                             """,
                             timeout=20,
                         )
@@ -2519,6 +2520,13 @@ async def on_app_command_completion(interaction: discord.Interaction, command: d
             lambda embed, file: interaction.followup.send(embed=embed, file=file)))
     except Exception:
         pass
+    # Pending announcement (DM was closed): deliver on next command.
+    try:
+        asyncio.create_task(_maybe_post_pending_announcement(
+            interaction.user,
+            lambda text: interaction.followup.send(text)))
+    except Exception:
+        pass
 
 @bot.event
 async def on_command_completion(ctx):
@@ -2537,6 +2545,13 @@ async def on_command_completion(ctx):
         asyncio.create_task(_maybe_post_pending_recap(
             ctx.author,
             lambda embed, file: ctx.send(embed=embed, file=file)))
+    except Exception:
+        pass
+    # Same pending-announcement delivery for prefix commands.
+    try:
+        asyncio.create_task(_maybe_post_pending_announcement(
+            ctx.author,
+            lambda text: ctx.send(text)))
     except Exception:
         pass
 
@@ -2578,6 +2593,30 @@ async def _maybe_post_pending_recap(user, send_fn):
         embed = cog._recap_message(user, period, total, label, dm_closed=True)
         await send_fn(embed=embed,
                       file=discord.File(_io.BytesIO(img_bytes), filename="recap.jpg"))
+    except Exception:
+        pass
+
+
+async def _maybe_post_pending_announcement(user, send_fn):
+    """Deliver a pending announcement (DM was closed) in-channel on next command.
+    One-shot per user: clears pending_announcement after sending."""
+    try:
+        uid = str(user.id)
+        from .database import db_pool as _pool
+        if not _pool:
+            return
+        async with _pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT pending_announcement FROM user_settings WHERE user_id = $1", uid)
+        if not row or not row["pending_announcement"]:
+            return
+        message = row["pending_announcement"]
+        async with _pool.acquire() as conn:
+            res = await conn.execute(
+                "UPDATE user_settings SET pending_announcement = NULL WHERE user_id = $1 AND pending_announcement IS NOT NULL", uid)
+            if res != "UPDATE 1":
+                return
+        await send_fn(f"📢 **DJ Scratch Announcement** (you missed our DM)\n{message}")
     except Exception:
         pass
 
