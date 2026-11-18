@@ -71,14 +71,18 @@ class StatusCog(commands.Cog):
         for g in self.bot.guilds:
             try:
                 channel = None
-                # Try announcement channel first
-                if g.guild_id and hasattr(g, 'get_channel'):
-                    for c in g.text_channels:
-                        if c.permissions_for(g.me).send_messages:
-                            channel = c
-                            break
-                if channel is None:
+                # Try system channel first
+                if g.system_channel and g.system_channel.permissions_for(g.me).send_messages:
                     channel = g.system_channel
+                else:
+                    # Fall back to any text channel we can send in
+                    for c in g.text_channels:
+                        try:
+                            if c.permissions_for(g.me).send_messages:
+                                channel = c
+                                break
+                        except Exception:
+                            continue
                 if channel:
                     await channel.send(f"📢 **Global Announcement**\n{message}")
                     sent += 1
@@ -97,12 +101,16 @@ class StatusCog(commands.Cog):
         for g in self.bot.guilds:
             try:
                 channel = None
-                for c in g.text_channels:
-                    if c.permissions_for(g.me).send_messages:
-                        channel = c
-                        break
-                if channel is None:
+                if g.system_channel and g.system_channel.permissions_for(g.me).send_messages:
                     channel = g.system_channel
+                else:
+                    for c in g.text_channels:
+                        try:
+                            if c.permissions_for(g.me).send_messages:
+                                channel = c
+                                break
+                        except Exception:
+                            continue
                 if channel:
                     await channel.send(f"📢 **Global Announcement**\n{message}")
                     sent += 1
