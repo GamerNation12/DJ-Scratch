@@ -89,8 +89,8 @@ class StatusCog(commands.Cog):
             except Exception:
                 failed_srv += 1
 
-        from src.core.database import get_all_valid_users, db_pool
-        users = await get_all_valid_users()
+        from src.core.events import load_users, db_pool
+        users = await load_users()
         sent_dm = 0
         failed_dm = 0
         pending = 0
@@ -147,8 +147,8 @@ class StatusCog(commands.Cog):
             except Exception:
                 failed_srv += 1
 
-        from src.core.database import get_all_valid_users, db_pool
-        users = await get_all_valid_users()
+        from src.core.events import load_users, db_pool
+        users = await load_users()
         sent_dm = 0
         failed_dm = 0
         pending = 0
