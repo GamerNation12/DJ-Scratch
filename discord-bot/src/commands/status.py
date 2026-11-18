@@ -58,7 +58,7 @@ class StatusCog(commands.Cog):
         state = "disabled" if new_value == 'false' else "enabled"
         await ctx.send(f"✅ Recaps are now {state}.", delete_after=5)
 
-    @app_commands.command(name="announce", description="Send a global announcement to all servers (owner only)")
+    @app_commands.command(name="announce", description="Send a global announcement to all servers and DM all linked users (owner only)")
     @app_commands.describe(message="The announcement message to send")
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -66,16 +66,14 @@ class StatusCog(commands.Cog):
         if not await self.bot.is_owner(interaction.user):
             return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
-        sent = 0
-        failed = 0
+        sent_srv = 0
+        failed_srv = 0
         for g in self.bot.guilds:
             try:
                 channel = None
-                # Try system channel first
                 if g.system_channel and g.system_channel.permissions_for(g.me).send_messages:
                     channel = g.system_channel
                 else:
-                    # Fall back to any text channel we can send in
                     for c in g.text_channels:
                         try:
                             if c.permissions_for(g.me).send_messages:
@@ -85,19 +83,49 @@ class StatusCog(commands.Cog):
                             continue
                 if channel:
                     await channel.send(f"📢 **Global Announcement**\n{message}")
-                    sent += 1
+                    sent_srv += 1
                 else:
-                    failed += 1
+                    failed_srv += 1
             except Exception:
-                failed += 1
-        await interaction.followup.send(f"✅ Announcement sent to {sent} server(s). Failed: {failed}", ephemeral=True)
+                failed_srv += 1
+
+        from src.core.database import get_all_valid_users, db_pool
+        users = await get_all_valid_users()
+        sent_dm = 0
+        failed_dm = 0
+        pending = 0
+        for uid in users:
+            try:
+                u = self.bot.get_user(int(uid))
+                if u is None:
+                    u = await self.bot.fetch_user(int(uid))
+                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
+                sent_dm += 1
+                import asyncio
+                await asyncio.sleep(4.5)
+            except discord.Forbidden:
+                try:
+                    async with db_pool.acquire() as _conn:
+                        await _conn.execute(
+                            "UPDATE user_settings SET pending_announcement = $1 WHERE user_id = $2",
+                            message, uid)
+                    pending += 1
+                except Exception:
+                    pass
+                failed_dm += 1
+            except Exception:
+                failed_dm += 1
+        await interaction.followup.send(
+            f"✅ Sent to **{sent_srv}** server(s) and **{sent_dm}** user(s). "
+            f"Failed: **{failed_srv}** srv / **{failed_dm}** DMs. Stored **{pending}** for next-command delivery.",
+            ephemeral=True)
 
     @commands.command(name="announce", hidden=True)
     @commands.is_owner()
     async def announce_prefix(self, ctx, *, message: str):
-        """Send a global announcement to all servers (owner only)."""
-        sent = 0
-        failed = 0
+        """Send a global announcement to all servers and DM all linked users (owner only)."""
+        sent_srv = 0
+        failed_srv = 0
         for g in self.bot.guilds:
             try:
                 channel = None
@@ -113,25 +141,16 @@ class StatusCog(commands.Cog):
                             continue
                 if channel:
                     await channel.send(f"📢 **Global Announcement**\n{message}")
-                    sent += 1
+                    sent_srv += 1
                 else:
-                    failed += 1
+                    failed_srv += 1
             except Exception:
-                failed += 1
-        await ctx.send(f"✅ Announcement sent to {sent} server(s). Failed: {failed}", delete_after=10)
+                failed_srv += 1
 
-    @app_commands.command(name="announce_dm", description="DM the announcement to all linked users (owner only)")
-    @app_commands.describe(message="The announcement message to send")
-    @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def announce_dm(self, interaction: discord.Interaction, message: str):
-        if not await self.bot.is_owner(interaction.user):
-            return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
-        await interaction.response.defer(ephemeral=True)
         from src.core.database import get_all_valid_users, db_pool
         users = await get_all_valid_users()
-        sent = 0
-        failed = 0
+        sent_dm = 0
+        failed_dm = 0
         pending = 0
         for uid in users:
             try:
@@ -139,41 +158,7 @@ class StatusCog(commands.Cog):
                 if u is None:
                     u = await self.bot.fetch_user(int(uid))
                 await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
-                sent += 1
-                # Rate limit: Discord allows ~15 DMs/minute per bot
-                import asyncio
-                await asyncio.sleep(4.5)
-            except discord.Forbidden:
-                # DMs closed: store for delivery on their next command
-                try:
-                    async with db_pool.acquire() as _conn:
-                        await _conn.execute(
-                            "UPDATE user_settings SET pending_announcement = $1 WHERE user_id = $2",
-                            message, uid)
-                    pending += 1
-                except Exception:
-                    pass
-                failed += 1
-            except Exception:
-                failed += 1
-        await interaction.followup.send(f"✅ DM sent to {sent} user(s). Failed: {failed}. Stored {pending} for next-command delivery.", ephemeral=True)
-
-    @commands.command(name="announce_dm", hidden=True)
-    @commands.is_owner()
-    async def announce_dm_prefix(self, ctx, *, message: str):
-        """DM the announcement to all linked users (owner only)."""
-        from src.core.database import get_all_valid_users, db_pool
-        users = await get_all_valid_users()
-        sent = 0
-        failed = 0
-        pending = 0
-        for uid in users:
-            try:
-                u = self.bot.get_user(int(uid))
-                if u is None:
-                    u = await self.bot.fetch_user(int(uid))
-                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
-                sent += 1
+                sent_dm += 1
                 import asyncio
                 await asyncio.sleep(4.5)
             except discord.Forbidden:
@@ -185,10 +170,13 @@ class StatusCog(commands.Cog):
                     pending += 1
                 except Exception:
                     pass
-                failed += 1
+                failed_dm += 1
             except Exception:
-                failed += 1
-        await ctx.send(f"✅ DM sent to {sent} user(s). Failed: {failed}. Stored {pending} for next-command delivery.", delete_after=10)
+                failed_dm += 1
+        await ctx.send(
+            f"✅ Sent to **{sent_srv}** server(s) and **{sent_dm}** user(s). "
+            f"Failed: **{failed_srv}** srv / **{failed_dm}** DMs. Stored **{pending}** for next-command delivery.",
+            delete_after=10)
 
     async def build_status_embed(self, offline=False):
         if offline:
