@@ -58,7 +58,7 @@ class StatusCog(commands.Cog):
         state = "disabled" if new_value == 'false' else "enabled"
         await ctx.send(f"✅ Recaps are now {state}.", delete_after=5)
 
-    async def _announce_embed(self, message: str):
+    def _announce_embed(self, message: str):
         return discord.Embed(
             title="📢 Global Announcement",
             description=message,
@@ -66,7 +66,7 @@ class StatusCog(commands.Cog):
             timestamp=discord.utils.utcnow()
         )
 
-    async def _dm_embed(self, message: str):
+    def _dm_embed(self, message: str):
         return discord.Embed(
             title="📢 DJ Scratch Announcement",
             description=message,
