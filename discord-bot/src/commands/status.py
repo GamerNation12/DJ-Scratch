@@ -120,6 +120,57 @@ class StatusCog(commands.Cog):
                 failed += 1
         await ctx.send(f"✅ Announcement sent to {sent} server(s). Failed: {failed}", delete_after=10)
 
+    @app_commands.command(name="announce_dm", description="DM the announcement to all linked users (owner only)")
+    @app_commands.describe(message="The announcement message to send")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def announce_dm(self, interaction: discord.Interaction, message: str):
+        if not await self.bot.is_owner(interaction.user):
+            return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        from src.core.database import get_all_valid_users
+        users = await get_all_valid_users()
+        sent = 0
+        failed = 0
+        for uid in users:
+            try:
+                u = self.bot.get_user(int(uid))
+                if u is None:
+                    u = await self.bot.fetch_user(int(uid))
+                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
+                sent += 1
+                # Rate limit: Discord allows ~15 DMs/minute per bot
+                import asyncio
+                await asyncio.sleep(4.5)
+            except discord.Forbidden:
+                failed += 1
+            except Exception:
+                failed += 1
+        await interaction.followup.send(f"✅ DM sent to {sent} user(s). Failed: {failed}", ephemeral=True)
+
+    @commands.command(name="announce_dm", hidden=True)
+    @commands.is_owner()
+    async def announce_dm_prefix(self, ctx, *, message: str):
+        """DM the announcement to all linked users (owner only)."""
+        from src.core.database import get_all_valid_users
+        users = await get_all_valid_users()
+        sent = 0
+        failed = 0
+        for uid in users:
+            try:
+                u = self.bot.get_user(int(uid))
+                if u is None:
+                    u = await self.bot.fetch_user(int(uid))
+                await u.send(f"📢 **DJ Scratch Announcement**\n{message}")
+                sent += 1
+                import asyncio
+                await asyncio.sleep(4.5)
+            except discord.Forbidden:
+                failed += 1
+            except Exception:
+                failed += 1
+        await ctx.send(f"✅ DM sent to {sent} user(s). Failed: {failed}", delete_after=10)
+
     async def build_status_embed(self, offline=False):
         if offline:
             embed = discord.Embed(title="<a:VinylRecord:1527125818713837701> DJ Scratch - System Status", color=discord.Color.red(), timestamp=discord.utils.utcnow())
