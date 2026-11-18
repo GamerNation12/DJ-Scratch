@@ -82,7 +82,7 @@ class StatusCog(commands.Cog):
                         except Exception:
                             continue
                 if channel:
-                    await channel.send(f"📢 **Global Announcement**\n{message}")
+                    await channel.send(f"📢 **Global Announcement**\n{message}", delete_after=300)
                     sent_srv += 1
                 else:
                     failed_srv += 1
@@ -140,7 +140,7 @@ class StatusCog(commands.Cog):
                         except Exception:
                             continue
                 if channel:
-                    await channel.send(f"📢 **Global Announcement**\n{message}")
+                    await channel.send(f"📢 **Global Announcement**\n{message}", delete_after=300)
                     sent_srv += 1
                 else:
                     failed_srv += 1
