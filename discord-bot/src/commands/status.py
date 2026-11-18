@@ -63,7 +63,7 @@ class StatusCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def announce(self, interaction: discord.Interaction, message: str):
-        if not interaction.user.id == self.bot.owner_id:
+        if not await self.bot.is_owner(interaction.user):
             return await interaction.response.send_message("❌ Owner only.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
         sent = 0
