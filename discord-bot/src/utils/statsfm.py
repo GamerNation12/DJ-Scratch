@@ -42,7 +42,7 @@ def _cache_set(url, data, ttl=300):
             _API_CACHE.pop(k, None)
 
 
-async def statsfm_get(path: str, params: Optional[Dict] = None, timeout_s: int = 10) -> Optional[Dict[str, Any]]:
+async def statsfm_get(path: str, params: Optional[Dict] = None, timeout_s: int = 10, ttl: int = 300) -> Optional[Dict[str, Any]]:
     """Fetch from stats.fm public REST endpoint."""
     url = f"{STATSFM_BASE}/{path.lstrip('/')}"
     cached = _cache_get(url)
@@ -64,7 +64,7 @@ async def statsfm_get(path: str, params: Optional[Dict] = None, timeout_s: int =
                     logger.error(f"Failed to parse JSON from stats.fm API: {url}")
                     return None
 
-                _cache_set(url, data, ttl=300)
+                _cache_set(url, data, ttl=ttl)
                 return data
     except Exception as e:
         logger.error(f"stats.fm API request failed: {e}")
@@ -130,7 +130,7 @@ async def statsfm_user_top_artists(username: str, limit: int = 10) -> Optional[L
 
 async def statsfm_user_recent(username: str, limit: int = 10) -> Optional[List[Dict]]:
     """Get a user's recent scrobbles from stats.fm."""
-    data = await statsfm_get(f"users/{username}/streams/recent", {"limit": limit})
+    data = await statsfm_get(f"users/{username}/streams/recent", {"limit": limit}, ttl=30)
     if not data:
         return None
     items = data.get("items") or data.get("streams") or []
