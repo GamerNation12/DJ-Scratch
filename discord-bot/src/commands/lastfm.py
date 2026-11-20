@@ -446,35 +446,6 @@ class LastFmCog(commands.Cog):
             )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="linkstatsfm", description="Link your stats.fm account (used instead of Last.fm for stats)")
-    @app_commands.describe(username="Your stats.fm username")
-    @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def linkstatsfm_slash(self, interaction: discord.Interaction, username: str):
-        """Link a stats.fm username. Used as the stats source instead of Last.fm."""
-        await interaction.response.defer(ephemeral=True)
-        try:
-            from src.core.database import set_statsfm_username, get_statsfm_username
-            await set_statsfm_username(interaction.user.id, username.strip())
-            embed = Theme.get_embed(
-                title="✅ stats.fm Linked",
-                description=f"Your stats.fm account **{username.strip()}** is now linked.\n\n"
-                            "Your stats will now come from stats.fm instead of Last.fm.\n"
-                            "Use `/logout` (select Last.fm) if you want to unlink.",
-                color=discord.Color.green()
-            )
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        except Exception as e:
-            import traceback
-            print(f"{Log.RED}>>> /linkstatsfm failed:{Log.RESET}")
-            traceback.print_exc()
-            try:
-                await interaction.followup.send(
-                    f"❌ stats.fm link failed: {type(e).__name__}: {e}",
-                    ephemeral=True)
-            except Exception:
-                pass
-
     @app_commands.command(name="fm", description="View what you are currently listening to")
     @app_commands.describe(mode="Choose embed style")
     @app_commands.choices(mode=[
@@ -1049,20 +1020,6 @@ class LastFmCog(commands.Cog):
         embed = Theme.get_embed(
             title="👋 Logged Out",
             description="Your Last.fm account has been successfully unlinked from your Discord account.\n\n*To disconnect Spotify instead, use `,logout spotify`.*",
-            color=discord.Color.green()
-        )
-        await ctx.send(embed=embed)
-
-    @commands.command(name="linkstatsfm", aliases=["lsfm"])
-    async def linkstatsfm_prefix(self, ctx, *, username: str):
-        """Link your stats.fm username. Used as the stats source instead of Last.fm."""
-        from src.core.database import set_statsfm_username
-        await set_statsfm_username(ctx.author.id, username.strip())
-        embed = Theme.get_embed(
-            title="✅ stats.fm Linked",
-            description=f"Your stats.fm account **{username.strip()}** is now linked.\n\n"
-                        "Your stats will now come from stats.fm instead of Last.fm.\n"
-                        "Use `,logout` if you want to unlink.",
             color=discord.Color.green()
         )
         await ctx.send(embed=embed)
