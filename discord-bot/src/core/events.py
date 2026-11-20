@@ -3348,7 +3348,10 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
     username = await get_lastfm_username(user.id)
     if not username:
-        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
+        sfm_username = await get_statsfm_username(user.id)
+        if not sfm_username:
+            return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
+        username = sfm_username
 
     # Milestone pings ride along for free: cached profile, own task, zero /fm latency.
     try:
