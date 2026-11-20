@@ -2722,7 +2722,10 @@ async def get_lastfm_username(uid):
         from src.core.database import _bundle_get, _LASTFM_USER_CACHE, _LASTFM_USER_TTL, _time as _dbtime
         b = _bundle_get(str(uid))
         if b is not None:
-            return b.get('lastfm_username') or None
+            cached_uname = b.get('lastfm_username')
+            if cached_uname:  # Only short-circuit on hits; a cached None means stale bundle
+                return cached_uname
+            # Cache miss for lastfm_username: fall through to DB query
         e = _LASTFM_USER_CACHE.get(str(uid))
         # Never trust a cached miss: a fresh link would stay invisible
         # until expiry. Only hits with a real username short-circuit.
