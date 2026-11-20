@@ -1277,6 +1277,7 @@ async def unlink_user(user_id):
     if not db_pool: return False
     try:
         async with db_pool.acquire() as conn:
+            await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS statsfm_username TEXT")
             await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(user_id))
             await conn.execute("UPDATE user_settings SET statsfm_username = NULL WHERE user_id=$1", str(user_id))
             invalidate_user_cache(user_id)
