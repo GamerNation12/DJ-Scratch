@@ -3348,10 +3348,7 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
 
     username = await get_lastfm_username(user.id)
     if not username:
-        sfm_username = await get_statsfm_username(user.id)
-        if not sfm_username:
-            return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
-        username = sfm_username
+        return {"embed": Theme.get_error_embed(description=f"**{user.name}** hasn't linked a Last.fm account! Link with `/login`")}, False
 
     # Milestone pings ride along for free: cached profile, own task, zero /fm latency.
     try:
@@ -3380,16 +3377,8 @@ async def process_fm(ctx_int, user, mode="full", track_data=None):
     try:
         tracks = data['recenttracks']['track']
         t = tracks[0]
-
-        # Normalize Last.fm and stats.fm response shapes
-        artist_raw = t.get('artist') or {}
-        artist = artist_raw.get('#text') or artist_raw.get('name') or ''
-        song = t.get('name') or ''
-        album_raw = t.get('album') or {}
-        album = album_raw.get('#text') or ''
-        img_list = t.get('image') or []
-        img = img_list[-1].get('#text', '') if img_list else ''
-
+        artist, song, album, img = t['artist']['#text'], t['name'], t['album']['#text'], t['image'][3]['#text']
+        
         raw_artist, raw_song = artist, song
 
         # ONE cached DB query instead of 2-3 round-trips per /fm.

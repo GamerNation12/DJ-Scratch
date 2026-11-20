@@ -28,7 +28,7 @@ def _lastfm_link_state(discord_id: int) -> str:
         secret.encode(),
         f"lastfm-link:{discord_id}:{issued_at}".encode(),
         hashlib.sha256,
-    ).hexdigest()[:16]  # truncated: enough to defeat forgery, keeps URL short
+    ).hexdigest()
     return f"{issued_at}.{signature}"
 
 
