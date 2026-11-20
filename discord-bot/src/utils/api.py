@@ -6,6 +6,7 @@ import unicodedata
 import urllib.parse
 import logging
 from datetime import datetime
+from typing import Dict, List, Optional, Any
 from ..core.config import LASTFM_API_KEY, LASTFM_API_SECRET
 
 from src.core.database import format_name
