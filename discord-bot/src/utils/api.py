@@ -580,17 +580,27 @@ async def sfm_fetch_top_albums(u: str, p: str = "overall", l: int = 10):
 
 async def sfm_fetch_now_playing(u: str, l: int = 1):
     """Get now playing / recent tracks from stats.fm (Last.fm alternative)."""
+    from datetime import datetime, timezone
     data = await statsfm_user_recent(u, limit=l)
     if not data:
         return None
     tracks = []
     for i, t in enumerate(data):
+        played_at = t.get("played_at")
+        is_np = False
+        if played_at:
+            try:
+                pt = datetime.fromisoformat(str(played_at).replace("Z", "+00:00"))
+                if (datetime.now(timezone.utc) - pt).total_seconds() < 600:
+                    is_np = True
+            except Exception:
+                pass
         tracks.append({
             "name": t["name"],
             "artist": {"name": t["artist"]},
             "album": {"#text": ""},
             "image": _sfm_image(t),
-            "@attr": {"nowplaying": "true"} if i == 0 else {},
+            "@attr": {"nowplaying": "true"} if is_np else {},
         })
     return {"recenttracks": {"track": tracks}}
 
