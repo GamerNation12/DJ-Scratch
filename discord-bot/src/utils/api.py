@@ -79,9 +79,14 @@ async def api_get(url, max_retries=2, timeout_s=5, cache_ttl=0):
                 continue
             return None
     return None
-async def fetch_now_playing(u, l=1):
-    """Try stats.fm first, fall back to Last.fm."""
-    data = await sfm_fetch_now_playing(u, l)
+async def fetch_now_playing(u, l=1, user_id=None):
+    """Try stats.fm first (using stats.fm username if linked), fall back to Last.fm."""
+    sfm_user = None
+    if user_id:
+        from src.core.events import get_statsfm_username
+        sfm_user = await get_statsfm_username(user_id)
+    target = sfm_user or u
+    data = await sfm_fetch_now_playing(target, l)
     if data:
         return data
     d = await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}", max_retries=3, timeout_s=3)
@@ -96,9 +101,14 @@ async def fetch_recent_tracks(u, l=200, page=1, from_uts=None):
         d['recenttracks']['track'] = [d['recenttracks']['track']]
     return d
 
-async def fetch_top_artists(u, p='overall', l=10):
-    """Try stats.fm first, fall back to Last.fm."""
-    data = await sfm_fetch_top_artists(u, p, l)
+async def fetch_top_artists(u, p='overall', l=10, user_id=None):
+    """Try stats.fm first (using stats.fm username if linked), fall back to Last.fm."""
+    sfm_user = None
+    if user_id:
+        from src.core.events import get_statsfm_username
+        sfm_user = await get_statsfm_username(user_id)
+    target = sfm_user or u
+    data = await sfm_fetch_top_artists(target, l)
     if data:
         return data
     d = await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
@@ -116,9 +126,14 @@ async def fetch_top_albums(u, p='overall', l=10):
         d['topalbums']['album'] = [d['topalbums']['album']]
     return d
 
-async def fetch_top_tracks(u, p='overall', l=10):
-    """Try stats.fm first, fall back to Last.fm."""
-    data = await sfm_fetch_top_tracks(u, p, l)
+async def fetch_top_tracks(u, p='overall', l=10, user_id=None):
+    """Try stats.fm first (using stats.fm username if linked), fall back to Last.fm."""
+    sfm_user = None
+    if user_id:
+        from src.core.events import get_statsfm_username
+        sfm_user = await get_statsfm_username(user_id)
+    target = sfm_user or u
+    data = await sfm_fetch_top_tracks(target, l)
     if data:
         return data
     d = await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user={u}&api_key={LASTFM_API_KEY}&format=json&limit={l}&period={p}")
@@ -126,9 +141,14 @@ async def fetch_top_tracks(u, p='overall', l=10):
         d['toptracks']['track'] = [d['toptracks']['track']]
     return d
 
-async def fetch_user_profile(u):
-    """Try stats.fm first, fall back to Last.fm."""
-    data = await sfm_fetch_user_profile(u)
+async def fetch_user_profile(u, user_id=None):
+    """Try stats.fm first (using stats.fm username if linked), fall back to Last.fm."""
+    sfm_user = None
+    if user_id:
+        from src.core.events import get_statsfm_username
+        sfm_user = await get_statsfm_username(user_id)
+    target = sfm_user or u
+    data = await sfm_fetch_user_profile(target)
     if data:
         return data
     return await api_get(f"https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user={u}&api_key={LASTFM_API_KEY}&format=json", cache_ttl=300)

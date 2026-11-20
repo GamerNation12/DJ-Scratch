@@ -210,6 +210,10 @@ async def init_db():
                 except Exception:
                     pass
                 try:
+                    await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS statsfm_username TEXT")
+                except Exception:
+                    pass
+                try:
                     await conn.execute("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS show_track_playcount BOOLEAN DEFAULT TRUE")
                 except Exception:
                     pass
@@ -1274,10 +1278,35 @@ async def unlink_user(user_id):
     try:
         async with db_pool.acquire() as conn:
             await conn.execute("UPDATE user_settings SET lastfm_username = NULL WHERE user_id=$1", str(user_id))
+            await conn.execute("UPDATE user_settings SET statsfm_username = NULL WHERE user_id=$1", str(user_id))
             invalidate_user_cache(user_id)
             return True
     except Exception as e:
         print(f"{Log.RED}>>> Error unlinking user {user_id}: {e}{Log.RESET}")
+        return False
+
+async def set_statsfm_username(user_id, username):
+    if not db_pool: return
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, statsfm_username) VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET statsfm_username = $2
+            """, str(user_id), username)
+    except Exception as e:
+        print(f"{Log.RED}>>> Error setting statsfm_username: {e}{Log.RESET}")
+
+async def clear_statsfm(user_id):
+    """Disconnect stats.fm: drop stored username. Returns True on success."""
+    if not db_pool: return False
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE user_settings SET statsfm_username = NULL WHERE user_id=$1", str(user_id))
+            invalidate_user_cache(user_id)
+            return True
+    except Exception as e:
+        print(f"{Log.RED}>>> Error clearing statsfm {user_id}: {e}{Log.RESET}")
         return False
 
 async def clear_user_spotify(user_id):

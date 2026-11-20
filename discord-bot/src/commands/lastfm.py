@@ -446,6 +446,35 @@ class LastFmCog(commands.Cog):
             )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="linkstatsfm", description="Link your stats.fm account (used instead of Last.fm for stats)")
+    @app_commands.describe(username="Your stats.fm username")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def linkstatsfm_slash(self, interaction: discord.Interaction, username: str):
+        """Link a stats.fm username. Used as the stats source instead of Last.fm."""
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from src.core.database import set_statsfm_username, get_statsfm_username
+            await set_statsfm_username(interaction.user.id, username.strip())
+            embed = Theme.get_embed(
+                title="✅ stats.fm Linked",
+                description=f"Your stats.fm account **{username.strip()}** is now linked.\n\n"
+                            "Your stats will now come from stats.fm instead of Last.fm.\n"
+                            "Use `/logout` (select Last.fm) if you want to unlink.",
+                color=discord.Color.green()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as e:
+            import traceback
+            print(f"{Log.RED}>>> /linkstatsfm failed:{Log.RESET}")
+            traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    f"❌ stats.fm link failed: {type(e).__name__}: {e}",
+                    ephemeral=True)
+            except Exception:
+                pass
+
     @app_commands.command(name="fm", description="View what you are currently listening to")
     @app_commands.describe(mode="Choose embed style")
     @app_commands.choices(mode=[
@@ -1024,6 +1053,20 @@ class LastFmCog(commands.Cog):
         )
         await ctx.send(embed=embed)
 
+    @commands.command(name="linkstatsfm", aliases=["lsfm"])
+    async def linkstatsfm_prefix(self, ctx, *, username: str):
+        """Link your stats.fm username. Used as the stats source instead of Last.fm."""
+        from src.core.database import set_statsfm_username
+        await set_statsfm_username(ctx.author.id, username.strip())
+        embed = Theme.get_embed(
+            title="✅ stats.fm Linked",
+            description=f"Your stats.fm account **{username.strip()}** is now linked.\n\n"
+                        "Your stats will now come from stats.fm instead of Last.fm.\n"
+                        "Use `,logout` if you want to unlink.",
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)
+
     @commands.command(name="fm", aliases=["np", "nowplaying", "fm1", "fm2", "fm3", "np1", "np2", "np3", "n", "fn"])
     async def fm_prefix(self, ctx, *, args: str = None):
         target_user, _ = await get_target_user(ctx, args)
@@ -1186,8 +1229,12 @@ class LastFmCog(commands.Cog):
         import time as _time
         from src.core.events import get_lastfm_username
         from src.utils.api import (
-            fetch_now_playing, fetch_top_artists, fetch_top_tracks,
-            fetch_top_albums, fetch_recent_tracks, fetch_user_profile,
+            fetch_now_playing_sfm_first as fetch_now_playing,
+            fetch_top_artists_sfm_first as fetch_top_artists,
+            fetch_top_tracks_sfm_first as fetch_top_tracks,
+            fetch_top_albums_sfm_first as fetch_top_albums,
+            fetch_recent_tracks,
+            fetch_user_profile_sfm_first as fetch_user_profile,
             fetch_track_info,
         )
         from src.utils.image_generator import generate_music_card

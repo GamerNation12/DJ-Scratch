@@ -2744,6 +2744,16 @@ async def get_lastfm_username(uid):
                 pass
         return uname
 
+async def get_statsfm_username(uid):
+    if bot and bot.user and str(uid) == str(bot.user.id):
+        return None
+
+    global db_pool
+    if not db_pool: return None
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT statsfm_username FROM user_settings WHERE user_id = $1", str(uid))
+        return row['statsfm_username'] if row and row['statsfm_username'] else None
+
 # --- LAST.FM API FETCHERS ---
 
 
