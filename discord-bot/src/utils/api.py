@@ -475,3 +475,127 @@ async def fetch_musicbrainz_artist_info(session, artist_name):
     except Exception as e:
         logging.error(f"MusicBrainz fetch error: {e}")
     return None
+
+
+# =============================================================================
+# stats.fm API functions (Last.fm alternative)
+# stats.fm does NOT require API keys for public data, but endpoints are subject
+# to undocumented rate limits and schema changes.
+# Routes: https://api.stats.fm/api/v1/users/{userId}/...
+# =============================================================================
+from src.utils.statsfm import (
+    statsfm_user_top_tracks,
+    statsfm_user_top_artists,
+    statsfm_user_recent,
+    statsfm_user_profile,
+)
+
+
+def _sfm_image(track_or_artist: Dict) -> List[Dict]:
+    """Build Last.fm-compatible image array from stats.fm image URL."""
+    img = track_or_artist.get("image")
+    if img:
+        return [{"#text": img, "size": "large"}]
+    return []
+
+
+async def sfm_fetch_top_artists(u: str, p: str = "overall", l: int = 10):
+    """Get top artists from stats.fm (returns Last.fm-compatible shape)."""
+    data = await statsfm_user_top_artists(u, limit=l)
+    if not data:
+        return None
+    artists = []
+    for a in data:
+        artists.append({
+            "name": a["name"],
+            "playcount": str(a["playcount"]),
+            "image": _sfm_image(a),
+        })
+    return {"topartists": {"artist": artists}}
+
+
+async def sfm_fetch_top_tracks(u: str, p: str = "overall", l: int = 10):
+    """Get top tracks from stats.fm (returns Last.fm-compatible shape)."""
+    data = await statsfm_user_top_tracks(u, limit=l)
+    if not data:
+        return None
+    tracks = []
+    for t in data:
+        tracks.append({
+            "name": t["name"],
+            "artist": {"name": t["artist"]},
+            "playcount": str(t["playcount"]),
+            "image": _sfm_image(t),
+        })
+    return {"toptracks": {"track": tracks}}
+
+
+async def sfm_fetch_top_albums(u: str, p: str = "overall", l: int = 10):
+    """Get top albums from stats.fm (returns Last.fm-compatible shape).
+    stats.fm doesn't expose top albums via public API, so returns empty."""
+    return {"topalbums": {"album": []}}
+
+
+async def sfm_fetch_now_playing(u: str, l: int = 1):
+    """Get now playing / recent tracks from stats.fm (Last.fm alternative)."""
+    data = await statsfm_user_recent(u, limit=l)
+    if not data:
+        return None
+    tracks = []
+    for i, t in enumerate(data):
+        tracks.append({
+            "name": t["name"],
+            "artist": {"name": t["artist"]},
+            "album": {"#text": ""},
+            "image": _sfm_image(t),
+            "@attr": {"nowplaying": "true"} if i == 0 else {},
+        })
+    return {"recenttracks": {"track": tracks}}
+
+
+async def sfm_fetch_user_profile(u: str):
+    """Get user profile from stats.fm (Last.fm alternative)."""
+    data = await statsfm_user_profile(u)
+    if not data:
+        return None
+    return {
+        "user": {
+            "name": data["username"],
+            "realname": data["display_name"],
+            "image": _sfm_image(data),
+        }
+    }
+
+
+# Smart wrappers: try stats.fm first, fall back to Last.fm
+async def fetch_top_artists_sfm_first(u, p='overall', l=10):
+    """Try stats.fm first, fall back to Last.fm."""
+    data = await sfm_fetch_top_artists(u, p, l)
+    if data:
+        return data
+    return await fetch_top_artists(u, p, l)
+
+
+async def fetch_top_tracks_sfm_first(u, p='overall', l=10):
+    """Try stats.fm first, fall back to Last.fm."""
+    data = await sfm_fetch_top_tracks(u, p, l)
+    if data:
+        return data
+    return await fetch_top_tracks(u, p, l)
+
+
+async def fetch_now_playing_sfm_first(u, l=1):
+    """Try stats.fm first, fall back to Last.fm."""
+    data = await sfm_fetch_now_playing(u, l)
+    if data:
+        return data
+    return await fetch_now_playing(u, l)
+
+
+async def fetch_user_profile_sfm_first(u):
+    """Try stats.fm first, fall back to Last.fm."""
+    data = await sfm_fetch_user_profile(u)
+    if data:
+        return data
+    return await fetch_user_profile(u)
+
